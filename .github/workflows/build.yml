@@ -1,0 +1,52 @@
+name: Build docs
+
+on:
+  # Run on schedule to keep in sync with upstream
+  schedule:
+    - cron: '0 */12 * * *'  # Run every 12 hours
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  sync-and-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork repository
+        uses: actions/checkout@v3
+        with:
+          repository: fjcloud/docs
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.PAT_GITHUB }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+      
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Run asciibinder and create docs directory
+        run: |
+        
+          # Run asciibinder image
+          docker run --rm \
+            -v "$(pwd)/docs:/output" \
+            -v "$(pwd)/scripts:/scripts" \
+            quay.io/openshift-cs/asciibinder \
+            /bin/sh /scripts/build.sh
+      
+          echo "Documentation preview created successfully in docs directory"
+      
+      - name: Commit and push docs
+        run: |
+          # Check if there are any changes to commit
+          if git status --porcelain | grep -q "docs/"; then
+            git add docs/
+            git commit -m "Update docs from upstream changes [automated]"
+            git push origin main --force
+            echo "Successfully committed and pushed documentation updates"
+          else
+            echo "No changes to commit in docs directory"
+          fi
