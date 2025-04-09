@@ -2744,6 +2744,7 @@
 <li><a href="#configuring-linuxptp-services-as-ordinary-clock_configuring-ptp">Configuring linuxptp services as an ordinary clock</a>
 <ul class="sectlevel2">
 <li><a href="#nw-columbiaville-ptp-config-refererence_configuring-ptp">Intel Columbiaville E800 series NIC as PTP ordinary clock reference</a></li>
+<li><a href="#configuring-linuxptp-services-oc-dual-port_configuring-ptp">Configuring linuxptp services as an ordinary clock with dual-port NIC redundancy</a></li>
 </ul>
 </li>
 <li><a href="#cnf-configuring-fifo-priority-scheduling-for-ptp_configuring-ptp">Configuring FIFO priority scheduling for PTP hardware</a></li>
@@ -5727,11 +5728,163 @@ I1115 09:41:17.117626 4143292 daemon.go:116] -----------------------------------
 </tr>
 </table>
 </div>
+</div>
+<div class="sect2">
+<h3 id="configuring-linuxptp-services-oc-dual-port_configuring-ptp"><a class="anchor" href="#configuring-linuxptp-services-oc-dual-port_configuring-ptp"></a>Configuring linuxptp services as an ordinary clock with dual-port NIC redundancy</h3>
+<div class="paragraph">
+<p>You can configure <code>linuxptp</code> services (<code>ptp4l</code>, <code>phc2sys</code>) as an ordinary clock with dual-port NIC redundancy by creating a <code>PtpConfig</code> custom resource (CR) object.
+In a dual-port NIC configuration for an ordinary clock, if one port fails, the standby port takes over, maintaining PTP timing synchronization.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Configuring linuxptp services as an ordinary clock with dual-port NIC redundancy is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Install the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>Log in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>Install the PTP Operator.</p>
+</li>
+<li>
+<p>The node uses an x86_64 architecture with a dual-port NIC.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create the following <code>PtpConfig</code> CR, and then save the YAML in the <code>oc-dual-port-ptp-config.yaml</code> file.</p>
+<div class="listingblock">
+<div class="title">Example PTP ordinary clock dual-port configuration</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PtpConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ordinary-clock-1</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ptp</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">profile</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">oc-dual-port</span>
+    <span class="na">phc2sysOpts</span><span class="pi">:</span> <span class="s">-a -r -n 24 -N 8 -R 16 -u 0</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">ptp4lConf</span><span class="pi">:</span> <span class="pi">|-</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="s">[ens3f2]</span>
+      <span class="s">masterOnly 0</span>
+      <span class="s">[ens3f3]</span>
+      <span class="s">masterOnly 0</span>
+
+      <span class="s">[global]</span>
+      <span class="s">#</span>
+      <span class="s"># Default Data Set</span>
+      <span class="s">#</span>
+      <span class="s">slaveOnly 1 </span><i class="conum" data-value="3"></i><b>(3)</b>
+<span class="c1">#...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Specify the system config options for the <code>ptp4l</code> service.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Specify the interface configuration for the <code>ptp4l</code> service. In this example, setting <code>masterOnly 0</code> for the <code>ens3f2</code> and <code>ens3f3</code> interfaces enables both ports on the <code>ens3</code> interface to run as leader or follower clocks. In combination with the <code>slaveOnly 1</code> specification, this configuration ensures one port operates as the active ordinary clock, and the other port operates as a standby ordinary clock in the <code>Listening</code> port state.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Configures <code>ptp4l</code> to run as an ordinary clock only.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create the <code>PtpConfig</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> oc-dual-port-ptp-config.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Check that the <code>PtpConfig</code> profile is applied to the node.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Get the list of pods in the <code>openshift-ptp</code> namespace by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-ptp <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                            READY   STATUS    RESTARTS   AGE   IP               NODE
+linuxptp-daemon-4xkbb           1/1     Running   0          43m   10.1.196.24      compute-0.example.com
+linuxptp-daemon-tdspf           1/1     Running   0          43m   10.1.196.25      compute-1.example.com
+ptp-operator-657bbb64c8-2f8sj   1/1     Running   0          43m   10.129.0.61      control-plane-1.example.com</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check that the profile is correct. Examine the logs of the <code>linuxptp</code> daemon that corresponds to the node you specified in the <code>PtpConfig</code> profile. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs linuxptp-daemon-4xkbb <span class="nt">-n</span> openshift-ptp <span class="nt">-c</span> linuxptp-daemon-container</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">I1115 09:41:17.117596 4143292 daemon.go:107] in applyNodePTPProfile
+I1115 09:41:17.117604 4143292 daemon.go:109] updating NodePTPProfile to:
+I1115 09:41:17.117607 4143292 daemon.go:110] ------------------------------------
+I1115 09:41:17.117612 4143292 daemon.go:102] Profile Name: oc-dual-port
+I1115 09:41:17.117616 4143292 daemon.go:102] Interface: ens787f1
+I1115 09:41:17.117620 4143292 daemon.go:102] Ptp4lOpts: -2 --summary_interval -4
+I1115 09:41:17.117623 4143292 daemon.go:102] Phc2sysOpts: -a -r -n 24 -N 8 -R 16 -u 0
+I1115 09:41:17.117626 4143292 daemon.go:116] ------------------------------------</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
 <li>
 <p>For a complete example CR that configures <code>linuxptp</code> services as an ordinary clock with PTP fast events, see <a href="../../networking/ptp/configuring-ptp.html#configuring-linuxptp-services-as-ordinary-clock_configuring-ptp">Configuring linuxptp services as ordinary clock</a>.</p>
+</li>
+<li>
+<p><a href="../../networking/ptp/about-ptp.html#ptp-dual-ports-oc_about-ptp">Using dual-port NICs to improve redundancy for PTP ordinary clocks</a></p>
 </li>
 </ul>
 </div>
