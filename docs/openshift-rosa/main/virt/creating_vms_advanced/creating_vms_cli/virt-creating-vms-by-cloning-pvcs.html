@@ -1716,10 +1716,7 @@ PVC is being cloned.</p>
 <div class="sect2">
 <h3 id="virt-creating-vm-cloning-pvc-data-volume-template_virt-creating-vms-by-cloning-pvcs"><a class="anchor" href="#virt-creating-vm-cloning-pvc-data-volume-template_virt-creating-vms-by-cloning-pvcs"></a>Creating a VM from a cloned PVC by using a data volume template</h3>
 <div class="paragraph">
-<p>You can create a virtual machine (VM) that clones the persistent volume claim (PVC) of an existing VM by using a data volume template.</p>
-</div>
-<div class="paragraph">
-<p>This method creates a data volume whose lifecycle is dependent on the original VM. Deleting the original VM deletes the cloned data volume and its associated PVC.</p>
+<p>You can create a virtual machine (VM) that clones the persistent volume claim (PVC) of an existing VM by using a data volume template. This method creates a data volume whose lifecycle is independent on the original VM.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -1727,70 +1724,83 @@ PVC is being cloned.</p>
 <li>
 <p>The VM with the source PVC must be powered down.</p>
 </li>
+<li>
+<p>You must have the <code>virtctl</code> command-line tool installed.</p>
+</li>
 </ul>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a <code>VirtualMachine</code> manifest as shown in the following example:</p>
+<p>Create a <code>VirtualMachine</code> manifest for your VM and save it as a YAML file, for example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>virtctl create vm <span class="nt">--name</span> rhel-9-clone <span class="nt">--volume-import</span> <span class="nb">type</span>:pvc,src:my-project/imported-volume-q5pr9</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Review the <code>VirtualMachine</code> manifest for your VM:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubevirt.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualMachine</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">labels</span><span class="pi">:</span>
-    <span class="s">kubevirt.io/vm</span><span class="pi">:</span> <span class="s">vm-dv-clone</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">vm-dv-clone</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">rhel-9-clone</span> <i class="conum" data-value="1"></i><b>(1)</b>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">runStrategy</span><span class="pi">:</span> <span class="s">Halted</span>
-  <span class="na">template</span><span class="pi">:</span>
-    <span class="na">metadata</span><span class="pi">:</span>
-      <span class="na">labels</span><span class="pi">:</span>
-        <span class="s">kubevirt.io/vm</span><span class="pi">:</span> <span class="s">vm-dv-clone</span>
-    <span class="na">spec</span><span class="pi">:</span>
-      <span class="na">domain</span><span class="pi">:</span>
-        <span class="na">devices</span><span class="pi">:</span>
-          <span class="na">disks</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="na">disk</span><span class="pi">:</span>
-              <span class="na">bus</span><span class="pi">:</span> <span class="s">virtio</span>
-            <span class="na">name</span><span class="pi">:</span> <span class="s">root-disk</span>
-        <span class="na">resources</span><span class="pi">:</span>
-          <span class="na">requests</span><span class="pi">:</span>
-            <span class="na">memory</span><span class="pi">:</span> <span class="s">64M</span>
-      <span class="na">volumes</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">dataVolume</span><span class="pi">:</span>
-          <span class="na">name</span><span class="pi">:</span> <span class="s">favorite-clone</span>
-        <span class="na">name</span><span class="pi">:</span> <span class="s">root-disk</span>
   <span class="na">dataVolumeTemplates</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">metadata</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">favorite-clone</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">imported-volume-h4qn8</span>
     <span class="na">spec</span><span class="pi">:</span>
-      <span class="na">storage</span><span class="pi">:</span>
-        <span class="na">accessModes</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="s">ReadWriteOnce</span>
-        <span class="na">resources</span><span class="pi">:</span>
-          <span class="na">requests</span><span class="pi">:</span>
-            <span class="na">storage</span><span class="pi">:</span> <span class="s">2Gi</span>
       <span class="na">source</span><span class="pi">:</span>
         <span class="na">pvc</span><span class="pi">:</span>
-          <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;source_namespace&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
-          <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;source_pvc&gt;"</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">imported-volume-q5pr9</span> <i class="conum" data-value="2"></i><b>(2)</b>
+          <span class="na">namespace</span><span class="pi">:</span> <span class="s">my-project</span> <i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="na">storage</span><span class="pi">:</span>
+        <span class="na">resources</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">instancetype</span><span class="pi">:</span>
+    <span class="na">inferFromVolume</span><span class="pi">:</span> <span class="s">imported-volume-h4qn8</span> <i class="conum" data-value="4"></i><b>(4)</b>
+    <span class="na">inferFromVolumeFailurePolicy</span><span class="pi">:</span> <span class="s">Ignore</span>
+  <span class="na">preference</span><span class="pi">:</span>
+    <span class="na">inferFromVolume</span><span class="pi">:</span> <span class="s">imported-volume-h4qn8</span> <i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="na">inferFromVolumeFailurePolicy</span><span class="pi">:</span> <span class="s">Ignore</span>
+  <span class="na">runStrategy</span><span class="pi">:</span> <span class="s">Always</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">domain</span><span class="pi">:</span>
+        <span class="na">devices</span><span class="pi">:</span> <span class="pi">{}</span>
+        <span class="na">memory</span><span class="pi">:</span>
+          <span class="na">guest</span><span class="pi">:</span> <span class="s">512Mi</span>
+        <span class="na">resources</span><span class="pi">:</span> <span class="pi">{}</span>
+      <span class="na">terminationGracePeriodSeconds</span><span class="pi">:</span> <span class="m">180</span>
+      <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">dataVolume</span><span class="pi">:</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">imported-volume-h4qn8</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">imported-volume-h4qn8</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the name of the VM.</td>
+<td>The VM name.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify the namespace of the source PVC.</td>
+<td>The name of the source PVC.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specify the name of the source PVC.</td>
+<td>The namespace of the source PVC.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>If the PVC source has appropriate labels, the instance type is inferred from the selected <code>DataSource</code> object.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>If the PVC source has appropriate labels, the preference is inferred from the selected <code>DataSource</code> object.</td>
 </tr>
 </table>
 </div>
@@ -1799,7 +1809,7 @@ PVC is being cloned.</p>
 <p>Create the virtual machine with the PVC-cloned data volume:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;vm-clone-datavolumetemplate&gt;.yaml</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;vm_manifest_file&gt;.yaml</code></pre>
 </div>
 </div>
 </li>
