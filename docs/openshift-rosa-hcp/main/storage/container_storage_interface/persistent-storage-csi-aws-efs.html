@@ -1667,7 +1667,7 @@ persistent volumes.</p>
 <h2 id="persistent-storage-csi-efs-cross-account_persistent-storage-csi-aws-efs"><a class="anchor" href="#persistent-storage-csi-efs-cross-account_persistent-storage-csi-aws-efs"></a>AWS EFS CSI cross account support</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Cross account support allows you to have an Red Hat OpenShift Service on AWS cluster in one AWS account and mount your file system in another AWS account using the AWS Elastic File System (EFS) Container Storage Interface (CSI) driver.</p>
+<p>Cross account support allows you to have an Red Hat OpenShift Service on AWS cluster in one AWS account and mount your file system in another AWS account by using the AWS Elastic File System (EFS) Container Storage Interface (CSI) driver.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -1772,7 +1772,7 @@ persistent volumes.</p>
 <p>Find the Security Group used by the AWS EFS volume by filtering for the group ID copied earlier.</p>
 </li>
 <li>
-<p>On the <strong>Inbound rules</strong> tab, click  <strong>Edit inbound rules</strong>, and then add a new rule to allow Red Hat OpenShift Service on AWS nodes to access the AWS EFS volumes (that is, use NFS ports from the cluster):</p>
+<p>On the <strong>Inbound rules</strong> tab, click <strong>Edit inbound rules</strong>, and then add a new rule to allow Red Hat OpenShift Service on AWS nodes to access the AWS EFS volumes (that is, use NFS ports from the cluster):</p>
 <div class="ulist">
 <ul>
 <li>
@@ -1792,6 +1792,9 @@ persistent volumes.</p>
 </li>
 <li>
 <p>Save the rule.</p>
+</li>
+</ol>
+</div>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -1805,9 +1808,6 @@ persistent volumes.</p>
 </td>
 </tr>
 </table>
-</div>
-</li>
-</ol>
 </div>
 </li>
 <li>
@@ -1871,42 +1871,164 @@ persistent volumes.</p>
 </div>
 </li>
 <li>
-<p>Create an IAM role, for example, “my-efs-acrossaccount-role” in AWS account B, which has a trust relationship with AWS account A, and add an inline AWS EFS policy with permissions to call “my-efs-acrossaccount-driver-policy”.</p>
+<p>Prepare the <strong>AWS account A</strong> IAM roles and policies.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
 <div class="paragraph">
-<p>This role is used by the CSI driver&#8217;s controller service running on the Red Hat OpenShift Service on AWS cluster in AWS account A to determine the mount targets for your file system in AWS account B.</p>
+<p>This process requires <strong>two separate</strong> AWS accounts.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create an IAM policy for the EFS CSI driver.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This has additional permission&#8217;s compared to a single account EFS CSI policy.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="json"><span class="err">#</span><span class="w"> </span><span class="err">Trust</span><span class="w"> </span><span class="err">relationships</span><span class="w"> </span><span class="err">trusted</span><span class="w"> </span><span class="err">entity</span><span class="w"> </span><span class="err">trusted</span><span class="w"> </span><span class="err">account</span><span class="w"> </span><span class="err">A</span><span class="w"> </span><span class="err">configuration</span><span class="w"> </span><span class="err">on</span><span class="w"> </span><span class="err">my-efs-acrossaccount-role</span><span class="w"> </span><span class="err">in</span><span class="w"> </span><span class="err">account</span><span class="w"> </span><span class="err">B</span><span class="w">
-
-</span><span class="p">{</span><span class="w">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
+    </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:DescribeAccessPoints"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:DescribeFileSystems"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:DescribeMountTargets"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:TagResource"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:ClientMount"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:ClientRootAccess"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:ClientWrite"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:DescribeMountTargets"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"ec2:DescribeAvailabilityZones"</span><span class="w">
+            </span><span class="p">],</span><span class="w">
+            </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*"</span><span class="w">
+        </span><span class="p">},</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:CreateAccessPoint"</span><span class="w">
+            </span><span class="p">],</span><span class="w">
+            </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="nl">"StringLike"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+                    </span><span class="nl">"aws:RequestTag/efs.csi.aws.com/cluster"</span><span class="p">:</span><span class="w"> </span><span class="s2">"true"</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+            </span><span class="p">}</span><span class="w">
+        </span><span class="p">},</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"elasticfilesystem:DeleteAccessPoint"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="nl">"StringEquals"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+                    </span><span class="nl">"aws:ResourceTag/efs.csi.aws.com/cluster"</span><span class="p">:</span><span class="w"> </span><span class="s2">"true"</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+            </span><span class="p">}</span><span class="w">
+        </span><span class="p">},</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts:AssumeRole"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::${AWS_ACCOUNT_B_ID}:role/cross-account-efs-role"</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+    </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the policy.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws iam create-policy <span class="nt">--policy-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span><span class="s2">-rosa-efs-csi"</span> <span class="se">\</span>
+   <span class="nt">--policy-document</span> file://&lt;path-to-file&gt;.json <span class="se">\</span>
+   <span class="nt">--query</span> <span class="s1">'Policy.Arn'</span> <span class="nt">--output</span> text</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a trust policy.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
     </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
     </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
         </span><span class="p">{</span><span class="w">
             </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
             </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-                </span><span class="nl">"AWS"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::301721915996:root"</span><span class="w">
+                </span><span class="nl">"Federated"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::${AWS_ACCOUNT_A_ID}:oidc-provider/${OIDC_PROVIDER}"</span><span class="w">
             </span><span class="p">},</span><span class="w">
-            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts:AssumeRole"</span><span class="p">,</span><span class="w">
-            </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span><span class="w">
+            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts:AssumeRoleWithWebIdentity"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="nl">"StringEquals"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+                    </span><span class="nl">"${OIDC_PROVIDER}:sub"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                        </span><span class="s2">"system:serviceaccount:openshift-cluster-csi-drivers:aws-efs-csi-driver-operator"</span><span class="p">,</span><span class="w">
+                        </span><span class="s2">"system:serviceaccount:openshift-cluster-csi-drivers:aws-efs-csi-driver-controller-sa"</span><span class="w">
+                    </span><span class="p">]</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+            </span><span class="p">}</span><span class="w">
         </span><span class="p">}</span><span class="w">
     </span><span class="p">]</span><span class="w">
-</span><span class="p">}</span><span class="w">
-
-</span><span class="err">#</span><span class="w"> </span><span class="err">my-cross-account-assume-policy</span><span class="w"> </span><span class="err">policy</span><span class="w"> </span><span class="err">attached</span><span class="w"> </span><span class="err">to</span><span class="w"> </span><span class="err">my-efs-acrossaccount-role</span><span class="w"> </span><span class="err">in</span><span class="w"> </span><span class="err">account</span><span class="w"> </span><span class="err">B</span><span class="w">
-
-</span><span class="p">{</span><span class="w">
-    </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-        </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
-        </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts:AssumeRole"</span><span class="p">,</span><span class="w">
-        </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::589722580343:role/my-efs-acrossaccount-role"</span><span class="w">
-    </span><span class="p">}</span><span class="w">
-</span><span class="p">}</span><span class="w">
-
-</span><span class="err">#</span><span class="w"> </span><span class="err">my-efs-acrossaccount-driver-policy</span><span class="w"> </span><span class="err">attached</span><span class="w"> </span><span class="err">to</span><span class="w"> </span><span class="err">my-efs-acrossaccount-role</span><span class="w"> </span><span class="err">in</span><span class="w"> </span><span class="err">account</span><span class="w"> </span><span class="err">B</span><span class="w">
-
-</span><span class="p">{</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a role for the EFS CSI Driver Operator.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws iam create-role <span class="se">\</span>
+  <span class="nt">--role-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span><span class="s2">-aws-efs-csi-operator"</span> <span class="se">\</span>
+  <span class="nt">--assume-role-policy-document</span> file://&lt;path-to-file&gt;.json <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s2">"Role.Arn"</span> <span class="nt">--output</span> text</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Attach the policies to the role.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws iam attach-role-policy <span class="se">\</span>
+   <span class="nt">--role-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span><span class="s2">-aws-efs-csi-operator"</span> <span class="se">\</span>
+   <span class="nt">--policy-arn</span> <span class="k">${</span><span class="nv">ACCOUNT_A_POLICY_ARN</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>This role that the EFS CSI controller uses can now assume a role inside account B.</p>
+</div>
+</li>
+<li>
+<p>Prepare the <strong>AWS account B</strong> IAM roles and policies.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create an IAM policy.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
     </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
     </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
         </span><span class="p">{</span><span class="w">
@@ -1929,12 +2051,10 @@ persistent volumes.</p>
                 </span><span class="s2">"elasticfilesystem:ClientWrite"</span><span class="p">,</span><span class="w">
                 </span><span class="s2">"elasticfilesystem:ClientRootAccess"</span><span class="p">,</span><span class="w">
                 </span><span class="s2">"elasticfilesystem:DescribeFileSystems"</span><span class="p">,</span><span class="w">
-                </span><span class="s2">"elasticfilesystem:CreateAccessPoint"</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:CreateAccessPoint"</span><span class="p">,</span><span class="w">
+                </span><span class="s2">"elasticfilesystem:TagResource"</span><span class="w">
             </span><span class="p">],</span><span class="w">
-            </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
-                </span><span class="s2">"arn:aws:elasticfilesystem:*:589722580343:access-point/*"</span><span class="p">,</span><span class="w">
-                </span><span class="s2">"arn:aws:elasticfilesystem:*:589722580343:file-system/*"</span><span class="w">
-            </span><span class="p">]</span><span class="w">
+            </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*"</span><span class="w">
         </span><span class="p">}</span><span class="w">
     </span><span class="p">]</span><span class="w">
 </span><span class="p">}</span></code></pre>
@@ -1942,87 +2062,29 @@ persistent volumes.</p>
 </div>
 </li>
 <li>
-<p>In AWS account A, attach an inline policy to the IAM role of the AWS EFS CSI driver&#8217;s controller service account with the necessary permissions to perform Security Token Service (STS) assume role on the IAM role created earlier.</p>
+<p>Create the policy.</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="json"><span class="err">#</span><span class="w"> </span><span class="err">my-cross-account-assume-policy</span><span class="w"> </span><span class="err">policy</span><span class="w"> </span><span class="err">attached</span><span class="w"> </span><span class="err">to</span><span class="w"> </span><span class="err">Openshift</span><span class="w"> </span><span class="err">cluster</span><span class="w"> </span><span class="err">efs</span><span class="w"> </span><span class="err">csi</span><span class="w"> </span><span class="err">driver</span><span class="w"> </span><span class="err">user</span><span class="w"> </span><span class="err">in</span><span class="w"> </span><span class="err">account</span><span class="w"> </span><span class="err">A</span><span class="w">
-
-</span><span class="p">{</span><span class="w">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws iam create-policy <span class="nt">--policy-name</span> <span class="s2">"cross-account-rosa-efs-csi"</span> <span class="se">\</span>
+   <span class="nt">--policy-document</span> file://&lt;path-to-file&gt;.json <span class="se">\</span>
+   <span class="nt">--query</span> <span class="s1">'Policy.Arn'</span> <span class="nt">--output</span> text</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a trust policy.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
     </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-        </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
-        </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts:AssumeRole"</span><span class="p">,</span><span class="w">
-        </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::589722580343:role/my-efs-acrossaccount-role"</span><span class="w">
-    </span><span class="p">}</span><span class="w">
-</span><span class="p">}</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>In AWS account A, attach the AWS-managed policy “AmazonElasticFileSystemClientFullAccess” to Red Hat OpenShift Service on AWS cluster master role. The role name is in the form <code>&lt;clusterID&gt;-master-role</code> (for example, <code>my-0120ef-czjrl-master-role</code>).</p>
-</li>
-<li>
-<p>Create a Kubernetes secret with <code>awsRoleArn</code> as the key and the role created earlier as the value:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="cli">$ oc -n openshift-cluster-csi-drivers create secret generic my-efs-cross-account --from-literal=awsRoleArn='arn:aws:iam::589722580343:role/my-efs-acrossaccount-role'</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Since the driver controller needs to get the cross account role information from the secret, you need to add the secret role binding to the AWS EFS CSI driver controller ServiceAccount (SA):</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="cli">$ oc -n openshift-cluster-csi-drivers create role access-secrets --verb=get,list,watch --resource=secrets
-
-$ oc -n openshift-cluster-csi-drivers create rolebinding --role=access-secrets default-to-secrets --serviceaccount=openshift-cluster-csi-drivers:aws-efs-csi-driver-controller-sa</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Create a <code>filesystem</code> policy for the file system (AWS EFS volume) in account B, which allows AWS account A to perform a mount on it.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="nowrap">This step is not mandatory, but can be safer for AWS EFS volume usage.</pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="json"><span class="err">#</span><span class="w"> </span><span class="err">EFS</span><span class="w"> </span><span class="err">volume</span><span class="w"> </span><span class="err">filesystem</span><span class="w"> </span><span class="err">policy</span><span class="w"> </span><span class="err">in</span><span class="w"> </span><span class="err">account</span><span class="w"> </span><span class="err">B</span><span class="w">
-</span><span class="p">{</span><span class="w">
-    </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
-    </span><span class="nl">"Id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"efs-policy-wizard-8089bf4a-9787-40f0-958e-bc2363012ace"</span><span class="p">,</span><span class="w">
     </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
         </span><span class="p">{</span><span class="w">
-            </span><span class="nl">"Sid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"efs-statement-bd285549-cfa2-4f8b-861e-c372399fd238"</span><span class="p">,</span><span class="w">
             </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
             </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-                </span><span class="nl">"AWS"</span><span class="p">:</span><span class="w"> </span><span class="s2">"*"</span><span class="w">
+                </span><span class="nl">"AWS"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::${AWS_ACCOUNT_A_ID}:root"</span><span class="w">
             </span><span class="p">},</span><span class="w">
-            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
-                </span><span class="s2">"elasticfilesystem:ClientRootAccess"</span><span class="p">,</span><span class="w">
-                </span><span class="s2">"elasticfilesystem:ClientWrite"</span><span class="p">,</span><span class="w">
-                </span><span class="s2">"elasticfilesystem:ClientMount"</span><span class="w">
-            </span><span class="p">],</span><span class="w">
-            </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:elasticfilesystem:us-east-2:589722580343:file-system/fs-091066a9bf9becbd5"</span><span class="p">,</span><span class="w">
-            </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-                </span><span class="nl">"Bool"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-                    </span><span class="nl">"elasticfilesystem:AccessedViaMountTarget"</span><span class="p">:</span><span class="w"> </span><span class="s2">"true"</span><span class="w">
-                </span><span class="p">}</span><span class="w">
-            </span><span class="p">}</span><span class="w">
-        </span><span class="p">},</span><span class="w">
-        </span><span class="p">{</span><span class="w">
-            </span><span class="nl">"Sid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"efs-statement-03646e39-d80f-4daf-b396-281be1e43bab"</span><span class="p">,</span><span class="w">
-            </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
-            </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-                </span><span class="nl">"AWS"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::589722580343:role/my-efs-acrossaccount-role"</span><span class="w">
-            </span><span class="p">},</span><span class="w">
-            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
-                </span><span class="s2">"elasticfilesystem:ClientRootAccess"</span><span class="p">,</span><span class="w">
-                </span><span class="s2">"elasticfilesystem:ClientWrite"</span><span class="p">,</span><span class="w">
-                </span><span class="s2">"elasticfilesystem:ClientMount"</span><span class="w">
-            </span><span class="p">],</span><span class="w">
-            </span><span class="nl">"Resource"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:elasticfilesystem:us-east-2:589722580343:file-system/fs-091066a9bf9becbd5"</span><span class="w">
+            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts:AssumeRole"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span><span class="w">
         </span><span class="p">}</span><span class="w">
     </span><span class="p">]</span><span class="w">
 </span><span class="p">}</span></code></pre>
@@ -2030,28 +2092,147 @@ $ oc -n openshift-cluster-csi-drivers create rolebinding --role=access-secrets d
 </div>
 </li>
 <li>
-<p>Create an AWS EFS volume storage class using a similar configuration to the following:</p>
+<p>Create the role for the EFS CSI Driver Operator to assume.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws iam create-role <span class="se">\</span>
+  <span class="nt">--role-name</span> <span class="s2">"cross-account-efs-role"</span> <span class="se">\</span>
+  <span class="nt">--assume-role-policy-document</span> file://&lt;path-to-file&gt;.json <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s2">"Role.Arn"</span> <span class="nt">--output</span> text</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Attach the policies to the role.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws iam attach-role-policy <span class="se">\</span>
+<span class="nt">--role-name</span> <span class="s2">"cross-account-efs-role"</span> <span class="se">\</span>
+<span class="nt">--policy-arn</span> <span class="k">${</span><span class="nv">ACCOUNT_B_POLICY_ARN</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Deploy the AWS EFS CSI Operator in <strong>AWS account A</strong>.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create a <code>secret</code> to tell the AWS EFS Operator which IAM role to request.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Secret</span>
+<span class="na">metadata</span><span class="pi">:</span>
+ <span class="na">name</span><span class="pi">:</span> <span class="s">aws-efs-cloud-credentials</span>
+ <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-cluster-csi-drivers</span>
+<span class="na">stringData</span><span class="pi">:</span>
+  <span class="na">credentials</span><span class="pi">:</span> <span class="pi">|-</span>
+    <span class="s">[default]</span>
+    <span class="s">role_arn = ${ACCOUNT_A_ROLE_ARN}</span>
+    <span class="s">web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Install the EFS Operator.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">OperatorGroup</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">generateName</span><span class="pi">:</span> <span class="s">openshift-cluster-csi-drivers-</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-cluster-csi-drivers</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Subscription</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">operators.coreos.com/aws-efs-csi-driver-operator.openshift-cluster-csi-drivers</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">aws-efs-csi-driver-operator</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-cluster-csi-drivers</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">channel</span><span class="pi">:</span> <span class="s">stable</span>
+  <span class="na">installPlanApproval</span><span class="pi">:</span> <span class="s">Automatic</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">aws-efs-csi-driver-operator</span>
+  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators</span>
+  <span class="na">sourceNamespace</span><span class="pi">:</span> <span class="s">openshift-marketplace</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check if the operator is running.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment aws-efs-csi-driver-operator <span class="nt">-n</span> openshift-cluster-csi-drivers</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Install the AWS EFS CSI driver.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterCSIDriver</span>
+<span class="na">metadata</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">efs.csi.aws.com</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">managementState</span><span class="pi">:</span> <span class="s">Managed</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check if the CSI driver is running.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get daemonset aws-efs-csi-driver-node <span class="nt">-n</span> openshift-cluster-csi-drivers</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a new secret that will tell the CSI driver the role name in Account B to assume.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic cross-account-arn <span class="se">\</span>
+  <span class="nt">-n</span> openshift-cluster-csi-drivers <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">awsRoleArn</span><span class="o">=</span><span class="s2">"arn:aws:iam::</span><span class="k">${</span><span class="nv">AWS_ACCOUNT_B_ID</span><span class="k">}</span><span class="s2">:role/cross-account-efs-role"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Allow the EFS CSI controller to read this secret.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-cluster-csi-drivers create role access-secrets <span class="nt">--verb</span><span class="o">=</span>get,list,watch <span class="nt">--resource</span><span class="o">=</span>secrets
+<span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-cluster-csi-drivers create rolebinding <span class="nt">--role</span><span class="o">=</span>access-secrets default-to-secrets <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-cluster-csi-drivers:aws-efs-csi-driver-controller-sa</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a storage class for the EFS volume.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># The cross account efs volume storageClass</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">StorageClass</span>
 <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">efs-cross-account-mount-sc</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">efs-sc</span>
 <span class="na">provisioner</span><span class="pi">:</span> <span class="s">efs.csi.aws.com</span>
-<span class="na">mountOptions</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">tls</span>
 <span class="na">parameters</span><span class="pi">:</span>
   <span class="na">provisioningMode</span><span class="pi">:</span> <span class="s">efs-ap</span>
-  <span class="na">fileSystemId</span><span class="pi">:</span> <span class="s">fs-00f6c3ae6f06388bb</span>
+  <span class="na">fileSystemId</span><span class="pi">:</span> <span class="s">${EFS_FILESYSTEM_ID}</span>
   <span class="na">directoryPerms</span><span class="pi">:</span> <span class="s2">"</span><span class="s">700"</span>
   <span class="na">gidRangeStart</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000"</span>
   <span class="na">gidRangeEnd</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2000"</span>
-  <span class="na">basePath</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/account-a-data"</span>
-  <span class="s">csi.storage.k8s.io/provisioner-secret-name</span><span class="pi">:</span> <span class="s">my-efs-cross-account</span>
-  <span class="s">csi.storage.k8s.io/provisioner-secret-namespace</span><span class="pi">:</span> <span class="s">openshift-cluster-csi-drivers</span>
-<span class="na">volumeBindingMode</span><span class="pi">:</span> <span class="s">Immediate</span></code></pre>
+  <span class="na">basePath</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/dynamic_provisioning"</span>
+  <span class="s">csi.storage.k8s.io/provisioner-secret-name</span><span class="pi">:</span> <span class="s">cross-account-arn</span>
+  <span class="s">csi.storage.k8s.io/provisioner-secret-namespace</span><span class="pi">:</span> <span class="s">openshift-cluster-csi-drivers</span></code></pre>
 </div>
+</div>
+</li>
+</ol>
 </div>
 </li>
 </ol>
