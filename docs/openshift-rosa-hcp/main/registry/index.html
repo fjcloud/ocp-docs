@@ -1174,6 +1174,7 @@
 <ul class="sectlevel1">
 <li><a href="#openshift-registry-common-terms_registry-overview">Glossary of common terms for OpenShift image registry</a></li>
 <li><a href="#registry-integrated-openshift-registry_registry-overview">Integrated OpenShift image registry</a></li>
+<li><a href="#pruning-images_registry-overview">Automatically pruning images</a></li>
 <li><a href="#registry-third-party-registries_registry-overview">Third-party registries</a>
 <ul class="sectlevel2">
 <li><a href="#authentication_registry-overview">Authentication</a></li>
@@ -1294,6 +1295,163 @@ and image streams.</p>
 <p><a href="../registry/configuring-registry-operator.html#configuring-registry-operator">Image Registry Operator in Red Hat OpenShift Service on AWS</a></p>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="pruning-images_registry-overview"><a class="anchor" href="#pruning-images_registry-overview"></a>Automatically pruning images</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Images from the OpenShift image registry that are no longer required by the system due to age, status, or exceed limits are automatically pruned. Cluster administrators can configure the Pruning Custom Resource, or suspend it.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to an Red Hat OpenShift Service on AWS cluster using an account with cluster administrator permissions.</p>
+</li>
+<li>
+<p>Install the <code>oc</code> CLI.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Verify that the object named <code>imagepruners.imageregistry.operator.openshift.io/cluster</code> contains the following <code>spec</code> and <code>status</code> fields:</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">schedule</span><span class="pi">:</span> <span class="s">0 0 * * *</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">suspend</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">keepTagRevisions</span><span class="pi">:</span> <span class="s">3</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">keepYoungerThanDuration</span><span class="pi">:</span> <span class="s">60m</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="na">keepYoungerThan</span><span class="pi">:</span> <span class="s">3600000000000</span> <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="na">resources</span><span class="pi">:</span> <span class="pi">{}</span> <i class="conum" data-value="6"></i><b>(6)</b>
+  <span class="na">affinity</span><span class="pi">:</span> <span class="pi">{}</span> <i class="conum" data-value="7"></i><b>(7)</b>
+  <span class="na">nodeSelector</span><span class="pi">:</span> <span class="pi">{}</span> <i class="conum" data-value="8"></i><b>(8)</b>
+  <span class="na">tolerations</span><span class="pi">:</span> <span class="pi">[]</span> <i class="conum" data-value="9"></i><b>(9)</b>
+  <span class="na">successfulJobsHistoryLimit</span><span class="pi">:</span> <span class="s">3</span> <i class="conum" data-value="10"></i><b>(10)</b>
+  <span class="na">failedJobsHistoryLimit</span><span class="pi">:</span> <span class="s">3</span> <i class="conum" data-value="11"></i><b>(11)</b>
+<span class="na">status</span><span class="pi">:</span>
+  <span class="na">observedGeneration</span><span class="pi">:</span> <span class="s">2</span> <i class="conum" data-value="12"></i><b>(12)</b>
+  <span class="na">conditions</span><span class="pi">:</span> <i class="conum" data-value="13"></i><b>(13)</b>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Available</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
+    <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s">2019-10-09T03:13:45</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">Ready</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Periodic</span><span class="nv"> </span><span class="s">image</span><span class="nv"> </span><span class="s">pruner</span><span class="nv"> </span><span class="s">has</span><span class="nv"> </span><span class="s">been</span><span class="nv"> </span><span class="s">created."</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Scheduled</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
+    <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s">2019-10-09T03:13:45</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">Scheduled</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Image</span><span class="nv"> </span><span class="s">pruner</span><span class="nv"> </span><span class="s">job</span><span class="nv"> </span><span class="s">has</span><span class="nv"> </span><span class="s">been</span><span class="nv"> </span><span class="s">scheduled."</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Failed</span>
+    <span class="na">staus</span><span class="pi">:</span> <span class="s2">"</span><span class="s">False"</span>
+    <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s">2019-10-09T03:13:45</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">Succeeded</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Most</span><span class="nv"> </span><span class="s">recent</span><span class="nv"> </span><span class="s">image</span><span class="nv"> </span><span class="s">pruning</span><span class="nv"> </span><span class="s">job</span><span class="nv"> </span><span class="s">succeeded."</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td><code>schedule</code>: <code>CronJob</code> formatted schedule. This is an optional field, default is daily at midnight.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td><code>suspend</code>: If set to <code>true</code>, the <code>CronJob</code> running pruning is suspended. This is an optional field, default is <code>false</code>. The initial value on new clusters is <code>false</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td><code>keepTagRevisions</code>: The number of revisions per tag to keep. This is an optional field, default is <code>3</code>. The initial value is <code>3</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td><code>keepYoungerThanDuration</code>: Retain images younger than this duration. This is an optional field. If a value is not specified, either <code>keepYoungerThan</code> or the default value <code>60m</code> (60 minutes) is used.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td><code>keepYoungerThan</code>: Deprecated. The same as <code>keepYoungerThanDuration</code>, but the duration is specified as an integer in nanoseconds. This is an optional field. When <code>keepYoungerThanDuration</code> is set, this field is ignored.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td><code>resources</code>: Standard pod resource requests and limits. This is an optional field.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td><code>affinity</code>: Standard pod affinity. This is an optional field.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="8"></i><b>8</b></td>
+<td><code>nodeSelector</code>: Standard pod node selector. This is an optional field.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="9"></i><b>9</b></td>
+<td><code>tolerations</code>: Standard pod tolerations. This is an optional field.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="10"></i><b>10</b></td>
+<td><code>successfulJobsHistoryLimit</code>: The maximum number of successful jobs to retain. Must be <code>&gt;= 1</code> to ensure metrics are reported. This is an optional field, default is <code>3</code>. The initial value is <code>3</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="11"></i><b>11</b></td>
+<td><code>failedJobsHistoryLimit</code>: The maximum number of failed jobs to retain. Must be <code>&gt;= 1</code> to ensure metrics are reported. This is an optional field, default is <code>3</code>. The initial value is <code>3</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="12"></i><b>12</b></td>
+<td><code>observedGeneration</code>: The generation observed by the Operator.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="13"></i><b>13</b></td>
+<td><code>conditions</code>: The standard condition objects with the following types:
+<div class="ulist">
+<ul>
+<li>
+<p><code>Available</code>: Indicates if the pruning job has been created. Reasons can be Ready or Error.</p>
+</li>
+<li>
+<p><code>Scheduled</code>: Indicates if the next pruning job has been scheduled. Reasons can be Scheduled, Suspended, or Error.</p>
+</li>
+<li>
+<p><code>Failed</code>: Indicates if the most recent pruning job failed.</p>
+</li>
+</ul>
+</div></td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The Image Registry Operator&#8217;s behavior for managing the pruner is orthogonal to the <code>managementState</code> specified on the Image Registry Operator&#8217;s <code>ClusterOperator</code> object. If the Image Registry Operator is not in the <code>Managed</code> state, the image pruner can still be configured and managed by the Pruning Custom Resource.</p>
+</div>
+<div class="paragraph">
+<p>However, the <code>managementState</code> of the Image Registry Operator alters the behavior of the deployed image pruner job:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>Managed</code>: the <code>--prune-registry</code> flag for the image pruner is set to <code>true</code>.</p>
+</li>
+<li>
+<p><code>Removed</code>: the <code>--prune-registry</code> flag for the image pruner is set to <code>false</code>, meaning it only prunes image metadata in etcd.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
