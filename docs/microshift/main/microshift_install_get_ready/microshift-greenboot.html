@@ -367,7 +367,7 @@
             <li><a class="" href="../microshift_running_apps/microshift-embedded-apps-on-rhel-edge.html">Embedding applications on RHEL for Edge</a></li>
             <li><a class="" href="../microshift_running_apps/microshift-embed-apps-offline-use.html">Embedding applications for offline use</a></li>
             <li><a class="" href="../microshift_running_apps/microshift-embedding-apps-tutorial.html">Embedding applications tutorial</a></li>
-            <li><a class="" href="../microshift_running_apps/microshift-greenboot-workload-scripts.html">Creating application or workload health check scripts</a></li>
+            <li><a class="" href="../microshift_running_apps/microshift-greenboot-workload-health-checks.html">Using greenboot for workload health checks</a></li>
             <li><a class="" href="../microshift_running_apps/microshift-gitops.html">Automating application management with GitOps</a></li>
             <li><a class="" href="../microshift_running_apps/microshift-authentication.html">Pod security authentication and authorization</a></li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-13-8"><span id="sgSpan-13-8" class="fa fa-caret-right"></span>&nbsp;Operators</a>
@@ -654,11 +654,13 @@
         <div id="toc" class="toc">
 <div id="toctitle"></div>
 <ul class="sectlevel1">
+<li><a href="#microshift-greenboot-dir-use-for-scripts_microshift-greenboot">How greenboot uses directories to run scripts</a></li>
 <li><a href="#microshift-greenboot-dir-structure_microshift-greenboot">How greenboot uses directories to run scripts</a>
 <ul class="sectlevel2">
 <li><a href="#greenboot-directories-details_microshift-greenboot">Greenboot directories details</a></li>
 </ul>
 </li>
+<li><a href="#microshift-greenboot-included-health-checks_microshift-greenboot">Included greenboot health checks</a></li>
 <li><a href="#microshift-health-script_microshift-greenboot">The MicroShift health check script</a>
 <ul class="sectlevel2">
 <li><a href="#validation-wait-period_microshift-greenboot">Validation wait period</a></li>
@@ -676,6 +678,14 @@
 <div id="preamble">
 <div class="sectionbody">
 <!-- toc disabled -->
+<div class="paragraph">
+<p>Learn about how greenboot health checks are used with MicroShift.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="microshift-greenboot-dir-use-for-scripts_microshift-greenboot"><a class="anchor" href="#microshift-greenboot-dir-use-for-scripts_microshift-greenboot"></a>How greenboot uses directories to run scripts</h2>
+<div class="sectionbody">
 <div class="paragraph">
 <p>Greenboot is the generic health check framework for the <code>systemd</code> service on <code>rpm-ostree</code> systems such as Red&#160;Hat Enterprise Linux for Edge (RHEL for Edge). This framework is included in MicroShift installations with the <code>microshift-greenboot</code> and <code>greenboot-default-health-checks</code> RPM packages.</p>
 </div>
@@ -805,6 +815,49 @@
 </div>
 </div>
 <div class="sect1">
+<h2 id="microshift-greenboot-included-health-checks_microshift-greenboot"><a class="anchor" href="#microshift-greenboot-included-health-checks_microshift-greenboot"></a>Included greenboot health checks</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Health check scripts are available in <code>/usr/lib/greenboot/check</code>, a read-only directory in Red&#160;Hat Enterprise Linux for Edge (RHEL for Edge) image mode for RHEL systems. The following health checks are included with the <code>greenboot-default-health-checks</code> framework.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Check if repository URLs are still DNS solvable:</p>
+<div class="paragraph">
+<p>This script is under <code>/usr/lib/greenboot/check/required.d/01_repository_dns_check.sh</code> and ensures that DNS queries to repository URLs are still available.</p>
+</div>
+</li>
+<li>
+<p>Check if update platforms are still reachable:</p>
+<div class="paragraph">
+<p>This script is under <code>/usr/lib/greenboot/check/wanted.d/01_update_platform_check.sh</code> and tries to connect and get a 2XX or 3XX HTTP code from the update platforms defined in <code>/etc/ostree/remotes.d</code>.</p>
+</div>
+</li>
+<li>
+<p>Check if the current boot has been triggered by the hardware watchdog:</p>
+<div class="paragraph">
+<p>This script is under <code>/usr/lib/greenboot/check/required.d/02_watchdog.sh</code> and checks whether the current boot has been watchdog-triggered or not.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If the watchdog-triggered reboot occurs within the grace period, the current boot is marked as red. Greenboot does not trigger a rollback to the previous deployment.</p>
+</li>
+<li>
+<p>If the watchdog-triggered reboot occurs after the grace period, the current boot is not marked as red. Greenboot does not trigger a rollback to the previous deployment.</p>
+</li>
+<li>
+<p>A 24-hour grace period is enabled by default. This grace period can be either disabled by modifying <code>GREENBOOT_WATCHDOG_CHECK_ENABLED</code> in <code>/etc/greenboot/greenboot.conf to false</code>, or configured by changing the <code>GREENBOOT_WATCHDOG_GRACE_PERIOD=number_of_hours</code> variable value in <code>/etc/greenboot/greenboot.conf</code>.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="microshift-health-script_microshift-greenboot"><a class="anchor" href="#microshift-health-script_microshift-greenboot"></a>The MicroShift health check script</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -844,28 +897,8 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>exit 1</code></p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Wait for Kubernetes API health endpoints to be working and receiving traffic</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">For each core namespace, wait for readiness of the workload</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Next</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>exit 1</code></p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Wait for any pod to start</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Next</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>exit 1</code></p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">For each core namespace, wait for images to be pulled</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Next</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>exit 1</code></p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">For each core namespace, wait for pods to be ready</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Next</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>exit 1</code></p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">For each core namespace, check if pods are not restarting</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>exit 0</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>exit 1</code></p></td>
 </tr>
 </tbody>
@@ -971,14 +1004,23 @@ EOF</span></code></pre>
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>grub2-editenv - list | <span class="nb">grep</span> ^boot_success</code></pre>
 </div>
 </div>
-</li>
-</ul>
-</div>
 <div class="listingblock">
 <div class="title">Example output for a successful system start</div>
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="go">boot_success=1</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="go">boot_success=1 <i class="conum" data-value="1"></i><b>(1)</b>
+</span></code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>If your command returns <code>boot_success=0</code>, either the greenboot health check is still running, or the update is a failure.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -997,9 +1039,6 @@ EOF</span></code></pre>
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>journalctl <span class="nt">-o</span> <span class="nb">cat</span> <span class="nt">-u</span> greenboot-healthcheck.service</code></pre>
 </div>
-</div>
-</li>
-</ul>
 </div>
 <div class="listingblock">
 <div class="title">Example output of a failed health check</div>
@@ -1020,13 +1059,16 @@ FAILURE
 ...</span></code></pre>
 </div>
 </div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="microshift-greenboot-access-prerollback-check_microshift-greenboot"><a class="anchor" href="#microshift-greenboot-access-prerollback-check_microshift-greenboot"></a>Accessing prerollback health check output in the system log</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>You can access the output of health check scripts in the system log. For example, check the results of a prerollback script using the following procedure.</p>
+<p>You can access the output of health check scripts in the system log. For example, check the results of a pre-rollback script using the following procedure.</p>
 </div>
 <div class="ulist">
 <div class="title">Procedure</div>
@@ -1037,9 +1079,6 @@ FAILURE
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>journalctl <span class="nt">-o</span> <span class="nb">cat</span> <span class="nt">-u</span> redboot-task-runner.service</code></pre>
 </div>
-</div>
-</li>
-</ul>
 </div>
 <div class="listingblock">
 <div class="title">Example output of a prerollback script</div>
@@ -1071,6 +1110,23 @@ FINISHED
 redboot-task-runner.service: Deactivated successfully.</span></code></pre>
 </div>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In case of a rollback, the pre-rollback script runs the <code>sudo microshift-cleanup-data --ovn</code> command to prepare the system for a potential software downgrade.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -1089,17 +1145,23 @@ redboot-task-runner.service: Deactivated successfully.</span></code></pre>
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>grub2-editenv - list | <span class="nb">grep</span> ^boot_success</code></pre>
 </div>
 </div>
-</li>
-</ul>
-</div>
 <div class="listingblock">
 <div class="title">Example output for a successful update</div>
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="go">boot_success=1</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="go">boot_success=1 <i class="conum" data-value="1"></i><b>(1)</b>
+</span></code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p>If your command returns <code>boot_success=0</code>, either the greenboot health check is still running, or the update is a failure.</p>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>If your command returns <code>boot_success=0</code>, either the greenboot health check is still running, or the update is a failure.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -1109,7 +1171,7 @@ redboot-task-runner.service: Deactivated successfully.</span></code></pre>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="../microshift_running_apps/microshift-greenboot-workload-scripts.html#microshift-greenboot-workload-scripts">Greenboot workload health check scripts</a></p>
+<p><a href="../microshift_running_apps/microshift-greenboot-workload-health-checks.html#microshift-greenboot-workload-health-checks">Greenboot workload health checks</a></p>
 </li>
 </ul>
 </div>
