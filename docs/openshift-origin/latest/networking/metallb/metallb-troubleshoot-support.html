@@ -1834,6 +1834,7 @@
             <li><a class="" href="../../scalability_and_performance/what-huge-pages-do-and-how-they-are-consumed-by-apps.html">What huge pages do and how they are consumed by apps</a></li>
             <li><a class="" href="../../scalability_and_performance/cnf-understanding-low-latency.html">Understanding low latency</a></li>
             <li><a class="" href="../../scalability_and_performance/cnf-tuning-low-latency-nodes-with-perf-profile.html">Tuning nodes for low latency with the performance profile</a></li>
+            <li><a class="" href="../../scalability_and_performance/cnf-tuning-low-latency-hosted-cp-nodes-with-perf-profile.html">Tuning hosted control planes for low latency with the performance profile</a></li>
             <li><a class="" href="../../scalability_and_performance/cnf-provisioning-low-latency-workloads.html">Provisioning real-time and low latency workloads</a></li>
             <li><a class="" href="../../scalability_and_performance/cnf-debugging-low-latency-tuning-status.html">Debugging low latency tuning</a></li>
             <li><a class="" href="../../scalability_and_performance/cnf-performing-platform-verification-latency-tests.html">Performing latency tests for platform verification</a></li>
@@ -3003,8 +3004,7 @@ I0517 09:55:06.515686      95 request.go:665] Waited for 1.026500832s due to cli
 <h2 id="nw-metallb-troubleshoot-bgp_metallb-troubleshoot-support"><a class="anchor" href="#nw-metallb-troubleshoot-bgp_metallb-troubleshoot-support"></a>Troubleshooting BGP issues</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The BGP implementation that Red Hat supports uses FRRouting (FRR) in a container in the <code>speaker</code> pods.
-As a cluster administrator, if you need to troubleshoot BGP configuration issues, you need to run commands in the FRR container.</p>
+<p>As a cluster administrator, if you need to troubleshoot BGP configuration issues, you need to run commands in the FRR container.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3021,27 +3021,25 @@ As a cluster administrator, if you need to troubleshoot BGP configuration issues
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Display the names of the <code>speaker</code> pods:</p>
+<p>Display the names of the <code>frr-k8s</code> pods by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get <span class="nt">-n</span> metallb-system pods <span class="nt">-l</span> <span class="nv">component</span><span class="o">=</span>speaker</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> metallb-system get pods <span class="nt">-l</span> <span class="nv">component</span><span class="o">=</span>frr-k8s</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="text">NAME            READY   STATUS    RESTARTS   AGE
-speaker-66bth   4/4     Running   0          56m
-speaker-gvfnf   4/4     Running   0          56m
-...</code></pre>
+frr-k8s-thsmw   6/6     Running   0          109m</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Display the running configuration for FRR:</p>
+<p>Display the running configuration for FRR by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> metallb-system speaker-66bth <span class="nt">-c</span> frr <span class="nt">--</span> vtysh <span class="nt">-c</span> <span class="s2">"show running-config"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> metallb-system frr-k8s-thsmw <span class="nt">-c</span> frr <span class="nt">--</span> vtysh <span class="nt">-c</span> <span class="s2">"show running-config"</span></code></pre>
 </div>
 </div>
 <div class="listingblock">
@@ -3051,11 +3049,13 @@ speaker-gvfnf   4/4     Running   0          56m
 
 Current configuration:
 !
-frr version 7.5.1_git
+frr version 8.5.3
 frr defaults traditional
 hostname some-hostname
 log file /etc/frr/frr.log informational
 log timestamp precision 3
+no ip forwarding
+no ipv6 forwarding
 service integrated-vtysh-config
 !
 router bgp 64500  <i class="conum" data-value="1"></i><b>(1)</b>
@@ -3131,10 +3131,10 @@ end</pre>
 </div>
 </li>
 <li>
-<p>Display the BGP summary:</p>
+<p>Display the BGP summary by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> metallb-system speaker-66bth <span class="nt">-c</span> frr <span class="nt">--</span> vtysh <span class="nt">-c</span> <span class="s2">"show bgp summary"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> metallb-system frr-k8s-thsmw <span class="nt">-c</span> frr <span class="nt">--</span> vtysh <span class="nt">-c</span> <span class="s2">"show bgp summary"</span></code></pre>
 </div>
 </div>
 <div class="listingblock">
@@ -3180,10 +3180,10 @@ Check network connectivity and the BGP configuration of the BGP peer.</td>
 </div>
 </li>
 <li>
-<p>Display the BGP peers that received an address pool:</p>
+<p>Display the BGP peers that received an address pool by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> metallb-system speaker-66bth <span class="nt">-c</span> frr <span class="nt">--</span> vtysh <span class="nt">-c</span> <span class="s2">"show bgp ipv4 unicast 203.0.113.200/30"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> metallb-system frr-k8s-thsmw <span class="nt">-c</span> frr <span class="nt">--</span> vtysh <span class="nt">-c</span> <span class="s2">"show bgp ipv4 unicast 203.0.113.200/30"</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
