@@ -3241,7 +3241,7 @@
 <li><a href="#nodes-nodes-working-master-schedulable_nodes-nodes-managing">Configuring control plane nodes as schedulable</a></li>
 <li><a href="#nodes-nodes-working-setting-booleans_nodes-nodes-managing">Setting SELinux booleans</a></li>
 <li><a href="#nodes-nodes-kernel-arguments_nodes-nodes-managing">Adding kernel arguments to nodes</a></li>
-<li><a href="#nodes-nodes-swap-memory_nodes-nodes-managing">Enabling swap memory use on nodes</a></li>
+<li><a href="#nodes-nodes-swap-memory_nodes-nodes-managing">Allowing swap memory use on nodes</a></li>
 <li><a href="#nodes-control-plane-osp-migrating_nodes-nodes-managing">Migrating control plane nodes from one RHOSP host to another manually</a></li>
 </ul>
 </div>
@@ -4142,8 +4142,11 @@ coreos.oem.id=qemu coreos.oem.id=ec2 ignition.platform.id=ec2 enforcing=0
 </div>
 </div>
 <div class="sect1">
-<h2 id="nodes-nodes-swap-memory_nodes-nodes-managing"><a class="anchor" href="#nodes-nodes-swap-memory_nodes-nodes-managing"></a>Enabling swap memory use on nodes</h2>
+<h2 id="nodes-nodes-swap-memory_nodes-nodes-managing"><a class="anchor" href="#nodes-nodes-swap-memory_nodes-nodes-managing"></a>Allowing swap memory use on nodes</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p>You can allow workloads on the cluster nodes to use swap memory.</p>
+</div>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -4152,7 +4155,7 @@ coreos.oem.id=qemu coreos.oem.id=ec2 ignition.platform.id=ec2 enforcing=0
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Enabling swap memory use on nodes is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+<p>Swap memory support on nodes is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
 </div>
 <div class="paragraph">
 <p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
@@ -4169,11 +4172,33 @@ coreos.oem.id=qemu coreos.oem.id=ec2 ignition.platform.id=ec2 enforcing=0
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Enabling swap memory is only available for container-native virtualization (CNV) users or use cases.</p>
+<p>Swap memory support is available only for container-native virtualization (CNV) users or use cases.</p>
 </div>
 </td>
 </tr>
 </table>
+</div>
+<div class="paragraph">
+<p>To allow swap memory usage on your nodes, create a <code>kubeletconfig</code> custom resource (CR) to set the <code>failSwapOn</code> parameter to <code>false</code>.</p>
+</div>
+<div class="paragraph">
+<p>Optionally, you can control swap memory usage by OpenShift Container Platform workloads on those nodes by setting the <code>swapBehavior</code> parameter to one of the following values:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>NoSwap</code> prevents OpenShift Container Platform worloads from using swap memory.</p>
+</li>
+<li>
+<p><code>LimitedSwap</code> allows OpenShift Container Platform workloads that fall under the Burstable QoS class to use swap memory.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Regardless of the <code>swapBehavior</code> setting, any workloads that are not managed by OpenShift Container Platform on that node can still use swap memory if the <code>failSwapOn</code> parameter is <code>false</code>.</p>
+</div>
+<div class="paragraph">
+<p>Because the kubelet will not start in the presence of swap memory without this configuration, you must allow swap memory in OpenShift Container Platform before enabling swap memory on the nodes. If there is no swap memory present on a node, enabling swap memory in OpenShift Container Platform has no effect.</p>
 </div>
 <div class="admonitionblock warning">
 <table>
@@ -4183,43 +4208,20 @@ coreos.oem.id=qemu coreos.oem.id=ec2 ignition.platform.id=ec2 enforcing=0
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Enabling swap memory can negatively impact workload performance and out-of-resource handling. Do not enable swap memory on control plane nodes.</p>
+<p>Using swap memory can negatively impact workload performance and out-of-resource handling. Do not enable swap memory on control plane nodes.</p>
 </div>
 </td>
 </tr>
 </table>
-</div>
-<div class="paragraph">
-<p>To enable swap memory, create a <code>kubeletconfig</code> custom resource (CR) to set the <code>swapbehavior</code> parameter. You can set limited or unlimited swap memory:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Limited: Use the <code>LimitedSwap</code> value to limit how much swap memory workloads can use. Any workloads on the node that are not managed by OpenShift Container Platform can still use swap memory. The <code>LimitedSwap</code> behavior depends on whether the node is running with Linux control groups <a href="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v1/index.html">version 1 (cgroups v1)</a> or <a href="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">version 2 (cgroup v2)</a>:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>cgroup v2: OpenShift Container Platform workloads can use any combination of memory and swap, up to the pod&#8217;s memory limit, if set.</p>
-</li>
-<li>
-<p>cgroup v1: OpenShift Container Platform workloads cannot use swap memory.</p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Unlimited: Use the <code>UnlimitedSwap</code> value to allow workloads to use as much swap memory as they request, up to the system limit.</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>Because the kubelet will not start in the presence of swap memory without this configuration, you must enable swap memory in OpenShift Container Platform before enabling swap memory on the nodes. If there is no swap memory present on a node, enabling swap memory in OpenShift Container Platform has no effect.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
 <p>You have a running OpenShift Container Platform cluster that uses version 4.10 or later.</p>
+</li>
+<li>
+<p>Your cluster is configured to use cgroup v2. Swap memory is not supported on nodes in clusters that use cgroup v1.</p>
 </li>
 <li>
 <p>You are logged in to the cluster as a user with administrative privileges.</p>
@@ -4240,9 +4242,6 @@ coreos.oem.id=qemu coreos.oem.id=ec2 ignition.platform.id=ec2 enforcing=0
 </tr>
 </table>
 </div>
-</li>
-<li>
-<p>If cgroup v2 is enabled on a node, you must enable swap accounting on the node, by setting the <code>swapaccount=1</code> kernel argument.</p>
 </li>
 </ul>
 </div>
@@ -4284,13 +4283,23 @@ coreos.oem.id=qemu coreos.oem.id=ec2 ignition.platform.id=ec2 enforcing=0
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify the swap memory behavior. If unspecified, the default is <code>LimitedSwap</code>.</td>
+<td>Optional: Specify the swap memory behavior for OpenShift Container Platform pods.
+<div class="ulist">
+<ul>
+<li>
+<p><code>NoSwap</code>: OpenShift Container Platform pods cannot use swap. This is the default.</p>
+</li>
+<li>
+<p><code>LimitedSwap</code>: OpenShift Container Platform pods of Burstable QoS class only are permitted to employ swap.</p>
+</li>
+</ul>
+</div></td>
 </tr>
 </table>
 </div>
 </li>
 <li>
-<p>Enable swap memory on the machines.</p>
+<p>Enable swap memory on the nodes by setting the <code>swapaccount=1</code> kernel argument and configure swap memory as needed.</p>
 </li>
 </ol>
 </div>
