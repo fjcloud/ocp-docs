@@ -2772,10 +2772,7 @@
 <div class="ulist">
 <ul>
 <li>
-<p>You must disable IPsec before updating to OKD 4.15. There is a known issue that can cause interruptions in pod-to-pod communication if you update without disabling IPsec. (<a href="https://issues.redhat.com/browse/OCPBUGS-43323"><strong>OCPBUGS-43323</strong></a>)</p>
-</li>
-<li>
-<p>On IBM Cloud&#174;, IPsec supports only NAT-T. Encapsulating Security Payload (ESP) is not supported on this platform.</p>
+<p>On IBM Cloud&#174;, IPsec supports only network address translation-traversal (NAT-T). Encapsulating Security Payload (ESP) is not supported on this platform.</p>
 </li>
 <li>
 <p>If your cluster uses <a href="https://www.redhat.com/en/topics/containers/what-are-hosted-control-planes">hosted control planes</a> for Red&#160;Hat OKD, IPsec is not supported for IPsec encryption of either pod-to-pod or traffic to external hosts.</p>
@@ -3076,7 +3073,7 @@
 <h2 id="nw-ovn-ipsec-enable_configuring-ipsec-ovn"><a class="anchor" href="#nw-ovn-ipsec-enable_configuring-ipsec-ovn"></a>Enabling IPsec encryption</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>As a cluster administrator, you can enable pod-to-pod IPsec encryption, IPsec encryption between the cluster, and external IPsec endpoints.</p>
+<p>As a cluster administrator you can enable pod-to-pod IPsec encryption between the cluster and external IPsec endpoints.</p>
 </div>
 <div class="paragraph">
 <p>You can configure IPsec in either of the following modes:</p>
@@ -3104,6 +3101,20 @@
 </td>
 </tr>
 </table>
+</div>
+<div class="paragraph">
+<p>If IPsec is enabled in <code>Full</code> mode, as a cluster administrator you can configure options for the mode by adding the <code>full</code> schema to <code>networks.operator.openshift.io</code>. The <code>full</code> schema supports the
+<code>encapsulation</code> parameter. You can use this parameter to configure network address translation-traversal (NAT-T) encapsulation for IPsec traffic. The <code>encapsulation</code> parameter supports the following values:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>Auto</code> is the default value and enables UDP encapsulation when <code>libreswan</code> detects network address translation (NAT) packets in traffic within a node.</p>
+</li>
+<li>
+<p><code>Always</code> enables UDP encapsulation for all traffic types available in a node. This option does not rely upon <code>libreswan</code> to detect NAT packets in a node.</p>
+</li>
+</ul>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3143,6 +3154,21 @@
 <td>Specify <code>External</code> to encrypt traffic to external hosts or specify <code>Full</code> to encrypt pod-to-pod traffic and, optionally, traffic to external hosts. By default, IPsec is disabled.</td>
 </tr>
 </table>
+</div>
+<div class="listingblock">
+<div class="title">Example configuration that has IPsec enabled in <code>Full</code> mode and <code>encapsulation</code> set to <code>Always</code></div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch networks.operator.openshift.io cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="se">\</span>
+  <span class="s1">'{
+</span><span class="go">  "spec":{
+    "defaultNetwork":{
+      "ovnKubernetesConfig":{
+        "ipsecConfig":{
+          "mode":"Full",
+          "full":{
+            "encapsulation": "Always"
+          }}}}}}'</span></code></pre>
+</div>
 </div>
 </li>
 <li>
@@ -3698,10 +3724,10 @@ done</span></code></pre>
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Install the OpenShift CLI (<code>oc</code>).</p>
+<p>You installed the OpenShift CLI (<code>oc</code>).</p>
 </li>
 <li>
-<p>Log in to the cluster with a user with <code>cluster-admin</code> privileges.</p>
+<p>You logged in to the cluster with a user with <code>cluster-admin</code> privileges.</p>
 </li>
 </ul>
 </div>
@@ -3709,11 +3735,15 @@ done</span></code></pre>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>To disable IPsec encryption, enter the following command:</p>
+<p>Choose one of the following options to disable IPsec encryption:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Where the <code>ipsecConfig.mode</code> parameter is set to either <code>External</code> or <code>Full</code> and the <code>ipsecConfig.full</code> schema is not added to <code>networks.operator.openshift.io</code>, enter the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch networks.operator.openshift.io cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
-<span class="nt">-p</span> <span class="s1">'{
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch networks.operator.openshift.io cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="se">\</span>
+  <span class="s1">'{
 </span><span class="go">  "spec":{
     "defaultNetwork":{
       "ovnKubernetesConfig":{
@@ -3724,7 +3754,20 @@ done</span></code></pre>
 </div>
 </li>
 <li>
-<p>Optional: You can increase the size of your cluster MTU by <code>46</code> bytes because there is no longer any overhead from the IPsec ESP header in IP packets.</p>
+<p>Where the <code>ipsecConfig.mode</code> parameter is set to <code>Full</code> and the <code>ipsecConfig.full</code> configuration is added to <code>networks.operator.openshift.io</code>, enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch networks.operator.openshift.io cluster <span class="nt">--type</span><span class="o">=</span><span class="s1">'json'</span> <span class="nt">-p</span> <span class="se">\</span>
+      <span class="s1">'[{"op": "remove", "path": "/spec/defaultNetwork/ovnKubernetesConfig/ipsecConfig/full"},
+</span><span class="go">      {"op": "replace", "path": "/spec/defaultNetwork/ovnKubernetesConfig/ipsecConfig/mode", "value": "Disabled"}]'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Optional: You can increase the size of your cluster MTU by <code>46</code> bytes because there is no longer any overhead from the IPsec Encapsulating Security Payload (ESP) header in IP packets.</p>
 </li>
 </ol>
 </div>
