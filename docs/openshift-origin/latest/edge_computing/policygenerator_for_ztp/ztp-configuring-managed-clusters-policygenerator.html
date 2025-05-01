@@ -2053,7 +2053,9 @@
                 <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-31-4-11"><span id="ssgSpan-31-4-11" class="fa fa-caret-right"></span>&nbsp;OADP and 3scale</a>
                   <ul id="topicSubSubGroup-31-4-11" class="nav-tertiary list-unstyled collapse">
 
-                    <li><a class="" href="../../backup_and_restore/application_backup_and_restore/oadp-3scale/backing-up-and-restoring-3scale-by-using-oadp.html" style="padding-left: 70px;">Backing up and restoring 3scale by using OADP</a></li>                  </ul>
+                    <li><a class="" href="../../backup_and_restore/application_backup_and_restore/oadp-3scale/backing-up-and-restoring-3scale-api-management-by-using-oadp.html" style="padding-left: 70px;">Backing up and restoring 3scale API Management by using OADP</a></li>
+                    <li><a class="" href="../../backup_and_restore/application_backup_and_restore/oadp-3scale/backing-up-3scale-api-management-by-using-oadp.html" style="padding-left: 70px;">Backing up 3scale API Management by using OADP</a></li>
+                    <li><a class="" href="../../backup_and_restore/application_backup_and_restore/oadp-3scale/restoring-3scale-api-management-by-using-oadp.html" style="padding-left: 70px;">Restoring 3scale API Management by using OADP</a></li>                  </ul>
                   </li>
 
                 <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-31-4-12"><span id="ssgSpan-31-4-12" class="fa fa-caret-right"></span>&nbsp;OADP Data Mover</a>
@@ -2743,6 +2745,7 @@
 <li><a href="#ztp-policygentemplates-for-ran_ztp-configuring-managed-clusters-policygenerator">PolicyGenerator CRs for RAN deployments</a></li>
 <li><a href="#ztp-customizing-a-managed-site-using-pgt_ztp-configuring-managed-clusters-policygenerator">Customizing a managed cluster with PolicyGenerator CRs</a></li>
 <li><a href="#ztp-monitoring-policy-deployment-progress_ztp-configuring-managed-clusters-policygenerator">Monitoring managed cluster policy deployment progress</a></li>
+<li><a href="#ztp-coordinating-reboots-for-config-changes_ztp-configuring-managed-clusters-policygenerator">Coordinating reboots for configuration changes</a></li>
 <li><a href="#ztp-validating-the-generation-of-configuration-policy-crs_ztp-configuring-managed-clusters-policygenerator">Validating the generation of configuration policy CRs</a></li>
 <li><a href="#ztp-restarting-policies-reconciliation_ztp-configuring-managed-clusters-policygenerator">Restarting policy reconciliation</a></li>
 <li><a href="#ztp-removing-content-from-managed-clusters_ztp-configuring-managed-clusters-policygenerator">Changing applied managed cluster CRs using policies</a></li>
@@ -3550,6 +3553,151 @@ ztp-site.example1-perf-policy                            inform               No
 </div>
 <div class="paragraph">
 <p>In the reference configuration, the final policy that becomes compliant is the one defined in the <code>*-du-validator-policy</code> policy. This policy, when compliant on a cluster, ensures that all cluster configuration, Operator installation, and Operator configuration is complete.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ztp-coordinating-reboots-for-config-changes_ztp-configuring-managed-clusters-policygenerator"><a class="anchor" href="#ztp-coordinating-reboots-for-config-changes_ztp-configuring-managed-clusters-policygenerator"></a>Coordinating reboots for configuration changes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can use Topology Aware Lifecycle Manager (TALM) to coordinate reboots across a fleet of spoke clusters when configuration changes require a reboot, such as deferred tuning changes. TALM reboots all nodes in the targeted <code>MachineConfigPool</code> on the selected clusters when the reboot policy is applied.</p>
+</div>
+<div class="paragraph">
+<p>Instead of rebooting nodes after each individual change, you can apply all configuration updates through policies and then trigger a single, coordinated reboot.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have logged in to the hub cluster as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have deployed and configured TALM.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Generate the configuration policies by creating a <code>PolicyGenerator</code> custom resource (CR). You can use one of the following sample manifests:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>out/argocd/example/acmpolicygenerator/acm-example-sno-reboot</code></p>
+</li>
+<li>
+<p><code>out/argocd/example/acmpolicygenerator/acm-example-multinode-reboot</code></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Update the <code>policyDefaults.placement.labelSelector</code> field in the <code>PolicyGenerator</code> CR to target the clusters that you want to reboot. Modify other fields as necessary for your use case.</p>
+<div class="paragraph">
+<p>If you are coordinating a reboot to apply a deferred tuning change, ensure the <code>MachineConfigPool</code> in the reboot policy matches the value specified in the <code>spec.recommend</code> field in the <code>Tuned</code> object.</p>
+</div>
+</li>
+<li>
+<p>Apply the <code>PolicyGenerator</code> CR to generate and apply the configuration policies. For detailed steps, see "Customizing a managed cluster with PolicyGenerator CRs".</p>
+</li>
+<li>
+<p>After ArgoCD completes syncing the policies, create and apply the <code>ClusterGroupUpgrade</code> (CGU) CR.</p>
+<div class="listingblock">
+<div class="title">Example CGU custom resource configuration</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ran.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterGroupUpgrade</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">reboot</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterLabelSelectors</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">matchLabels</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="c1"># ...</span>
+  <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">managedPolicies</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="pi">-</span> <span class="s">example-reboot</span>
+  <span class="na">remediationStrategy</span><span class="pi">:</span>
+    <span class="na">timeout</span><span class="pi">:</span> <span class="s">300</span> <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="na">maxConcurrency</span><span class="pi">:</span> <span class="m">10</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Configure the labels that match the clusters you want to reboot.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Add all required configuration policies before the reboot policy. TALM applies the configuration changes as specified in the policies, in the order they are listed.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specify the timeout in seconds for the entire upgrade across all selected clusters. Set this field by considering the worst-case scenario.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>After you apply the CGU custom resource, TALM rolls out the configuration policies in order. Once all policies are compliant, it applies the reboot policy and triggers a reboot of all nodes in the specified <code>MachineConfigPool</code>.</p>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Monitor the CGU rollout status.</p>
+<div class="paragraph">
+<p>You can monitor the rollout of the CGU custom resource on the hub by checking the status. Verify the successful rollout of the reboot by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">oc get cgu -A</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAMESPACE   NAME     AGE   STATE       DETAILS
+default     reboot   1d    Completed   All clusters are compliant with all the managed policies</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify successful reboot on a specific node.</p>
+<div class="paragraph">
+<p>To confirm that the reboot was successful on a specific node, check the status of the <code>MachineConfigPool</code> (MCP) for the node by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">oc get mcp master
+</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME     CONFIG                                             UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT   DEGRADEDMACHINECOUNT   AGE
+master   rendered-master-be5785c3b98eb7a1ec902fef2b81e865   True      False      False      3              3                   3                     0                      72d</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../edge_computing/policygenerator_for_ztp/ztp-configuring-managed-clusters-policygenerator.html#ztp-customizing-a-managed-site-using-pgt_ztp-configuring-managed-clusters-policygenerator">Customizing a managed cluster with PolicyGenerator CRs</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
