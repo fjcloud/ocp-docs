@@ -3194,7 +3194,7 @@ In either case, authentication details are contained in the <code>Secret</code> 
 <div class="sect2">
 <h3 id="configuring-alert-routing-default-platform-alerts_configuring-alerts-and-notifications"><a class="anchor" href="#configuring-alert-routing-default-platform-alerts_configuring-alerts-and-notifications"></a>Configuring alert routing for default platform alerts</h3>
 <div class="paragraph">
-<p>You can configure Alertmanager to send notifications. Customize where and how Alertmanager sends notifications about default platform alerts by editing the default configuration in the <code>alertmanager-main</code> secret in the <code>openshift-monitoring</code> namespace.</p>
+<p>You can configure Alertmanager to send notifications to receive important alerts coming from your cluster. Customize where and how Alertmanager sends notifications about default platform alerts by editing the default configuration in the <code>alertmanager-main</code> secret in the <code>openshift-monitoring</code> namespace.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3216,21 +3216,16 @@ In either case, authentication details are contained in the <code>Secret</code> 
 <li>
 <p>You have access to the cluster as a user with the <code>cluster-admin</code> cluster role.</p>
 </li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
 </ul>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Open the Alertmanager YAML configuration file:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>To open the Alertmanager configuration from the CLI:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Print the currently active Alertmanager configuration from the <code>alertmanager-main</code> secret into <code>alertmanager.yaml</code> file:</p>
+<p>Extract the currently active Alertmanager configuration from the <code>alertmanager-main</code> secret and save it as a local <code>alertmanager.yaml</code> file:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-monitoring get secret alertmanager-main <span class="nt">--template</span><span class="o">=</span><span class="s1">'{{ index .data "alertmanager.yaml" }}'</span> | <span class="nb">base64</span> <span class="nt">--decode</span> <span class="o">&gt;</span> alertmanager.yaml</code></pre>
@@ -3240,25 +3235,14 @@ In either case, authentication details are contained in the <code>Secret</code> 
 <li>
 <p>Open the <code>alertmanager.yaml</code> file.</p>
 </li>
-</ol>
-</div>
-</li>
 <li>
-<p>To open the Alertmanager configuration from the OKD web console:</p>
+<p>Edit the Alertmanager configuration:</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Go to the <strong>Administration</strong> &#8594; <strong>Cluster Settings</strong> &#8594; <strong>Configuration</strong> &#8594; <strong>Alertmanager</strong> &#8594; <strong>YAML</strong> page of the web console.</p>
-</li>
-</ol>
-</div>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Edit the Alertmanager configuration by updating parameters in the YAML:</p>
+<p>Optional: Change the default Alertmanager configuration:</p>
 <div class="listingblock">
+<div class="title">Example of the default Alertmanager secret YAML</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">global</span><span class="pi">:</span>
   <span class="na">resolve_timeout</span><span class="pi">:</span> <span class="s">5m</span>
@@ -3274,17 +3258,9 @@ In either case, authentication details are contained in the <code>Secret</code> 
     <span class="pi">-</span> <span class="s2">"</span><span class="s">alertname=Watchdog"</span>
     <span class="na">repeat_interval</span><span class="pi">:</span> <span class="s">2m</span>
     <span class="na">receiver</span><span class="pi">:</span> <span class="s">watchdog</span>
-  <span class="pi">-</span> <span class="na">matchers</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s2">"</span><span class="s">service=&lt;your_service&gt;"</span> <i class="conum" data-value="5"></i><b>(5)</b>
-    <span class="na">routes</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">matchers</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">&lt;your_matching_rules&gt;</span> <i class="conum" data-value="6"></i><b>(6)</b>
-      <span class="na">receiver</span><span class="pi">:</span> <span class="s">&lt;receiver&gt;</span> <i class="conum" data-value="7"></i><b>(7)</b>
 <span class="na">receivers</span><span class="pi">:</span>
 <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
-<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">watchdog</span>
-<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;receiver&gt;</span>
-  <span class="s">&lt;receiver_configuration&gt;</span> <i class="conum" data-value="8"></i><b>(8)</b></code></pre>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">watchdog</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -3307,70 +3283,118 @@ In either case, authentication details are contained in the <code>Secret</code> 
 If you want a notification to repeat at each group interval, set the <code>repeat_interval</code> value to less than the <code>group_interval</code> value.
 The repeated notification can still be delayed, for example, when certain Alertmanager pods are restarted or rescheduled.</td>
 </tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Specify the name of the service that fires the alerts.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Specify labels to match your alerts.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>Specify the name of the receiver to use for the alerts.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>Specify the receiver configuration.</td>
-</tr>
 </table>
 </div>
-<div class="admonitionblock important">
+</li>
+<li>
+<p>Add your alert receiver configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">receivers</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">watchdog</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;receiver&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="s">&lt;receiver_configuration&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
 <table>
 <tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="ulist">
-<ul>
-<li>
-<p>Use the <code>matchers</code> key name to indicate the matchers that an alert has to fulfill to match the node.
-Do not use the <code>match</code> or <code>match_re</code> key names, which are both deprecated and planned for removal in a future release.</p>
-</li>
-<li>
-<p>If you define inhibition rules, use the following key names:</p>
-<div class="openblock">
-<div class="content">
-<div class="ulist">
-<ul>
-<li>
-<p><code>target_matchers</code>: to indicate the target matchers</p>
-</li>
-<li>
-<p><code>source_matchers</code>: to indicate the source matchers</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="paragraph">
-<p>Do not use the <code>target_match</code>, <code>target_match_re</code>, <code>source_match</code>, or <code>source_match_re</code> key names, which are deprecated and planned for removal in a future release.</p>
-</div>
-</li>
-</ul>
-</div>
-</td>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of the receiver.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The receiver configuration. The supported receivers are PagerDuty, webhook, email, Slack, and Microsoft Teams.</td>
 </tr>
 </table>
 </div>
 <div class="listingblock">
-<div class="title">Example of Alertmanager configuration with PagerDuty as an alert receiver</div>
+<div class="title">Example of configuring PagerDuty as an alert receiver</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">global</span><span class="pi">:</span>
-  <span class="na">resolve_timeout</span><span class="pi">:</span> <span class="s">5m</span>
-  <span class="na">http_config</span><span class="pi">:</span>
-    <span class="na">proxy_from_environment</span><span class="pi">:</span> <span class="no">true</span>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">receivers</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">watchdog</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">team-frontend-page</span>
+  <span class="na">pagerduty_configs</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">routing_key</span><span class="pi">:</span> <span class="s">ABCD01234EFGHIJ56789</span>
+    <span class="na">http_config</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">proxy_from_environment</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">authorization</span><span class="pi">:</span>
+        <span class="na">credentials</span><span class="pi">:</span> <span class="s">xxxxxxxxxx</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Optional: Add custom HTTP configuration for a specific receiver. That receiver does not inherit the global HTTP configuration settings.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Add the routing configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">route</span><span class="pi">:</span>
+  <span class="na">group_wait</span><span class="pi">:</span> <span class="s">30s</span>
+  <span class="na">group_interval</span><span class="pi">:</span> <span class="s">5m</span>
+  <span class="na">repeat_interval</span><span class="pi">:</span> <span class="s">12h</span>
+  <span class="na">receiver</span><span class="pi">:</span> <span class="s">default</span>
+  <span class="na">routes</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">matchers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s2">"</span><span class="s">alertname=Watchdog"</span>
+    <span class="na">repeat_interval</span><span class="pi">:</span> <span class="s">2m</span>
+    <span class="na">receiver</span><span class="pi">:</span> <span class="s">watchdog</span>
+  <span class="pi">-</span> <span class="na">matchers</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="pi">-</span> <span class="s2">"</span><span class="s">&lt;your_matching_rules&gt;"</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="na">receiver</span><span class="pi">:</span> <span class="s">&lt;receiver&gt;</span> <i class="conum" data-value="3"></i><b>(3)</b>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Use the <code>matchers</code> key name to specify the matching rules that an alert has to fulfill to match the node.
+If you define inhibition rules, use <code>target_matchers</code> key name for target matchers and <code>source_matchers</code> key name for source matchers.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Specify labels to match your alerts.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specify the name of the receiver to use for the alerts.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not use the <code>match</code>, <code>match_re</code>, <code>target_match</code>, <code>target_match_re</code>, <code>source_match</code>, and <code>source_match_re</code> key names, which are deprecated and planned for removal in a future release.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="listingblock">
+<div class="title">Example of alert routing</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
 <span class="na">route</span><span class="pi">:</span>
   <span class="na">group_wait</span><span class="pi">:</span> <span class="s">30s</span>
   <span class="na">group_interval</span><span class="pi">:</span> <span class="s">5m</span>
@@ -3383,41 +3407,36 @@ Do not use the <code>match</code> or <code>match_re</code> key names, which are 
     <span class="na">receiver</span><span class="pi">:</span> <span class="s">watchdog</span>
   <span class="pi">-</span> <span class="na">matchers</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
     <span class="pi">-</span> <span class="s2">"</span><span class="s">service=example-app"</span>
-    <span class="na">routes</span><span class="pi">:</span>
+    <span class="na">routes</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
     <span class="pi">-</span> <span class="na">matchers</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="s2">"</span><span class="s">severity=critical"</span>
       <span class="na">receiver</span><span class="pi">:</span> <span class="s">team-frontend-page</span>
-<span class="na">receivers</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
-<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">watchdog</span>
-<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">team-frontend-page</span>
-  <span class="na">pagerduty_configs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">service_key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;your_key&gt;"</span>
-    <span class="na">http_config</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
-      <span class="na">proxy_from_environment</span><span class="pi">:</span> <span class="no">true</span>
-      <span class="na">authorization</span><span class="pi">:</span>
-        <span class="na">credentials</span><span class="pi">:</span> <span class="s">xxxxxxxxxx</span></code></pre>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Alerts of <code>critical</code> severity that are fired by the <code>example-app</code> service are sent through the <code>team-frontend-page</code> receiver. Typically, these types of alerts would be paged to an individual or a critical response team.</td>
+<td>This example matches alerts from the <code>example-app</code> service.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Custom HTTP configuration for a specific receiver. If you configure the custom HTTP configuration for a specific alert receiver, that receiver does not inherit the global HTTP config settings.</td>
+<td>You can create routes within other routes for more complex alert routing.</td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>The previous example routes alerts of <code>critical</code> severity that are fired by the <code>example-app</code> service to the <code>team-frontend-page</code> receiver. Typically, these types of alerts are paged to an individual or a critical response team.</p>
+</div>
+</li>
+</ol>
 </div>
 </li>
 <li>
 <p>Apply the new configuration in the file:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>To apply the changes from the CLI, run the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-monitoring create secret generic alertmanager-main <span class="nt">--from-file</span><span class="o">=</span>alertmanager.yaml <span class="nt">--dry-run</span><span class="o">=</span>client <span class="nt">-o</span><span class="o">=</span>yaml |  oc <span class="nt">-n</span> openshift-monitoring replace secret <span class="nt">--filename</span><span class="o">=</span>-</code></pre>
@@ -3425,9 +3444,22 @@ Do not use the <code>match</code> or <code>match_re</code> key names, which are 
 </div>
 </li>
 <li>
-<p>To apply the changes from the OKD web console, click <strong>Save</strong>.</p>
-</li>
-</ul>
+<p>Verify your routing configuration by visualizing the routing tree:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec </span>alertmanager-main-0 <span class="nt">-n</span> openshift-monitoring <span class="nt">--</span> amtool config routes show <span class="nt">--alertmanager</span>.url http://localhost:9093</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Routing tree:
+</span><span class="c">.
+</span><span class="go">└── default-route  receiver: default
+    ├── {alertname="Watchdog"}  receiver: Watchdog
+    └── {service="example-app"}  receiver: default
+        └── {severity="critical"}  receiver: team-frontend-page</span></code></pre>
+</div>
 </div>
 </li>
 </ol>
