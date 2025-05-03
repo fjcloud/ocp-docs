@@ -3519,22 +3519,70 @@ dynamic-low-latency-pod  1/1     Running   0          5h33m   10.131.0.10  cnf-w
 <h2 id="cnf-node-tuning-operator-creating-pod-with-guaranteed-qos-class_cnf-provisioning-low-latency"><a class="anchor" href="#cnf-node-tuning-operator-creating-pod-with-guaranteed-qos-class_cnf-provisioning-low-latency"></a>Creating a pod with a guaranteed QoS class</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Keep the following in mind when you create a pod that is given a QoS class of <code>Guaranteed</code>:</p>
+<p>You can create a pod with a quality of service (QoS) class of <code>Guaranteed</code> for high-performance workloads. Configuring a pod with a QoS class of <code>Guaranteed</code> ensures that the pod has priority access to the specified CPU and memory resources.</p>
+</div>
+<div class="paragraph">
+<p>To create a pod with a QoS class of <code>Guaranteed</code>, you must apply the following specifications:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Every container in the pod must have a memory limit and a memory request, and they must be the same.</p>
+<p>Set identical values for the memory limit and memory request fields for each container in the pod.</p>
 </li>
 <li>
-<p>Every container in the pod must have a CPU limit and a CPU request, and they must be the same.</p>
+<p>Set identical values for CPU limit and CPU request fields for each container in the pod.</p>
 </li>
 </ul>
 </div>
 <div class="paragraph">
-<p>The following example shows the configuration file for a pod that has one container. The container has a memory limit and a memory request, both equal to 200 MiB. The container has a CPU limit and a CPU request, both equal to 1 CPU.</p>
+<p>In general, a pod with a QoS class of <code>Guaranteed</code> will not be evicted from a node. One exception is during resource contention caused by system daemons exceeding reserved resources. In this scenario, the <code>kubelet</code> might evict pods to preserve node stability, starting with the lowest priority pods.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Access to the cluster as a user with the <code>cluster-admin</code> role</p>
+</li>
+<li>
+<p>The OpenShift CLI (<code>oc</code>)</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a namespace for the pod by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create namespace qos-example <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>This example uses the <code>qos-example</code> namespace.</td>
+</tr>
+</table>
 </div>
 <div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">namespace/qos-example created</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the <code>Pod</code> resource:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create a YAML file that defines the <code>Pod</code> resource:</p>
+<div class="openblock">
+<div class="content">
+<div class="listingblock">
+<div class="title">Example <code>qos-example.yaml</code> file</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
@@ -3548,47 +3596,41 @@ dynamic-low-latency-pod  1/1     Running   0          5h33m   10.131.0.10  cnf-w
       <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
   <span class="na">containers</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">qos-demo-ctr</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;image-pull-spec&gt;</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">quay.io/openshifttest/hello-openshift:openshift</span> <i class="conum" data-value="1"></i><b>(1)</b>
     <span class="na">resources</span><span class="pi">:</span>
       <span class="na">limits</span><span class="pi">:</span>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">200Mi"</span>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">200Mi"</span> <i class="conum" data-value="2"></i><b>(2)</b>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span> <i class="conum" data-value="3"></i><b>(3)</b>
       <span class="na">requests</span><span class="pi">:</span>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">200Mi"</span>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">200Mi"</span> <i class="conum" data-value="4"></i><b>(4)</b>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span> <i class="conum" data-value="5"></i><b>(5)</b>
     <span class="na">securityContext</span><span class="pi">:</span>
       <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
       <span class="na">capabilities</span><span class="pi">:</span>
         <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ALL</span><span class="pi">]</span></code></pre>
 </div>
 </div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>Create the pod:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc  apply <span class="nt">-f</span> qos-pod.yaml <span class="nt">--namespace</span><span class="o">=</span>qos-example</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>View detailed information about the pod:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pod qos-demo <span class="nt">--namespace</span><span class="o">=</span>qos-example <span class="nt">--output</span><span class="o">=</span>yaml</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
-  <span class="na">containers</span><span class="pi">:</span>
-    <span class="s">...</span>
-<span class="na">status</span><span class="pi">:</span>
-  <span class="na">qosClass</span><span class="pi">:</span> <span class="s">Guaranteed</span></code></pre>
-</div>
-</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>This example uses a public <code>hello-openshift</code> image.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Sets the memory limit to 200 MB.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Sets the CPU limit to 1 CPU.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Sets the memory request to 200 MB.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Sets the CPU request to 1 CPU.
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3602,9 +3644,50 @@ dynamic-low-latency-pod  1/1     Running   0          5h33m   10.131.0.10  cnf-w
 </td>
 </tr>
 </table>
+</div></td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Create the <code>Pod</code> resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> qos-example.yaml <span class="nt">--namespace</span><span class="o">=</span>qos-example</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">pod/qos-demo created</span></code></pre>
+</div>
 </div>
 </li>
 </ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>View the <code>qosClass</code> value for the pod by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pod qos-demo <span class="nt">--namespace</span><span class="o">=</span>qos-example <span class="nt">--output</span><span class="o">=</span>yaml | <span class="nb">grep </span>qosClass</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml">    <span class="na">qosClass</span><span class="pi">:</span> <span class="s">Guaranteed</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
 </div>
 </div>
 </div>
