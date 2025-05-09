@@ -1407,6 +1407,7 @@
 </li>
 <li><a href="#virt-mounting-windows-driver-disk-on-vm_virt-edit-vms">Mounting a Windows driver disk on a virtual machine</a></li>
 <li><a href="#virt-adding-secret-configmap-service-account-to-vm_virt-edit-vms">Adding a secret, config map, or service account to a virtual machine</a></li>
+<li><a href="#virt-updating-multiple-vms_virt-edit-vms">Updating multiple virtual machines</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -1914,6 +1915,119 @@
 </div>
 <div class="paragraph">
 <p>You can now mount the secret, config map, or service account as you would mount any other disk.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-updating-multiple-vms_virt-edit-vms"><a class="anchor" href="#virt-updating-multiple-vms_virt-edit-vms"></a>Updating multiple virtual machines</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can use the command line interface (CLI) to update multiple virtual machines (VMs) at the same time.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the <code>oc</code> CLI.</p>
+</li>
+<li>
+<p>You have access to the Red Hat OpenShift Service on AWS cluster, and you have <code>cluster-admin</code> permissions.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a privileged service account by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm new-project kubevirt-api-lifecycle-automation</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create sa kubevirt-api-lifecycle-automation <span class="nt">-n</span> kubevirt-api-lifecycle-automation</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create clusterrolebinding kubevirt-api-lifecycle-automation <span class="nt">--clusterrole</span><span class="o">=</span>cluster-admin <span class="nt">--serviceaccount</span><span class="o">=</span>kubevirt-api-lifecycle-automation:kubevirt-api-lifecycle-automation</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Determine the pull URL for the <code>kubevirt-api-lifecycle</code> image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get csv <span class="nt">-n</span> openshift-cnv <span class="nt">-l</span><span class="o">=</span>operators.coreos.com/kubevirt-hyperconverged.openshift-cnv <span class="nt">-ojson</span> | jq <span class="s1">'.items[0].spec.relatedImages[] | select(.name|test(".*kubevirt-api-lifecycle-automation.*")) | .image'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Deploy <code>Kubevirt-Api-Lifecycle-Automation</code> by creating a job object as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Job</span>
+<span class="na">metadata</span><span class="pi">:</span>
+ <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt-api-lifecycle-automation</span>
+ <span class="na">namespace</span><span class="pi">:</span> <span class="s">kubevirt-api-lifecycle-automation</span>
+<span class="na">spec</span><span class="pi">:</span>
+ <span class="na">template</span><span class="pi">:</span>
+  <span class="na">spec</span><span class="pi">:</span>
+   <span class="na">containers</span><span class="pi">:</span>
+   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt-api-lifecycle-automation</span>
+     <span class="na">image</span><span class="pi">:</span> <span class="s">quay.io/openshift-virtualization/kubevirt-api-lifecycle-automation:v4.19</span> <i class="conum" data-value="1"></i><b>(1)</b>
+     <span class="na">imagePullPolicy</span><span class="pi">:</span> <span class="s">Always</span>
+     <span class="na">env</span><span class="pi">:</span>
+     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">MACHINE_TYPE_GLOB</span> <i class="conum" data-value="2"></i><b>(2)</b>
+       <span class="na">value</span><span class="pi">:</span> <span class="s">smth-glob9.10.0</span>
+     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">RESTART_REQUIRED</span> <i class="conum" data-value="3"></i><b>(3)</b>
+       <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">NAMESPACE</span> <i class="conum" data-value="4"></i><b>(4)</b>
+       <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">default"</span>
+     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">LABEL_SELECTOR</span> <i class="conum" data-value="5"></i><b>(5)</b>
+       <span class="na">value</span><span class="pi">:</span> <span class="s">my-vm</span>
+     <span class="na">securityContext</span><span class="pi">:</span>
+      <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">capabilities</span><span class="pi">:</span>
+       <span class="na">drop</span><span class="pi">:</span>
+       <span class="pi">-</span> <span class="s">ALL</span>
+      <span class="na">privileged</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">seccompProfile</span><span class="pi">:</span>
+       <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+   <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Never</span>
+   <span class="na">serviceAccountName</span><span class="pi">:</span> <span class="s">kubevirt-api-lifecycle-automation</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace the image value with your pull URL for the image.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Replace the <code>MACHINE_TYPE_GLOB</code> value with your own pattern. This pattern is used to detect deprecated machine types that need to be upgraded.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>If the <code>RESTART_REQUIRED</code> emvironment variable is set to <code>true</code>, VMs are restarted after the machine type is updated. If you do not want VMs to be restarted, set the value to <code>false</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>The <code>namespace</code> environment value indicates the namespace to look for VMs in. Leave the parameter empty for the job to go over all namespaces in the cluster.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>You can use the <code>LABEL_SELECTOR</code> environment variable to select VMs that receive the job action. If you want the job to go over all VMs in the cluster, do not assign a value to the parameter.</td>
+</tr>
+</table>
 </div>
 <h3 id="additional-resources-configmaps" class="discrete _additional-resources">Additional resources for config maps, secrets, and service accounts</h3>
 <div class="ulist">
