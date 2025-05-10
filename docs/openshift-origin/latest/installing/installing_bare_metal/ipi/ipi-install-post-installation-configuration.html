@@ -978,7 +978,8 @@
                   <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-service-external-ip.html">Configuring ingress cluster traffic using a service external IP</a></li>
                   <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-nodeport.html">Configuring ingress cluster traffic using a NodePort</a></li>
                   <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-load-balancer-allowed-source-ranges.html">Configuring ingress cluster traffic using load balancer allowed source ranges</a></li>
-                  <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-patch-fields.html">Patching existing ingress objects</a></li>              </ul>
+                  <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-patch-fields.html">Patching existing ingress objects</a></li>
+                  <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/allocating-load-balancers.html">Allocating load balancers to specific subnets</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-12-20"><span id="sgSpan-12-20" class="fa fa-caret-right"></span>&nbsp;Kubernetes NMState</a>
               <ul id="topicSubGroup-12-20" class="nav-tertiary list-unstyled collapse">
@@ -2765,6 +2766,7 @@
 <li><a href="#bmo-editing-a-baremetalhost-resource_ipi-install-post-installation-configuration">Editing a BareMetalHost resource</a></li>
 <li><a href="#ipi-install-troubleshooothing-latency-when-deleting-a-baremetalhost-resource_ipi-install-post-installation-configuration">Troubleshooting latency when deleting a BareMetalHost resource</a></li>
 <li><a href="#bmo-attaching-a-non-bootable-iso-to-a-bare-metal-node_ipi-install-post-installation-configuration">Attaching a non-bootable ISO to a bare-metal node</a></li>
+<li><a href="#bmo-configuring-ncsi-disable-poweroff_ipi-install-post-installation-configuration">Configuring NC-SI and DisablePowerOff for shared NICs</a></li>
 <li><a href="#bmo-about-the-hostfirmwaresettings-resource_ipi-install-post-installation-configuration">About the HostFirmwareSettings resource</a></li>
 <li><a href="#bmo-getting-the-hostfirmwaresettings-resource_ipi-install-post-installation-configuration">Getting the HostFirmwareSettings resource</a></li>
 <li><a href="#bmo-editing-the-hostfirmwaresettings-resource-of-a-provisioned-host_ipi-install-post-installation-configuration">Editing the HostFirmwareSettings resource of a provisioned host</a></li>
@@ -5062,6 +5064,113 @@ x-frame-options: DENY
 </div>
 </li>
 </ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="bmo-configuring-ncsi-disable-poweroff_ipi-install-post-installation-configuration"><a class="anchor" href="#bmo-configuring-ncsi-disable-poweroff_ipi-install-post-installation-configuration"></a>Configuring NC-SI and DisablePowerOff for shared NICs</h3>
+<div class="paragraph">
+<p>The Network Controller Sideband Interface (NC-SI) enables the Baseboard Management Controller (BMC) to share a system network interface card (NIC) with the host for management traffic, using protocols like Redfish, IPMI, or vendor-specific interfaces. The <code>DisablePowerOff</code> feature prevents hard power-offs, ensuring soft reboots to maintain BMC connectivity.</p>
+</div>
+<div class="paragraph">
+<p><strong>Prerequisites</strong></p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>NC-SI-capable hardware and NICs.</p>
+</li>
+<li>
+<p>BMC configured with an IP address and network connection.</p>
+</li>
+<li>
+<p>Administrative access to the BMC.</p>
+</li>
+<li>
+<p>Access to the OpenShift cluster with <code>cluster-admin</code> privileges.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><strong>Procedure</strong></p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Configure the BMC to enable NC-SI for a shared NIC.</p>
+</li>
+<li>
+<p>Verify BMC connectivity using Redfish or IPMI by running one of the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-k</span> https://&lt;bmc_ip&gt;/redfish/v1/Systems/1</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ipmitool <span class="nt">-I</span> lanplus <span class="nt">-H</span> &lt;bmc_ip&gt; <span class="nt">-U</span> &lt;user&gt; <span class="nt">-P</span> &lt;pass&gt; power status</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable the <code>DisablePowerOff</code> feature by editing the <code>BareMetalHost</code> resource in the <code>openshift-machine-api</code> namespace:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">metal3.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">BareMetalHost</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">example-host</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">online</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">bmc</span><span class="pi">:</span>
+    <span class="na">address</span><span class="pi">:</span> <span class="s">&lt;protocol&gt;://&lt;bmc_ip&gt;/&lt;bmc_address_format&gt;</span>
+    <span class="na">credentialsName</span><span class="pi">:</span> <span class="s">bmc-secret</span>
+  <span class="na">disablePowerOff</span><span class="pi">:</span> <span class="no">true</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>See the "BMC addressing" sections for details on supported protocols and BMC address formats.</p>
+</div>
+</li>
+<li>
+<p>Apply the changes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;filename&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Check the <code>BareMetalHost</code> status by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get baremetalhost example-host <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Confirm that <code>disablePowerOff: true</code> is in the <code>spec</code> section.</p>
+</div>
+</li>
+<li>
+<p>Test a reboot by restarting a node pod and verify that BMC connectivity remains active.</p>
+</li>
+<li>
+<p>Attempt to set <code>BareMetalHost.spec.online=false</code>. It should fail with an error indicating power-off is disabled.</p>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../installing/installing_bare_metal/ipi/ipi-install-installation-workflow.html#bmc-addressing_ipi-install-installation-workflow">BMC addressing</a></p>
+</li>
+</ul>
 </div>
 </div>
 <div class="sect2">

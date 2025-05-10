@@ -978,7 +978,8 @@
                   <li><a class="" href="../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-service-external-ip.html">Configuring ingress cluster traffic using a service external IP</a></li>
                   <li><a class="" href="../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-nodeport.html">Configuring ingress cluster traffic using a NodePort</a></li>
                   <li><a class="" href="../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-load-balancer-allowed-source-ranges.html">Configuring ingress cluster traffic using load balancer allowed source ranges</a></li>
-                  <li><a class="" href="../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-patch-fields.html">Patching existing ingress objects</a></li>              </ul>
+                  <li><a class="" href="../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-patch-fields.html">Patching existing ingress objects</a></li>
+                  <li><a class="" href="../../networking/configuring_ingress_cluster_traffic/allocating-load-balancers.html">Allocating load balancers to specific subnets</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-12-20"><span id="sgSpan-12-20" class="fa fa-caret-right"></span>&nbsp;Kubernetes NMState</a>
               <ul id="topicSubGroup-12-20" class="nav-tertiary list-unstyled collapse">
@@ -2749,78 +2750,202 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#nodes-containers-dev-fuse-configuring_nodes-containers-dev-fuse">Configuring /dev/fuse on unprivileged pods</a></li>
+<li><a href="#nodes-containers-dev-fuse-configuring_nodes-containers-dev-fuse">Configuring /dev/fuse for unprivileged builds in pods</a></li>
 </ul>
 </div>
 <div class="paragraph">
-<p>You can configure your pods with the <code>/dev/fuse</code> device to access faster builds.</p>
+<p>You can configure your pods with the <code>/dev/fuse</code> device to enable faster and more efficient container image builds, particularly for unprivileged users. This device allows unprivileged pods to mount overlay filesystems, which can be leveraged by tools like Podman.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="nodes-containers-dev-fuse-configuring_nodes-containers-dev-fuse"><a class="anchor" href="#nodes-containers-dev-fuse-configuring_nodes-containers-dev-fuse"></a>Configuring /dev/fuse on unprivileged pods</h2>
+<h2 id="nodes-containers-dev-fuse-configuring_nodes-containers-dev-fuse"><a class="anchor" href="#nodes-containers-dev-fuse-configuring_nodes-containers-dev-fuse"></a>Configuring /dev/fuse for unprivileged builds in pods</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>As an alternative to the virtual filesystem, you can configure the <code>/dev/fuse</code> device to the <code>io.kubernetes.cri-o.Devices</code> annotation to access faster builds within unprivileged pods. Using <code>/dev/fuse</code> is secure, efficient, and scalable, and allows unprivileged users to mount an overlay filesystem as if the unprivileged pod was privileged.</p>
+<p>By exposing the <code>/dev/fuse</code> device to an unprivileged pod, you grant it the capability to perform Filesystem in Userspace (FUSE) mounts. This is achieved by adding the <code>io.kubernetes.cri-o.Devices: "/dev/fuse"</code> annotation to your pod definition. This setup allows an unprivileged user within the pod to use tools like <code>podman</code> with storage drivers such as <code>fuse-overlayfs</code> by mimicking privileged build capabilities in a secure and efficient manner without granting full privileged access to the pod.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create the pod.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-ti</span> no-priv <span class="nt">--</span> /bin/bash</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&gt;&gt;</span> Dockerfile <span class="o">&lt;&lt;</span><span class="no">EOF</span><span class="sh">
-</span><span class="go">FROM registry.access.redhat.com/ubi9
-EOF</span></code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>podman build .</code></pre>
-</div>
-</div>
-</li>
+<p>Define the pod with <code>/dev/fuse</code> access:</p>
+<div class="ulist">
+<ul>
 <li>
-<p>Implement <code>/dev/fuse</code> by adding the <code>/dev/fuse</code> device to the <code>io.kubernetes.cri-o.Devices</code> annotation.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="s">io.kubernetes.cri-o.Devices</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/dev/fuse"</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>For example:</p>
-</div>
+<p>Create a YAML file named <code>fuse-builder-pod.yaml</code> with the following content:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
 <span class="na">metadata</span><span class="pi">:</span>
-<span class="s">  name</span><span class="pi">:</span> <span class="s">podman-pod</span>
-<span class="s">  annotations</span><span class="pi">:</span>
-<span class="s">    io.kubernetes.cri-o.Devices</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/dev/fuse"</span></code></pre>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">fuse-builder-pod</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">io.kubernetes.cri-o.Devices</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/dev/fuse"</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">build-container</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">quay.io/podman/stable</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">/bin/sh"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">-c"</span><span class="pi">]</span>
+    <span class="na">args</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">echo</span><span class="nv"> </span><span class="s">'Container</span><span class="nv"> </span><span class="s">is</span><span class="nv"> </span><span class="s">running.</span><span class="nv"> </span><span class="s">Use</span><span class="nv"> </span><span class="s">oc</span><span class="nv"> </span><span class="s">exec</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">get</span><span class="nv"> </span><span class="s">a</span><span class="nv"> </span><span class="s">shell.';</span><span class="nv"> </span><span class="s">sleep</span><span class="nv"> </span><span class="s">infinity"</span><span class="pi">]</span> <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="na">securityContext</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+      <span class="na">runAsUser</span><span class="pi">:</span> <span class="s">1000</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The <code>io.kubernetes.cri-o.Devices: "/dev/fuse"</code> annotation makes the FUSE device available.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>This annotation specifies a container that uses an image that includes <code>podman</code> (for example, <code>quay.io/podman/stable</code>).</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>This command keeps the container running so you can <code>exec</code> into it.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>This annotation specifies a <code>securityContext</code> that runs the container as an unprivileged user (for example, <code>runAsUser: 1000</code>).
+*</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Depending on your cluster&#8217;s Security Context Constraints (SCCs) or other policies, you might need to further adjust the <code>securityContext</code> specification, for example, by allowing specific capabilities if <code>/dev/fuse</code> alone is not sufficient for <code>fuse-overlayfs</code> to operate.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create the pod  by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> fuse-builder-pod.yaml</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Verify that the pod is running:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods fuse-builder-pod</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Configure the <code>/dev/fuse</code> device in your pod specifications.</p>
+<p>Access the pod and prepare the build environment:</p>
+<div class="paragraph">
+<p>After the <code>fuse-builder-pod</code> pod is in the <code>Running</code> state, open a shell session into the <code>build-container</code> environment:</p>
+</div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
-<span class="s">  containers</span><span class="pi">:</span>
-<span class="s">  - name</span><span class="pi">:</span> <span class="s">podman-container</span>
-<span class="s">    image</span><span class="pi">:</span> <span class="s">quay.io/podman/stable</span>
-<span class="s">    args</span><span class="pi">:</span>
-<span class="s">    - sleep</span>
-<span class="s">    - "1000000"</span>
-<span class="s">    securityContext</span><span class="pi">:</span>
-<span class="s">      runAsUser</span><span class="pi">:</span> <span class="s">1000</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-ti</span> fuse-builder-pod <span class="nt">--</span> /bin/bash</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>You are now inside the container. Because the default working directory might not be writable by the unprivileged user, change to a writable directory like <code>/tmp</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cd</span> /tmp
+<span class="gp">$</span><span class="w"> </span><span class="nb">pwd</span>
+<span class="go">/tmp</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a dockerfile and build an image using Podman:</p>
+<div class="paragraph">
+<p>Inside the pod&#8217;s shell and within the <code>/tmp</code> directory, you can now create a <code>Dockerfile</code> and use <code>podman</code> to build a container image. If <code>fuse-overlayfs</code> is the default or configured storage driver, Podman is able to leverage <code>fuse-overlayfs</code> because of the available <code>/dev/fuse</code> device.</p>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create a sample <code>Dockerfile</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&gt;</span> Dockerfile <span class="o">&lt;&lt;</span><span class="no">EOF</span><span class="sh">
+</span><span class="go">FROM registry.access.redhat.com/ubi9/ubi-minimal
+RUN microdnf install -y findutils &amp;&amp; microdnf clean all
+</span><span class="gp">RUN echo "This image was built inside a pod with /dev/fuse by user $</span><span class="o">(</span><span class="nb">id</span> <span class="nt">-u</span><span class="o">)</span><span class="s2">" &gt; /app/build_info.txt
+</span><span class="go">COPY Dockerfile /app/Dockerfile_copied
+WORKDIR /app
+CMD ["sh", "-c", "cat /app/build_info.txt &amp;&amp; echo '--- Copied Dockerfile ---' &amp;&amp; cat /app/Dockerfile_copied"]
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Build the image using <code>podman</code>. The <code>-t</code> flag tags the image:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>podman build <span class="nt">-t</span> my-fuse-built-image:latest .</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You should see Podman executing the build steps.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Optional: Test the built image:</p>
+<div class="paragraph">
+<p>Still inside the <code>fuse-builder-pod</code>, you can run a container from the image you just built to test it:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>podman run <span class="nt">--rm</span> my-fuse-built-image:latest</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This should output the content of the <code>/app/build_info.txt</code> file and the copied Dockerfile.</p>
+</div>
+</li>
+<li>
+<p>Exit the pod and clean up:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>After you are done, exit the shell session in the pod:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">exit</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>You can then delete the pod if it&#8217;s no longer needed:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete pod fuse-builder-pod</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Remove the local YAML file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">rm </span>fuse-builder-pod.yaml</code></pre>
+</div>
+</div>
+</li>
+</ul>
 </div>
 </li>
 </ol>
