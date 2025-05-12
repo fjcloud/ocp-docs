@@ -2755,6 +2755,7 @@
 <ul class="sectlevel2">
 <li><a href="#virt-creating-linux-bridge-nad-web_virt-connecting-vm-to-linux-bridge">Creating a Linux bridge NAD by using the web console</a></li>
 <li><a href="#virt-creating-linux-bridge-nad-cli_virt-connecting-vm-to-linux-bridge">Creating a Linux bridge NAD by using the command line</a></li>
+<li><a href="#virt-linux-bridge-nad-port-isolation.adoc_virt-connecting-vm-to-linux-bridge">Enabling port isolation for a Linux bridge NAD</a></li>
 </ul>
 </li>
 <li><a href="#configuring-vm-network-interface">Configuring a VM network interface</a>
@@ -3091,6 +3092,96 @@
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get network-attachment-definition bridge-network</code></pre>
 </div>
 </div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="virt-linux-bridge-nad-port-isolation.adoc_virt-connecting-vm-to-linux-bridge"><a class="anchor" href="#virt-linux-bridge-nad-port-isolation.adoc_virt-connecting-vm-to-linux-bridge"></a>Enabling port isolation for a Linux bridge NAD</h3>
+<div class="paragraph">
+<p>You can enable port isolation for a Linux bridge network attachment definition (NAD) so that virtual machines (VMs) or pods that run on the same virtual LAN (VLAN) can operate in isolation from one another. The Linux bridge NAD creates a virtual bridge, or <em>virtual switch</em>, between network interfaces and the physical network.</p>
+</div>
+<div class="paragraph">
+<p>Isolating ports in this way can provide enhanced security for VM workloads that run on the same node.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>For VMs, you configured either a static or dynamic IP address for each VM. See "Configuring IP addresses for virtual machines".</p>
+</li>
+<li>
+<p>You created a Linux bridge NAD by using either the web console or the command-line interface.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the Linux bridge NAD by setting <code>portIsolation</code> to <code>true</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">k8s.cni.cncf.io/v1"</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkAttachmentDefinition</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">bridge-network</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">k8s.v1.cni.cncf.io/resourceName</span><span class="pi">:</span> <span class="s">bridge.network.kubevirt.io/br1</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">{</span>
+      <span class="s">"cniVersion": "0.3.1",</span>
+      <span class="s">"name": "bridge-network", </span><i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="s">"type": "bridge", </span><i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="s">"bridge": "br1", </span><i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="s">"preserveDefaultVlan": false,</span>
+      <span class="s">"vlan": 100,</span>
+      <span class="s">"disableContainerInterface": false,</span>
+      <span class="s">"portIsolation": true </span><i class="conum" data-value="4"></i><b>(4)</b>
+    <span class="s">}</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name for the configuration. The name must match the the value in the <code>metadata.name</code> of the NAD.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The actual name of the Container Network Interface (CNI) plugin that provides the network for this network attachment definition. Do not change this field unless you want to use a different CNI.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The name of the Linux bridge that is configured on the node. The name must match the interface bridge name defined in the NodeNetworkConfigurationPolicy manifest.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Enables or disables port isolation on the virtual bridge. Default value is <code>false</code>. When set to <code>true</code>, each VM or pod is assigned to an isolated port. The virtual bridge prevents traffic from one isolated port from reaching another isolated port.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Apply the configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> example-vm.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: If you edited a running virtual machine, you must restart it for the changes to take effect.</p>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../virt/vm_networking/virt-configuring-viewing-ips-for-vms.html#configuring-ips_virt-configuring-viewing-ips-for-vms">Configuring IP addresses for virtual machines</a></p>
 </li>
 </ul>
 </div>
