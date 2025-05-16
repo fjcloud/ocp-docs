@@ -2765,6 +2765,7 @@
 </li>
 <li><a href="#hcp-virt-attach-nvidia-gpus_hcp-manage-virt">Attaching NVIDIA GPU devices by using the hcp CLI</a></li>
 <li><a href="#hcp-virt-attach-nvidia-gpus-np-api_hcp-manage-virt">Attaching NVIDIA GPU devices by using the NodePool resource</a></li>
+<li><a href="#hcp-topology-spread-constraint_hcp-manage-virt">Spreading node pool VMs by using topologySpreadConstraint</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -3751,6 +3752,86 @@
 </li>
 </ul>
 </div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-topology-spread-constraint_hcp-manage-virt"><a class="anchor" href="#hcp-topology-spread-constraint_hcp-manage-virt"></a>Spreading node pool VMs by using topologySpreadConstraint</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>By default, KubeVirt virtual machines (VMs) created by a node pool are scheduled on any available nodes that have the capacity to run the VMs. By default, the <code>topologySpreadConstraint</code> constraint is set to schedule VMs on multiple nodes.</p>
+</div>
+<div class="paragraph">
+<p>In some scenarios, node pool VMs might run on the same node, which can cause availability issues. To avoid distribution of VMs on a single node, use the descheduler to continuously honor the <code>topologySpreadConstraint</code> constraint to spread VMs on multiple nodes.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the Kube Descheduler Operator. For more information, see "Installing the descheduler".</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Open the <code>KubeDescheduler</code> custom resource (CR) by entering the following command, and then modify the <code>KubeDescheduler</code> CR to use the <code>SoftTopologyAndDuplicates</code> and <code>DevKubeVirtRelieveAndMigrate</code> profiles so that you maintain the <code>topologySpreadConstraint</code> constraint settings.</p>
+<div class="paragraph">
+<p>The <code>KubeDescheduler</code> CR named <code>cluster</code> runs in the <code>openshift-kube-descheduler-operator</code> namespace.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit kubedescheduler cluster <span class="nt">-n</span> openshift-kube-descheduler-operator</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>KubeDescheduler</code> configuration</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KubeDescheduler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-kube-descheduler-operator</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">mode</span><span class="pi">:</span> <span class="s">Automatic</span>
+  <span class="na">managementState</span><span class="pi">:</span> <span class="s">Managed</span>
+  <span class="na">deschedulingIntervalSeconds</span><span class="pi">:</span> <span class="s">30</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">profiles</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">SoftTopologyAndDuplicates</span>   <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="pi">-</span> <span class="s">DevKubeVirtRelieveAndMigrate</span>          <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">profileCustomizations</span><span class="pi">:</span>
+    <span class="na">devDeviationThresholds</span><span class="pi">:</span> <span class="s">AsymmetricLow</span>
+    <span class="na">devActualUtilizationProfile</span><span class="pi">:</span> <span class="s">PrometheusCPUCombined</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Sets the number of seconds between the descheduler running cycles.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>This profile evicts pods that follow the soft topology constraint: <code>whenUnsatisfiable: ScheduleAnyway</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>This profile balances resource usage between nodes and enables the strategies, such as <code>RemovePodsHavingTooManyRestarts</code> and <code>LowNodeUtilization</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../nodes/scheduling/descheduler/nodes-descheduler-configuring.html#nodes-descheduler-installing_virt-enabling-descheduler-evictions">Installing the descheduler</a></p>
 </li>
 </ul>
 </div>

@@ -2753,6 +2753,12 @@
 <li><a href="#hcp-labels-taints_hcp-distribute-workloads">Labeling management cluster nodes</a></li>
 <li><a href="#hcp-priority-classes_hcp-distribute-workloads">Priority classes</a></li>
 <li><a href="#hcp-virt-taints-tolerations_hcp-distribute-workloads">Custom taints and tolerations</a></li>
+<li><a href="#hcp-isolation_hcp-distribute-workloads">Control plane isolation</a>
+<ul class="sectlevel2">
+<li><a href="#network-policy-isolation">Network policy isolation</a></li>
+<li><a href="#control-plane-pod-isolation">Control plane pod isolation</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <div class="paragraph">
@@ -2761,12 +2767,31 @@
 <div class="ulist">
 <ul>
 <li>
-<p>To ensure high availability and proper workload deployment. For example, you can set the <code>node-role.kubernetes.io/infra</code> label to avoid having the control-plane workload count toward your OKD subscription.</p>
+<p>To ensure high availability and proper workload deployment. For example, to avoid having the control plane workload count toward your OKD subscription, you can set the <code>node-role.kubernetes.io/infra</code> label.</p>
 </li>
 <li>
 <p>To ensure that control plane workloads are separate from other workloads in the management cluster.</p>
 </li>
+<li>
+<p>To ensure that control plane workloads are configured at the correct multi-tenancy distribution level for your deployment. The distribution levels are as follows:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Everything shared: Control planes for hosted clusters can run on any node that is designated for control planes.</p>
+</li>
+<li>
+<p>Request serving isolation: Serving pods are requested in their own dedicated nodes.</p>
+</li>
+<li>
+<p>Nothing shared: Every control plane has its own dedicated nodes.</p>
+</li>
 </ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about dedicating a node to a single hosted cluster, see "Labeling management cluster nodes".</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -2919,6 +2944,95 @@
 </div>
 <div class="paragraph">
 <p>Tolerations on the hosted cluster spread only to the pods of the control plane. To configure other pods that run on the management cluster and infrastructure-related pods, such as the pods to run virtual machines, you need to use a different process.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-isolation_hcp-distribute-workloads"><a class="anchor" href="#hcp-isolation_hcp-distribute-workloads"></a>Control plane isolation</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can configure hosted control planes to isolate network traffic or control plane pods.</p>
+</div>
+<div class="sect2">
+<h3 id="network-policy-isolation"><a class="anchor" href="#network-policy-isolation"></a>Network policy isolation</h3>
+<div class="paragraph">
+<p>Each hosted control plane is assigned to run in a dedicated Kubernetes namespace. By default, the Kubernetes namespace denies all network traffic.</p>
+</div>
+<div class="paragraph">
+<p>The following network traffic is allowed through the network policy that is enforced by the Kubernetes Container Network Interface (CNI):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Ingress pod-to-pod communication in the same namespace (intra-tenant)</p>
+</li>
+<li>
+<p>Ingress on port 6443 to the hosted <code>kube-apiserver</code> pod for the tenant</p>
+</li>
+<li>
+<p>Metric scraping from the management cluster Kubernetes namespace with the <code>network.openshift.io/policy-group: monitoring</code> label is allowed for monitoring</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="control-plane-pod-isolation"><a class="anchor" href="#control-plane-pod-isolation"></a>Control plane pod isolation</h3>
+<div class="paragraph">
+<p>In addition to network policies, each hosted control plane pod is run with the <code>restricted</code> security context constraint. This policy denies access to all host features and requires pods to be run with a UID and with SELinux context that is allocated uniquely to each namespace that hosts a customer control plane.</p>
+</div>
+<div class="paragraph">
+<p>The policy ensures the following constraints:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Pods cannot run as privileged.</p>
+</li>
+<li>
+<p>Pods cannot mount host directory volumes.</p>
+</li>
+<li>
+<p>Pods must run as a user in a pre-allocated range of UIDs.</p>
+</li>
+<li>
+<p>Pods must run with a pre-allocated MCS label.</p>
+</li>
+<li>
+<p>Pods cannot access the host network namespace.</p>
+</li>
+<li>
+<p>Pods cannot expose host network ports.</p>
+</li>
+<li>
+<p>Pods cannot access the host PID namespace.</p>
+</li>
+<li>
+<p>By default, pods drop the following Linux capabilities: <code>KILL</code>, <code>MKNOD</code>, <code>SETUID</code>, and <code>SETGID</code>.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The management components, such as <code>kubelet</code> and <code>crio</code>, on each management cluster worker node are protected by an SELinux label that is not accessible to the SELinux context for pods that support hosted control planes.</p>
+</div>
+<div class="paragraph">
+<p>The following SELinux labels are used for key processes and sockets:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>kubelet</strong>: <code>system_u:system_r:unconfined_service_t:s0</code></p>
+</li>
+<li>
+<p><strong>crio</strong>: <code>system_u:system_r:container_runtime_t:s0</code></p>
+</li>
+<li>
+<p><strong>crio.sock</strong>: <code>system_u:object_r:container_var_run_t:s0</code></p>
+</li>
+<li>
+<p><strong>&lt;example user container processes&gt;</strong>: <code>system_u:system_r:container_t:s0:c14,c24</code></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
