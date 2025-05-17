@@ -3260,7 +3260,12 @@
 </ul>
 </li>
 <li><a href="#installation-user-infra-generate-k8s-manifest-ignition_installing-ibm-z-lpar">Creating the Kubernetes manifest and Ignition config files</a></li>
+<li><a href="#configuring-boot-volume-encryption-ibm-z-linuxone-environment_installing-ibm-z-lpar">Configuring boot volume encryption in an IBM Z or IBM LinuxONE environment</a>
+<ul class="sectlevel2">
+<li><a href="#configuring-luks-encryption-via-cex-ibm-z-linuxone-environment_installing-ibm-z-lpar">LUKS encryption via CEX in an IBM Z or IBM LinuxONE environment</a></li>
 <li><a href="#configuring-nbde-static-ip-ibm-z-linuxone-environment_installing-ibm-z-lpar">Configuring NBDE with static IP in an IBM Z or IBM LinuxONE environment</a></li>
+</ul>
+</li>
 <li><a href="#installation-user-infra-machines-iso-ibm-z_installing-ibm-z-lpar">Installing RHCOS and starting the OpenShift Container Platform bootstrap process</a>
 <ul class="sectlevel2">
 <li><a href="#installation-user-infra-machines-static-network_installing-ibm-z-lpar">Advanced RHCOS installation reference</a></li>
@@ -3276,7 +3281,7 @@
 </li>
 <li><a href="#installation-complete-user-infra_installing-ibm-z-lpar">Completing installation on user-provisioned infrastructure</a></li>
 <li><a href="#cluster-telemetry_installing-ibm-z-lpar">Telemetry access for OpenShift Container Platform</a></li>
-<li><a href="#next-steps_installing-ibm-z-lpar">Next steps</a></li>
+<li><a href="#next-steps_ibm-z-lpar">Next steps</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -4735,8 +4740,152 @@ contains the <code>install-config.yaml</code> file you created.</td>
 </div>
 </div>
 <div class="sect1">
-<h2 id="configuring-nbde-static-ip-ibm-z-linuxone-environment_installing-ibm-z-lpar"><a class="anchor" href="#configuring-nbde-static-ip-ibm-z-linuxone-environment_installing-ibm-z-lpar"></a>Configuring NBDE with static IP in an IBM Z or IBM LinuxONE environment</h2>
+<h2 id="configuring-boot-volume-encryption-ibm-z-linuxone-environment_installing-ibm-z-lpar"><a class="anchor" href="#configuring-boot-volume-encryption-ibm-z-linuxone-environment_installing-ibm-z-lpar"></a>Configuring boot volume encryption in an IBM Z or IBM LinuxONE environment</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p>You can choose between two methods to optionally encrypt the boot volumes of your OpenShift Container Platform control plane and compute nodes on IBM Z&#174; or IBM&#174; LinuxONE:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Linux Unified Key Setup (LUKS) encryption via IBM&#174; Crypto Express (CEX)</p>
+</li>
+<li>
+<p>Network Bound Disk Encryption (NBDE)</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="configuring-luks-encryption-via-cex-ibm-z-linuxone-environment_installing-ibm-z-lpar"><a class="anchor" href="#configuring-luks-encryption-via-cex-ibm-z-linuxone-environment_installing-ibm-z-lpar"></a>LUKS encryption via CEX in an IBM Z or IBM LinuxONE environment</h3>
+<div class="paragraph">
+<p>Enabling hardware-based Linux Unified Key Setup (LUKS) encryption via IBM&#174; Crypto Express (CEX) in an IBM Z&#174; or IBM&#174; LinuxONE environment requires additional steps, which are described in detail in this section.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the <code>butane</code> utility.</p>
+</li>
+<li>
+<p>You have reviewed the instructions for how to create machine configs with Butane.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create Butane configuration files for the control plane and compute nodes.</p>
+<div class="paragraph">
+<p>The following example of a Butane configuration for a control plane node creates a file named <code>main-storage.bu</code> for disk encryption:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">variant</span><span class="pi">:</span> <span class="s">openshift</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s">Branch Build.0</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">main-storage</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
+<span class="na">storage</span><span class="pi">:</span>
+  <span class="na">luks</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">cex</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">options</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+           <span class="pi">-</span> <span class="s">--pbkdf</span>
+           <span class="pi">-</span> <span class="s">pbkdf2</span>
+      <span class="na">device</span><span class="pi">:</span> <span class="s">/dev/disk/by-partlabel/root</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">label</span><span class="pi">:</span> <span class="s">luks-root</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">root</span>
+      <span class="na">wipe_volume</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">filesystems</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">device</span><span class="pi">:</span> <span class="s">/dev/mapper/root</span>
+      <span class="na">format</span><span class="pi">:</span> <span class="s">xfs</span>
+      <span class="na">label</span><span class="pi">:</span> <span class="s">root</span>
+      <span class="na">wipe_filesystem</span><span class="pi">:</span> <span class="no">true</span>
+<span class="na">openshift</span><span class="pi">:</span>
+  <span class="na">fips</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">kernel_arguments</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+    <span class="pi">-</span> <span class="s">rd.luks.key=/etc/luks/cex.key</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The <code>pbkdf</code> option is only required if FIPS mode is enabled. Omit the entry if FIPS is disabled.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>For installations on DASD-type disks, replace with <code>device: /dev/disk/by-label/root</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specifies whether to enable or disable FIPS mode. By default, FIPS mode is not enabled. If FIPS mode is enabled, the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) machines that OpenShift Container Platform runs on bypass the default Kubernetes cryptography suite and use the cryptography modules that are provided with RHCOS instead.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Specifies the location of the pass key that is required to decrypt the device.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a parameter file that includes <code>ignition.platform.id=metal</code> and <code>ignition.firstboot</code>.</p>
+<div class="listingblock">
+<div class="title">Example kernel parameter file for the control plane machine</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">cio_ignore=all,!condev rd.neednet=1 \
+console=ttysclp0 \
+coreos.inst.install_dev=/dev/disk/by-id/scsi-&lt;serial_number&gt;</span><span class="w"> </span><span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
+ignition.firstboot ignition.platform.id<span class="o">=</span>metal <span class="se">\</span>
+coreos.inst.ignition_url<span class="o">=</span>http://&lt;http_server&gt;/master.ign <span class="se">\</span><i class="conum" data-value="2"></i><b>(2)</b>
+coreos.live.rootfs_url<span class="o">=</span>http://&lt;http_server&gt;/rhcos-&lt;version&gt;-live-rootfs.&lt;architecture&gt;.img <span class="se">\</span><i class="conum" data-value="3"></i><b>(3)</b>
+<span class="nv">ip</span><span class="o">=</span>&lt;ip_address&gt;::&lt;gateway&gt;:&lt;netmask&gt;:&lt;<span class="nb">hostname</span><span class="o">&gt;</span>::none <span class="nv">nameserver</span><span class="o">=</span>&lt;dns&gt; <span class="se">\</span>
+rd.znet<span class="o">=</span>qeth,0.0.bdd0,0.0.bdd1,0.0.bdd2,layer2<span class="o">=</span>1 <span class="se">\</span>
+rd.zfcp<span class="o">=</span>0.0.5677,0x600606680g7f0056,0x034F000000000000 <i class="conum" data-value="4"></i><b>(4)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Specifies a unique fully qualified path depending on disk type. This can be DASD-type, FCP-type, or NVMe-type disks.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Specifies the location of the Ignition config file. Use <code>master.ign</code> or <code>worker.ign</code>. Only HTTP and HTTPS protocols are supported.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specifies the location of the <code>rootfs</code> artifact for the <code>kernel</code> and <code>initramfs</code> you are booting. Only HTTP and HTTPS protocols are supported.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Specifies the root device. For installations on DASD-type disks, replace with <code>rd.dasd=0.0.xxxx</code> to specify the DASD device.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Write all options in the parameter file as a single line and make sure you have no newline characters.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="configuring-nbde-static-ip-ibm-z-linuxone-environment_installing-ibm-z-lpar"><a class="anchor" href="#configuring-nbde-static-ip-ibm-z-linuxone-environment_installing-ibm-z-lpar"></a>Configuring NBDE with static IP in an IBM Z or IBM LinuxONE environment</h3>
 <div class="paragraph">
 <p>Enabling NBDE disk encryption in an IBM Z&#174; or IBM&#174; LinuxONE environment requires additional steps, which are described in detail in this section.</p>
 </div>
@@ -4898,6 +5047,7 @@ zfcp.allow_lun_scan<span class="o">=</span>0</code></pre>
 <p><a href="../../../installing/install_config/installing-customizing.html#installation-special-config-butane_installing-customizing">Creating machine configs with Butane</a></p>
 </li>
 </ul>
+</div>
 </div>
 </div>
 </div>
@@ -6438,24 +6588,23 @@ clear: 0</span></code></pre>
 <li>
 <p><a href="https://access.redhat.com/solutions/4387261">How to generate SOSREPORT within OpenShift Container Platform version 4 nodes without SSH</a></p>
 </li>
+<li>
+<p><a href="../../../support/remote_health_monitoring/opting-out-of-remote-health-reporting.html#opting-out-remote-health-reporting_opting-out-remote-health-reporting">Opting out of remote health reporting</a></p>
+</li>
 </ul>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="next-steps_installing-ibm-z-lpar"><a class="anchor" href="#next-steps_installing-ibm-z-lpar"></a>Next steps</h2>
+<h2 id="next-steps_ibm-z-lpar"><a class="anchor" href="#next-steps_ibm-z-lpar"></a>Next steps</h2>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
 <li>
-<p><a href="../../../machine_configuration/machine-configs-configure.html#rhcos-enabling-multipath-day-2_machine-configs-configure">Enabling multipathing with kernel arguments on RHCOS</a>.</p>
+<p><a href="../../../machine_configuration/machine-configs-configure.html#rhcos-enabling-multipath-day-2_machine-configs-configure">Enabling multipathing with kernel arguments on RHCOS</a></p>
 </li>
 <li>
-<p><a href="../../../post_installation_configuration/cluster-tasks.html#available_cluster_customizations">Customize your cluster</a>.</p>
-</li>
-<li>
-<p>If necessary, you can
-<a href="../../../support/remote_health_monitoring/opting-out-of-remote-health-reporting.html#opting-out-remote-health-reporting_opting-out-remote-health-reporting">opt out of remote health reporting</a>.</p>
+<p><a href="../../../post_installation_configuration/cluster-tasks.html#available_cluster_customizations">Customize your cluster</a></p>
 </li>
 </ul>
 </div>
