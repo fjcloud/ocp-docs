@@ -1397,7 +1397,12 @@
 <li><a href="#cloud-experts-custom-dns-resolver-prerequisites">Prerequisites</a></li>
 <li><a href="#cloud-experts-custom-dns-resolver-environment-setup">Setting up your environment</a></li>
 <li><a href="#cloud-experts-custom-dns-resolver-create-inbound-resolver">Create an Amazon Route 53 Inbound Resolver</a></li>
-<li><a href="#cloud-experts-custom-dns-resolver-configure-dns-server">Configure your DNS server</a></li>
+<li><a href="#cloud-experts-custom-dns-resolver-configure-dns-server">Configure your DNS server</a>
+<ul class="sectlevel2">
+<li><a href="#rosa-with-hcp">ROSA with HCP</a></li>
+<li><a href="#rosa-classic">ROSA Classic</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <div id="preamble">
@@ -1603,6 +1608,129 @@
 <div class="paragraph">
 <p>Use the following procedure to configure your DNS server to forward the necessary private hosted zones to your Amazon Route 53 Inbound Resolver.</p>
 </div>
+<div class="sect2">
+<h3 id="rosa-with-hcp"><a class="anchor" href="#rosa-with-hcp"></a>ROSA with HCP</h3>
+<div class="paragraph">
+<p>ROSA with HCP clusters require you to configure DNS forwarding for two private hosted zones:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;cluster-name&gt;.hypershift.local</code></p>
+</li>
+<li>
+<p><code>rosa.&lt;domain-prefix&gt;.&lt;unique-ID&gt;.p3.openshiftapps.com</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>These Amazon Route 53 private hosted zones are created during cluster creation. The <code>cluster-name</code> and <code>domain-prefix</code> are customer-specified values, but the <code>unique-ID</code> is randomly generated during cluster creation and cannot be preselected. As such, you must wait for the cluster creation process to begin before configuring forwarding for the <code>p3.openshiftapps.com</code> private hosted zone.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Before the cluster is created, configure your DNS server to forward all DNS requests for <code>&lt;cluster-name&gt;.hypershift.local</code> to your Amazon Route 53 Inbound Resolver endpoints. For BIND DNS servers, edit your <code>/etc/named.conf</code> file in your favorite text editor and add a new zone using the below example:</p>
+<div class="listingblock">
+<div class="title">Example</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">zone "&lt;cluster-name&gt;</span>.hypershift.local<span class="s2">" { <i class="conum" data-value="1"></i><b>(1)</b>
+</span><span class="gp">  type forward;</span><span class="w">
+</span><span class="gp">  forward only;</span><span class="w">
+</span><span class="go">  forwarders { <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="gp">    10.0.45.253;</span><span class="w">
+</span><span class="gp">    10.0.23.131;</span><span class="w">
+</span><span class="gp">    10.0.148.159;</span><span class="w">
+</span><span class="gp">  };</span><span class="w">
+</span><span class="gp">};</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;cluster-name&gt;</code> with your ROSA HCP cluster name.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Replace with the IP addresses of your inbound resolver endpoints collected above, ensuring that following each IP address there is a <code>;</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p><a href="https://docs.openshift.com/rosa/rosa_hcp/rosa-hcp-sts-creating-a-cluster-quickly.html">Create your cluster</a>.</p>
+</li>
+<li>
+<p>Once your cluster has begun the creation process, locate the newly created private hosted zone:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws route53 list-hosted-zones-by-vpc <span class="se">\</span>
+  <span class="nt">--vpc-id</span> <span class="k">${</span><span class="nv">VPC_ID</span><span class="k">}</span> <span class="se">\</span>
+  <span class="nt">--vpc-region</span> <span class="k">${</span><span class="nv">REGION</span><span class="k">}</span> <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s1">'HostedZoneSummaries[*].Name'</span> <span class="se">\</span>
+  <span class="nt">--output</span> table</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="text">--------------------------------------------------
+|             ListHostedZonesByVPC               |
++------------------------------------------------+
+|  rosa.domain-prefix.lkmb.p3.openshiftapps.com. |
+|  cluster-name.hypershift.local.                |
++------------------------------------------------+</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>It may take a few minutes for the cluster creation process to create the private hosted zones in Route 53. If you do not see an <code>p3.openshiftapps.com</code> domain, wait a few minutes and run the command again.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Once you know the unique ID of the cluster domain, configure your DNS server to forward all DNS requests for <code>rosa.&lt;domain-prefix&gt;.&lt;unique-ID&gt;.p3.openshiftapps.com</code> to your Amazon Route 53 Inbound Resolver endpoints. For BIND DNS servers, edit your <code>/etc/named.conf</code> file in your favorite text editor and add a new zone using the below example:</p>
+<div class="listingblock">
+<div class="title">Example</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">zone "rosa.&lt;domain-prefix&gt;</span>.&lt;unique-ID&gt;.p3.openshiftapps.com<span class="s2">" { <i class="conum" data-value="1"></i><b>(1)</b>
+</span><span class="gp">  type forward;</span><span class="w">
+</span><span class="gp">  forward only;</span><span class="w">
+</span><span class="go">  forwarders { <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="gp">    10.0.45.253;</span><span class="w">
+</span><span class="gp">    10.0.23.131;</span><span class="w">
+</span><span class="gp">    10.0.148.159;</span><span class="w">
+</span><span class="gp">  };</span><span class="w">
+</span><span class="gp">};</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;domain-prefix&gt;</code> with your cluster domain prefix and <code>&lt;unique-ID&gt;</code> with your unique ID collected above.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Replace with the IP addresses of your inbound resolver endpoints collected above, ensuring that following each IP address there is a <code>;</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="rosa-classic"><a class="anchor" href="#rosa-classic"></a>ROSA Classic</h3>
 <div class="paragraph">
 <p>ROSA Classic clusters require you to configure DNS forwarding for one private hosted zones:</p>
 </div>
@@ -1687,6 +1815,7 @@
 </div>
 </li>
 </ol>
+</div>
 </div>
 </div>
 </div>

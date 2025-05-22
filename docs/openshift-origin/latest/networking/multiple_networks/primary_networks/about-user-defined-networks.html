@@ -3024,6 +3024,22 @@
 </ul>
 </div>
 </li>
+<li>
+<p>When using the <code>ClusterUserDefinedNetwork</code> CR to create <code>localnet</code> topology, the following are best practices for administrators:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>You must make sure that the <code>spec.network.physicalNetworkName</code> parameter matches the parameter that you configured in the Open vSwitch (OVS) bridge mapping when you create your CUDN CR. This ensures that you are bridging to the intended segment of your physical network. If you intend to deploy multiple CUDN CR using the same bridge mapping, you must ensure that the same <code>physicalNetworkName</code> parameter is used.</p>
+</li>
+<li>
+<p>Avoid overlapping subnets between your physical network and your other network interfaces. Overlapping network subnets can cause routing conflicts and network instability. To prevent conflicts when using the <code>spec.network.localnet.subnets</code> parameter, you might use the <code>spec.network.localnet.excludeSubnets</code> parameter.</p>
+</li>
+<li>
+<p>When you configure a Virtual Local Area Network (VLAN), you must ensure that both your underlying physical infrastructure (switches, routers, and so on) and your nodes are properly configured to accept VLAN IDs (VIDs). This means that you configure the physical network interface, for example <code>eth1</code>, as an access port for the VLAN, for example <code>20</code>, that you are connecting to through the physical switch. In addition, you must verify that an OVS bridge mapping, for example <code>eth1</code>, exists on your nodes to ensure that that the physical interface is properly connected with OVN-Kubernetes.</p>
+</li>
+</ul>
+</div>
+</li>
 </ul>
 </div>
 </div>
@@ -3761,50 +3777,70 @@ status:
 <div class="paragraph">
 <p>The following table explains additional configurations for <code>ClusterUserDefinedNetwork</code> and <code>UserDefinedNetwork</code> custom resources (CRs) that are optional. It is not recommended to set these fields without explicit need and understanding of OVN-Kubernetes network topology.</p>
 </div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Optional configurations for user-defined networks</p>
+</li>
+</ol>
+</div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 1. <code>UserDefinedNetworks</code> optional configurations</caption>
 <colgroup>
-<col style="width: 11.1111%;">
-<col style="width: 11.1111%;">
-<col style="width: 77.7778%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
 </colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Field</th>
-<th class="tableblock halign-left valign-top">Type</th>
-<th class="tableblock halign-left valign-top">Description</th>
-</tr>
-</thead>
 <tbody>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.joinSubnets</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">CUDN field</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UDN field</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Type</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Description</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.&lt;topology&gt;.joinSubnets</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.&lt;topology&gt;.joinSubnets</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">object</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">When omitted, the platform sets default values for the <code>joinSubnets</code> field of <code>100.65.0.0/16</code> for IPv4 and  <code>fd99::/64</code> for IPv6. If the default address values are used anywhere in the cluster&#8217;s network you must override it by setting the <code>joinSubnets</code> field. If you choose to set this field, ensure it does not conflict with other subnets in the cluster such as the cluster subnet, the <code>default</code> network cluster subnet, and the masquerade subnet.</p>
 <p class="tableblock">The <code>joinSubnets</code> field configures the routing between different segments within a user-defined network. Dual-stack clusters can set 2 subnets, one for each IP family; otherwise, only 1 subnet is allowed. This field is only allowed for the <code>Primary</code> network.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.ipam.lifecycle</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.&lt;topology&gt;.ipam.lifecycle</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.&lt;topology&gt;.ipam.lifecycle</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">object</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The <code>spec.ipam.lifecycle</code> field configures the IP address management system (IPAM). You might use this field for virtual workloads to ensure persistent IP addresses. The only allowed value is <code>Persistent</code>, which
-ensures that your virtual workloads have persistent IP addresses across reboots and migration. These are assigned by the container network interface (CNI) and used by OVN-Kubernetes to program pod IP addresses. You must not change this for pod annotations.</p>
-<p class="tableblock">Setting a value of <code>Persistent</code> is only supported when <code>spec.ipam.mode</code> is set to <code>Enabled</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <code>spec.ipam.lifecycle</code> field configures the IP address management system (IPAM). You might use this field for virtual workloads to ensure persistent IP addresses. The only allowed value is <code>Persistent</code>, which ensures that your virtual workloads have persistent IP addresses across reboots and migration. These are assigned by the container network interface (CNI) and used by OVN-Kubernetes to program pod IP addresses. You must not change this for pod annotations.</p>
+<p class="tableblock">Setting a value of Persistent is only supported when <code>ipam.mode</code> parameter is set to <code>Enabled</code>.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.ipam.mode</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.&lt;topology&gt;.ipam.mode</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.&lt;topology&gt;.ipam.mode</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">object</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The <code>spec.ipam.mode</code> field controls how much of the IP configuration is managed by OVN-Kubernetes. The following options are available:</p>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <code>mode</code> parameter controls how much of the IP configuration is managed by OVN-Kubernetes. The following options are available:</p>
 <p class="tableblock"><strong>Enabled:</strong><br>
 When enabled, OVN-Kubernetes applies the IP configuration to the SDN infrastructure and assigns IP addresses from the selected subnet to the individual pods. This is the default setting. When set to <code>Enabled</code>, the <code>subnets</code> field must be defined. <code>Enabled</code> is the default configuration.</p>
 <p class="tableblock"><strong>Disabled:</strong><br>
 When disabled, OVN-Kubernetes only assigns MAC addresses and provides layer 2 communication, which allows users to configure IP addresses. <code>Disabled</code> is only available for layer 2 (secondary) networks. By disabling IPAM, features that rely on selecting pods by IP, for example, network policy, services, and so on, no longer function. Additionally, IP port security is also disabled for interfaces attached to this network. The <code>subnets</code> field must be empty when <code>spec.ipam.mode</code> is set to <code>Disabled.</code></p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.layer2.mtu</code> and <code>spec.layer3.mtu</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.&lt;topology&gt;.mtu</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.&lt;topology&gt;.mtu</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The maximum transmission units (MTU). The default value is <code>1400</code>. The boundary for IPv4 is <code>576</code>, and for IPv6 it is <code>1280</code>.</p></td>
 </tr>
 </tbody>
 </table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;topology&gt;</code></dt>
+<dd>
+<p>Is one of <code>layer2</code> or <code>layer3</code>.</p>
+</dd>
+</dl>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -3814,7 +3850,7 @@ When disabled, OVN-Kubernetes only assigns MAC addresses and provides layer 2 co
 <p>The following tables explain the status condition types returned for <code>ClusterUserDefinedNetwork</code> and <code>UserDefinedNetwork</code> CRs when describing the resource. These conditions can be used to troubleshoot your deployment.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 2. NetworkCreated condition types (<code>ClusterDefinedNetwork</code> and <code>UserDefinedNetwork</code> CRs)</caption>
+<caption class="title">Table 1. NetworkCreated condition types (<code>ClusterDefinedNetwork</code> and <code>UserDefinedNetwork</code> CRs)</caption>
 <colgroup>
 <col style="width: 15.3846%;">
 <col style="width: 15.3846%;">
@@ -3926,7 +3962,7 @@ When disabled, OVN-Kubernetes only assigns MAC addresses and provides layer 2 co
 </tbody>
 </table>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 3. NetworkAllocationSucceeded condition types (<code>UserDefinedNetwork</code> CRs)</caption>
+<caption class="title">Table 2. NetworkAllocationSucceeded condition types (<code>UserDefinedNetwork</code> CRs)</caption>
 <colgroup>
 <col style="width: 15.3846%;">
 <col style="width: 15.3846%;">
