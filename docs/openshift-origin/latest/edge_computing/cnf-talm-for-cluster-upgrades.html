@@ -2800,22 +2800,10 @@
 <div class="paragraph">
 <p>You can use the Topology Aware Lifecycle Manager (TALM) to manage the software lifecycle of multiple clusters. TALM uses Red&#160;Hat Advanced Cluster Management (RHACM) policies to perform changes on the target clusters.</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
 <div class="paragraph">
-<p>Using PolicyGenerator resources with GitOps ZTP is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
+<p>Using RHACM and <code>PolicyGenerator</code> CRs is the recommended approach for managing policies and deploying them to managed clusters.
+This replaces the use of <code>PolicyGenTemplate</code> CRs for this purpose.
+For more information about <code>PolicyGenerator</code> resources, see the RHACM <a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.13/html/governance/policy-deployment#integrate-policy-generator">Policy Generator</a> documentation.</p>
 </div>
 </div>
 </div>
@@ -2877,6 +2865,20 @@ Supported use cases include the following:</p>
 <p>Automatically generated policies from the <code>PolicyGenerator</code> or <code>PolicyGentemplate</code> custom resource definition (CRD)</p>
 </li>
 </ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Using the <code>PolicyGentemplate</code> CRD is the recommended method for automatic policy generation.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
 <p>For policies that update an Operator subscription with manual approval, TALM provides additional functionality that approves the installation of the updated Operator.</p>
@@ -4266,9 +4268,9 @@ Enforcing the policies for subsequent batches starts immediately after all the c
   <span class="na">annotations</span><span class="pi">:</span>
     <span class="s">ran.openshift.io/ztp-deploy-wave</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">channel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">stable"</span>
+  <span class="na">channel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">stable-6.2"</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">cluster-logging</span>
-  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators</span>
+  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators-disconnected</span>
   <span class="na">sourceNamespace</span><span class="pi">:</span> <span class="s">openshift-marketplace</span>
   <span class="na">installPlanApproval</span><span class="pi">:</span> <span class="s">Manual</span>
 <span class="na">status</span><span class="pi">:</span>
@@ -4767,7 +4769,7 @@ Where multiple install plans are needed to get the operator to the latest known 
 <div class="title">Example output for OpenShift Logging Operator</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                    DISPLAY                     VERSION   REPLACES   PHASE
-cluster-logging.5.4.2   Red Hat OpenShift Logging   5.4.2                Succeeded</span></code></pre>
+cluster-logging.v6.2.1  Red Hat OpenShift Logging   6.2.1                Succeeded</span></code></pre>
 </div>
 </div>
 </li>
@@ -5842,6 +5844,44 @@ If the <code>PolicyGenerator</code> or <code>PolicyGenTemplate</code> CRs were n
 </div>
 </li>
 </ol>
+</div>
+</dd>
+</dl>
+</div>
+<h4 id="talo-troubleshooting-pre-placement-tolerations_cnf-topology-aware-lifecycle-manager" class="discrete">Matching policies and <code>ManagedCluster</code> CRs before the managed cluster is available</h4>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Issue</dt>
+<dd>
+<p>You want RHACM to match policies and managed clusters before the managed clusters become available.</p>
+</dd>
+<dt class="hdlist1">Resolution</dt>
+<dd>
+<p>To ensure that TALM correctly applies the RHACM policies specified in the <code>spec.managedPolicies</code> field of the <code>ClusterGroupUpgrade</code> (CGU) CR, TALM needs to match these policies to the managed cluster before the managed cluster is available.
+The RHACM <code>PolicyGenerator</code> uses the generated <code>Placement</code> CR to do this automatically.
+By default, this <code>Placement</code> CR includes the necessary tolerations to ensure proper TALM behavior.</p>
+<div class="paragraph">
+<p>The expected <code>spec.tolerations</code> settings in the <code>Placement</code> CR are as follows:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1">#…​</span>
+  <span class="na">tolerations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">cluster.open-cluster-management.io/unavailable</span>
+     <span class="na">operator</span><span class="pi">:</span> <span class="s">Exists</span>
+    <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">cluster.open-cluster-management.io/unreachable</span>
+     <span class="na">operator</span><span class="pi">:</span> <span class="s">Exists</span>
+<span class="c1">#…​</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you use a custom <code>Placement</code> CR instead of the one generated by the RHACM <code>PolicyGenerator</code>, include these tolerations in that <code>Placement</code> CR.</p>
+</div>
+<div class="paragraph">
+<p>For more information on placements in RHACM, see <a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.13/html-single/clusters/index#placement-overview">Placement overview</a>.</p>
+</div>
+<div class="paragraph">
+<p>For more information on tolerations in RHACM, see <a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/latest/html-single/clusters/index#taints-tolerations-managed">Placing managed clusters by using taints and tolerations</a>.</p>
 </div>
 </dd>
 </dl>
