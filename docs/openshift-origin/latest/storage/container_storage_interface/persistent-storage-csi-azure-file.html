@@ -2760,8 +2760,14 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#overview">Overview</a></li>
-<li><a href="#persistent-storage-csi-azure-file-nfs_persistent-storage-csi-azure-file">NFS support</a></li>
 <li><a href="#csi-about_persistent-storage-csi-azure-file">About CSI</a></li>
+<li><a href="#persistent-storage-csi-azure-file-nfs_persistent-storage-csi-azure-file">NFS support</a></li>
+<li><a href="#persistent-storage-csi-azure-file-cross-sub-overview_persistent-storage-csi-azure-file">Azure File cross-subscription support</a>
+<ul class="sectlevel2">
+<li><a href="#persistent-storage-csi-azure-file-cross-sub-dynamic-provisioning-procedure_persistent-storage-csi-azure-file">Dynamic provisioning across subscriptions for Azure File</a></li>
+<li><a href="#persistent-storage-csi-azure-file-cross-sub-dynamic-pre-provisioning-pv-pvc-procedure_persistent-storage-csi-azure-file">Static provisioning across subscriptions for Azure File by creating a PV and PVC:</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </div>
@@ -2803,6 +2809,17 @@
 </div>
 <div class="paragraph">
 <p>For more information about supported features, see <a href="../../storage/container_storage_interface/persistent-storage-csi.html#csi-drivers-supported_persistent-storage-csi">Supported CSI drivers and features</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="csi-about_persistent-storage-csi-azure-file"><a class="anchor" href="#csi-about_persistent-storage-csi-azure-file"></a>About CSI</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Storage vendors have traditionally provided storage drivers as part of Kubernetes. With the implementation of the Container Storage Interface (CSI), third-party providers can instead deliver storage plugins using a standard interface without ever having to change the core Kubernetes code.</p>
+</div>
+<div class="paragraph">
+<p>CSI Operators give OKD users storage options, such as volume snapshots, that are not possible with in-tree volume plugins.</p>
 </div>
 </div>
 </div>
@@ -2875,13 +2892,383 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="csi-about_persistent-storage-csi-azure-file"><a class="anchor" href="#csi-about_persistent-storage-csi-azure-file"></a>About CSI</h2>
+<h2 id="persistent-storage-csi-azure-file-cross-sub-overview_persistent-storage-csi-azure-file"><a class="anchor" href="#persistent-storage-csi-azure-file-cross-sub-overview_persistent-storage-csi-azure-file"></a>Azure File cross-subscription support</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Storage vendors have traditionally provided storage drivers as part of Kubernetes. With the implementation of the Container Storage Interface (CSI), third-party providers can instead deliver storage plugins using a standard interface without ever having to change the core Kubernetes code.</p>
+<p>Cross-subscription support allows you to have an OKD cluster in one Azure subscription and mount your Azure file share in another Azure subscription by using the Azure File Container Storage Interface (CSI) driver.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Both the OKD cluster and the Azure File share (pre-provisioning or to be provisioned) should be inside the same tenant.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="persistent-storage-csi-azure-file-cross-sub-dynamic-provisioning-procedure_persistent-storage-csi-azure-file"><a class="anchor" href="#persistent-storage-csi-azure-file-cross-sub-dynamic-provisioning-procedure_persistent-storage-csi-azure-file"></a>Dynamic provisioning across subscriptions for Azure File</h3>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Installed OKD cluster on Azure with the service principal or managed identity as an Azure identity in one subscription (call it Subscription A)</p>
+</li>
+<li>
+<p>Access to another subscription (call it Subscription B) with the storage that is in the same tenant as the cluster</p>
+</li>
+<li>
+<p>Logged in to the Azure CLI</p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
-<p>CSI Operators give OKD users storage options, such as volume snapshots, that are not possible with in-tree volume plugins.</p>
+<div class="title">Procedure</div>
+<p>To use Azure File dynamic provisioning across subscriptions:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Record the Azure identity (service principal or managed identity) by running the following applicable commands. The Azure identity is needed in a later step:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If using the <em>service principal</em> as the Azure identity when installing the cluster:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">sp_id</span><span class="o">=</span><span class="si">$(</span>oc <span class="nt">-n</span> openshift-cluster-csi-drivers get secret azure-file-credentials <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.azure_client_id}'</span> | <span class="nb">base64</span> <span class="nt">--decode</span><span class="si">)</span>
+<span class="go">
+</span><span class="gp">$</span><span class="w"> </span>az ad sp show <span class="nt">--id</span> <span class="k">${</span><span class="nv">sp_id</span><span class="k">}</span> <span class="nt">--query</span> displayName <span class="nt">--output</span> tsv</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If using the <em>managed identity</em> as the Azure identity when installing the cluster:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">mi_id</span><span class="o">=</span><span class="si">$(</span>oc <span class="nt">-n</span> openshift-cluster-csi-drivers get secret azure-file-credentials <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.azure_client_id}'</span> | <span class="nb">base64</span> <span class="nt">--decode</span><span class="si">)</span>
+<span class="go">
+</span><span class="gp">$</span><span class="w"> </span>az identity list <span class="nt">--query</span> <span class="s2">"[?clientId=='</span><span class="k">${</span><span class="nv">mi_id</span><span class="k">}</span><span class="s2">'].{Name:name}"</span> <span class="nt">--output</span> tsv</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Grant the Azure identity (service principal or managed identity) permission to access the resource group in another Subscription B where you want to provision the Azure File share by doing one of the following:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Run the following Azure CLI command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">az role assignment create \
+  --assignee &lt;object-id-or-app-id&gt;</span><span class="w"> </span><span class="se">\</span>
+  <span class="nt">--role</span> &lt;role-name&gt; <span class="se">\</span>
+  <span class="nt">--scope</span> /subscriptions/&lt;subscription-id&gt;/resourceGroups/&lt;resource-group&gt;/providers/Microsoft.Storage/storageAccounts/&lt;storage-account-name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Where:</p>
+</div>
+<div class="paragraph">
+<p><code>&lt;object-id-or-app-id&gt;</code>: The service principal or managed identity that you obtained from the previous step, such as <code>sp_id</code> or <code>mi_id</code>.</p>
+</div>
+<div class="paragraph">
+<p><code>&lt;role-name&gt;</code>: Role name. Contributor or your own role with required permissions.</p>
+</div>
+<div class="paragraph">
+<p><code>&lt;subscription-id&gt;</code>: Subscription B ID.</p>
+</div>
+<div class="paragraph">
+<p><code>&lt;resource-group-name&gt;</code>: Subscription B resource group name.</p>
+</div>
+<div class="paragraph">
+<p>Or</p>
+</div>
+</li>
+<li>
+<p>Log in to the Azure portal and on the left menu, click <strong>Resource groups</strong>:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Choose the resource group in Subscription B to which you want to assign a role by clicking <strong>resource group</strong> &#8594; <strong>Access control (IAM)</strong> &#8594; <strong>Role assignments</strong> tab to view current assignments, and then click <strong>Add</strong> &gt; <strong>Add role assignment</strong>.</p>
+</li>
+<li>
+<p>On the <strong>Role</strong> tab, choose the contributor role to assign, and then click <strong>Next</strong>. You can also create and choose your own role with required permission.</p>
+</li>
+<li>
+<p>On the <strong>Members</strong> tab:</p>
+<div class="olist lowerroman">
+<ol class="lowerroman" type="i">
+<li>
+<p>Choose an assignee by selecting the type of assignee: user, group, or service principal (or managed identity).</p>
+</li>
+<li>
+<p>Click <strong>Select members</strong>.</p>
+</li>
+<li>
+<p>Search for, and then select the desired service principal or managed identity recorded in the previous step.</p>
+</li>
+<li>
+<p>Click <strong>Select</strong> to confirm.</p>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>On the <strong>Review + assign</strong> tab, review the settings.</p>
+</li>
+<li>
+<p>To finish the role assignment, click <strong>Review + assign</strong>.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you only want to use a specific storage account to provision the Azure File share, you can also obtain the Azure identity (service principal or managed identity) permission to access the storage account by using similar steps.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Create an Azure File storage class by using a similar configuration to the following:</p>
+<div class="listingblock">
+<div class="title">Example Azure File storage class YAML file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">allowVolumeExpansion</span><span class="pi">:</span> <span class="no">true</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">StorageClass</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;sc-name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">mount options</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">mfsymlinks</span>
+  <span class="pi">-</span> <span class="s">cache=strict</span>
+  <span class="pi">-</span> <span class="s">nosharesock</span>
+  <span class="pi">-</span> <span class="s">actimeo=30</span>
+<span class="na">parameters</span><span class="pi">:</span>
+  <span class="na">subscriptionID</span><span class="pi">:</span> <span class="s">&lt;xxxx-xxxx-xxxx-xxxx-xxxx&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">resourceGroup</span><span class="pi">:</span> <span class="s">&lt;resource group name&gt;</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">storageAccount</span><span class="pi">:</span> <span class="s">&lt;storage account&gt;</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="na">skuName</span><span class="pi">:</span> <span class="s">&lt;skuName&gt;</span> <i class="conum" data-value="5"></i><b>(5)</b>
+<span class="na">provisioner</span><span class="pi">:</span> <span class="s">file.csi.azure.com</span>
+<span class="na">reclaimPolicy</span><span class="pi">:</span> <span class="s">Delete</span>
+<span class="na">volumeBindingMode</span><span class="pi">:</span> <span class="s">Immediate</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of the storage class</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The subscription B ID</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The Subscription B resource group name</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>The storage account name, if you want to specify your own</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>The name of the SKU type</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a persistent volume claim (PVC) that specifies the Azure File storage class that you created in the previous step by using a similar configuration to the following:</p>
+<div class="listingblock">
+<div class="title">Example PVC YAML file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pvc-name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">&lt;sc-name-cross-sub&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">accessModes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ReadWriteMany</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">5Gi</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of the PVC.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The name of the storage class that you created in the previous step.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="persistent-storage-csi-azure-file-cross-sub-dynamic-pre-provisioning-pv-pvc-procedure_persistent-storage-csi-azure-file"><a class="anchor" href="#persistent-storage-csi-azure-file-cross-sub-dynamic-pre-provisioning-pv-pvc-procedure_persistent-storage-csi-azure-file"></a>Static provisioning across subscriptions for Azure File by creating a PV and PVC:</h3>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Installed OKD cluster on Azure with the service principal or managed identity as an Azure identity in one subscription (call it Subscription A)</p>
+</li>
+<li>
+<p>Access to another subscription (call it Subscription B) with the storage that is in the same tenant as the cluster</p>
+</li>
+<li>
+<p>Logged in to the Azure CLI</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>For your Azure File share, record the resource group, storage account, storage account key, and Azure File name. These values are used for the next steps.</p>
+</li>
+<li>
+<p>Create a secret for the persistent volume parameter <code>spec.csi.nodeStageSecretRef.name</code> by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic azure-storage-account-&lt;storageaccount-name&gt;-secret <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">azurestorageaccountname</span><span class="o">=</span><span class="s2">"&lt;azure-storage-account-name&gt;"</span> <span class="nt">--from-literal</span> <span class="nv">azurestorageaccountkey</span><span class="o">=</span><span class="s2">"&lt;azure-storage-account-key&gt;"</span> <span class="nt">--type</span><span class="o">=</span>Opaque</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Where:
+<code>&lt;azure-storage-account-name&gt;</code> and <code>&lt;azure-storage-account-key&gt;</code> are the Azure storage account name and key respectively that you recorded in Step 1.</p>
+</div>
+</li>
+<li>
+<p>Create a persistent volume (PV) by using a similar configuration to the following example file:</p>
+<div class="listingblock">
+<div class="title">Example PV YAML file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    pv.kubernetes.io/provisioned-by: file.csi.azure.com
+</span><span class="gp">  name: &lt;pv-name&gt;</span><span class="w"> <i class="conum" data-value="1"></i><b>(1)</b>
+</span><span class="go">spec:
+  capacity:
+    storage: 10Gi <i class="conum" data-value="2"></i><b>(2)</b>
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+</span><span class="gp">  storageClassName: &lt;sc-name&gt;</span><span class="w"> <i class="conum" data-value="3"></i><b>(3)</b>
+</span><span class="go">  mountOptions:
+    - cache=strict
+    - nosharesock
+    - actimeo=30
+    - nobrl
+  csi:
+    driver: file.csi.azure.com
+</span><span class="gp">    volumeHandle: "{resource-group-name}#</span><span class="o">{</span>storage-account-name<span class="o">}</span><span class="c">#{file-share-name}" </span><i class="conum" data-value="4"></i><b>(4)</b>
+<span class="go">    volumeAttributes:
+</span><span class="gp">      shareName: &lt;existing-file-share-name&gt;</span><span class="w"> <i class="conum" data-value="5"></i><b>(5)</b>
+</span><span class="go">    nodeStageSecretRef:
+</span><span class="gp">      name: &lt;secret-name&gt;</span><span class="w">  <i class="conum" data-value="6"></i><b>(6)</b>
+</span><span class="gp">      namespace: &lt;secret-namespace&gt;</span><span class="w">  <i class="conum" data-value="7"></i><b>(7)</b>
+</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of the PV.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The size of the PV.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The storage class name.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Ensure that <code>volumeHandle</code> is unique for every identical share in the cluster.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>For `&lt;existing-file-share-name&gt;, use only the file share name and not the full path.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>The secret name created in the previous step.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>The namespace where the secret resides.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a persistent value claim (PVC) specifying the existing Azure File share referenced in Step 1 using a similar configuration to the following:</p>
+<div class="listingblock">
+<div class="title">Example PVC YAML file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pvc-name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">&lt;sc-name&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">accessModes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ReadWriteMany</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">5Gi</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of the PVC.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The name of the storage class that you specified for the PV in the previous step.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<div class="title">Recommendation to use a storage class</div>
+<p>In the preceding example of static provisioning across subscriptions, the storage class referenced in the PV and PVC is not strictly necessary, as storage classes are not required to accomplish static provisioning. However, it is advisable to use a storage class to avoid cases where a manually created PVC accidentally does not match a manually created PV, and thus potentially triggers dynamic provisioning of a new PV. Other ways to avoid this issue would be to create a storage class with <code>provisioner: kubernetes.io/no-provisioner</code> or reference a non-existing storage class, which in both cases ensures that dynamic provisioning does not occur. When using either of these strategies, if a mis-matched PV and PVC occurs, the PVC stays in a pending state, and you can correct the error.</p>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
@@ -2893,6 +3280,7 @@
 <p><a href="../../storage/container_storage_interface/persistent-storage-csi.html#persistent-storage-csi">Configuring CSI volumes</a></p>
 </li>
 </ul>
+</div>
 </div>
 </div>
 </div>

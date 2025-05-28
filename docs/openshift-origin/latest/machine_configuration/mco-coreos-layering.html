@@ -2764,6 +2764,7 @@
 <li><a href="#coreos-layering-configuring-on_mco-coreos-layering">Using on-cluster layering to apply a custom layered image</a>
 <ul class="sectlevel2">
 <li><a href="#coreos-layering-configuring-on-modifying_mco-coreos-layering">Modifying a custom layered image</a></li>
+<li><a href="#coreos-layering-configuring-on-rebuild_mco-coreos-layering">Rebuilding an on-cluster custom layered image</a></li>
 <li><a href="#coreos-layering-configuring-on-revert_mco-coreos-layering">Reverting an on-cluster custom layered image</a></li>
 <li><a href="#coreos-layering-configuring-on-remove_mco-coreos-layering">Removing an on-cluster custom layered image</a></li>
 </ul>
@@ -2818,27 +2819,6 @@
 <dt class="hdlist1">On-cluster layering</dt>
 <dd>
 <p>With <a href="../machine_configuration/mco-coreos-layering.html#coreos-layering-configuring-on_mco-coreos-layering">on-cluster layering</a>, you create a <code>MachineOSConfig</code> object where you include the Containerfile and other parameters. The build is performed on your cluster and the resulting custom layered image is automatically pushed to your repository and applied to the machine config pool that you specified in the <code>MachineOSConfig</code> object. The entire process is performed completely within your cluster.</p>
-<div class="openblock">
-<div class="content">
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>On-cluster image layering is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</div>
-</div>
 </dd>
 <dt class="hdlist1">Out-of-cluster layering</dt>
 <dd>
@@ -3060,7 +3040,7 @@
 <h2 id="coreos-layering-configuring-on_mco-coreos-layering"><a class="anchor" href="#coreos-layering-configuring-on_mco-coreos-layering"></a>Using on-cluster layering to apply a custom layered image</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>To apply a custom layered image to your cluster by using the on-cluster build process, make a <code>MachineOSConfig</code> custom resource (CR) that specifies the following parameters:</p>
+<p>To apply a custom layered image to your cluster by using the on-cluster build process, create a <code>MachineOSConfig</code> custom resource (CR) that specifies the following parameters:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -3079,24 +3059,43 @@
 </ul>
 </div>
 <div class="paragraph">
-<p>When you create the object, the Machine Config Operator (MCO) creates a <code>MachineOSBuild</code> object and a builder pod. The build process also creates transient objects, such as config maps, which are cleaned up after the build is complete. The <code>MachineOSBuild</code> object and the associated <code>builder-*</code> pod use the same naming scheme, <code>&lt;MachineOSConfig_CR_name&gt;-&lt;hash&gt;</code>, for example:</p>
+<p>When you create the object, the Machine Config Operator (MCO) creates a <code>MachineOSBuild</code> object and a builder pod. The process also creates transient objects, such as config maps, which are cleaned up after the build is complete. The <code>MachineOSBuild</code> object and the associated <code>builder-*</code> pod use the same naming scheme, <code>&lt;MachineOSConfig_CR_name&gt;-&lt;hash&gt;</code>, for example:</p>
 </div>
 <div class="listingblock">
 <div class="title">Example <code>MachineOSBuild</code> object</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                       PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED
-layered-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      True        False         False</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                             PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED
+layered-image-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      True        False         False</span></code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="title">Example builder pod</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                                READY   STATUS      RESTARTS        AGE
-build-layered-c8765e26ebc87e1e17a7d6e0a78e8bae      2/2     Running     0               11m</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                                      READY   STATUS      RESTARTS        AGE
+build-layered-image-c8765e26ebc87e1e17a7d6e0a78e8bae      2/2     Running     0               11m</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>When the build is complete, the MCO pushes the new custom layered image to your repository and rolled out to the nodes in the associated machine config pool. You can see the digested image pull spec for the new custom layered image in the <code>MachineOSBuild</code> object and <code>machine-os-builder</code> pod.</p>
+<p>You should not need to interact with these new objects or the <code>machine-os-builder</code> pod. However, you can use all of these resources for troubleshooting, if necessary.</p>
+</div>
+<div class="paragraph">
+<p>When the build is complete, the MCO pushes the new custom layered image to your repository and rolls the image out to the nodes in the associated machine config pool. You can see the digested image pull spec for the new custom layered image in the <code>MachineOSConfig</code> object. This is now the active image pull spec for this <code>MachineOSConfig</code>.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example digested image pull spec</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineOSConfig
+metadata:
+  annotations:
+    machineconfiguration.openshift.io/current-machine-os-build: layered-9a8f89455246fa0c42ecee6ff1fa1a45
+  labels:
+    machineconfiguration.openshift.io/createdByOnClusterBuildsHelper: ""
+  name: layered-image
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">status:
+  currentImagePullSpec: image-registry.openshift-image-registry.svc:5000/openshift-machine-config-operator/os-image@sha256:3c8fc667adcb432ce0c83581f16086afec08a961dd28fed69bb6bad6db0a0754</span></code></pre>
+</div>
 </div>
 <div class="admonitionblock tip">
 <table>
@@ -3113,10 +3112,7 @@ build-layered-c8765e26ebc87e1e17a7d6e0a78e8bae      2/2     Running     0       
 </table>
 </div>
 <div class="paragraph">
-<p>You should not need to interact with these new objects or the <code>machine-os-builder</code> pod. However, you can use all of these resources for troubleshooting, if necessary.</p>
-</div>
-<div class="paragraph">
-<p>You need a separate <code>MachineOSConfig</code> CR for each machine config pool where you want to use a custom layered image.</p>
+<p>You can apply a custom layered image to any machine config pool in your cluster, including the control plane, worker, or custom pools.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3132,25 +3128,8 @@ build-layered-c8765e26ebc87e1e17a7d6e0a78e8bae      2/2     Running     0       
 </tr>
 </table>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
 <div class="paragraph">
-<p>On-cluster image layering is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>Making certain changes to a <code>MachineOSConfig</code> object triggers an automatic rebuild of the associated custom layered image. You can mitigate the effects of the rebuild by pausing the machine config pool where the custom layered image is applied as described in "Pausing the machine config pools." While the pools are paused, the MCO does not roll out the newly built image to the nodes after the build is complete. However, the build will still run regardless of whether the pool is paused or not. For example, if you want to remove and replace a <code>MachineOSCOnfig</code> object, pausing the machine config pools before making the change prevents the MCO from reverting the associated nodes to the base image, reducing the number of reboots needed.</p>
+<p>Making certain changes to a <code>MachineOSConfig</code> object triggers an automatic rebuild of the associated custom layered image. You can mitigate the effects of the rebuild by pausing the machine config pool where the custom layered image is applied as described in "Pausing the machine config pools". While the pools are paused, the MCO does not roll out the newly built image to the nodes after the build is complete. However, the build runs regardless of whether the pool is paused or not. For example, if you want to remove and replace a <code>MachineOSCOnfig</code> object, pausing the machine config pools before making the change prevents the MCO from reverting the associated nodes to the base image, reducing the number of reboots needed.</p>
 </div>
 <div class="paragraph">
 <p>When a machine config pool is paused, the <code>oc get machineconfigpools</code> reports the following status:</p>
@@ -3176,26 +3155,35 @@ worker    rendered-worker-221507009cbcdec0eec8ab3ccd789d18    False     False   
 <p>After the changes have been rolled out, you can unpause the machine config pool.</p>
 </div>
 <div class="paragraph">
-<p>In the case of a build failure, for example due to network issues or an invalid secret, the MCO retries the build three additional times before the job fails. The MCO creates a different build pod for each build attempt. You can use the build pod logs to troubleshoot any build failures. However, the MCO automatically removes these build pods after a short period of time.</p>
+<p>In the case of a build failure, for example due to network issues or an invalid secret, the MCO retries the build three additional times before the job fails. The MCO creates a different build pod for each build attempt. You can use the build pod logs to troubleshoot any build failures. Note that the MCO automatically removes these build pods after a short period of time.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example failed <code>MachineOSBuild</code> object</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                       PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED
-layered-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      False        False        True</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                             PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED   AGE
+layered-image-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      False        False        True     12m</span></code></pre>
 </div>
 </div>
-<h3 id="coreos-layering-configuring-on-limitations_mco-coreos-layering" class="discrete">On-cluster layering Technology Preview known limitations</h3>
+<div class="paragraph">
+<p>You can manually rebuild your custom layered image by either modifying your <code>MachineOSConfig</code> object or applying an annotation to the <code>MachineOSConfig</code> object. For more information, see "Rebuilding an on-cluster custom layered image".</p>
+</div>
+<div class="paragraph">
+<p>If you used a custom machine config pool to apply an on-cluster layered image to a node, you can remove the custom layered image from the node and revert to the base image. For more information, see "Reverting an on-cluster layered node".</p>
+</div>
+<div class="paragraph">
+<p>You can modify an on-custom layered image as needed, to install additional packages, remove existing packages, change repositories, update secrets, or other similar changes, by editing the MachineOSConfig object. For more information, see "Modifying a custom layered image".</p>
+</div>
+<h3 id="coreos-layering-configuring-on-limitations_mco-coreos-layering" class="discrete">On-cluster layering known limitations</h3>
 <div class="paragraph">
 <p>Note the following limitations when working with the on-cluster layering feature:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>On-cluster layering is supported only for OKD clusters on the AMD64 architecture.</p>
+<p>On-cluster layering is not supported on multi-architecture compute machines.</p>
 </li>
 <li>
-<p>On-cluster layering is not supported on multi-architecture compute machines.</p>
+<p>Using multiple <code>MachineOSConfig</code> objects on the same machine config pool is not supported. You need a separate <code>MachineOSConfig</code> CR for each machine config pool where you want to use a distinct custom layered image.</p>
 </li>
 <li>
 <p>If you scale up a machine set that uses a custom layered image, the nodes reboot two times. The first, when the node is initially created with the base image and a second time when the custom layered image is applied.</p>
@@ -3231,27 +3219,10 @@ layered-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      False        Fa
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have enabled the <code>TechPreviewNoUpgrade</code> feature set by using the feature gates. For more information, see "Enabling features using feature gates".</p>
+<p>You have the pull secret in the <code>openshift-machine-config-operator</code> namespace that the MCO needs in order to pull the base operating system image from your repository. By default, the MCO uses the cluster global pull secret, which it synchronizes into the <code>openshift-machine-config-operator</code> namespace. You can add your pull secret to the OKD global pull secret or you can use a different pull secret. For information on modifying the global pull secret, see "Updating the global cluster pull secret".</p>
 </li>
 <li>
-<p>You have a copy of the pull secret in the <code>openshift-machine-config-operator</code> namespace that the MCO needs to pull the base operating system image.</p>
-<div class="paragraph">
-<p>For example, if you are using the global pull secret, you can run the following command:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span>oc create secret docker-registry global-pull-secret-copy <span class="se">\</span>
-  <span class="nt">--namespace</span> <span class="s2">"openshift-machine-config-operator"</span> <span class="se">\</span>
-  <span class="nt">--from-file</span><span class="o">=</span>.dockerconfigjson<span class="o">=</span>&lt;<span class="o">(</span>oc get secret/pull-secret <span class="nt">-n</span> openshift-config <span class="nt">-o</span> go-template<span class="o">=</span><span class="s1">'{{index .data ".dockerconfigjson" | base64decode}}'</span><span class="o">)</span></code></pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>You have the push secret of the registry that the MCO needs to push the new custom layered image to.</p>
+<p>You have the push secret of the registry that the MCO needs to push the new custom layered image to. The credentials provided by the secret must also grant permission to delete an image from the registry.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3268,10 +3239,7 @@ layered-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      False        Fa
 </div>
 </li>
 <li>
-<p>You have the push secret of the registry that the MCO needs to push the new custom layered image to. If you want the custom layered image deleted when you delete the associated the <code>MachineOSBuild</code> object, the credentials provided by the secret must also grant permission to delete an image from the registry.</p>
-</li>
-<li>
-<p>You have a pull secret that your nodes need to pull the new custom layered image from your registry. This should be a different secret than the one used to push the image to the repository.</p>
+<p>You have the pull secret that your nodes need to pull the new custom layered image from your registry. This should be a different secret than the one used to push the image to the repository.</p>
 </li>
 <li>
 <p>You are familiar with how to configure a Containerfile. Instructions on how to create a Containerfile are beyond the scope of this documentation.</p>
@@ -3292,30 +3260,27 @@ layered-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      False        Fa
 <p>Create a YAML file similar to the following:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1alpha1</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span> <i class="conum" data-value="1"></i><b>(1)</b>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">MachineOSConfig</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">layered</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">layered-image</span> <i class="conum" data-value="2"></i><b>(2)</b>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">machineConfigPool</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">worker</span> <i class="conum" data-value="3"></i><b>(3)</b>
-  <span class="na">buildInputs</span><span class="pi">:</span>
-    <span class="na">containerFile</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
-    <span class="pi">-</span> <span class="na">containerfileArch</span><span class="pi">:</span> <span class="s">noarch</span>
-      <span class="na">content</span><span class="pi">:</span> <span class="pi">|-</span>
-        <span class="s">FROM configs AS final</span>
-        <span class="s">RUN rpm-ostree install tree &amp;&amp; \</span>
-            <span class="s">ostree container commit</span>
-    <span class="na">imageBuilder</span><span class="pi">:</span> <i class="conum" data-value="5"></i><b>(5)</b>
-      <span class="na">imageBuilderType</span><span class="pi">:</span> <span class="s">PodImageBuilder</span>
-    <span class="na">baseImagePullSecret</span><span class="pi">:</span> <i class="conum" data-value="6"></i><b>(6)</b>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">global-pull-secret-copy</span>
-    <span class="na">renderedImagePushspec</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000/openshift/os-image:latest</span> <i class="conum" data-value="7"></i><b>(7)</b>
-    <span class="na">renderedImagePushSecret</span><span class="pi">:</span> <i class="conum" data-value="8"></i><b>(8)</b>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">builder-dockercfg-7lzwl</span>
-  <span class="na">buildOutputs</span><span class="pi">:</span> <i class="conum" data-value="9"></i><b>(9)</b>
-    <span class="na">currentImagePullSecret</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">builder-dockercfg-mtcl23</span></code></pre>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">layered</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">containerFile</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="pi">-</span> <span class="na">containerfileArch</span><span class="pi">:</span> <span class="s">NoArch</span> <i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="na">content</span><span class="pi">:</span> <span class="pi">|-</span>
+      <span class="s">FROM configs AS final</span>
+      <span class="s">RUN dnf install -y cowsay &amp;&amp; \</span>
+        <span class="s">dnf clean all &amp;&amp; \</span>
+        <span class="s">ostree container commit</span>
+  <span class="na">imageBuilder</span><span class="pi">:</span> <i class="conum" data-value="6"></i><b>(6)</b>
+    <span class="na">imageBuilderType</span><span class="pi">:</span> <span class="s">Job</span>
+  <span class="na">baseImagePullSecret</span><span class="pi">:</span> <i class="conum" data-value="7"></i><b>(7)</b>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">global-pull-secret-copy</span>
+  <span class="na">renderedImagePushSpec</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000/openshift/os-image:latest</span>  <i class="conum" data-value="8"></i><b>(8)</b>
+  <span class="na">renderedImagePushSecret</span><span class="pi">:</span> <i class="conum" data-value="9"></i><b>(9)</b>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">builder-dockercfg-mtcl23</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -3326,11 +3291,11 @@ layered-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      False        Fa
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies a name for the <code>MachineOSConfig</code> object. This name is used with other on-cluster layering resources. The examples in this documentation use the name <code>layered</code>.</td>
+<td>Specifies a name for the <code>MachineOSConfig</code> object. This name is used with other on-cluster layering resources. The examples in this documentation use the name <code>layered-image</code>.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specifies the name of the machine config pool associated with the nodes where you want to deploy the custom layered image. The examples in this documentation use the <code>worker</code> machine config pool.</td>
+<td>Specifies the name of the machine config pool associated with the nodes where you want to deploy the custom layered image. The examples in this documentation use the <code>layered</code> machine config pool.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="4"></i><b>4</b></td>
@@ -3338,23 +3303,23 @@ layered-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      False        Fa
 </tr>
 <tr>
 <td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Specifies the name of the image builder to use. This must be <code>PodImageBuilder</code>.</td>
+<td>Specifies the architecture this containerfile is to be built for: <code>ARM64</code>, <code>AMD64</code>, <code>PPC64LE</code>, <code>S390X</code>, or <code>NoArch</code>. The default is <code>NoArch</code>, which defines a Containerfile that can be applied to any architecture.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Specifies the name of the pull secret that the MCO needs in order to pull the base operating system image from the registry.</td>
+<td>Specifies the name of the image builder to use. This must be <code>Job</code>, which is a reference to the <code>job</code> object that is managing the image build.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>Specifies the image registry to push the newly built custom layered image to. This can be any registry that your cluster has access to. This example uses the internal OKD registry.</td>
+<td>Optional: Specifies the name of the pull secret that the MCO needs to pull the base operating system image from the registry. By default, the global pull secret is used.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>Specifies the name of the push secret that the MCO needs in order to push the newly built custom layered image to that registry.</td>
+<td>Specifies the image registry to push the newly-built custom layered image to. This can be any registry that your cluster has access to in the <code>host[:port][/namespace]/name</code> or <code>svc_name.namespace.svc[:port]/repository/name:&lt;tag&gt;</code> format. This example uses the internal OKD registry. You can specify a mirror registry if you cluster is properly configured to use a mirror registry.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="9"></i><b>9</b></td>
-<td>Specifies the secret required by the image registry that the nodes need in order to pull the newly built custom layered image. This should be a different secret than the one used to push the image to your repository.</td>
+<td>Specifies the name of the push secret that the MCO needs to push the newly-built custom layered image to that registry.</td>
 </tr>
 </table>
 </div>
@@ -3384,8 +3349,8 @@ layered-c8765e26ebc87e1e17a7d6e0a78e8bae   False      False      False        Fa
 <div class="listingblock">
 <div class="title">Example output showing that the <code>MachineOSBuild</code> object is ready</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                               PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED
-layered-ad5a3cad36303c363cf458ab0524e7c0-builder   False      False      True        False         False</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                                     PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED   AGE
+layered-image-ad5a3cad36303c363cf458ab0524e7c0-builder   False      False      True        False         False    43s</span></code></pre>
 </div>
 </div>
 </li>
@@ -3433,10 +3398,10 @@ layered-ad5a3cad36303c363cf458ab0524e7c0-builder   False      False      True   
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                                              READY   STATUS    RESTARTS   AGE
-build-layered-ad5a3cad36303c363cf458ab0524e7c0-hxrws              2/2     Running   0          2m40s <i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                                                    READY   STATUS    RESTARTS   AGE
+build-layered-image-ad5a3cad36303c363cf458ab0524e7c0-hxrws              2/2     Running   0          2m40s <i class="conum" data-value="1"></i><b>(1)</b>
 </span><span class="gp">#</span><span class="w"> </span>...
-<span class="go">machine-os-builder-6fb66cfb99-zcpvq                               1/1     Running   0          2m42s <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="go">machine-os-builder-6fb66cfb99-zcpvq                                     1/1     Running   0          2m42s <i class="conum" data-value="2"></i><b>(2)</b>
 </span></code></pre>
 </div>
 </div>
@@ -3454,7 +3419,7 @@ build-layered-ad5a3cad36303c363cf458ab0524e7c0-hxrws              2/2     Runnin
 </div>
 </li>
 <li>
-<p>Verify that the <code>MachineOSConfig</code> object contains a reference to the new custom layered image by running the following command:</p>
+<p>Verify the current stage of your layered build by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineosbuilds</code></pre>
@@ -3463,8 +3428,8 @@ build-layered-ad5a3cad36303c363cf458ab0524e7c0-hxrws              2/2     Runnin
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                       PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED
-layered-ad5a3cad36303c363cf458ab0524e7c0   False      True       False       False         False <i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                             PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED   AGE
+layered-image-ad5a3cad36303c363cf458ab0524e7c0   False      True       False       False         False    12m <i class="conum" data-value="1"></i><b>(1)</b>
 </span></code></pre>
 </div>
 </div>
@@ -3478,34 +3443,27 @@ layered-ad5a3cad36303c363cf458ab0524e7c0   False      True       False       Fal
 </div>
 </li>
 <li>
-<p>Verify that the <code>MachineOSBuild</code> object contains a reference to the new custom layered image by running the following command:</p>
+<p>Verify that the <code>MachineOSConfig</code> object contains a reference to the new custom layered image by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe machineosbuild &lt;object_name&gt;</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe machineosconfig &lt;object_name&gt;</code></pre>
 </div>
 </div>
 <div class="listingblock">
-<div class="title">Example output</div>
+<div class="title">Example digested image pull spec</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">Name</span><span class="pi">:</span>         <span class="s">layered-ad5a3cad36303c363cf458ab0524e7c0</span>
-<span class="c1"># ...</span>
-<span class="na">API Version</span><span class="pi">:</span>  <span class="s">machineconfiguration.openshift.io/v1alpha1</span>
-<span class="na">Kind</span><span class="pi">:</span>         <span class="s">MachineOSBuild</span>
-<span class="c1"># ...</span>
-<span class="na">Spec</span><span class="pi">:</span>
-  <span class="na">Config Generation</span><span class="pi">:</span>  <span class="m">1</span>
-  <span class="na">Desired Config</span><span class="pi">:</span>
-    <span class="na">Name</span><span class="pi">:</span>  <span class="s">rendered-layered-ad5a3cad36303c363cf458ab0524e7c0</span>
-  <span class="na">Machine OS Config</span><span class="pi">:</span>
-    <span class="na">Name</span><span class="pi">:</span>                   <span class="s">layered</span>
-  <span class="na">Rendered Image Pushspec</span><span class="pi">:</span>  <span class="s">image-registry.openshift-image-registry.svc:5000/openshift-machine-config-operator/os-images:layered-ad5a3cad36303c363cf458ab0524e7c0</span>
-<span class="c1"># ...</span>
-    <span class="na">Last Transition Time</span><span class="pi">:</span>  <span class="s">2025-02-12T19:21:28Z</span>
-    <span class="na">Message</span><span class="pi">:</span>               <span class="s">Build Ready</span>
-    <span class="na">Reason</span><span class="pi">:</span>                <span class="s">Ready</span>
-    <span class="na">Status</span><span class="pi">:</span>                <span class="s">True</span>
-    <span class="na">Type</span><span class="pi">:</span>                  <span class="s">Succeeded</span>
-  <span class="na">Final Image Pullspec</span><span class="pi">:</span>    <span class="s">image-registry.openshift-image-registry.svc:5000/openshift-machine-config-operator/os-images@sha256:312e48825e074b01a913deedd6de68abd44894ede50b2d14f99d722f13cda04b</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineOSConfig
+metadata:
+  annotations:
+    machineconfiguration.openshift.io/current-machine-os-build: layered-9a8f89455246fa0c42ecee6ff1fa1a45
+  labels:
+    machineconfiguration.openshift.io/createdByOnClusterBuildsHelper: ""
+  name: layered-image
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">status:
+  currentImagePullSpec: image-registry.openshift-image-registry.svc:5000/openshift-machine-config-operator/os-image@sha256:3c8fc667adcb432ce0c83581f16086afec08a961dd28fed69bb6bad6db0a0754 <i class="conum" data-value="1"></i><b>(1)</b>
+</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -3549,9 +3507,9 @@ layered-ad5a3cad36303c363cf458ab0524e7c0   False      True       False       Fal
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>...
 <span class="go">Deployments:
-* ostree-unverified-registry:image-registry.openshift-image-registry.svc:5000/openshift-machine-config-operator/os-images@sha256:312e48825e074b01a913deedd6de68abd44894ede50b2d14f99d722f13cda04b
-                   Digest: sha256:312e48825e074b01a913deedd6de68abd44894ede50b2d14f99d722f13cda04b <i class="conum" data-value="1"></i><b>(1)</b>
-                  Version: 418.94.202502100215-0 (2025-02-12T19:20:44Z)</span></code></pre>
+* ostree-unverified-registry:image-registry.openshift-image-registry.svc:5000/openshift-machine-config-operator/os-images@sha256:3c8fc667adcb432ce0c83581f16086afec08a961dd28fed69bb6bad6db0a0754
+                   Digest: sha256:3c8fc667adcb432ce0c83581f16086afec08a961dd28fed69bb6bad6db0a0754 <i class="conum" data-value="1"></i><b>(1)</b>
+                  Version: 419.94.202502100215-0 (2025-02-12T19:20:44Z)</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -3572,13 +3530,19 @@ layered-ad5a3cad36303c363cf458ab0524e7c0   False      True       False       Fal
 <div class="title">Additional resources</div>
 <ul>
 <li>
-<p><a href="../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling">Enabling features using feature gates</a></p>
+<p><a href="../machine_configuration/mco-coreos-layering.html#coreos-layering-configuring-on-remove_mco-coreos-layering">Removing an on-cluster custom layered image</a></p>
 </li>
 <li>
 <p><a href="../updating/updating_a_cluster/update-using-custom-machine-config-pools.html#update-using-custom-machine-config-pools-pause_update-using-custom-machine-config-pools">Pausing the machine config pools</a></p>
 </li>
 <li>
-<p><a href="../machine_configuration/mco-coreos-layering.html#coreos-layering-configuring-on-remove_mco-coreos-layering">Removing an on-cluster custom layered image</a></p>
+<p><a href="../machine_configuration/mco-coreos-layering.html#coreos-layering-configuring-on-rebuild_mco-coreos-layering">Rebuilding an on-cluster custom layered image</a></p>
+</li>
+<li>
+<p><a href="../openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets">Updating the global cluster pull secret</a></p>
+</li>
+<li>
+<p><a href="../machine_configuration/mco-coreos-layering.html#coreos-layering-configuring-on-modifying_mco-coreos-layering">Modifying a custom layered image</a></p>
 </li>
 </ul>
 </div>
@@ -3591,7 +3555,7 @@ layered-ad5a3cad36303c363cf458ab0524e7c0   False      True       False       Fal
 <p>If you modify and apply the <code>MachineOSConfig</code> object YAML or create a new YAML file, the YAML overwrites any changes you made directly to the <code>MachineOSConfig</code> object itself.</p>
 </div>
 <div class="paragraph">
-<p>Making certain changes to a <code>MachineOSConfig</code> object triggers an automatic rebuild of the associated custom layered image. You can mitigate the effects of the rebuild by pausing the machine config pool where the custom layered image is applied as described in "Pausing the machine config pools." While the pools are paused, the MCO does not roll out the newly built image to the nodes after the build is complete. However, the build will still run regardless of whether the pool is paused or not. For example, if you want to remove and replace a <code>MachineOSCOnfig</code> object, pausing the machine config pools before making the change prevents the MCO from reverting the associated nodes to the base image, reducing the number of reboots needed.</p>
+<p>Making certain changes to a <code>MachineOSConfig</code> object triggers an automatic rebuild of the associated custom layered image. You can mitigate the effects of the rebuild by pausing the machine config pool where the custom layered image is applied as described in "Pausing the machine config pools". While the pools are paused, the MCO does not roll out the newly built image to the nodes after the build is complete. However, the build runs regardless of whether the pool is paused or not. For example, if you want to remove and replace a <code>MachineOSCOnfig</code> object, pausing the machine config pools before making the change prevents the MCO from reverting the associated nodes to the base image, reducing the number of reboots needed.</p>
 </div>
 <div class="paragraph">
 <p>When a machine config pool is paused, the <code>oc get machineconfigpools</code> reports the following status:</p>
@@ -3635,36 +3599,32 @@ worker    rendered-worker-221507009cbcdec0eec8ab3ccd789d18    False     False   
 <p>Edit the <code>MachineOSConfig</code> object to modify the custom layered image. The following example adds the <code>rngd</code> daemon to nodes that already have the tree package that was installed using a custom layered image.</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1alpha1</span>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">MachineOSConfig</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">layered</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">layered-image</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">machineConfigPool</span><span class="pi">:</span>
     <span class="na">name</span><span class="pi">:</span> <span class="s">worker</span>
-  <span class="na">buildInputs</span><span class="pi">:</span>
-    <span class="na">containerFile</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">containerfileArch</span><span class="pi">:</span> <span class="s">noarch</span>
-      <span class="na">content</span><span class="pi">:</span> <span class="pi">|-</span> <i class="conum" data-value="1"></i><b>(1)</b>
-        <span class="s">FROM configs AS final</span>
+  <span class="na">containerFile</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">containerfileArch</span><span class="pi">:</span> <span class="s">noarch</span>
+    <span class="na">content</span><span class="pi">:</span> <span class="pi">|-</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="s">FROM configs AS final</span>
 
-        <span class="s">RUN rpm-ostree install rng-tools &amp;&amp; \</span>
-            <span class="s">systemctl enable rngd &amp;&amp; \</span>
-            <span class="s">rpm-ostree cleanup -m &amp;&amp; \</span>
-            <span class="s">ostree container commit</span>
+      <span class="s">RUN rpm-ostree install rng-tools &amp;&amp; \</span>
+          <span class="s">systemctl enable rngd &amp;&amp; \</span>
+          <span class="s">rpm-ostree cleanup -m &amp;&amp; \</span>
+          <span class="s">ostree container commit</span>
 
-        <span class="s">RUN rpm-ostree install tree &amp;&amp; \</span>
-            <span class="s">ostree container commit</span>
-    <span class="na">imageBuilder</span><span class="pi">:</span>
-      <span class="na">imageBuilderType</span><span class="pi">:</span> <span class="s">PodImageBuilder</span>
-    <span class="na">baseImagePullSecret</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">global-pull-secret-copy</span> <i class="conum" data-value="2"></i><b>(2)</b>
-    <span class="na">renderedImagePushspec</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000/openshift-machine-config-operator/os-images:latest</span> <i class="conum" data-value="3"></i><b>(3)</b>
-    <span class="na">renderedImagePushSecret</span><span class="pi">:</span>  <i class="conum" data-value="4"></i><b>(4)</b>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">new-secret-name</span>
-  <span class="na">buildOutputs</span><span class="pi">:</span>
-    <span class="na">currentImagePullSecret</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">new-secret-name</span> <i class="conum" data-value="5"></i><b>(5)</b></code></pre>
+      <span class="s">RUN rpm-ostree install tree &amp;&amp; \</span>
+          <span class="s">ostree container commit</span>
+  <span class="na">imageBuilder</span><span class="pi">:</span>
+    <span class="na">imageBuilderType</span><span class="pi">:</span> <span class="s">PodImageBuilder</span>
+  <span class="na">baseImagePullSecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">global-pull-secret-copy</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">renderedImagePushspec</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000/openshift-machine-config-operator/os-images:latest</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">renderedImagePushSecret</span><span class="pi">:</span>  <i class="conum" data-value="4"></i><b>(4)</b>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">new-secret-name</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -3684,10 +3644,6 @@ worker    rendered-worker-221507009cbcdec0eec8ab3ccd789d18    False     False   
 <tr>
 <td><i class="conum" data-value="4"></i><b>4</b></td>
 <td>Optional: Update the secret needed to push the newly built custom layered image to the registry.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Optional: Update the secret needed to pull the newly built custom layered image from the registry.</td>
 </tr>
 </table>
 </div>
@@ -3713,9 +3669,9 @@ worker    rendered-worker-221507009cbcdec0eec8ab3ccd789d18    False     False   
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                       PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED
-layered-a5457b883f5239cdcb71b57e1a30b6ef   False      False      True        False         False
-layered-f91f0f5593dd337d89bf4d38c877590b   False      True       False       False         False <i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                             PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED   AGE
+layered-image-a5457b883f5239cdcb71b57e1a30b6ef   False      False      True        False         False    4d17h
+layered-image-f91f0f5593dd337d89bf4d38c877590b   False      True       False       False         False    2m41s <i class="conum" data-value="1"></i><b>(1)</b>
 </span></code></pre>
 </div>
 </div>
@@ -3813,9 +3769,114 @@ worker    rendered-worker-221507009cbcdec0eec8ab3ccd789d18    False     True    
 </div>
 </div>
 <div class="sect2">
+<h3 id="coreos-layering-configuring-on-rebuild_mco-coreos-layering"><a class="anchor" href="#coreos-layering-configuring-on-rebuild_mco-coreos-layering"></a>Rebuilding an on-cluster custom layered image</h3>
+<div class="paragraph">
+<p>In situations where you want to rebuild a custom layered image, you can either modify your <code>MachineOSConfig</code> object or add an annotation to the <code>MachineOSConfig</code> object. Both of these actions trigger an automatic rebuild of the object. For example, you could perform a rebuild if the you change the Containerfile or need to update the <code>osimageurl</code> location in a machine config.</p>
+</div>
+<div class="paragraph">
+<p>After you add the annotation, the Machine Config Operator (MCO) deletes the current <code>MachineOSBuild</code> object and creates a new one in its place. When the build process is complete, the MCO automatically removes the annotation.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have opted-in to on-cluster layering by creating a <code>MachineOSConfig</code> object.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Edit the <code>MachineOSConfig</code> object to add the <code>machineconfiguration.openshift.io/rebuild</code> annotation by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit MachineOSConfig &lt;object_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>MachineOSConfig</code> object</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineOSConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/current-machine-os-build</span><span class="pi">:</span> <span class="s">layering-c26d4a003432df70ee66c83981144cfa</span>
+    <span class="s">machineconfiguration.openshift.io/rebuild</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="c1"># ...</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">layered-image</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Add this annotation to trigger a rebuild of the custom layered image.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Check that the <code>MachineOSBuild</code> object is building by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineosbuild</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                             PREPARED   BUILDING   SUCCEEDED   INTERRUPTED   FAILED   AGE
+layered-image-d6b929a29c6dbfa8e4007c8069a2fd08   False      True       False       False         False    2m41s <i class="conum" data-value="1"></i><b>(1)</b>
+</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The value <code>True</code> in the <code>BUILDING</code> column indicates that the <code>MachineOSBuild</code> object is building.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Edit the <code>MachineOSConfig</code> object to verify that the MCO removed the <code>machineconfiguration.openshift.io/rebuild</code> annotation by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit MachineOSConfig &lt;object_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>MachineOSConfig</code> object</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineOSConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/current-machine-os-build</span><span class="pi">:</span> <span class="s">layering-c26d4a003432df70ee66c83981144cfa</span>
+<span class="c1"># ...</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">layered-image</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
 <h3 id="coreos-layering-configuring-on-revert_mco-coreos-layering"><a class="anchor" href="#coreos-layering-configuring-on-revert_mco-coreos-layering"></a>Reverting an on-cluster custom layered image</h3>
 <div class="paragraph">
-<p>You can revert an on-cluster custom layered image from nodes by removing the label for the machine config pool (MCP) that you specified in the <code>MachineOSConfig</code> object. After you remove the label, the Machine Config Operator (MCO) reboots the nodes in that MCP with the cluster base Fedora CoreOS (FCOS) image, along with any previously-made machine config changes, overriding the custom layered image.</p>
+<p>If you applied an on-cluster layered image to a node in a custom machine config pool (MCP), you can remove the custom layered image from the node and revert to the base image.</p>
+</div>
+<div class="paragraph">
+<p>To revert the node, remove the node from the custom MCP by removing the custom machine config pool label from the node. After you remove the label, the Machine Config Operator (MCO) reboots the node with the cluster base Fedora CoreOS (FCOS) image, overriding the custom layered image.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3825,20 +3886,20 @@ worker    rendered-worker-221507009cbcdec0eec8ab3ccd789d18    False     True    
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If the node where the custom layered image is deployed uses a custom machine config pool, before you remove the label, make sure the node is associated with a second MCP.</p>
+<p>Before you remove the label, make sure the node is associated with another MCP.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
-<div class="paragraph">
-<p>You can reapply the custom layered image to the node by using the <code>oc label node/&lt;node_name&gt; 'node-role.kubernetes.io/&lt;mcp_name&gt;='</code> label.</p>
-</div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have opted in to on-cluster layering by creating a <code>MachineOSConfig</code> object.</p>
+<p>You have opted-in to on-cluster layering by creating a <code>MachineOSConfig</code> object.</p>
+</li>
+<li>
+<p>You have applied a <code>MachineOSConfig</code> object to a node in a custom machine config pool.</p>
 </li>
 </ul>
 </div>
@@ -3858,12 +3919,13 @@ worker    rendered-worker-221507009cbcdec0eec8ab3ccd789d18    False     True    
 </li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="ulist">
 <div class="title">Verification</div>
-<p>You can verify that the custom layered image is removed by performing the following checks:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
+<ul>
+<li>
+<p>Verify that the custom layered image is removed by performing any of the following checks:</p>
+<div class="ulist">
+<ul>
 <li>
 <p>Check that the worker machine config pool is updating with the previous machine config:</p>
 <div class="listingblock">
@@ -3875,8 +3937,9 @@ worker    rendered-worker-221507009cbcdec0eec8ab3ccd789d18    False     True    
 <div class="title">Sample output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME      CONFIG                                              UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT   DEGRADEDMACHINECOUNT   AGE
-master    rendered-master-8332482204e0b76002f15ecad15b6c2d    True      False      False      3              3                   3                     0                      5h26m
-worker    rendered-worker-bde4e4206442c0a48b1a1fb35ba56e85    False     True       False      3              2                   2                     0                      5h26m <i class="conum" data-value="1"></i><b>(1)</b>
+layered   rendered-layered-e8c8bc1de69777325003e80bc0c04b82   True      False      False      0              0                   0                     0                      4h20m <i class="conum" data-value="1"></i><b>(1)</b>
+master    rendered-master-50d7bc27ee8b9ca2250383f0647ade7f    True      False      False      3              3                   3                     0                      5h39m
+worker    rendered-worker-e8c8bc1de69777325003e80bc0c04b82    True      False      False      3              3                   3                     0                      5h39m <i class="conum" data-value="2"></i><b>(2)</b>
 </span></code></pre>
 </div>
 </div>
@@ -3884,7 +3947,11 @@ worker    rendered-worker-bde4e4206442c0a48b1a1fb35ba56e85    False     True    
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The value <code>FALSE</code> in the <code>UPDATED</code> column indicates that the <code>MachineOSBuild</code> object is building. When the <code>UPDATED</code> column reports <code>FALSE</code>, the base image has rolled out to the nodes.</td>
+<td>The custom machine config pool no longer has any nodes.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>When the <code>UPDATING</code> field is <code>True</code>, the machine config pool is updating with the previous machine config. When the field becomes <code>False</code>, the worker machine config pool has rolled out to the previous machine config.</td>
 </tr>
 </table>
 </div>
@@ -3911,13 +3978,13 @@ ip-10-0-218-151.us-west-1.compute.internal   Ready                      worker  
 </li>
 <li>
 <p>When the node is back in the <code>Ready</code> state, check that the node is using the base image:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
+<div class="olist arabic">
+<ol class="arabic">
 <li>
 <p>Open an <code>oc debug</code> session to the node. For example:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/ip-10-0-155-125.us-west-1.compute.internal</code></pre>
 </div>
 </div>
 </li>
@@ -3925,32 +3992,35 @@ ip-10-0-218-151.us-west-1.compute.internal   Ready                      worker  
 <p>Set <code>/host</code> as the root directory within the debug shell:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Run an <code>rpm-ostree status</code> command to view that the base image is in use:</p>
+<p>Run the <code>rpm-ostree status</code> command to view that the base image is in use:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span>rpm-ostree status</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>rpm-ostree status</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">State: idle
+<pre class="nowrap">State: idle
 Deployments:
-* ostree-unverified-image:containers-storage:quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:76721c875a2b79688be46b1dca654c2c6619a6be28b29a2822cd86c3f9d8e3c1
-                   Digest: sha256:76721c875a2b79688be46b1dca654c2c6619a6be28b29a2822cd86c3f9d8e3c1
-                  Version: 418.94.202501300706-0 (2025-01-30T07:10:58Z)</span></code></pre>
+* ostree-unverified-registry:registry.build05.ci.openshift.org/ci-ln-qd0hmqk/stable@sha256:a8bd32573f787f6d1c23e1d669abbefd1e31339826d06e750c0ca632ad6c414f
+                   Digest: sha256:a8bd32573f787f6d1c23e1d669abbefd1e31339826d06e750c0ca632ad6c414f
+                  Version: 419.96.202501202201-0 (2025-01-20T22:06:13Z)</pre>
 </div>
 </div>
 </li>
 </ol>
 </div>
 </li>
-</ol>
+</ul>
+</div>
+</li>
+</ul>
 </div>
 </div>
 <div class="sect2">
