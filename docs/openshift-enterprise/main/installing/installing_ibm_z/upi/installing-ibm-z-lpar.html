@@ -1275,7 +1275,8 @@
                   <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-nodeport.html">Configuring ingress cluster traffic using a NodePort</a></li>
                   <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-load-balancer-allowed-source-ranges.html">Configuring ingress cluster traffic using load balancer allowed source ranges</a></li>
                   <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/configuring-ingress-cluster-patch-fields.html">Patching existing ingress objects</a></li>
-                  <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/allocating-load-balancers.html">Allocating load balancers to specific subnets</a></li>              </ul>
+                  <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/allocating-load-balancers.html">Allocating load balancers to specific subnets</a></li>
+                  <li><a class="" href="../../../networking/configuring_ingress_cluster_traffic/ingress-gateway-api.html">Gateway API with OpenShift Container Platform networking</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-13-20"><span id="sgSpan-13-20" class="fa fa-caret-right"></span>&nbsp;Kubernetes NMState</a>
               <ul id="topicSubGroup-13-20" class="nav-tertiary list-unstyled collapse">
@@ -4783,10 +4784,46 @@ contains the <code>install-config.yaml</code> file you created.</td>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create Butane configuration files for the control plane and compute nodes.</p>
-<div class="paragraph">
-<p>The following example of a Butane configuration for a control plane node creates a file named <code>main-storage.bu</code> for disk encryption:</p>
+<p>Choose the appropriate method to create Butane configuration files for the control plane and compute nodes:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>For installations on DASD-type disks, create a file named <code>main-storage.bu</code> by using the following Butane configuration for a control plane node with disk encryption, for example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">variant</span><span class="pi">:</span> <span class="s">openshift</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s">Branch Build.0</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">main-storage</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
+<span class="na">boot_device</span><span class="pi">:</span>
+  <span class="na">layout</span><span class="pi">:</span> <span class="s">s390x-eckd</span>
+  <span class="na">luks</span><span class="pi">:</span>
+    <span class="na">device</span><span class="pi">:</span> <span class="s">/dev/dasda</span>
+    <span class="na">cex</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+<span class="na">openshift</span><span class="pi">:</span>
+  <span class="na">fips</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">kernel_arguments</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">rd.luks.key=/etc/luks/cex.key</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Specifies whether to enable or disable FIPS mode. By default, FIPS mode is not enabled. If FIPS mode is enabled, the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) machines that OpenShift Container Platform runs on bypass the default Kubernetes cryptography suite and use the cryptography modules that are provided with RHCOS instead.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Specifies the location of the key that is required to decrypt the device. You can not change this value.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>For installations on FCP-type disks, create a file named <code>main-storage.bu</code> by using the following Butane configuration for a control plane node with disk encryption, for example:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">variant</span><span class="pi">:</span> <span class="s">openshift</span>
@@ -4796,46 +4833,38 @@ contains the <code>install-config.yaml</code> file you created.</td>
   <span class="na">labels</span><span class="pi">:</span>
     <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
 <span class="na">storage</span><span class="pi">:</span>
-  <span class="na">luks</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">cex</span><span class="pi">:</span>
-        <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
-        <span class="na">options</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-           <span class="pi">-</span> <span class="s">--pbkdf</span>
-           <span class="pi">-</span> <span class="s">pbkdf2</span>
-      <span class="na">device</span><span class="pi">:</span> <span class="s">/dev/disk/by-partlabel/root</span> <i class="conum" data-value="2"></i><b>(2)</b>
-      <span class="na">label</span><span class="pi">:</span> <span class="s">luks-root</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">root</span>
-      <span class="na">wipe_volume</span><span class="pi">:</span> <span class="no">true</span>
   <span class="na">filesystems</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">device</span><span class="pi">:</span> <span class="s">/dev/mapper/root</span>
       <span class="na">format</span><span class="pi">:</span> <span class="s">xfs</span>
       <span class="na">label</span><span class="pi">:</span> <span class="s">root</span>
       <span class="na">wipe_filesystem</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">luks</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">device</span><span class="pi">:</span> <span class="s">/dev/disk/by-label/root</span>
+      <span class="na">label</span><span class="pi">:</span> <span class="s">luks-root</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">root</span>
+      <span class="na">wipe_volume</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">cex</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
 <span class="na">openshift</span><span class="pi">:</span>
-  <span class="na">fips</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="3"></i><b>(3)</b>
-  <span class="na">kernel_arguments</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
-    <span class="pi">-</span> <span class="s">rd.luks.key=/etc/luks/cex.key</span></code></pre>
+  <span class="na">fips</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">kernel_arguments</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">rd.luks.key=/etc/luks/cex.key</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The <code>pbkdf</code> option is only required if FIPS mode is enabled. Omit the entry if FIPS is disabled.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>For installations on DASD-type disks, replace with <code>device: /dev/disk/by-label/root</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
 <td>Specifies whether to enable or disable FIPS mode. By default, FIPS mode is not enabled. If FIPS mode is enabled, the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) machines that OpenShift Container Platform runs on bypass the default Kubernetes cryptography suite and use the cryptography modules that are provided with RHCOS instead.</td>
 </tr>
 <tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Specifies the location of the pass key that is required to decrypt the device.</td>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Specifies the location of the key that is required to decrypt the device. You can not change this value.</td>
 </tr>
 </table>
+</div>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -4858,15 +4887,15 @@ rd.zfcp<span class="o">=</span>0.0.5677,0x600606680g7f0056,0x034F000000000000 <i
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies a unique fully qualified path depending on disk type. This can be DASD-type, FCP-type, or NVMe-type disks.</td>
+<td>Specifies a unique fully qualified path depending on disk type. This can be DASD-type or FCP-type disks.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies the location of the Ignition config file. Use <code>master.ign</code> or <code>worker.ign</code>. Only HTTP and HTTPS protocols are supported.</td>
+<td>Specifies the location of the Ignition configuration file. Use <code>master.ign</code> or <code>worker.ign</code>. You can only use the HTTP and HTTPS protocols.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specifies the location of the <code>rootfs</code> artifact for the <code>kernel</code> and <code>initramfs</code> you are booting. Only HTTP and HTTPS protocols are supported.</td>
+<td>Specifies the location of the <code>rootfs</code> artifact for the <code>kernel</code> and <code>initramfs</code> that you want to boot. You can only use the HTTP and HTTPS protocols.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="4"></i><b>4</b></td>
@@ -4933,10 +4962,7 @@ rd.zfcp<span class="o">=</span>0.0.5677,0x600606680g7f0056,0x034F000000000000 <i
         <span class="na">tang</span><span class="pi">:</span>
           <span class="pi">-</span> <span class="na">thumbprint</span><span class="pi">:</span> <span class="s">QcPr_NHFJammnRCA3fFMVdNBwjs</span>
             <span class="na">url</span><span class="pi">:</span> <span class="s">http://clevis.example.com:7500</span>
-        <span class="na">options</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-           <span class="pi">-</span> <span class="s">--cipher</span>
-           <span class="pi">-</span> <span class="s">aes-cbc-essiv:sha256</span>
-      <span class="na">device</span><span class="pi">:</span> <span class="s">/dev/disk/by-partlabel/root</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">device</span><span class="pi">:</span> <span class="s">/dev/disk/by-partlabel/root</span> <i class="conum" data-value="1"></i><b>(1)</b>
       <span class="na">label</span><span class="pi">:</span> <span class="s">luks-root</span>
       <span class="na">name</span><span class="pi">:</span> <span class="s">root</span>
       <span class="na">wipe_volume</span><span class="pi">:</span> <span class="no">true</span>
@@ -4946,21 +4972,17 @@ rd.zfcp<span class="o">=</span>0.0.5677,0x600606680g7f0056,0x034F000000000000 <i
       <span class="na">label</span><span class="pi">:</span> <span class="s">root</span>
       <span class="na">wipe_filesystem</span><span class="pi">:</span> <span class="no">true</span>
 <span class="na">openshift</span><span class="pi">:</span>
-  <span class="na">fips</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+  <span class="na">fips</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The cipher option is only required if FIPS mode is enabled. Omit the entry if FIPS is disabled.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
 <td>For installations on DASD-type disks, replace with <code>device: /dev/disk/by-label/root</code>.</td>
 </tr>
 <tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
 <td>Whether to enable or disable FIPS mode. By default, FIPS mode is not enabled. If FIPS mode is enabled, the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) machines that OpenShift Container Platform runs on bypass the default Kubernetes cryptography suite and use the cryptography modules that are provided with RHCOS instead.</td>
 </tr>
 </table>
