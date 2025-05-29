@@ -1596,6 +1596,7 @@
                   <li><a class="" href="../nodes/nodes/nodes-node-tuning-operator.html">Using the Node Tuning Operator</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-remediating-fencing-maintaining-rhwa.html">Remediating, fencing, and maintaining nodes</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-nodes-rebooting.html">Understanding node rebooting</a></li>
+                  <li><a class="" href="../nodes/nodes/nodes-update-boot-images.html">Updated boot images</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-nodes-garbage-collection.html">Freeing node resources using garbage collection</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-nodes-resources-configuring.html">Allocating resources for nodes</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-nodes-resources-cpus.html">Allocating specific CPUs for nodes in a cluster</a></li>
@@ -2788,6 +2789,7 @@
 <li><a href="#hosted-restart-hcp-components_hcp-troubleshooting">Restarting hosted control plane components</a></li>
 <li><a href="#hosted-control-planes-pause-reconciliation_hcp-troubleshooting">Pausing the reconciliation of a hosted cluster and hosted control plane</a></li>
 <li><a href="#scale-down-data-plane_hcp-troubleshooting">Scaling down the data plane to zero</a></li>
+<li><a href="#agent-service-failure_hcp-troubleshooting">Agent service failures and agents not joining the cluster</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -3818,6 +3820,94 @@
 </div>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="agent-service-failure_hcp-troubleshooting"><a class="anchor" href="#agent-service-failure_hcp-troubleshooting"></a>Agent service failures and agents not joining the cluster</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In some cases, agents might fail to join the cluster after booting the machines with the boot artifacts. You can confirm this issue by checking the <code>agent.service</code> logs for the following error:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="nowrap">Error: copying system image from manifest list: Source image rejected: A signature was required, but no signature exists</pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This issue occurs because image signature verification fails when no signature is present.
+As a workaround, you can disable signature verification by modifying the container policy.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Add the <code>ignitionConfigOverride</code> field in the <code>InfraEnv</code> manifest to override the <code>/etc/containers/policy.json</code> file. This disables signature verification for container images.</p>
+</li>
+<li>
+<p>Replace the base64-encoded content in the <code>ignitionConfigOverride</code> with the required <code>/etc/containers/policy.json</code> configuration according to your image registries.</p>
+<div class="listingblock">
+<div class="title">Example</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
+    </span><span class="nl">"default"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"insecureAcceptAnything"</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+    </span><span class="p">],</span><span class="w">
+    </span><span class="nl">"transports"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"docker"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"&lt;REGISTRY1&gt;"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="p">{</span><span class="w">
+                    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"insecureAcceptAnything"</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+            </span><span class="p">],</span><span class="w">
+            </span><span class="nl">"REGISTRY2"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="p">{</span><span class="w">
+                    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"insecureAcceptAnything"</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+            </span><span class="p">]</span><span class="w">
+        </span><span class="p">},</span><span class="w">
+        </span><span class="nl">"docker-daemon"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+            </span><span class="nl">""</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+                </span><span class="p">{</span><span class="w">
+                    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"insecureAcceptAnything"</span><span class="w">
+                </span><span class="p">}</span><span class="w">
+            </span><span class="p">]</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example InfraEnv manifest with <code>ignitionConfigOverride</code></div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">agent-install.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">InfraEnv</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;hosted_cluster_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;hosted_control_plane_namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">cpuArchitecture</span><span class="pi">:</span> <span class="s">s390x</span>
+  <span class="na">pullSecretRef</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">pull-secret</span>
+  <span class="na">sshAuthorizedKey</span><span class="pi">:</span> <span class="s">&lt;ssh_public_key&gt;</span>
+  <span class="na">ignitionConfigOverride</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{"ignition":{"version":"3.2.0"},"storage":{"files":[{"path":"/etc/containers/policy.json","mode":420,"overwrite":true,"contents":{"source":"data:text/plain;charset=utf-8;base64,ewogICAgImRlZmF1bHQiOiBbCiAgICAgICAgewogICAgICAgICAgICAidHlwZSI6ICJpbnNlY3VyZUFjY2VwdEFueXRoaW5nIgogICAgICAgIH0KICAgIF0sCiAgICAidHJhbnNwb3J0cyI6CiAgICAgICAgewogICAgICAgICAgICAiZG9ja2VyLWRhZW1vbiI6CiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgIiI6IFt7InR5cGUiOiJpbnNlY3VyZUFjY2VwdEFueXRoaW5nIn1dCiAgICAgICAgICAgICAgICB9CiAgICAgICAgfQp9"}}]}}'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>

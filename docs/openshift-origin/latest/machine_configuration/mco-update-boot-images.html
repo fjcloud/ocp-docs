@@ -1596,6 +1596,7 @@
                   <li><a class="" href="../nodes/nodes/nodes-node-tuning-operator.html">Using the Node Tuning Operator</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-remediating-fencing-maintaining-rhwa.html">Remediating, fencing, and maintaining nodes</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-nodes-rebooting.html">Understanding node rebooting</a></li>
+                  <li><a class="" href="../nodes/nodes/nodes-update-boot-images.html">Updated boot images</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-nodes-garbage-collection.html">Freeing node resources using garbage collection</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-nodes-resources-configuring.html">Allocating resources for nodes</a></li>
                   <li><a class="" href="../nodes/nodes/nodes-nodes-resources-cpus.html">Allocating specific CPUs for nodes in a cluster</a></li>
@@ -2759,18 +2760,30 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#mco-update-boot-images-configuring_machine-configs-configure">Configuring updated boot images</a></li>
+<li><a href="#mco-update-boot-images_machine-configs-configure">About updated boot images</a></li>
 <li><a href="#mco-update-boot-images-disable_machine-configs-configure">Disabling updated boot images</a></li>
+<li><a href="#mco-update-boot-images-configuring_machine-configs-configure">Enabling updated boot images</a></li>
 </ul>
 </div>
 <div class="paragraph">
-<p>The Machine Config Operator (MCO) uses a boot image to start a Fedora CoreOS (FCOS) node. By default, OKD does not manage the boot image.</p>
+<p>For Google Cloud Platform (GCP) and Amazon Web Services (AWS) clusters, by default the Machine Config Operator (MCO) manages and updates the boot image that is used to scale up your nodes. This means that by default, the MCO updates the boot images whenever you upgrade your cluster.</p>
 </div>
 <div class="paragraph">
-<p>This means that the boot image in your cluster is not updated along with your cluster. For example, if your cluster was originally created with OKD 4.12, the boot image that the cluster uses to create nodes is the same 4.12 version, even if your cluster is at a later version. If the cluster is later upgraded to 4.13 or later, new nodes continue to scale with the same 4.12 image.</p>
+<p>For all other platforms, the MCO does not update the boot image with each cluster update.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mco-update-boot-images_machine-configs-configure"><a class="anchor" href="#mco-update-boot-images_machine-configs-configure"></a>About updated boot images</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>By default, for Google Cloud Platform (GCP) and Amazon Web Services (AWS) clusters, the Machine Config Operator (MCO) updates the boot image in the machine sets in your cluster whenever you update your cluster.</p>
 </div>
 <div class="paragraph">
-<p>This process could cause the following issues:</p>
+<p>For GCP and AWS, you can disable this default behavior, if needed. When disabled, the boot image no longer updates with the cluster. For example, with the default behavior disabled, if your cluster was originally created with OKD 4.16, the boot image that the MCO would use to create nodes is the same 4.16 version, even if your cluster is at a later version.</p>
+</div>
+<div class="paragraph">
+<p>However, using an older boot image could cause the following issues:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -2786,10 +2799,84 @@
 </ul>
 </div>
 <div class="paragraph">
-<p>To avoid these issues, you can configure your cluster to update the boot image whenever you update your cluster. By modifying the <code>MachineConfiguration</code> object, you can enable this feature. Currently, the ability to update the boot image is available for only Google Cloud Platform (GCP) and Amazon Web Services (AWS) clusters. It is not supported for clusters managed by the Cluster CAPI Operator.</p>
+<p>For information on how to disable the default behavior, see "Disabling updated boot images". If you disable the default behavior, you can enable the default behavior at any time. For more information, see "Enabling updated boot images".</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The ability to configure this behavior is available for only GCP and AWS clusters. It is not supported for clusters managed by the Cluster CAPI Operator.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
-<p>If you are not using the default user data secret, named <code>worker-user-data</code>, in your machine set, or you have modified the <code>worker-user-data</code> secret, you should not use managed boot image updates. This is because the Machine Config Operator (MCO) updates the machine set to use a managed version of the secret. By using the managed boot images feature, you are giving up the capability to customize the secret stored in the machine set object.</p>
+<p>How the cluster behaves after disabling or re-enabling the default behavior, depends upon when you made the change, including the following scenarios:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If you disable the behavior before updating to a new OKD version:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>The boot image version used by the machine sets remains the same OKD version as when the feature was disabled.</p>
+</li>
+<li>
+<p>When you scale up nodes, the new nodes use that same OKD version.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>If you disable the behavior after updating to a new OKD version:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>The boot image version used by the machine sets is updated to match the updated OKD version.</p>
+</li>
+<li>
+<p>When you scale up nodes, the new nodes use the updated OKD version.</p>
+</li>
+<li>
+<p>If you update to a later OKD version, the boot image version in the machine sets remains at the current version and is not updated with the cluster.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>If you enable the behavior after disabling:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>The boot image version used by the machine sets is updated to the current OKD version, if different.</p>
+</li>
+<li>
+<p>When you scale up nodes, the new nodes use the current OKD version in the cluster.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Because a boot image is used only when a node is scaled up, this feature has no effect on existing nodes.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
 <p>To view the current boot image used in your cluster, examine a machine set:</p>
@@ -2826,25 +2913,55 @@
 </tr>
 </table>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
 <div class="paragraph">
-<p>If you configure your cluster to update your boot images, the boot image referenced in your machine sets matches the current version of the cluster.</p>
+<p>If any of the machine sets for which you want to enable updated boot images uses a <code>*-user-data</code> secret that is based on Ignition version 2.2.0, the Machine Config Operator converts the Ignition version to 3.4.0 when you enable updated boot images. OKD versions 4.5 and lower use Ignition version 2.2.0. If this conversion fails, the MCO or your cluster could degrade. An error message that includes <em>err: converting ignition stub failed: failed to parse Ignition config</em> is added to the output of the <code>oc get ClusterOperator machine-config</code> command. You can use the following general steps to correct the problem:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Disable updated boot images. For more information, see "Disabling updated boot images".</p>
+</li>
+<li>
+<p>Manually update the <code>*-user-data</code> secret to use Ignition version to 3.2.0.</p>
+</li>
+<li>
+<p>Enable updated boot images. For more information, see "Enabling updated boot images".</p>
+</li>
+</ol>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="mco-update-boot-images-configuring_machine-configs-configure"><a class="anchor" href="#mco-update-boot-images-configuring_machine-configs-configure"></a>Configuring updated boot images</h2>
+<h2 id="mco-update-boot-images-disable_machine-configs-configure"><a class="anchor" href="#mco-update-boot-images-disable_machine-configs-configure"></a>Disabling updated boot images</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>By default, OKD does not manage the boot image. You can configure your cluster to update the boot image whenever you update your cluster by modifying the <code>MachineConfiguration</code> object.</p>
+<p>By default, for Google Cloud Platform (GCP) and Amazon Web Services (AWS) clusters, the Machine Config Operator (MCO) updates the boot image in the machine sets in your cluster whenever you update your cluster.</p>
 </div>
 <div class="paragraph">
-<p>Currently, the ability to update the boot image is available for only Google Cloud Platform (GCP) and Amazon Web Services (AWS) clusters. It is not supported for clusters managed by the Cluster CAPI Operator.</p>
+<p>You can disable this default behavior on some or all of your machine sets by editing the <code>MachineConfiguration</code> object. When disabled, the Machine Config Operator (MCO) no longer manages the boot image in your cluster and no longer updates the boot image with each cluster update.</p>
+</div>
+<div class="paragraph">
+<p>Disabling this feature does not rollback the nodes or machine sets to the originally-installed boot image. The machine sets retain the boot image version that was present when the feature was disabled and is not updated if the cluster is upgraded to a new OKD version in the future. This feature has no effect on existing nodes.</p>
+</div>
+<div class="paragraph">
+<p>After disabling a GCP and AWS cluster, you can enable the default behavior at any time. For more information, see "Enabling updated boot images".</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Edit the <code>MachineConfiguration</code> object, named <code>cluster</code>, to enable the updating of boot images by running the following command:</p>
+<p>Edit the <code>MachineConfiguration</code> object to disable the default boot image update behavior for some or all of your machine sets:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit MachineConfiguration cluster</code></pre>
@@ -2853,7 +2970,7 @@
 <div class="ulist">
 <ul>
 <li>
-<p>Optional: Configure the boot image update feature for all the machine sets:</p>
+<p>Optional: Disable the behavior for all machine sets:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
@@ -2865,27 +2982,194 @@
 <span class="c1"># ...</span>
   <span class="na">managedBootImages</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
     <span class="na">machineManagers</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">resource</span><span class="pi">:</span> <span class="s">machinesets</span>
-      <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">machine.openshift.io</span>
+    <span class="pi">-</span> <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">machine.openshift.io</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">resource</span><span class="pi">:</span> <span class="s">machinesets</span> <i class="conum" data-value="3"></i><b>(3)</b>
       <span class="na">selection</span><span class="pi">:</span>
-        <span class="na">mode</span><span class="pi">:</span> <span class="s">All</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">None</span> <i class="conum" data-value="4"></i><b>(4)</b></code></pre>
+</div>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Configures the boot image update feature.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Specifies an API group. This must be <code>machine.openshift.io</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specifies the resource within the specified API group to apply the change. This must be <code>machinesets</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Specifies that the default behavior is disabled for all machine sets in the cluster.</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>View the current state of the boot image updates by viewing the machine configuration object:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfiguration cluster <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example machine set with the boot image reference</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfiguration</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="c1"># ...</span>
+<span class="na">status</span><span class="pi">:</span>
+  <span class="na">conditions</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-05-01T20:11:49Z"</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s">Reconciled 2 of 4 MAPI MachineSets | Reconciled 0 of 0 CAPI MachineSets</span>
+      <span class="s">| Reconciled 0 of 0 CAPI MachineDeployments</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">BootImageUpdateConfigurationUpdated</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">BootImageUpdateProgressing</span>
+  <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-05-01T19:30:13Z"</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s">0 Degraded MAPI MachineSets | 0 Degraded CAPI MachineSets | 0 CAPI MachineDeployments</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">BootImageUpdateConfigurationUpdated</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">False"</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">BootImageUpdateDegraded</span>
+  <span class="na">managedBootImagesStatus</span><span class="pi">:</span>
+    <span class="na">machineManagers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">machine.openshift.io</span>
+      <span class="na">resource</span><span class="pi">:</span> <span class="s">machinesets</span>
+      <span class="na">selection</span><span class="pi">:</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">All</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Get the boot image version by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machinesets &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example machine set with the boot image reference</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machine.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machine.openshift.io/cluster-api-cluster</span><span class="pi">:</span> <span class="s">ci-ln-77hmkpt-72292-d4pxp</span>
+    <span class="na">update-boot-image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ci-ln-77hmkpt-72292-d4pxp-worker-a</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">template</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+    <span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+      <span class="na">providerSpec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+        <span class="na">value</span><span class="pi">:</span>
+          <span class="na">disks</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">autoDelete</span><span class="pi">:</span> <span class="no">true</span>
+            <span class="na">boot</span><span class="pi">:</span> <span class="no">true</span>
+            <span class="na">image</span><span class="pi">:</span> <span class="s">projects/rhcos-cloud/global/images/rhcos-9-6-20250402-0-gcp-x86-64</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Activates the boot image update feature.</td>
+<td>This boot image is the same as the current OKD version.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mco-update-boot-images-configuring_machine-configs-configure"><a class="anchor" href="#mco-update-boot-images-configuring_machine-configs-configure"></a>Enabling updated boot images</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>By default, for Google Cloud Platform (GCP) and Amazon Web Services (AWS) clusters, the Machine Config Operator (MCO) updates the boot image in the machine sets in your cluster whenever you update your cluster.</p>
+</div>
+<div class="paragraph">
+<p>If you disabled this default behavior, so that the boot images are not updated, you can revert to the default behavior by editing the <code>MachineConfiguration</code> object.</p>
+</div>
+<div class="paragraph">
+<p>Enabling the default behavior updates the boot image to the current OKD version. If the cluster is again updated to a new OKD version in the future, the boot image is updated again. New nodes created after enabling the feature use the updated boot image. This feature has no effect on existing nodes.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the <code>MachineConfiguration</code> object, named <code>cluster</code>, to enable the default boot image update behavior for some or all of your machine sets:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit MachineConfiguration cluster</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Optional: Enable the default behavior for all machine sets:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfiguration</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-config-operator</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">managedBootImages</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">machineManagers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">machine.openshift.io</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">resource</span><span class="pi">:</span> <span class="s">machinesets</span> <i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="na">selection</span><span class="pi">:</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">All</span> <i class="conum" data-value="4"></i><b>(4)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Configures the boot image update feature.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies that all the machine sets in the cluster are to be updated.</td>
+<td>Specifies the API group. This must be <code>machine.openshift.io</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specifies the resource within the specified API group to apply the change. This must be <code>machinesets</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Specifies that the default behavior is enabled for all machine sets in the cluster.</td>
 </tr>
 </table>
 </div>
 </li>
 <li>
-<p>Optional: Configure the boot image update feature for specific machine sets:</p>
+<p>Optional: Enable the default behavior for specific machine sets:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
@@ -2897,25 +3181,33 @@
 <span class="c1"># ...</span>
   <span class="na">managedBootImages</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
     <span class="na">machineManagers</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">resource</span><span class="pi">:</span> <span class="s">machinesets</span>
-      <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">machine.openshift.io</span>
+    <span class="pi">-</span> <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">machine.openshift.io</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">resource</span><span class="pi">:</span> <span class="s">machinesets</span> <i class="conum" data-value="3"></i><b>(3)</b>
       <span class="na">selection</span><span class="pi">:</span>
-        <span class="na">mode</span><span class="pi">:</span> <span class="s">Partial</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">Partial</span> <i class="conum" data-value="4"></i><b>(4)</b>
         <span class="na">partial</span><span class="pi">:</span>
           <span class="na">machineResourceSelector</span><span class="pi">:</span>
             <span class="na">matchLabels</span><span class="pi">:</span>
-              <span class="na">update-boot-image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+              <span class="na">region</span><span class="pi">:</span> <span class="s2">"</span><span class="s">east"</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Activates the boot image update feature.</td>
+<td>Configures the boot image update feature.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies that any machine set with this label is to be updated.</td>
+<td>Specifies the API group. This must be <code>machine.openshift.io</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specifies the resource within the specified API group to apply the change. This must be <code>machinesets</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Specifies that the default behavior is enabled for machine sets with the specified label.</td>
 </tr>
 </table>
 </div>
@@ -2931,7 +3223,7 @@
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="nowrap">$ oc label machineset.machine ci-ln-hmy310k-72292-5f87z-worker-a update-boot-image=true -n openshift-machine-api</pre>
+<pre class="nowrap">$ oc label machineset.machine ci-ln-hmy310k-72292-5f87z-worker-a region: "east" -n openshift-machine-api</pre>
 </div>
 </div>
 </td>
@@ -2944,14 +3236,14 @@
 </li>
 </ol>
 </div>
-<div class="olist arabic">
+<div class="ulist">
 <div class="title">Verification</div>
-<ol class="arabic">
+<ul>
 <li>
 <p>View the current state of the boot image updates by viewing the machine configuration object:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfiguration cluster <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> yaml</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfiguration cluster <span class="nt">-o</span> yaml</code></pre>
 </div>
 </div>
 <div class="listingblock">
@@ -2963,30 +3255,24 @@
 <span class="c1"># ...</span>
 <span class="na">status</span><span class="pi">:</span>
   <span class="na">conditions</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2024-09-09T13:51:37Z"</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">message</span><span class="pi">:</span> <span class="s">Reconciled 1 of 2 MAPI MachineSets | Reconciled 0 of 0 CAPI MachineSets</span>
+  <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-05-01T20:11:49Z"</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s">Reconciled 2 of 4 MAPI MachineSets | Reconciled 0 of 0 CAPI MachineSets</span>
       <span class="s">| Reconciled 0 of 0 CAPI MachineDeployments</span>
-    <span class="na">reason</span><span class="pi">:</span> <span class="s">BootImageUpdateConfigurationAdded</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">BootImageUpdateConfigurationUpdated</span>
     <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">BootImageUpdateProgressing</span>
-  <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2024-09-09T13:51:37Z"</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-05-01T19:30:13Z"</span>
     <span class="na">message</span><span class="pi">:</span> <span class="s">0 Degraded MAPI MachineSets | 0 Degraded CAPI MachineSets | 0 CAPI MachineDeployments</span>
-    <span class="na">reason</span><span class="pi">:</span> <span class="s">BootImageUpdateConfigurationAdded</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">BootImageUpdateConfigurationUpdated</span>
     <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">False"</span>
-    <span class="na">type</span><span class="pi">:</span> <span class="s">BootImageUpdateDegraded</span></code></pre>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">BootImageUpdateDegraded</span>
+  <span class="na">managedBootImagesStatus</span><span class="pi">:</span>
+    <span class="na">machineManagers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">machine.openshift.io</span>
+      <span class="na">resource</span><span class="pi">:</span> <span class="s">machinesets</span>
+      <span class="na">selection</span><span class="pi">:</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">All</span></code></pre>
 </div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Status of the boot image update. Cluster CAPI Operator machine sets and machine deployments are not currently supported for boot image updates.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Indicates if any boot image updates failed. If any of the updates fail, the Machine Config Operator is degraded. In this case, manual intervention might be required.</td>
-</tr>
-</table>
 </div>
 </li>
 <li>
@@ -3032,63 +3318,7 @@
 </table>
 </div>
 </li>
-</ol>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling">Enabling features using feature gates</a></p>
-</li>
 </ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="mco-update-boot-images-disable_machine-configs-configure"><a class="anchor" href="#mco-update-boot-images-disable_machine-configs-configure"></a>Disabling updated boot images</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>To disable the updated boot image feature, edit the <code>MachineConfiguration</code> object so that the <code>machineManagers</code> field is an empty array.</p>
-</div>
-<div class="paragraph">
-<p>If you disable this feature after some nodes have been created with the new boot image version, any existing nodes retain their current boot image. Turning off this feature does not rollback the nodes or machine sets to the originally-installed boot image. The machine sets retain the boot image version that was present when the feature was enabled and is not updated again when the cluster is upgraded to a new OKD version in the future.</p>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Disable updated boot images by editing the <code>MachineConfiguration</code> object:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit MachineConfiguration cluster</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Make the <code>machineManagers</code> parameter an empty array:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfiguration</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-config-operator</span>
-<span class="na">spec</span><span class="pi">:</span>
-<span class="c1"># ...</span>
-  <span class="na">managedBootImages</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">machineManagers</span><span class="pi">:</span> <span class="pi">[]</span></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Remove the parameters listed under <code>machineManagers</code> and add the <code>[]</code> characters to disable boot image updates.</td>
-</tr>
-</table>
-</div>
-</li>
-</ol>
 </div>
 </div>
 </div>
