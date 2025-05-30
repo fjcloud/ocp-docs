@@ -992,10 +992,14 @@
                   <li><a class="" href="../security/cert_manager_operator/cert-manager-log-levels.html">Configuring log levels for cert-manager and the cert-manager Operator for Red Hat OpenShift</a></li>
                   <li><a class="" href="../security/cert_manager_operator/cert-manager-operator-uninstall.html">Uninstalling the cert-manager Operator for Red Hat OpenShift</a></li>              </ul>
             </li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-11-9"><span id="sgSpan-11-9" class="fa fa-caret-right"></span>&nbsp;External secrets Operator for Red Hat OpenShift</a>
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-11-9"><span id="sgSpan-11-9" class="fa fa-caret-right"></span>&nbsp;External Secrets Operator for Red Hat OpenShift</a>
               <ul id="topicSubGroup-11-9" class="nav-tertiary list-unstyled collapse">
 
-                  <li><a class="" href="../security/external_secrets_operator/index.html">External secrets Operator for Red Hat OpenShift overview</a></li>              </ul>
+                  <li><a class="" href="../security/external_secrets_operator/index.html">External Secrets Operator overview</a></li>
+                  <li><a class="" href="../security/external_secrets_operator/external-secrets-operator-release-notes.html">External Secrets Operator release notes</a></li>
+                  <li><a class="" href="../security/external_secrets_operator/external-secrets-operator-install.html">Installing the External Secrets Operator</a></li>
+                  <li><a class="" href="../security/external_secrets_operator/external-secrets-operator-monitoring.html">Monitoring the External Secrets Operator</a></li>
+                  <li><a class="" href="../security/external_secrets_operator/external-secrets-operator-uninstall.html">Uninstalling the External Secrets Operator</a></li>              </ul>
             </li>
             <li><a class="" href="../security/audit-log-view.html">Viewing audit logs</a></li>
             <li><a class="" href="../security/audit-log-policy-config.html">Configuring the audit log policy</a></li>
@@ -3823,10 +3827,34 @@ requests to off-cluster services and services that use a custom public key infra
 <p>If changes are made to the IDMS or ITMS object, the WMCO automatically updates the appropriate <code>hosts.toml</code> file on your Windows nodes with the new information. Note that the WMCO sequentially updates each Windows node when mirror settings are changed. As such, the time required for these updates increases with the number of Windows nodes in the cluster.</p>
 </div>
 <div class="paragraph">
-<p>Also, because Windows nodes configured by the WMCO rely on containerd container runtime, the WMCO ensures that the containerd config files are up-to-date with the registry settings. For new nodes, these files are copied to the instances upon creation. For existing nodes, after activating the mirror registry, the registry controller uses SSH to access each node and copy the generated config files, replacing any existing files.</p>
+<p>Because Windows nodes configured by the WMCO rely on the containerd container runtime, the WMCO ensures that the containerd configuration files are up-to-date with the registry settings. For new nodes, these files are copied to the instances upon creation. For existing nodes, after activating the mirror registry, the registry controller uses SSH to access each node and copy the generated configuration files, replacing any existing files.</p>
 </div>
 <div class="paragraph">
 <p>You can use a mirror registry with machine set or Bring-Your-Own-Host (BYOH) Windows nodes.</p>
+</div>
+<div class="paragraph">
+<p>When using an IDMS or ITMS object to mirror container images on Windows nodes, take note of the following behaviors that differ from Linux nodes:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Mirroring on Windows nodes works on the registry level, rather than on the image level used by Linux nodes. As such, Windows images mirrored by using IDMS or ITMS objects have specific naming requirements.</p>
+<div class="openblock">
+<div class="content">
+<div class="paragraph">
+<p>The final portion of the namespace and the image name of the mirror image must match the image being mirrored. For example, when mirroring the <code>mcr.microsoft.com/oss/kubernetes/pause:3.9</code> image, the mirror must be in the <code>$mirrorRegistry/&lt;organization&gt;/oss/kubernetes/pause:3.9</code> format, where <code>$org</code> can be any organization name or namespace or excluded entirely. Some valid values are <code>$mirrorRegistry/oss/kubernetes/pause:3.9</code>, <code>$mirrorRegistry/custom/oss/kubernetes/pause:3.9</code>, and <code>$mirrorRegistry/x/y/z/oss/kubernetes/pause:3.9</code>.</p>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>A Windows node takes the ITMS object and uses it to configure registry-wide mirrors. In the following example, configuring <code>quay.io/remote-org/image</code> to mirror to <code>quay.io/my-org/image</code> results in the Windows node using that mirror for all images from <code>quay.io/remote-org</code>. As such, <code>quay.io/remote-org/image:tag</code> uses the <code>quay.io/my-org/image:tag</code> image, as expected, but another container using <code>quay.io/remote-org/different-image:tag</code>
+would also try to use the <code>quay.io/remote-org/different-image:tag</code> mirror. This can cause unintended behavior if it is not accounted for.</p>
+<div class="paragraph">
+<p>For this reason, specify container images using a digest by an IDMS object instead of an ITMS object. Using a digest can prevent the wrong container image from being used, by ensuring that the image the container specifies and the image being pulled have the same digest.</p>
+</div>
+</li>
+</ul>
 </div>
 <div class="ulist">
 <div class="title">Additional resources</div>
@@ -3955,7 +3983,10 @@ requested from the source repository.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Windows images mirrored through <code>ImageDigestMirrorSet</code> and <code>ImageTagMirrorSet</code> objects have specific naming requirements. The final portion of the namespace and the image name of the mirror image must match the image being mirrored. For example, when mirroring the <code>mcr.microsoft.com/oss/kubernetes/pause:3.9</code> image, the mirror image must have the <code>&lt;mirror_registry&gt;/&lt;optional_namespaces&gt;/oss/kubernetes/pause:3.9</code> format. The <code>optional_namespaces</code> can be any number of leading repository namespaces.</p>
+<p>Windows images mirrored through <code>ImageDigestMirrorSet</code> and <code>ImageTagMirrorSet</code> objects have specific naming requirements.</p>
+</div>
+<div class="paragraph">
+<p>The final portion of the namespace and the image name of the mirror image must match the image being mirrored. For example, when mirroring the <code>mcr.microsoft.com/oss/kubernetes/pause:3.9</code> image, the mirror must be in the <code>$mirrorRegistry/&lt;organization&gt;/oss/kubernetes/pause:3.9</code> format, where <code>$org</code> can be any organization name or namespace or excluded entirely. Some valid values are <code>$mirrorRegistry/oss/kubernetes/pause:3.9</code>, <code>$mirrorRegistry/custom/oss/kubernetes/pause:3.9</code>, and <code>$mirrorRegistry/x/y/z/oss/kubernetes/pause:3.9</code>.</p>
 </div>
 </td>
 </tr>
