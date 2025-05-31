@@ -3270,6 +3270,7 @@
 <li><a href="#nodes-pods-vertical-autoscaler-using-manual_nodes-pods-vertical-autoscaler">Manually applying VPA recommendations</a></li>
 <li><a href="#nodes-pods-vertical-autoscaler-using-exempt_nodes-pods-vertical-autoscaler">Exempting containers from applying VPA recommendations</a></li>
 <li><a href="#nodes-pods-vertical-autoscaler-tuning_nodes-pods-vertical-autoscaler">Performance tuning the VPA Operator</a></li>
+<li><a href="#nodes-pods-vertical-autoscaler-oom_nodes-pods-vertical-autoscaler">Custom memory bump-up after OOM event</a></li>
 <li><a href="#nodes-pods-vertical-autoscaler-custom_nodes-pods-vertical-autoscaler">Using an alternative recommender</a></li>
 </ul>
 </li>
@@ -4650,6 +4651,66 @@ metadata:
         <span class="na">memory</span><span class="pi">:</span> <span class="s">275Mi</span>
 <span class="c1"># ...</span></code></pre>
 </div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nodes-pods-vertical-autoscaler-oom_nodes-pods-vertical-autoscaler"><a class="anchor" href="#nodes-pods-vertical-autoscaler-oom_nodes-pods-vertical-autoscaler"></a>Custom memory bump-up after OOM event</h3>
+<div class="paragraph">
+<p>If your cluster experiences an OOM (out of memory) event, the Vertical Pod Autoscaler Operator (VPA) increases the memory recommendation based on the memory consumption observed during the OOM event and a specified multiplier value in order to prevent future crashes due to insufficient memory.</p>
+</div>
+<div class="paragraph">
+<p>The recommendation is the higher of two calculations: the memory in use by the pod when the OOM event happened multiplied by a specified number of bytes or a specified percentage. The calculation is represented by the following formula:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">recommendation = max(memory-usage-in-oom-event + oom-min-bump-up-bytes, memory-usage-in-oom-event * oom-bump-up-ratio)</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can configure the memory increase by specifying the following values in the recommender pod:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>oom-min-bump-up-bytes</code>. This value, in bytes, is a specific increase in memory after an OOM event occurs. The default is <code>100MiB</code>.</p>
+</li>
+<li>
+<p><code>oom-bump-up-ratio</code>. This value is a percentage increase in memory when the OOM event occurred. The default value is <code>1.2</code>.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For example, if the pod memory usage during an OOM event is 100MB, and <code>oom-min-bump-up-bytes</code> is set to 150MB with a <code>oom-min-bump-ratio</code> of 1.2, after an OOM event, the VPA would recommend increasing the memory request for that pod to 150 MB, as it is higher than at 120MB (100MB * 1.2).</p>
+</div>
+<div class="listingblock">
+<div class="title">Example recommender deployment object</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">vpa-recommender-default</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-vertical-pod-autoscaler</span>
+<span class="c1"># ...</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">template</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+    <span class="s">spec</span>
+      <span class="s">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">recommender</span>
+        <span class="na">args</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">--oom-bump-up-ratio=2.0</span>
+        <span class="pi">-</span> <span class="s">--oom-min-bump-up-bytes=524288000</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../nodes/clusters/nodes-cluster-resource-configure.html#nodes-cluster-resource-configure-oom_nodes-cluster-resource-configure">Understanding OOM kill policy</a></p>
+</li>
+</ul>
 </div>
 </div>
 <div class="sect2">

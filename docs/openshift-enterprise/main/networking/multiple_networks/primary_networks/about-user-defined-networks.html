@@ -3266,6 +3266,7 @@
 <ul class="sectlevel2">
 <li><a href="#considerations-for-cudn_about-user-defined-networks">Best practices for ClusterUserDefinedNetwork CRs</a></li>
 <li><a href="#nw-cudn-cr_about-user-defined-networks">Creating a ClusterUserDefinedNetwork CR by using the CLI</a></li>
+<li><a href="#nw-cudn-localnet_about-user-defined-networks">Creating a ClusterUserDefinedNetwork CR for a Localnet topology</a></li>
 <li><a href="#nw-cudn-cr-ui_about-user-defined-networks">Creating a ClusterUserDefinedNetwork CR by using the web console</a></li>
 </ul>
 </li>
@@ -3841,6 +3842,202 @@
 </div>
 </div>
 <div class="sect2">
+<h3 id="nw-cudn-localnet_about-user-defined-networks"><a class="anchor" href="#nw-cudn-localnet_about-user-defined-networks"></a>Creating a ClusterUserDefinedNetwork CR for a Localnet topology</h3>
+<div class="paragraph">
+<p>A <code>Localnet</code> topology connects the secondary network to the physical underlay. This enables both east-west cluster traffic and access to services running outside the cluster. This topology type requires the additional configuration of the underlying Open vSwitch (OVS) system on cluster nodes.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You are logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You created and configured the Open vSwitch (OVS) bridge mapping to associate the logical OVN-Kubernetes network with the physical node network through the OVS bridge. For more information, see "Configuration for a localnet switched topology".</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a cluster-wide user-defined network with a <code>Localnet</code> topology:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create a YAML file, such as <code>cluster-udn-localnet.yaml</code>, to define your request for a <code>Localnet</code> topology as in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.ovn.org/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterUserDefinedNetwork</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cudn_name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">namespaceSelector</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="na">matchLabels</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="s2">"</span><span class="s">&lt;label_1_key&gt;"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;label_1_value&gt;"</span> <i class="conum" data-value="4"></i><b>(4)</b>
+      <span class="s2">"</span><span class="s">&lt;label_2_key&gt;"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;label_2_value&gt;"</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="na">network</span><span class="pi">:</span> <i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="na">topology</span><span class="pi">:</span> <span class="s">Localnet</span> <i class="conum" data-value="6"></i><b>(6)</b>
+    <span class="na">localnet</span><span class="pi">:</span> <i class="conum" data-value="7"></i><b>(7)</b>
+      <span class="na">role</span><span class="pi">:</span> <span class="s">Secondary</span> <i class="conum" data-value="8"></i><b>(8)</b>
+      <span class="na">physicalNetworkName</span><span class="pi">:</span> <span class="s">test</span>
+      <span class="na">ipam</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">lifecycle</span><span class="pi">:</span> <span class="nv">Persistent</span><span class="pi">}</span>
+      <span class="na">subnets</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">192.168.0.0/16"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">2001:dbb::/64"</span><span class="pi">]</span> <i class="conum" data-value="9"></i><b>(9)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Name of your <code>ClusterUserDefinedNetwork</code> (CUDN) CR.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>A label query over the set of namespaces that the cluster CUDN CR applies to. Uses the standard Kubernetes <code>MatchLabel</code> selector. Must not point to <code>default</code>, <code>openshift-*</code>, or any other system namespaces.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Uses the <code>matchLabels</code> selector type, where terms are evaluated with an <code>AND</code> relationship.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>In this example, the CUDN CR is deployed to namespaces that contain both <code>&lt;label_1_key&gt;=&lt;label_1_value&gt;</code> and <code>&lt;label_2_key&gt;=&lt;label_2_value&gt;</code> labels.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Describes the network configuration.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Specifying a <code>Localnet</code> topology type creates one logical switch that is directly bridged to one provider network.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>This field specifies the <code>localnet</code> topology.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="8"></i><b>8</b></td>
+<td>Specifies the <code>role</code> for the network configuration. <code>Secondary</code> is the only <code>role</code> specification supported for the <code>localnet</code> topology.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="9"></i><b>9</b></td>
+<td>For <code>Localnet</code> topology types the following specifies config details for the <code>subnet</code> field:
+<div class="ulist">
+<ul>
+<li>
+<p>The subnets field is optional.</p>
+</li>
+<li>
+<p>The subnets field is of type <code>string</code> and accepts standard CIDR formats for both IPv4 and IPv6.</p>
+</li>
+<li>
+<p>The subnets field accepts one or two items. For two items, they must be of a different IP family. For example, subnets values of <code>10.100.0.0/16</code> and <code>2001:db8::/64</code>.</p>
+</li>
+<li>
+<p><code>localnet</code> subnets can be omitted. If omitted, users must configure static IP addresses for the pods. As a consequence, port security only prevents MAC spoofing. For more information, see "Configuring pods with a static IP address".</p>
+</li>
+</ul>
+</div></td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Apply your request by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">--validate</span><span class="o">=</span><span class="nb">true</span> <span class="nt">-f</span> &lt;example_cluster_udn&gt;.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;example_cluster_udn&gt;.yaml</code></dt>
+<dd>
+<p>Is the name of your <code>Localnet</code> configuration file.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Verify that your request is successful by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteruserdefinednetwork &lt;cudn_name&gt; <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;cudn_name&gt;</code></dt>
+<dd>
+<p>Is the name you created of your cluster-wide user-defined network.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+<details>
+<summary class="title">Example output</summary>
+<div class="content">
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.ovn.org/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterUserDefinedNetwork</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-05-28T19:30:38Z"</span>
+  <span class="na">finalizers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">k8s.ovn.org/user-defined-network-protection</span>
+  <span class="na">generation</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cudn-test</span>
+  <span class="na">resourceVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">140936"</span>
+  <span class="na">uid</span><span class="pi">:</span> <span class="s">7ff185fa-d852-4196-858a-8903b58f6890</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">namespaceSelector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="s2">"</span><span class="s">1"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span>
+      <span class="s2">"</span><span class="s">2"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span>
+  <span class="na">network</span><span class="pi">:</span>
+    <span class="na">localnet</span><span class="pi">:</span>
+      <span class="na">ipam</span><span class="pi">:</span>
+        <span class="na">lifecycle</span><span class="pi">:</span> <span class="s">Persistent</span>
+      <span class="na">physicalNetworkName</span><span class="pi">:</span> <span class="s">test</span>
+      <span class="na">role</span><span class="pi">:</span> <span class="s">Secondary</span>
+      <span class="na">subnets</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">192.168.0.0/16</span>
+      <span class="pi">-</span> <span class="s">2001:dbb::/64</span>
+    <span class="na">topology</span><span class="pi">:</span> <span class="s">Localnet</span>
+<span class="na">status</span><span class="pi">:</span>
+  <span class="na">conditions</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-05-28T19:30:38Z"</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s1">'</span><span class="s">NetworkAttachmentDefinition</span><span class="nv"> </span><span class="s">has</span><span class="nv"> </span><span class="s">been</span><span class="nv"> </span><span class="s">created</span><span class="nv"> </span><span class="s">in</span><span class="nv"> </span><span class="s">following</span><span class="nv"> </span><span class="s">namespaces:</span>
+      <span class="s">[test1,</span><span class="nv"> </span><span class="s">test2]'</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">NetworkAttachmentDefinitionCreated</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">NetworkCreated</span></code></pre>
+</div>
+</div>
+</div>
+</details>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../networking/multiple_networks/secondary_networks/creating-secondary-nwt-ovnk.html#configuration-localnet-switched-topology_configuring-additional-network-ovnk">Configuration for a localnet switched topology</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
 <h3 id="nw-cudn-cr-ui_about-user-defined-networks"><a class="anchor" href="#nw-cudn-cr-ui_about-user-defined-networks"></a>Creating a ClusterUserDefinedNetwork CR by using the web console</h3>
 <div class="paragraph">
 <p>You can create a <code>ClusterUserDefinedNetwork</code> custom resource (CR) with a <code>Layer2</code> topology in the OpenShift Container Platform web console.</p>
@@ -4307,6 +4504,13 @@ status:
 <p class="tableblock">The <code>joinSubnets</code> field configures the routing between different segments within a user-defined network. Dual-stack clusters can set 2 subnets, one for each IP family; otherwise, only 1 subnet is allowed. This field is only allowed for the <code>Primary</code> network.</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.&lt;topology&gt;.excludeSubnets</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.&lt;topology&gt;.exlcudeSubnets</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies a list of CIDRs to be removed from the specified CIDRs in the <code>subnets</code> field. The CIDRs in this list must be in range of at least one subnet specified in <code>subnets</code>. When omitted, no IP addresses are excluded, and all IP addresses specified in the <code>subnets</code> field are subject to assignment. You must use standard CIDR notation. For example, <code>10.128.0.0/16</code>. This field must be omitted if the <code>subnets</code> field is not set or if the <code>ipam.mode</code> field is set to <code>Disabled</code>.</p>
+<p class="tableblock">When deploying a secondary network with <code>Localnet</code> topology, the IP ranges used in your physical network must be explicitly listed in the <code>excludeSubnets</code> field to prevent IP duplication in your subnet.</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.&lt;topology&gt;.ipam.lifecycle</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.&lt;topology&gt;.ipam.lifecycle</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">object</p></td>
@@ -4315,7 +4519,7 @@ status:
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.&lt;topology&gt;.ipam.mode</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.&lt;topology&gt;.ipam.mode</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.&lt;topology&gt;`ipam.mode</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">object</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The <code>mode</code> parameter controls how much of the IP configuration is managed by OVN-Kubernetes. The following options are available:</p>
 <p class="tableblock"><strong>Enabled:</strong><br>
@@ -4329,6 +4533,24 @@ When disabled, OVN-Kubernetes only assigns MAC addresses and provides layer 2 co
 <td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The maximum transmission units (MTU). The default value is <code>1400</code>. The boundary for IPv4 is <code>576</code>, and for IPv6 it is <code>1280</code>.</p></td>
 </tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.localnet.vlan</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">object</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">This field is optional and configures the virtual local area network (VLAN) tagging and allows you to segment the physical network into multiple independent broadcast domains.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.localnet.vlan.mode</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">object</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Acceptable values are <code>Access</code>. A value of <code>Access</code> specifies that the network interface belongs to a single VLAN and all traffic will be labelled with an <code>id</code> that is configured in the <code>spec.network.localnet.vlan.mode.access.id</code> field. The <code>id</code> specifies the VLAN <code>id</code> (VID) for access ports. Values must be an integer between 1 and 4094.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.localnet.physicalNetworkName</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the name for a physical network interface. The value you specify must match the <code>network-name</code> parameter that you provided in your Open vSwitch (OVS) bridge mapping.</p></td>
+</tr>
 </tbody>
 </table>
 <div class="paragraph">
@@ -4338,7 +4560,7 @@ When disabled, OVN-Kubernetes only assigns MAC addresses and provides layer 2 co
 <dl>
 <dt class="hdlist1"><code>&lt;topology&gt;</code></dt>
 <dd>
-<p>Is one of <code>layer2</code> or <code>layer3</code>.</p>
+<p>Can be either <code>layer2</code> or <code>layer3</code> for the <code>UserDefinedNetwork</code> CR. For the <code>ClusterUserDefinedNetwork</code> CR the topology can also be <code>Localnet</code>.</p>
 </dd>
 </dl>
 </div>
