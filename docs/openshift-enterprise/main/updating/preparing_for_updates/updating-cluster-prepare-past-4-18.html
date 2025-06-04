@@ -3262,10 +3262,11 @@
 <li><a href="#migrating-workloads-to-different-nodes_updating-cluster-prepare-past-4-18">Migrating workloads off of package-based RHEL worker nodes</a></li>
 <li><a href="#identifying-and-removing-rhel-worker-nodes_updating-cluster-prepare-past-4-18">Identifying and removing RHEL worker nodes</a></li>
 <li><a href="#provision-new-rhcos-nodes_updating-cluster-prepare-past-4-18">Provisioning new RHCOS worker nodes</a></li>
+<li><a href="#nw-ingress-gateway-api-manage-succession_updating-cluster-prepare-past-4-18">Preparing for Gateway API management succession by the Ingress Operator</a></li>
 </ul>
 </div>
 <div class="paragraph">
-<p>Before you update from OpenShift Container Platform 4.18 to a newer version, learn about some of the specific concerns around Red&#160;Hat Enterprise Linux (RHEL) compute machines.</p>
+<p>Before you update from OpenShift Container Platform 4.18 to a newer version, learn about some of the specific concerns around Red&#160;Hat Enterprise Linux (RHEL) compute machines and Gateway API networking resources.</p>
 </div>
 </div>
 </div>
@@ -3427,6 +3428,99 @@ rhel-node3.example.com      Ready     worker    7h        v1.32.3</code></pre>
 </div>
 <div class="paragraph">
 <p>For installer-provisioned infrastructure installations, automatic scaling adds RHCOS nodes by default. For user-provisioned infrastructure installations on bare metal platforms, you can manually <a href="../../post_installation_configuration/node-tasks.html#post-install-config-adding-fcos-compute">add RHCOS compute nodes to your cluster</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-ingress-gateway-api-manage-succession_updating-cluster-prepare-past-4-18"><a class="anchor" href="#nw-ingress-gateway-api-manage-succession_updating-cluster-prepare-past-4-18"></a>Preparing for Gateway API management succession by the Ingress Operator</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Starting in OpenShift Container Platform 4.19, the Ingress Operator manages the lifecycle of any Gateway API custom resource definitions (CRDs). Updating from a version before 4.19 of OpenShift Container Platform where this management was not present requires you to replace or remove any Gateway API CRDs that already exist in the cluster so that they conform to the specific OpenShift Container Platform specification required by the Ingress Operator. OpenShift Container Platform version 4.19 requires Gateway API Standard version 1.2.0 CRDs.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Updating or deleting Gateway API resources can result in downtime and loss of service or data. Be sure you understand how this will affect your cluster before performing the steps in this procedure. If necessary, back up any Gateway API objects in YAML format in order to restore it later.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have access to an OpenShift Container Platform account with cluster administrator access.</p>
+</li>
+<li>
+<p>Optional: You have backed up any necessary Gateway API objects.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>List all the Gateway API CRDs that you need to remove by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get crd | <span class="nb">grep</span> <span class="s2">"gateway.networking"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">gatewayclasses.gateway.networking.k8s.io
+gateways.gateway.networking.k8s.io
+grpcroutes.gateway.networking.k8s.io
+httproutes.gateway.networking.k8s.io
+referencegrants.gateway.networking.k8s.io</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the Gateway API CRDs from the previous step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete crd gatewayclasses.networking.k8s.io <span class="o">&amp;&amp;</span> <span class="se">\</span>
+oc delete crd gateways.networking.k8s.io <span class="o">&amp;&amp;</span> <span class="se">\</span>
+oc delete crd grpcroutes.gateway.networking.k8s.io <span class="o">&amp;&amp;</span> <span class="se">\</span>
+oc delete crd httproutes.gateway.networking.k8s.io <span class="o">&amp;&amp;</span> <span class="se">\</span>
+oc delete crd referencesgrants.gateway.networking.k8s.io</code></pre>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Any controller that was previously managing the lifecycle of the Gateway API CRDs will fail to operate properly. Attempting to force its use in conjunction with the Ingress Operator to manage Gateway API CRDs might prevent the cluster update from succeeding.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Get the supported Gateway API CRDs by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
