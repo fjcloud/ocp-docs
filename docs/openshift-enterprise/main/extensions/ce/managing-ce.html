@@ -3290,7 +3290,8 @@
 <li><a href="#olmv1-creating-a-cluster-rol-binding_managing-ce">Creating a cluster role binding for an extension</a></li>
 </ul>
 </li>
-<li><a href="#olmv1-installing-an-operator_managing-ce">Installing a cluster extension from a catalog</a></li>
+<li><a href="#olmv1-installing-an-operator_managing-ce">Installing a cluster extension in all namespaces</a></li>
+<li><a href="#olmv1-deploying-a-ce-in-a-specific-namespace_managing-ce">Deploying a cluster extension in a specific namespace (Technology Preview)</a></li>
 <li><a href="#olmv1-updating-an-operator_managing-ce">Updating a cluster extension</a></li>
 <li><a href="#olmv1-deleting-an-operator_managing-ce">Deleting an Operator</a></li>
 </ul>
@@ -3316,6 +3317,13 @@
 </li>
 <li>
 <p>The extension must support installation via the <code>AllNamespaces</code> install mode.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Support for the <code>SingleNamespace</code> and <code>OwnNamespace</code> install mode is included in OpenShift Container Platform Branch Build as a Technology Preview feature.</p>
+</li>
+</ul>
+</div>
 </li>
 <li>
 <p>The extension must not use webhooks.</p>
@@ -5141,7 +5149,7 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="olmv1-installing-an-operator_managing-ce"><a class="anchor" href="#olmv1-installing-an-operator_managing-ce"></a>Installing a cluster extension from a catalog</h2>
+<h2 id="olmv1-installing-an-operator_managing-ce"><a class="anchor" href="#olmv1-installing-an-operator_managing-ce"></a>Installing a cluster extension in all namespaces</h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>You can install an extension from a catalog by creating a custom resource (CR) and applying it to the cluster. Operator Lifecycle Manager (OLM) v1 supports installing cluster extensions, including OLM (Classic) Operators in the <code>registry+v1</code> bundle format, that are scoped to the cluster. For more information, see <em>Supported extensions</em>.</p>
@@ -5390,11 +5398,125 @@ metadata:
 </li>
 </ol>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="olmv1-deploying-a-ce-in-a-specific-namespace_managing-ce"><a class="anchor" href="#olmv1-deploying-a-ce-in-a-specific-namespace_managing-ce"></a>Deploying a cluster extension in a specific namespace (Technology Preview)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Install modes are a multi-tenancy feature of Operator Lifecycle Manager (OLM) Classic. OLM v1 does not support multi-tenancy and deploys cluster extensions to the cluster by default by using the <code>AllNamespaces</code> install mode.</p>
+</div>
+<div class="paragraph">
+<p>However, some existing cluster extensions do not support the <code>AllNamespaces</code> install mode. You can deploy an extension in a specific namespace by using the <code>OwnNamespace</code> or <code>SingleNamespace</code> install modes as a Technology Preview feature for <code>registry+v1</code> Operator bundles.</p>
+</div>
+<div class="paragraph">
+<p>The <code>MultiNamespace</code> install mode is not supported. As a result, you cannot install the same Operator multiple times on a cluster.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>{Support for deploying a cluster extension in a specific namespace} is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>For more information, see "Supported extensions".</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Access to an OpenShift Container Platform cluster using an account with <code>cluster-admin</code> permissions</p>
+</li>
+<li>
+<p>The <code>TechPreviewNoUpgrade</code> feature set enabled on the cluster</p>
+</li>
+<li>
+<p>An Operator that supports the <code>OwnNamespace</code> or <code>SingleNamespace</code> install modes</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a custom resource (CR), similar to the following example:</p>
+<div class="listingblock">
+<div class="title">Example <code>&lt;cluster-extension-cr&gt;.yaml</code> file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">olm.operatorframework.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterExtension</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;clusterextension_name&gt;</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">olm.operatorframework.io/watch-namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;installed_namespace&gt;</span>
+  <span class="na">serviceAccount</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;service_account_installer_name&gt;</span>
+  <span class="na">source</span><span class="pi">:</span>
+    <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
+    <span class="na">catalog</span><span class="pi">:</span>
+      <span class="na">packageName</span><span class="pi">:</span> <span class="s">&lt;package_name&gt;</span>
+      <span class="na">channels</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">&lt;channel_name&gt;</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">&lt;version_or_version_range&gt;</span>
+      <span class="na">upgradeConstraintPolicy</span><span class="pi">:</span> <span class="s">CatalogProvided</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>namespace</code> </dt>
+<dd>
+<p>Specifies the namespace where you want the cluster extension deployed.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If the <code>namespace</code> parameter is empty or if the annotation is not present, the extension is deployed using the <code>AllNamespaces</code> install mode.</p>
+</li>
+<li>
+<p>If the <code>namespace</code> parameter is the same value as the <code>installed_namespace</code> parameter in the <code>spec.namespace</code> field, the extension is deployed using the <code>OwnNamespace</code> install mode.</p>
+</li>
+<li>
+<p>If the <code>namespace</code> parameter specifies a namespace that is different from the <code>installed_namespace</code> parameter, the extension is deployed using the <code>SingleNamespace</code> install mode.</p>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Apply the CR to the cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;cluster_extension_cr&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
 <li>
 <p><a href="../../extensions/ce/managing-ce.html#olmv1-supported-extensions_managing-ce">Supported extensions</a></p>
+</li>
+<li>
+<p><a href="../../authentication/using-rbac.html#rbac-projects-namespaces_using-rbac">Projects and namespaces</a></p>
 </li>
 <li>
 <p><a href="../../extensions/ce/managing-ce.html#olmv1-creating-a-service-account_managing-ce">Creating a service account</a></p>
