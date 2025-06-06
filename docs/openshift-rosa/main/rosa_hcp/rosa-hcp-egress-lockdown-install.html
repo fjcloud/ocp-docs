@@ -1395,8 +1395,13 @@
         <div id="toc" class="toc">
 <div id="toctitle"></div>
 <ul class="sectlevel1">
+<li><a href="#rosa-hcp-set-environment-variables_rosa-hcp-egress-lockdown-install">Setting Environment Variables</a></li>
 <li><a href="#rosa-hcp-egress-lockdown-install-creating_rosa-hcp-egress-lockdown-install">Creating a Virtual Private Cloud for your ROSA with HCP clusters</a>
 <ul class="sectlevel2">
+<li><a href="#rosa-hcp-create-network_rosa-hcp-egress-lockdown-install">Creating a Virtual Private Cloud using the ROSA CLI</a></li>
+<li><a href="#rosa-hcp-vpc-terraform_rosa-hcp-egress-lockdown-install">Creating a Virtual Private Cloud using Terraform</a></li>
+<li><a href="#rosa-hcp-vpc-aws_rosa-hcp-egress-lockdown-install">Creating a VPC using the AWS CLI</a></li>
+<li><a href="#rosa-hcp-vpc-manual_rosa-hcp-egress-lockdown-install">Creating a Virtual Private Cloud manually</a></li>
 <li><a href="#troubleshooting_shared-vpc-hcp_vpc-creation_rosa-hcp-egress-lockdown-install">Troubleshooting</a></li>
 </ul>
 </li>
@@ -1409,94 +1414,71 @@
 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
-<p>Creating a Red Hat OpenShift Service on AWS cluster with egress lockdown provides a way to enhance your cluster&#8217;s stability and security by allowing your cluster to use the image registry in the local region if the cluster cannot access the Internet. Your cluster will try to pull the images from Quay, but when they aren&#8217;t reached, it will instead pull the images from the image registry in the local region.</p>
+<p>Creating a Red Hat OpenShift Service on AWS (ROSA) cluster with egress lockdown provides a way to enhance your cluster&#8217;s stability and security by allowing your cluster to use the image registry in the local region if the cluster cannot access the internet. Your cluster first tries to pull the images from Quay, and when they aren&#8217;t reached, it instead pulls the images from the image registry in the local region.</p>
 </div>
-<div class="admonitionblock important">
+<div class="paragraph">
+<p>All public and private clusters with egress lockdown get their Red&#160;Hat container images from an Amazon Elastic Container Registry (ECR) located in the local region of the cluster instead of gathering these images from various endpoints and registries on the internet. ECR provides storage for OpenShift release images as well as Red&#160;Hat Operators. All requests for ECR are kept within your AWS network by serving them over a VPC endpoint within your cluster.</p>
+</div>
+<div class="paragraph">
+<p>You can create a fully operational cluster that does not require a public egress by configuring a virtual private cloud (VPC) and using the <code>--properties zero_egress:true</code> flag when creating your cluster.</p>
+</div>
+<div class="paragraph">
+<p>See <a href="../upgrading/rosa-hcp-upgrading.html#rosa-hcp-upgrading">Upgrading Red Hat OpenShift Service on AWS clusters</a> to upgrade clusters using egress lockdown.</p>
+</div>
+<div class="admonitionblock note">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-important" title="Important"></i>
+<i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>You can only use egress lockdown on clusters that use the following AWS regions:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>us-west-2</code></p>
-</li>
-<li>
-<p><code>us-east-1</code></p>
-</li>
-<li>
-<p><code>us-east-2</code></p>
-</li>
-<li>
-<p><code>ap-northeast-1</code></p>
-</li>
-<li>
-<p><code>ap-northeast-2</code></p>
-</li>
-<li>
-<p><code>ap-northeast-3</code></p>
-</li>
-<li>
-<p><code>ap-south-1</code></p>
-</li>
-<li>
-<p><code>ap-southeast-1</code></p>
-</li>
-<li>
-<p><code>ap-southeast-2</code></p>
-</li>
-<li>
-<p><code>ca-central-1</code></p>
-</li>
-<li>
-<p><code>eu-central-1</code></p>
-</li>
-<li>
-<p><code>eu-north-1</code></p>
-</li>
-<li>
-<p><code>eu-west-1</code></p>
-</li>
-<li>
-<p><code>eu-west-2</code></p>
-</li>
-<li>
-<p><code>eu-west-3</code></p>
-</li>
-<li>
-<p><code>sa-east-1</code></p>
-</li>
-</ul>
+<p>Clusters created in restricted network environments may be unable to use certain ROSA features including Red Hat Insights and Telemetry. These clusters may also experience potential failures for workloads that require public access to registries such as <code>quay.io</code>. When using clusters installed with egress lockdown, you can also install Red Hat-owned Operators from OperatorHub. For a complete list of Red Hat-owned Operators, see the <a href="https://catalog.redhat.com/search?searchType=software&amp;target_platforms=Red%20Hat%20OpenShift&amp;deployed_as=Operator&amp;p=1&amp;partnerName=Red%20Hat%2C%20Inc.%7CRed%20Hat">Red&#160;Hat Ecosystem Catalog</a>.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
+<h2 id="rosa-glossary-disconnected_rosa-hcp-egress-lockdown-install" class="discrete">Glossary of network environment terms</h2>
 <div class="paragraph">
-<p>All public and private clusters with egress lockdown get their Red Hat container images from a registery that is located in the local region of the cluster instead of gathering these images from various endpoints and registeries on the Internet. You can create a fully operational cluster that does not require a public egress by configuring a virtual private cloud (VPC) and using the <code>--properties zero_egress:true</code> flag when creating your cluster.</p>
+<p>Although it is used throughout the Red Hat OpenShift Service on AWS documentation, <em>disconnected environment</em> is a broad term that can refer to environments with various levels of internet connectivity.
+Other terms are sometimes used to refer to a specific level of internet connectivity, and these environments might require additional unique configurations. These network types differ from a "standard network," which has full access to the internet.</p>
 </div>
-<div class="admonitionblock important">
-<table>
+<div class="paragraph">
+<p>The following table describes the different terms used to refer to environments without a full internet connection:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Disconnected environment terms</caption>
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
 <tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Egress lockdown is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
+<th class="tableblock halign-left valign-middle">Term</th>
+<th class="tableblock halign-left valign-middle">Description</th>
 </tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Air-gapped network</p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">An environment or network that is completely isolated from an external network.</p>
+<p class="tableblock">This isolation depends on a physical separation, or an "air gap", between machines on the internal network and any part of an external network.
+Air-gapped environments are often used in industries with strict security or regulatory requirements.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Disconnected environment</p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">An environment or network that has some level of isolation from an external network.</p>
+<p class="tableblock">This isolation could be enabled by physical or logical separation between machines on the internal network and an external network.
+Regardless of the level of isolation from the external network, a cluster in a disconnected environment does not have access to public services hosted by Red&#160;Hat and requires additional setup to maintain full cluster functionality.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Restricted network</p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">An environment or network with limited connection to an external network.</p>
+<p class="tableblock">A physical connection might exist between machines on the internal network and an external network, but network traffic is limited by additional configurations, such as firewalls and proxies.</p></td>
+</tr>
+</tbody>
 </table>
-</div>
 <div class="ulist">
 <div class="title">Prequisites</div>
 <ul>
@@ -1524,11 +1506,15 @@
 <i class="fa icon-important" title="Important"></i>
 </td>
 <td class="content">
-<div class="paragraph">
-<p>You can use egress lockdown on all supported versions of Red Hat OpenShift Service on AWS that use the hosted control plane architecture; however, Red Hat suggests using the latest available z-stream release for each OpenShift Container Platform version.</p>
-</div>
-<div class="paragraph">
+<div class="ulist">
+<ul>
+<li>
+<p>You can use egress lockdown on all supported versions of Red Hat OpenShift Service on AWS that use the hosted control plane architecture; however, Red&#160;Hat suggests using the latest available z-stream release for each OpenShift Container Platform version.</p>
+</li>
+<li>
 <p>While you may install and upgrade your clusters as you would a regular cluster, due to an upstream issue with how the internal image registry functions in disconnected environments, your cluster that uses egress lockdown will not be able to fully use all platform components, such as the image registry. You can restore these features by using the latest ROSA version when upgrading or installing your cluster.</p>
+</li>
+</ul>
 </div>
 </td>
 </tr>
@@ -1537,10 +1523,91 @@
 </div>
 </div>
 <div class="sect1">
+<h2 id="rosa-hcp-set-environment-variables_rosa-hcp-egress-lockdown-install"><a class="anchor" href="#rosa-hcp-set-environment-variables_rosa-hcp-egress-lockdown-install"></a>Setting Environment Variables</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Set the following environment variables to streamline resource creation.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Set your environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export</span> &lt;variable_name&gt;<span class="o">=</span>&lt;variable_value&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>You can confirm that your variable has been set by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> &lt;variable_name&gt;</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. Suggested variables for disconnected Red Hat OpenShift Service on AWS (ROSA) clusters</caption>
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Variable name</th>
+<th class="tableblock halign-left valign-top">Variable value</th>
+<th class="tableblock halign-left valign-top">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AWS_ACCOUNT_ID</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>$(aws sts get-caller-identity --query Account --output text)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">You must be logged in to your AWS account with <code>rosa login</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>CLUSTER_NAME</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The name you want for your cluster.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Your cluster name cannot exceed 26 characters.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>OIDC_ID</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The 32-digit ID for your OpenID Connect (OIDC) configuration.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">You generate this ID by running <code>rosa create oidc-config</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>OPERATOR_ROLES_PREFIX</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Operator role prefix.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If you want to make your AWS account roles use the same prefix as your Operator roles, you can run <code>ACCOUNT_ROLES_PREFIX=$OPERATOR_ROLES_PREFIX</code> after setting your Operator role prefix variable.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>PRIVATE_SUBNET</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The ID of your private subnets.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">You must enclose this value in quotation marks (") and separate the subnet IDs with commas.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>REGION</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Your AWS region.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>SUBNET_IDS</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The IDs of all your subnets.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">You must enclose this value in quotation marks (") and separate the subnet IDs with commas.</p></td>
+</tr>
+</tbody>
+</table>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="rosa-hcp-egress-lockdown-install-creating_rosa-hcp-egress-lockdown-install"><a class="anchor" href="#rosa-hcp-egress-lockdown-install-creating_rosa-hcp-egress-lockdown-install"></a>Creating a Virtual Private Cloud for your ROSA with HCP clusters</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>You must have a Virtual Private Cloud (VPC) to create a ROSA with HCP cluster. Use one of the following methods to create a VPC:</p>
+<p>You must have a Virtual Private Cloud (VPC) to create a ROSA with HCP cluster. To pull images from the local ECR mirror over your VPC endpoint, you must configure a privatelink service connection and modify the default security groups with specific tags. Use one of the following methods to create a VPC:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -1551,25 +1618,15 @@
 <p>Create a VPC by using a Terraform template</p>
 </li>
 <li>
+<p>Create a VPC using the AWS CLI</p>
+</li>
+<li>
 <p>Manually create the VPC resources in the AWS console</p>
 </li>
 </ul>
 </div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The Terraform instructions are for testing and demonstration purposes. Your own installation requires some modifications to the VPC for your own use. You should also ensure that when you use this Terraform script it is in the same region that you intend to install your cluster. In these examples, use <code>us-east-2</code>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<h4 id="rosa-hcp-create-network_rosa-hcp-egress-lockdown-install" class="discrete">Creating a Virtual Private Cloud using the ROSA CLI</h4>
+<div class="sect2">
+<h3 id="rosa-hcp-create-network_rosa-hcp-egress-lockdown-install"><a class="anchor" href="#rosa-hcp-create-network_rosa-hcp-egress-lockdown-install"></a>Creating a Virtual Private Cloud using the ROSA CLI</h3>
 <div class="paragraph">
 <p>The <code>rosa create network</code> command is available in v.1.2.48 or later of the ROSA command-line interface (CLI). The command uses AWS CloudFormation to create a VPC and the other networking components used to install a ROSA cluster. CloudFormation is a native AWS infrastructure-as-code tool and is compatible with the AWS CLI.</p>
 </div>
@@ -1631,33 +1688,6 @@
 </li>
 </ul>
 </div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Create an AWS VPC using the default CloudFormations template by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa create network</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Optional: Customize your VPC by specifying additional parameters.</p>
-<div class="paragraph">
-<p>You can use the <code>--param</code> flag to specify changes to the default VPC template. The following example command specifies custom values for <code>region</code>, <code>Name</code>, <code>AvailabilityZoneCount</code> and <code>VpcCidr</code>.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa create network <span class="nt">--param</span> <span class="nv">Region</span><span class="o">=</span>us-east-2 <span class="nt">--param</span> <span class="nv">Name</span><span class="o">=</span>quickstart-stack <span class="nt">--param</span> <span class="nv">AvailabilityZoneCount</span><span class="o">=</span>3 <span class="nt">--param</span> <span class="nv">VpcCidr</span><span class="o">=</span>10.0.0.0/16</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The command takes about 5 minutes to run and provides regular status updates from AWS as resources are created. If there is an issue with CloudFormation, a rollback is attempted. For all other errors that are encountered, please follow the error message instructions or contact AWS support.</p>
-</div>
-</li>
-</ol>
-</div>
 <div class="ulist">
 <div class="title">Verification</div>
 <ul>
@@ -1666,27 +1696,27 @@
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="bash">INFO[0140] Resources created <span class="k">in </span>stack:
-INFO[0140] Resource: AttachGateway, Type: AWS::EC2::VPCGatewayAttachment, ID: &lt;gateway-id&gt;
-INFO[0140] Resource: EC2VPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce-id&gt;
-INFO[0140] Resource: EcrApiVPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce-id&gt;
-INFO[0140] Resource: EcrDkrVPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce-id&gt;
+INFO[0140] Resource: AttachGateway, Type: AWS::EC2::VPCGatewayAttachment, ID: &lt;gateway_id&gt;
+INFO[0140] Resource: EC2VPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce_id&gt;
+INFO[0140] Resource: EcrApiVPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce_id&gt;
+INFO[0140] Resource: EcrDkrVPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce_id&gt;
 INFO[0140] Resource: ElasticIP1, Type: AWS::EC2::EIP, ID: &lt;IP&gt;
 INFO[0140] Resource: ElasticIP2, Type: AWS::EC2::EIP, ID: &lt;IP&gt;
 INFO[0140] Resource: InternetGateway, Type: AWS::EC2::InternetGateway, ID: igw-016e1a71b9812464e
-INFO[0140] Resource: KMSVPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce-id&gt;
-INFO[0140] Resource: NATGateway1, Type: AWS::EC2::NatGateway, ID: &lt;nat-gateway-id&gt;
-INFO[0140] Resource: PrivateRoute, Type: AWS::EC2::Route, ID: &lt;route-id&gt;
-INFO[0140] Resource: PrivateRouteTable, Type: AWS::EC2::RouteTable, ID: &lt;route-id&gt;
-INFO[0140] Resource: PrivateSubnetRouteTableAssociation1, Type: AWS::EC2::SubnetRouteTableAssociation, ID: &lt;route-id&gt;
-INFO[0140] Resource: PublicRoute, Type: AWS::EC2::Route, ID: &lt;route-id&gt;
-INFO[0140] Resource: PublicRouteTable, Type: AWS::EC2::RouteTable, ID: &lt;route-id&gt;
-INFO[0140] Resource: PublicSubnetRouteTableAssociation1, Type: AWS::EC2::SubnetRouteTableAssociation, ID: &lt;route-id&gt;
-INFO[0140] Resource: S3VPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce-id&gt;
-INFO[0140] Resource: STSVPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce-id&gt;
-INFO[0140] Resource: SecurityGroup, Type: AWS::EC2::SecurityGroup, ID: &lt;security-group-id&gt;
-INFO[0140] Resource: SubnetPrivate1, Type: AWS::EC2::Subnet, ID: &lt;private-subnet-id-1&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-INFO[0140] Resource: SubnetPublic1, Type: AWS::EC2::Subnet, ID: &lt;public-subnet-id-1&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-INFO[0140] Resource: VPC, Type: AWS::EC2::VPC, ID: &lt;vpc-id&gt;
+INFO[0140] Resource: KMSVPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce_id&gt;
+INFO[0140] Resource: NATGateway1, Type: AWS::EC2::NatGateway, ID: &lt;nat-gateway_id&gt;
+INFO[0140] Resource: PrivateRoute, Type: AWS::EC2::Route, ID: &lt;route_id&gt;
+INFO[0140] Resource: PrivateRouteTable, Type: AWS::EC2::RouteTable, ID: &lt;route_id&gt;
+INFO[0140] Resource: PrivateSubnetRouteTableAssociation1, Type: AWS::EC2::SubnetRouteTableAssociation, ID: &lt;route_id&gt;
+INFO[0140] Resource: PublicRoute, Type: AWS::EC2::Route, ID: &lt;route_id&gt;
+INFO[0140] Resource: PublicRouteTable, Type: AWS::EC2::RouteTable, ID: &lt;route_id&gt;
+INFO[0140] Resource: PublicSubnetRouteTableAssociation1, Type: AWS::EC2::SubnetRouteTableAssociation, ID: &lt;route_id&gt;
+INFO[0140] Resource: S3VPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce_id&gt;
+INFO[0140] Resource: STSVPCEndpoint, Type: AWS::EC2::VPCEndpoint, ID: &lt;vpce_id&gt;
+INFO[0140] Resource: SecurityGroup, Type: AWS::EC2::SecurityGroup, ID: &lt;security-group_id&gt;
+INFO[0140] Resource: SubnetPrivate1, Type: AWS::EC2::Subnet, ID: &lt;private_subnet_id-1&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+INFO[0140] Resource: SubnetPublic1, Type: AWS::EC2::Subnet, ID: &lt;public_subnet_id-1&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+INFO[0140] Resource: VPC, Type: AWS::EC2::VPC, ID: &lt;vpc_id&gt;
 INFO[0140] Stack rosa-network-stack-5555 created <span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b></code></pre>
 </div>
 </div>
@@ -1705,20 +1735,139 @@ INFO[0140] Stack rosa-network-stack-5555 created <span class="se">\ </span><i cl
 </li>
 </ul>
 </div>
+<h4 id="rosa-hcp-vpc-subnet-tagging-rosa-network_rosa-hcp-egress-lockdown-install" class="discrete">Tagging your subnets</h4>
+<div class="paragraph">
+<p>Before you can use your VPC to create a ROSA with HCP cluster, you must tag your VPC subnets. Automated service preflight checks verify that these resources are tagged correctly. The following table shows how to tag your resources:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 15.7894%;">
+<col style="width: 42.1052%;">
+<col style="width: 42.1054%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Resource</th>
+<th class="tableblock halign-left valign-top">Key</th>
+<th class="tableblock halign-left valign-top">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Public subnet</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>kubernetes.io/role/elb</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>1</code> or no value</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Private subnet</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>kubernetes.io/role/internal-elb</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>1</code> or no value</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You must tag at least one private subnet and one public subnet, if applicable.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Tag your resources in your terminal:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>For public subnets, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="nt">--resources</span> &lt;public_subnet_id&gt; <span class="nt">--region</span> &lt;aws_region&gt; <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/elb,Value<span class="o">=</span>1</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>For private subnets, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="nt">--resources</span> &lt;private_subnet_id&gt; <span class="nt">--region</span> &lt;aws_region&gt; <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/internal-elb,Value<span class="o">=</span>1</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the tag is correct by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 describe-tags <span class="nt">--filters</span> <span class="s2">"Name=resource-id,Values=&lt;subnet_id&gt;"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="text">TAGS    Name                    &lt;subnet_id&gt;        subnet  &lt;prefix&gt;-subnet-public1-us-east-1a
+TAGS    kubernetes.io/role/elb  &lt;subnet_id&gt;        subnet  1</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
 <div id="additional-resources_rosa-hcp-create-network-egress-lockdown" class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
 <li>
-<p>See the <a href="https://aws.amazon.com/cloudformation/">AWS CloudFormation documentation</a> for more information about structuring CloudFormation files to create VPCs.</p>
+<p><a href="https://aws.amazon.com/cloudformation/">AWS CloudFormation documentation</a></p>
 </li>
 <li>
-<p>See the <a href="https://github.com/openshift/rosa/blob/master/cmd/create/network/templates/rosa-quickstart-default-vpc/cloudformation.yaml">default VPC AWS CloudFormation template</a> for more information.</p>
+<p><a href="https://github.com/openshift/rosa/blob/master/cmd/create/network/templates/rosa-quickstart-default-vpc/cloudformation.yaml">Default VPC AWS CloudFormation template</a></p>
 </li>
 </ul>
 </div>
-<h4 id="rosa-hcp-vpc-terraform_rosa-hcp-egress-lockdown-install" class="discrete">Creating a Virtual Private Cloud using Terraform</h4>
+</div>
+<div class="sect2">
+<h3 id="rosa-hcp-vpc-terraform_rosa-hcp-egress-lockdown-install"><a class="anchor" href="#rosa-hcp-vpc-terraform_rosa-hcp-egress-lockdown-install"></a>Creating a Virtual Private Cloud using Terraform</h3>
 <div class="paragraph">
 <p>Terraform is a tool that allows you to create various resources using an established template. The following process uses the default options as required to create a ROSA with HCP cluster. For more information about using Terraform, see the additional resources.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The Terraform instructions are for testing and demonstration purposes. Your own installation requires some modifications to the VPC for your own use. You should also ensure that when you use this Terraform script, it is in the same region that you intend to install your cluster. These examples use <code>us-east-2</code>.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -1778,21 +1927,7 @@ INFO[0140] Stack rosa-network-stack-5555 created <span class="se">\ </span><i cl
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Enter your AWS region.
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>You can only use egress lockdown on clusters that use the <code>us-west-1, us-west-2, us-east-1, us-east-2, ap-northeast-1, ap-northeast-2, ap-northeast-3, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-north-1, eu-west-1, eu-west-2, eu-west-3</code>, and <code>sa-east-1</code> AWS regions.</p>
-</div>
-</td>
-</tr>
-</table>
-</div></td>
+<td>Enter your AWS region.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
@@ -1821,81 +1956,9 @@ INFO[0140] Stack rosa-network-stack-5555 created <span class="se">\ </span><i cl
 </li>
 </ol>
 </div>
-<div id="additional-resources_rosa-hcp-vpc-terraform-egress-lockdown" class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p>See the <a href="https://github.com/openshift-cs/terraform-vpc-example">Terraform VPC</a> repository for a detailed list of all options available when customizing the VPC to your needs.</p>
-</li>
-</ul>
-</div>
-<h3 id="rosa-hcp-vpc-manual_rosa-hcp-egress-lockdown-install" class="discrete">Creating a Virtual Private Cloud manually</h3>
+<h4 id="rosa-hcp-vpc-subnet-tagging-terraform_rosa-hcp-egress-lockdown-install" class="discrete">Tagging your subnets</h4>
 <div class="paragraph">
-<p>If you choose to manually create your Virtual Private Cloud (VPC) instead of using Terraform, go to <a href="https://us-east-1.console.aws.amazon.com/vpc/">the VPC page in the AWS console</a>.</p>
-</div>
-<div class="paragraph">
-<p>Your VPC must meet the requirements shown in the following table.</p>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 1. Requirements for your VPC</caption>
-<colgroup>
-<col style="width: 50%;">
-<col style="width: 50%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Requirement</th>
-<th class="tableblock halign-left valign-top">Details</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">VPC name</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">You need to have the specific VPC name and ID when creating your cluster.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">CIDR range</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Your VPC CIDR range should match your machine CIDR.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Availability zone</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">You need one availability zone for a single zone, and you need three for availability zones for multi-zone.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Public subnet</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">You must have one public subnet with a NAT gateway for public clusters. Private clusters do not need a public subnet.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">DNS hostname and resolution</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">You must ensure that the DNS hostname and resolution are enabled.</p></td>
-</tr>
-</tbody>
-</table>
-<div class="sect2">
-<h3 id="troubleshooting_shared-vpc-hcp_vpc-creation_rosa-hcp-egress-lockdown-install"><a class="anchor" href="#troubleshooting_shared-vpc-hcp_vpc-creation_rosa-hcp-egress-lockdown-install"></a>Troubleshooting</h3>
-<div class="paragraph">
-<p>If your cluster fails to install, troubleshoot these common issues:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Make sure your <a href="https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html">DHCP option set</a> includes a domain name, and ensure that the domain name does not include any spaces or capital letters.</p>
-</li>
-<li>
-<p>If your VPC uses a custom DNS resolver (the <code>domain name servers</code> field of your DHCP option set is not <code>AmazonProvideDNS</code>), make sure it is able to properly resolve the private hosted zones configured in Route53.</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>For more information about troubleshooting ROSA cluster installations, see <a href="../support/troubleshooting/rosa-troubleshooting-installations.html#rosa-troubleshooting-installations">Troubleshooting Red Hat OpenShift Service on AWS installations</a>.</p>
-</div>
-<h4 id="troubleshooting_vpc-support_rosa-hcp-egress-lockdown-install" class="discrete">Get support</h4>
-<div class="paragraph">
-<p>If you need additional <a href="../support/getting-support.html#getting-support">support</a>, visit the Red Hat Customer Portal to review knowledge base articles, submit a support case, and review additional product documentation and resources.</p>
-</div>
-<h4 id="rosa-hcp-vpc-subnet-tagging_rosa-hcp-egress-lockdown-install" class="discrete">Tagging your subnets</h4>
-<div class="paragraph">
-<p>Before you can use your VPC to create a ROSA with HCP cluster, you must tag your VPC subnets. Automated service preflight checks verify that these resources are tagged correctly before you can use these resources. The following table shows how your resources should be tagged as the following:</p>
+<p>Before you can use your VPC to create a ROSA with HCP cluster, you must tag your VPC subnets. Automated service preflight checks verify that these resources are tagged correctly. The following table shows how to tag your resources:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -1943,43 +2006,31 @@ INFO[0140] Stack rosa-network-stack-5555 created <span class="se">\ </span><i cl
 </td>
 <td class="content">
 <div class="paragraph">
-<p>You must tag at least one private subnet and, if applicable, and one public subnet.</p>
+<p>You must tag at least one private subnet and one public subnet, if applicable.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You have created a VPC.</p>
-</li>
-<li>
-<p>You have installed the <code>aws</code> CLI.</p>
-</li>
-</ul>
-</div>
 <div class="olist arabic">
-<div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Tag your resources in your terminal by running the following commands:</p>
+<p>Tag your resources in your terminal:</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>For public subnets, run:</p>
+<p>For public subnets, run the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="nt">--resources</span> &lt;public-subnet-id&gt; <span class="nt">--region</span> &lt;aws_region&gt; <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/elb,Value<span class="o">=</span>1</code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="nt">--resources</span> &lt;public_subnet_id&gt; <span class="nt">--region</span> &lt;aws_region&gt; <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/elb,Value<span class="o">=</span>1</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>For private subnets, run:</p>
+<p>For private subnets, run the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="nt">--resources</span> &lt;private-subnet-id&gt; <span class="nt">--region</span> &lt;aws_region&gt; <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/internal-elb,Value<span class="o">=</span>1</code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="nt">--resources</span> &lt;private_subnet_id&gt; <span class="nt">--region</span> &lt;aws_region&gt; <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/internal-elb,Value<span class="o">=</span>1</code></pre>
 </div>
 </div>
 </li>
@@ -1992,7 +2043,7 @@ INFO[0140] Stack rosa-network-stack-5555 created <span class="se">\ </span><i cl
 <div class="title">Verification</div>
 <ul>
 <li>
-<p>Verify that the tag is correctly applied by running the following command:</p>
+<p>Verify that the tag is correct by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 describe-tags <span class="nt">--filters</span> <span class="s2">"Name=resource-id,Values=&lt;subnet_id&gt;"</span></code></pre>
@@ -2001,12 +2052,196 @@ INFO[0140] Stack rosa-network-stack-5555 created <span class="se">\ </span><i cl
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight"><code data-lang="text">TAGS    Name                    &lt;subnet-id&gt;        subnet  &lt;prefix&gt;-subnet-public1-us-east-1a
-TAGS    kubernetes.io/role/elb  &lt;subnet-id&gt;        subnet  1</code></pre>
+<pre class="rouge highlight"><code data-lang="text">TAGS    Name                    &lt;subnet_id&gt;        subnet  &lt;prefix&gt;-subnet-public1-us-east-1a
+TAGS    kubernetes.io/role/elb  &lt;subnet_id&gt;        subnet  1</code></pre>
 </div>
 </div>
 </li>
 </ul>
+</div>
+<div id="additional-resources_rosa-hcp-vpc-terraform-egress-lockdown" class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://github.com/openshift-cs/terraform-vpc-example">Terraform VPC example</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="rosa-hcp-vpc-aws_rosa-hcp-egress-lockdown-install"><a class="anchor" href="#rosa-hcp-vpc-aws_rosa-hcp-egress-lockdown-install"></a>Creating a VPC using the AWS CLI</h3>
+<div class="paragraph">
+<p>You can create a VPC by using the AWS CLI. For information on using this CLI, see the <a href="https://docs.aws.amazon.com/cli/latest/reference/ec2/create-vpc.html">AWS create-vpc documentation</a>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="rosa-hcp-vpc-manual_rosa-hcp-egress-lockdown-install"><a class="anchor" href="#rosa-hcp-vpc-manual_rosa-hcp-egress-lockdown-install"></a>Creating a Virtual Private Cloud manually</h3>
+<div class="paragraph">
+<p>If you choose to manually create your Virtual Private Cloud (VPC) instead of using Terraform, go to <a href="https://us-east-1.console.aws.amazon.com/vpc/">the VPC page in the AWS console</a>.</p>
+</div>
+<div class="paragraph">
+<p>Your VPC must meet the requirements shown in the following table.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 3. Requirements for your VPC</caption>
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Requirement</th>
+<th class="tableblock halign-left valign-top">Details</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">VPC name</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">You need to have the specific VPC name and ID when creating your cluster.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">CIDR range</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Your VPC CIDR range should match your machine CIDR.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Availability zone</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">You need one availability zone for a single zone, and you need three for availability zones for multi-zone.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Public subnet</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">You must have one public subnet with a NAT gateway for public clusters. Private clusters do not need a public subnet.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">DNS hostname and resolution</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">You must ensure that the DNS hostname and resolution are enabled.</p></td>
+</tr>
+</tbody>
+</table>
+<h4 id="rosa-hcp-vpc-subnet-tagging-manual_rosa-hcp-egress-lockdown-install" class="discrete">Tagging your subnets</h4>
+<div class="paragraph">
+<p>Before you can use your VPC to create a ROSA with HCP cluster, you must tag your VPC subnets. Automated service preflight checks verify that these resources are tagged correctly. The following table shows how to tag your resources:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 15.7894%;">
+<col style="width: 42.1052%;">
+<col style="width: 42.1054%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Resource</th>
+<th class="tableblock halign-left valign-top">Key</th>
+<th class="tableblock halign-left valign-top">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Public subnet</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>kubernetes.io/role/elb</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>1</code> or no value</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Private subnet</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>kubernetes.io/role/internal-elb</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>1</code> or no value</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You must tag at least one private subnet and one public subnet, if applicable.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Tag your resources in your terminal:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>For public subnets, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="nt">--resources</span> &lt;public_subnet_id&gt; <span class="nt">--region</span> &lt;aws_region&gt; <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/elb,Value<span class="o">=</span>1</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>For private subnets, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="nt">--resources</span> &lt;private_subnet_id&gt; <span class="nt">--region</span> &lt;aws_region&gt; <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/internal-elb,Value<span class="o">=</span>1</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the tag is correct by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 describe-tags <span class="nt">--filters</span> <span class="s2">"Name=resource-id,Values=&lt;subnet_id&gt;"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="text">TAGS    Name                    &lt;subnet_id&gt;        subnet  &lt;prefix&gt;-subnet-public1-us-east-1a
+TAGS    kubernetes.io/role/elb  &lt;subnet_id&gt;        subnet  1</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="troubleshooting_shared-vpc-hcp_vpc-creation_rosa-hcp-egress-lockdown-install"><a class="anchor" href="#troubleshooting_shared-vpc-hcp_vpc-creation_rosa-hcp-egress-lockdown-install"></a>Troubleshooting</h3>
+<div class="paragraph">
+<p>If your cluster fails to install, troubleshoot these common issues:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Make sure your <a href="https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html">DHCP option set</a> includes a domain name, and ensure that the domain name does not include any spaces or capital letters.</p>
+</li>
+<li>
+<p>If your VPC uses a custom DNS resolver (the <code>domain name servers</code> field of your DHCP option set is not <code>AmazonProvideDNS</code>), make sure it is able to properly resolve the private hosted zones configured in Route53.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about troubleshooting ROSA cluster installations, see <a href="../support/troubleshooting/rosa-troubleshooting-installations.html#rosa-troubleshooting-installations">Troubleshooting Red Hat OpenShift Service on AWS installations</a>.</p>
+</div>
+<h4 id="troubleshooting_vpc-support_rosa-hcp-egress-lockdown-install" class="discrete">Get support</h4>
+<div class="paragraph">
+<p>If you need additional <a href="../support/getting-support.html#getting-support">support</a>, visit the Red Hat Customer Portal to review knowledge base articles, submit a support case, and review additional product documentation and resources.</p>
 </div>
 <div id="additional-resources_rosa-hcp-vpc-aws-egress-lockdown" class="ulist _additional-resources">
 <div class="title">Additional resources</div>
@@ -2020,129 +2255,10 @@ TAGS    kubernetes.io/role/elb  &lt;subnet-id&gt;        subnet  1</code></pre>
 <li>
 <p><a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/deploy/subnet_discovery/">Subnet Auto Discovery</a></p>
 </li>
-</ul>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
 <li>
-<p>See the <a href="https://github.com/openshift-cs/terraform-vpc-example/tree/main/zero-egress">Zero Egress Terraform VPC Example</a> repository for a detailed list of all options available when customizing the VPC for your needs.</p>
+<p><a href="https://github.com/openshift-cs/terraform-vpc-example/tree/main/zero-egress">Zero Egress Terraform VPC Example</a></p>
 </li>
 </ul>
-</div>
-<h4 id="rosa-hcp-sgs-and-vpce_rosa-hcp-egress-lockdown-install" class="discrete">Configuring AWS security groups and PrivateLink connections</h4>
-<div class="paragraph">
-<p>After creating your VPC, create your AWS security groups and VPC endpoints.</p>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Create the AWS security group by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-security-group <span class="se">\</span>
-        <span class="nt">--group-name</span> allow-inbound-traffic <span class="se">\</span>
-        <span class="nt">--description</span> <span class="s2">"allow inbound traffic"</span> <span class="se">\</span>
-        <span class="nt">--vpc-id</span> &lt;vpc_id&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="gp">        --region &lt;aws_region&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Enter your VPC&#8217;s ID.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Enter the AWS region where the VPC was installed.</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Grant access to the security group&#8217;s ingress by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 authorize-security-group-ingress <span class="se">\</span>
-        <span class="nt">--group-id</span> &lt;group_id&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="gp">        --protocol -1 \
-        --port 0-0 \
-        --cidr &lt;vpc_cidr&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
-<span class="gp">        --region &lt;aws_region&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="3"></i><b>(3)</b></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>--group-id</code> uses ID of the security group created with the previous command.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Enter the CIDR of your VPC.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The AWS region where you installed your VPC</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Create your STS VPC endpoint by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-vpc-endpoint <span class="se">\</span>
-    <span class="nt">--vpc-id</span> &lt;vpc_id&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="gp">    --service-name com.amazonaws.&lt;aws_region&gt;</span>.sts <span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
-<span class="go">    --vpc-endpoint-type Interface</span></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Enter your VPC&#8217;s ID.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Enter the AWS region where the VPC was installed.</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Create your ECR VPC endpoints by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-vpc-endpoint <span class="se">\</span>
-    <span class="nt">--vpc-id</span> &lt;vpc_id&gt; <span class="se">\</span>
-    <span class="nt">--service-name</span> com.amazonaws.&lt;aws_region&gt;.ecr.dkr <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="go">    --vpc-endpoint-type Interface</span></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Enter the AWS region where the VPC is located.</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Create your S3 VPC endpoint by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-vpc-endpoint <span class="se">\</span>
-    <span class="nt">--vpc-id</span> &lt;vpc_id&gt; <span class="se">\</span>
-    <span class="nt">--service-name</span> com.amazonaws.&lt;aws_region&gt;.s3</code></pre>
-</div>
-</div>
-</li>
-</ol>
 </div>
 </div>
 </div>
@@ -2386,18 +2502,10 @@ I: Created OIDC provider with ARN 'arn:aws:iam::4540112244:oidc-provider/dvbwgdz
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Set your prefix name to an environment variable using the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">OPERATOR_ROLES_PREFIX</span><span class="o">=</span>&lt;prefix_name&gt;</code></pre>
-</div>
-</div>
-</li>
-<li>
 <p>To create your Operator roles, run the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa create operator-roles <span class="nt">--hosted-cp</span> <span class="nt">--prefix</span><span class="o">=</span><span class="nv">$OPERATOR_ROLES_PREFIX</span> <span class="nt">--oidc-config-id</span><span class="o">=</span><span class="nv">$OIDC_ID</span> <span class="nt">--installer-role-arn</span> arn:aws:iam::<span class="k">${</span><span class="nv">AWS_ACCOUNT_ID</span><span class="k">}</span>:role/<span class="k">${</span><span class="nv">ACCOUNT_ROLES_PREFIX</span><span class="k">}</span><span class="nt">-HCP-ROSA-Installer-Role</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa create operator-roles <span class="nt">--hosted-cp</span> <span class="nt">--prefix</span><span class="o">=</span><span class="nv">$OPERATOR_ROLES_PREFIX</span> <span class="nt">--oidc-config-id</span><span class="o">=</span><span class="nv">$OIDC_ID</span> <span class="nt">--installer-role-arn</span> arn:aws:iam::<span class="nv">$AWS_ACCOUNT_ID</span>:role/<span class="k">${</span><span class="nv">ACCOUNT_ROLES_PREFIX</span><span class="k">}</span><span class="nt">-HCP-ROSA-Installer-Role</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -2408,7 +2516,7 @@ I: Created OIDC provider with ARN 'arn:aws:iam::4540112244:oidc-provider/dvbwgdz
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa create operator-roles <span class="nt">--hosted-cp</span>
 <span class="gp">	--prefix=$</span>OPERATOR_ROLES_PREFIX <i class="conum" data-value="1"></i><b>(1)</b>
 <span class="gp">	--oidc-config-id=$</span>OIDC_ID <i class="conum" data-value="2"></i><b>(2)</b>
-<span class="gp">	--installer-role-arn arn:aws:iam::$</span><span class="o">{</span>AWS_ACCOUNT_ID<span class="o">}</span>:role/<span class="k">${</span><span class="nv">ACCOUNT_ROLES_PREFIX</span><span class="k">}</span><span class="nt">-HCP-ROSA-Installer-Role</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+<span class="gp">	--installer-role-arn arn:aws:iam::$</span>AWS_ACCOUNT_ID:role/<span class="nv">$ACCOUNT_ROLES_PREFIX</span><span class="nt">-HCP-ROSA-Installer-Role</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
 </div>
 </div>
 <div class="openblock">
@@ -2622,7 +2730,7 @@ ROLE PREFIX  AMOUNT IN BUNDLE
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Provide the AWS account that is responsible for all billing.</td>
+<td>If your billing account is different from your user account, add this argument and specify the AWS account that is responsible for all billing.</td>
 </tr>
 </table>
 </div>
@@ -2633,11 +2741,11 @@ ROLE PREFIX  AMOUNT IN BUNDLE
 <p>If you set the environment variables, create a cluster with egress lockdown that has a single, initial machine pool, using a privately available API, and a privately available Ingress by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa create cluster <span class="nt">--private</span> <span class="nt">--cluster-name</span><span class="o">=</span>&lt;cluster_name&gt; <span class="se">\</span>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa create cluster <span class="nt">--private</span> <span class="nt">--cluster-name</span><span class="o">=</span><span class="nv">$CLUSTER_NAME</span> <span class="se">\</span>
     <span class="nt">--mode</span><span class="o">=</span>auto <span class="nt">--hosted-cp</span> <span class="nt">--operator-roles-prefix</span><span class="o">=</span><span class="nv">$OPERATOR_ROLES_PREFIX</span> <span class="se">\</span>
     <span class="nt">--oidc-config-id</span><span class="o">=</span><span class="nv">$OIDC_ID</span> <span class="nt">--subnet-ids</span><span class="o">=</span><span class="nv">$SUBNET_IDS</span> <span class="se">\</span>
-    <span class="nt">--region</span> &lt;region&gt; <span class="nt">--machine-cidr</span> 10.0.0.0/16 <span class="nt">--service-cidr</span> 172.30.0.0/16 <span class="se">\</span>
-    <span class="nt">--pod-cidr</span> 10.128.0.0/14 <span class="nt">--host-prefix</span> 23 <span class="nt">--billing-account</span> &lt;root-acct-id&gt; <span class="se">\</span>
+    <span class="nt">--region</span> <span class="nv">$REGION</span> <span class="nt">--machine-cidr</span> 10.0.0.0/16 <span class="nt">--service-cidr</span> 172.30.0.0/16 <span class="se">\</span>
+    <span class="nt">--pod-cidr</span> 10.128.0.0/14 <span class="nt">--host-prefix</span> 23 <span class="se">\</span>
     <span class="nt">--private</span> <span class="nt">--properties</span> zero_egress:true</code></pre>
 </div>
 </div>
