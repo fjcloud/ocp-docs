@@ -2398,6 +2398,7 @@
             <li><a class="" href="../../hardware_accelerators/about-hardware-accelerators.html">About hardware accelerators</a></li>
             <li><a class="" href="../../hardware_accelerators/nvidia-gpu-architecture.html">NVIDIA GPU architecture</a></li>
             <li><a class="" href="../../hardware_accelerators/amd-gpu-operator.html">AMD GPU Operator</a></li>
+            <li><a class="" href="../../hardware_accelerators/gaudi-ai-accelerator.html">Intel Gaudi AI accelerators</a></li>
       </ul>
     </li>
     <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup34"><span id="tgSpan34" class="fa fa-angle-right"></span>Backup and restore</a>
@@ -3325,6 +3326,7 @@
 </li>
 <li><a href="#update-preparing-conditional_updating-cluster-prepare">Assessing the risk of conditional updates</a></li>
 <li><a href="#update-etcd-backup_updating-cluster-prepare">etcd backups before cluster updates</a></li>
+<li><a href="#nw-ingress-gateway-api-manage-succession_updating-cluster-prepare">Preparing for Gateway API management succession by the Ingress Operator</a></li>
 <li><a href="#update-best-practices_updating-cluster-prepare">Best practices for cluster updates</a>
 <ul class="sectlevel2">
 <li><a href="#recommended-versions_updating-cluster-prepare">Choose versions recommended by the OpenShift Update Service</a></li>
@@ -3676,6 +3678,141 @@ For more information, see "Backing up etcd data" and "Restoring to a previous cl
 </li>
 <li>
 <p><a href="../../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/scenario-2-restoring-cluster-state.html#dr-restoring-cluster-state">Restoring to a previous cluster state</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-ingress-gateway-api-manage-succession_updating-cluster-prepare"><a class="anchor" href="#nw-ingress-gateway-api-manage-succession_updating-cluster-prepare"></a>Preparing for Gateway API management succession by the Ingress Operator</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Starting in OpenShift Container Platform 4.19, the Ingress Operator manages the lifecycle of any Gateway API custom resource definitions (CRDs). This means that you will be denied access to creating, updating, and deleting any CRDs within the API groups that are grouped under Gateway API.</p>
+</div>
+<div class="paragraph">
+<p>Updating from a version before 4.19 of OpenShift Container Platform where this management was not present requires you to replace or remove any Gateway API CRDs that already exist in the cluster so that they conform to the specific OpenShift Container Platform specification required by the Ingress Operator. OpenShift Container Platform version 4.19 requires Gateway API Standard version 1.2.1 CRDs.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Updating or deleting Gateway API resources can result in downtime and loss of service or data. Be sure you understand how this will affect your cluster before performing the steps in this procedure. If necessary, back up any Gateway API objects in YAML format in order to restore it later.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have access to an OpenShift Container Platform account with cluster administrator access.</p>
+</li>
+<li>
+<p>Optional: You have backed up any necessary Gateway API objects.</p>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Backup and restore can fail or result in data loss for any CRD fields that were present in the old definitions but are absent in the new definitions.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>List all the Gateway API CRDs that you need to remove by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get crd | <span class="nb">grep</span> <span class="nt">-F</span> <span class="nt">-e</span> gateway.networking.k8s.io <span class="nt">-e</span> gateway.networking.x-k8s.io</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">gatewayclasses.gateway.networking.k8s.io
+gateways.gateway.networking.k8s.io
+grpcroutes.gateway.networking.k8s.io
+httproutes.gateway.networking.k8s.io
+referencegrants.gateway.networking.k8s.io</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the Gateway API CRDs from the previous step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete crd gatewayclasses.networking.k8s.io <span class="o">&amp;&amp;</span> <span class="se">\</span>
+oc delete crd gateways.networking.k8s.io <span class="o">&amp;&amp;</span> <span class="se">\</span>
+oc delete crd grpcroutes.gateway.networking.k8s.io <span class="o">&amp;&amp;</span> <span class="se">\</span>
+oc delete crd httproutes.gateway.networking.k8s.io <span class="o">&amp;&amp;</span> <span class="se">\</span>
+oc delete crd referencesgrants.gateway.networking.k8s.io</code></pre>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Deleting CRDs removes every custom resource that relies on them and can result in data loss. Back up any necessary data before deleting the Gateway API CRDs. Any controller that was previously managing the lifecycle of the Gateway API CRDs will fail to operate properly. Attempting to force its use in conjunction with the Ingress Operator to manage Gateway API CRDs might prevent the cluster update from succeeding.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Get the supported Gateway API CRDs by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml</code></pre>
+</div>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can perform this step without deleting your CRDs. If your update to a CRD removes a field that is used by a custom resource, you can lose data. Updating a CRD a second time, to a version that re-adds a field, can cause any previously deleted data to reappear. Any third-party controller that depends on a specific Gateway API CRD version that is not supported in OpenShift Container Platform Branch Build will break upon updating that CRD to one supported by Red&#160;Hat.</p>
+</div>
+<div class="paragraph">
+<p>For more information on the OpenShift Container Platform implementation and the dead fields issue, see <em>Gateway API implementation for OpenShift Container Platform</em>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../networking/configuring_ingress_cluster_traffic/ingress-gateway-api.html#nw-ingress-gateway-api-implementation">Gateway API implementation for OpenShift Container Platform</a></p>
 </li>
 </ul>
 </div>
