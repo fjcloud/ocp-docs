@@ -901,6 +901,7 @@
 </ul>
 </li>
 <li><a href="#persistent-storage-csi-google-cloud-file-create-sc_persistent-storage-csi-google-cloud-file">Creating a storage class for GCP Filestore Storage</a></li>
+<li><a href="#persistent-storage-csi-gcp-filestore-nfs-export-options_persistent-storage-csi-google-cloud-file">NFS export options</a></li>
 <li><a href="#persistent-storage-csi-google-cloud-file-delete-instances_persistent-storage-csi-google-cloud-file">Destroying clusters and GCP Filestore</a></li>
 <li><a href="#additional-resources">Additional resources</a></li>
 </ul>
@@ -1366,6 +1367,99 @@ Use the following procedure to install the GCP Filestore CSI Driver Operator in 
 </div>
 <div class="paragraph">
 <p>In this example, the VPC network name in this cluster is "gcp-filestore-network".</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="persistent-storage-csi-gcp-filestore-nfs-export-options_persistent-storage-csi-google-cloud-file"><a class="anchor" href="#persistent-storage-csi-gcp-filestore-nfs-export-options_persistent-storage-csi-google-cloud-file"></a>NFS export options</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>By default, a Filestore instance grants root level read/write access to all clients that share the same Google Cloud project and virtual private cloud (VPC) network. Network File System (NFS) export options can limit this access to certain IP ranges and specific user/group IDs for the Filestore instance. When creating a storage class, you can set these options using the <code>nfs-export-options-on-create</code> parameter.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Access to the cluster as a user with the cluster-admin role.</p>
+</li>
+<li>
+<p>The GCP Filestore CSI Driver Operator and GCP Filestore CSI driver installed.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a storage class using a file similar to the following sample YAML file:</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For more information about creating a storage class, see Section <em>Creating a storage class for GCP Filestore Operator</em>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example storage class YAML file with NFS export options</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">StorageClass</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
+<span class="na">metadata</span><span class="pi">:</span>
+ <span class="na">name</span><span class="pi">:</span> <span class="s">SC-name</span>
+<span class="na">provisioner</span><span class="pi">:</span> <span class="s">filestore.csi.storage.gke.io</span>
+<span class="na">parameters</span><span class="pi">:</span>
+ <span class="na">connect-mode</span><span class="pi">:</span> <span class="s">DIRECT_PEERING</span>
+ <span class="na">network</span><span class="pi">:</span> <span class="s">project-network</span>
+ <span class="na">nfs-export-options-on-create</span><span class="pi">:</span> <span class="s1">'</span><span class="s">[</span> <i class="conum" data-value="1"></i><b>(1)</b>
+   <span class="s">{</span>
+     <span class="s">"accessMode":</span><span class="nv"> </span><span class="s">"READ_WRITE",</span> <i class="conum" data-value="2"></i><b>(2)</b>
+     <span class="s">"squashMode":</span><span class="nv"> </span><span class="s">"NO_ROOT_SQUASH",</span> <i class="conum" data-value="3"></i><b>(3)</b>
+     <span class="s">"anonUid":</span><span class="nv"> </span><span class="s">65534</span> <i class="conum" data-value="4"></i><b>(4)</b>
+     <span class="s">"anonGid":</span><span class="nv"> </span><span class="s">65534</span> <i class="conum" data-value="5"></i><b>(5)</b>
+     <span class="s">"ipRanges":</span><span class="nv"> </span><span class="s">[</span> <i class="conum" data-value="6"></i><b>(6)</b>
+       <span class="s">"10.0.0.0/16"</span>
+     <span class="s">]</span>
+   <span class="s">}]'</span>
+<span class="na">allowVolumeExpansion</span><span class="pi">:</span> <span class="no">true</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td><strong>NFS export options parameter</strong></td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td><strong>Access mode</strong>: Either <code>READ_ONLY,</code> which allows only read requests on the exported directory; or <code>READ_WRITE</code>, which allows both read and write requests. The default is <code>READ_WRITE</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td><strong>Squash mode</strong>: Either <code>NO_ROOT_SQUASH</code>, which allows root access on the exported directory; or ROOT_SQUASH, which does not allow root access. The default is <code>NO_ROOT_SQUASH</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td><strong>AnonUid</strong>: An integer representing the anonymous user ID with a default value of 65534. <code>AnonUid</code> can only be set with <code>squashMode</code> set to <code>ROOT_SQUASH</code>; Otherwise, an error occurs.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td><strong>AnonGid</strong>: An integer representing the anonymous group ID with a default value of 65534. <code>AnonGid</code> can only be set with <code>squashMode</code> set to <code>ROOT_SQUASH</code>. Otherwise, an error occurs.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td><strong>IP ranges</strong>: List of either an IPv4 addresses in the format {octet1}.{octet2}.{octet3}.{octet4}, or CIDR ranges in the format {octet1}.{octet2}.{octet3}.{octet4}/{mask size}, which can mount the file share. Overlapping IP ranges are not allowed, both within and across NfsExportOptions, otherwise, an error is returned. The limit is 64 IP ranges or addresses for each <code>FileShareConfig</code> among all NFS export options.</td>
+</tr>
+</table>
 </div>
 </li>
 </ol>

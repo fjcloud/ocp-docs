@@ -2365,6 +2365,7 @@
                 <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-34-4-1"><span id="ssgSpan-34-4-1" class="fa fa-caret-right"></span>&nbsp;OADP release notes</a>
                   <ul id="topicSubSubGroup-34-4-1" class="nav-tertiary list-unstyled collapse">
 
+                    <li><a class="" href="../../backup_and_restore/application_backup_and_restore/release-notes/oadp-1-5-release-notes.html" style="padding-left: 70px;">OADP 1.5 release notes</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/release-notes/oadp-1-4-release-notes.html" style="padding-left: 70px;">OADP 1.4 release notes</a></li>                  </ul>
                   </li>
 
@@ -3281,6 +3282,7 @@
 <li><a href="#specifying-regions-zones-infrastructure-vsphere_post-install-vsphere-zones-regions-configuration">Specifying multiple regions and zones for your cluster on vSphere</a></li>
 <li><a href="#vsphere-enabling-multiple-layer2-network_post-install-vsphere-zones-regions-configuration">Enabling a multiple layer 2 network for your cluster</a></li>
 <li><a href="#references-regions-zones-infrastructure-vsphere_post-install-vsphere-zones-regions-configuration">Parameters for the cluster-wide infrastructure CRD</a></li>
+<li><a href="#specifying-host-groups-vsphere_post-install-vsphere-zones-regions-configuration">Specifying multiple host groups for your cluster on vSphere</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -3625,6 +3627,302 @@
 <ul>
 <li>
 <p><a href="../../installing/installing_vsphere/post-install-vsphere-zones-regions-configuration.html#specifying-regions-zones-infrastructure-vsphere_post-install-vsphere-zones-regions-configuration">Specifying multiple regions and zones for your cluster on vSphere</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="specifying-host-groups-vsphere_post-install-vsphere-zones-regions-configuration"><a class="anchor" href="#specifying-host-groups-vsphere_post-install-vsphere-zones-regions-configuration"></a>Specifying multiple host groups for your cluster on vSphere</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can configure the <code>infrastructures.config.openshift.io</code> configuration resource to specify multiple host groups for your OpenShift Container Platform cluster that runs on a VMware vSphere instance. This is necessary if your vSphere instance is in a stretched cluster configuration, with your ESXi hosts and storage distributed across multiple physical data centers. Use this procedure if you did not already configure host groups for your OpenShift Container Platform cluster at installation, or if you need to update your OpenShift Container Platform cluster with additional host groups.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>OpenShift zones support for vSphere host groups is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>ESXi hosts are grouped into host groups, which are linked via VM-host affinity rules to corresponding virtual machine (VM) groups. See the following example <code>govc</code> commands for details:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>This example shows the correct configuration <span class="k">for </span>a cluster with two host <span class="nb">groups</span>:
+<span class="go">
+</span><span class="gp">#</span><span class="w"> </span>Create host <span class="nb">groups</span>:
+<span class="gp">govc cluster.group.create -name &lt;host_group_1&gt;</span><span class="w"> </span><span class="nt">-host</span>
+<span class="gp">govc cluster.group.create -name &lt;host_group_2&gt;</span><span class="w"> </span><span class="nt">-host</span>
+<span class="go">
+</span><span class="gp">#</span><span class="w"> </span>Create VM <span class="nb">groups</span>:
+<span class="gp">govc cluster.group.create -name &lt;vm_group_1&gt;</span><span class="w"> </span><span class="nt">-vm</span>
+<span class="gp">govc cluster.group.create -name &lt;vm_group_2&gt;</span><span class="w"> </span><span class="nt">-vm</span>
+<span class="go">
+</span><span class="gp">#</span><span class="w"> </span>Create VM-host affinity rules:
+<span class="gp">govc cluster.rule.create -name &lt;rule_1&gt;</span><span class="w"> </span><span class="nt">-enable</span> <span class="nt">-vm-host</span> <span class="nt">-vm-group</span> &lt;vm_group_1&gt; <span class="nt">-host-affine-group</span> &lt;host_group_1&gt;
+<span class="gp">govc cluster.rule.create -name &lt;rule_2&gt;</span><span class="w"> </span><span class="nt">-enable</span> <span class="nt">-vm-host</span> <span class="nt">-vm-group</span> &lt;vm_group_2&gt; <span class="nt">-host-affine-group</span> &lt;host_group_2&gt;
+<span class="go">
+</span><span class="gp">#</span><span class="w"> </span>Add ESXi hosts to host <span class="nb">groups</span>:
+<span class="gp">govc cluster.group.change -name &lt;host_group_1&gt;</span><span class="w"> </span>&lt;esxi_host_1_ip&gt;
+<span class="gp">govc cluster.group.change -name &lt;host_group_2&gt;</span><span class="w"> </span>&lt;esxi_host_2_ip&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p><code>openshift-region</code> and <code>openshift-zone</code> tag categories are created on the vCenter server.</p>
+</li>
+<li>
+<p>Compute clusters have tags from the <code>openshift-region</code> tag category.</p>
+</li>
+<li>
+<p>ESXi hosts within host groups have tags from the <code>openshift-zone</code> tag category.</p>
+</li>
+<li>
+<p><code>Host.Inventory.EditCluster</code> privilege is granted on the vSphere vCenter cluster object.</p>
+</li>
+<li>
+<p><code>TechPreviewNoUpgrade</code> feature set is enabled. For more information, "see Enabling features using feature gates".</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the infrastructure settings of your OpenShift Container Platform cluster.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>To copy your existing infrastructure settings to a file, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get infrastructures.config.openshift.io cluster <span class="nt">-o</span> yaml <span class="o">&gt;</span> &lt;name_of_infrastructure_file&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit your infrastructure file to include a failure domain for each host group in your vSphere cluster.  Refer to the following YAML file for an example of this configuration. Ensure you replace any values wrapped in angle brackets (<code>&lt; &gt;</code>) with your values:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Infrastructure</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">cloudConfig</span><span class="pi">:</span>
+    <span class="na">key</span><span class="pi">:</span> <span class="s">config</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-provider-config</span>
+  <span class="na">platformSpec</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">VSphere</span>
+    <span class="na">vsphere</span><span class="pi">:</span>
+      <span class="na">apiServerInternalIPs</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">&lt;internal_ip_of_api_server&gt;</span>
+      <span class="na">failureDomains</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;unique_name_for_failure_domain_1&gt;</span>
+        <span class="na">region</span><span class="pi">:</span> <span class="s">&lt;cluster_1_region_tag&gt;</span>
+        <span class="na">server</span><span class="pi">:</span> <span class="s">&lt;vcenter_server_ip_address&gt;</span>
+        <span class="na">zoneAffinity</span><span class="pi">:</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">HostGroup</span>
+          <span class="na">hostGroup</span><span class="pi">:</span>
+            <span class="na">vmGroup</span><span class="pi">:</span> <span class="s">&lt;name_of_vm_group_1&gt;</span>
+            <span class="na">hostGroup</span><span class="pi">:</span> <span class="s">&lt;name_of_host_group_1&gt;</span>
+            <span class="na">vmHostRule</span><span class="pi">:</span> <span class="s">&lt;name_of_vm_host_affinity_rule_1&gt;</span>
+        <span class="na">regionAffinity</span><span class="pi">:</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">ComputeCluster</span>
+        <span class="na">topology</span><span class="pi">:</span>
+          <span class="na">computeCluster</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/host/&lt;cluster_1&gt;</span>
+          <span class="na">datacenter</span><span class="pi">:</span> <span class="s">&lt;data_center_1&gt;</span>
+          <span class="na">datastore</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/datastore/&lt;datastore_1&gt;</span>
+          <span class="na">networks</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s">VM Network</span>
+          <span class="na">resourcePool</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/host/&lt;cluster_1&gt;/Resources</span>
+          <span class="na">template</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/vm/&lt;vm_template&gt;</span>
+        <span class="na">zone</span><span class="pi">:</span> <span class="s">&lt;host_group_1_tag&gt;</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;unique_name_for_failure_domain_2&gt;</span>
+        <span class="na">region</span><span class="pi">:</span> <span class="s">&lt;cluster_1_region_tag&gt;</span>
+        <span class="na">server</span><span class="pi">:</span> <span class="s">&lt;vcenter_server_ip_address&gt;</span>
+        <span class="na">zoneAffinity</span><span class="pi">:</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">HostGroup</span>
+          <span class="na">hostGroup</span><span class="pi">:</span>
+            <span class="na">vmGroup</span><span class="pi">:</span> <span class="s">&lt;name_of_vm_group_2&gt;</span>
+            <span class="na">hostGroup</span><span class="pi">:</span> <span class="s">&lt;name_of_host_group_2&gt;</span>
+            <span class="na">vmHostRule</span><span class="pi">:</span> <span class="s">&lt;name_of_vm_host_affinity_rule_2&gt;</span>
+        <span class="na">regionAffinity</span><span class="pi">:</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">ComputeCluster</span>
+        <span class="na">topology</span><span class="pi">:</span>
+          <span class="na">computeCluster</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/host/&lt;cluster_1&gt;</span>
+          <span class="na">datacenter</span><span class="pi">:</span> <span class="s">&lt;data_center_1&gt;</span>
+          <span class="na">datastore</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/datastore/&lt;datastore_1&gt;</span>
+          <span class="na">networks</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s">VM Network</span>
+          <span class="na">resourcePool</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/host/&lt;cluster_1&gt;/Resources</span>
+          <span class="na">template</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/vm/&lt;vm_template&gt;</span>
+        <span class="na">zone</span><span class="pi">:</span> <span class="s">&lt;host_group_2_tag&gt;</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To update your cluster with these changes, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc replace <span class="nt">-f</span> &lt;name_of_infrastructure_file&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Update your <code>ControlPlaneMachineSet</code> custom resource (CR) with the new failure domains by completing the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Edit the <code>ControlPlaneMachineSet</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit controlplanemachinesets.machine.openshift.io <span class="nt">-n</span> openshift-machine-api cluster</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit the <code>failureDomains</code> parameter as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="s">machine.openshift.io/cluster-api-cluster</span><span class="pi">:</span> <span class="s">jdoe3-whb8l</span>
+      <span class="s">machine.openshift.io/cluster-api-machine-role</span><span class="pi">:</span> <span class="s">master</span>
+      <span class="s">machine.openshift.io/cluster-api-machine-type</span><span class="pi">:</span> <span class="s">master</span>
+  <span class="na">state</span><span class="pi">:</span> <span class="s">Active</span>
+  <span class="na">strategy</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">RollingUpdate</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">machineType</span><span class="pi">:</span> <span class="s">machines_v1beta1_machine_openshift_io</span>
+    <span class="na">machines_v1beta1_machine_openshift_io</span><span class="pi">:</span>
+      <span class="na">failureDomains</span><span class="pi">:</span>
+        <span class="na">platform</span><span class="pi">:</span> <span class="s">VSphere</span>
+        <span class="na">vsphere</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;failure_domain_1_name&gt;</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;failure_domain_2_name&gt;</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that your control plane nodes have finished updating before proceeding further. To do this, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get controlplanemachinesets.machine.openshift.io <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Create new <code>MachineSet</code> CRs for your failure domains.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>To retrieve the configuration of an existing <code>MachineSet</code> CR for use as a template, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machinesets.machine.openshift.io <span class="nt">-n</span> openshift-machine-api &lt;existing_machine_set&gt; <span class="nt">-o</span> yaml <span class="o">&gt;</span> machineset-&lt;failure_domain_name&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Copy the template as needed to create <code>MachineSet</code> CR files for each failure domain that you defined in your infrastructure file. Refer to the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machine.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machine.openshift.io/cluster-api-cluster</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;machineset_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">0</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="s">machine.openshift.io/cluster-api-cluster</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;</span>
+      <span class="s">machine.openshift.io/cluster-api-machineset</span><span class="pi">:</span> <span class="s">&lt;machineset_name&gt;</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="s">machine.openshift.io/cluster-api-cluster</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;</span>
+        <span class="s">machine.openshift.io/cluster-api-machine-role</span><span class="pi">:</span> <span class="s">worker</span>
+        <span class="s">machine.openshift.io/cluster-api-machine-type</span><span class="pi">:</span> <span class="s">worker</span>
+        <span class="s">machine.openshift.io/cluster-api-machineset</span><span class="pi">:</span> <span class="s">&lt;machineset_name&gt;</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">lifecycleHooks</span><span class="pi">:</span> <span class="pi">{}</span>
+      <span class="na">metadata</span><span class="pi">:</span> <span class="pi">{}</span>
+      <span class="na">providerSpec</span><span class="pi">:</span>
+        <span class="na">value</span><span class="pi">:</span>
+          <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machine.openshift.io/v1beta1</span>
+          <span class="na">credentialsSecret</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">vsphere-cloud-credentials</span>
+          <span class="na">diskGiB</span><span class="pi">:</span> <span class="s">&lt;disk_GiB&gt;</span>
+          <span class="na">kind</span><span class="pi">:</span> <span class="s">VSphereMachineProviderSpec</span>
+          <span class="na">memoryMiB</span><span class="pi">:</span> <span class="s">&lt;memory_in_MiB&gt;</span>
+          <span class="na">metadata</span><span class="pi">:</span>
+            <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="no">null</span>
+          <span class="na">network</span><span class="pi">:</span>
+            <span class="na">devices</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">networkName</span><span class="pi">:</span> <span class="s">VM Network</span>
+          <span class="na">numCPUs</span><span class="pi">:</span> <span class="s">&lt;number_of_cpus&gt;</span>
+          <span class="na">numCoresPerSocket</span><span class="pi">:</span> <span class="s">&lt;number_of_cores_per_socket&gt;</span>
+          <span class="na">snapshot</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+          <span class="na">template</span><span class="pi">:</span> <span class="s">&lt;template_name&gt;</span>
+          <span class="na">userDataSecret</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">worker-user-data</span>
+          <span class="na">workspace</span><span class="pi">:</span>
+            <span class="na">datacenter</span><span class="pi">:</span> <span class="s">&lt;data_center_1&gt;</span>
+            <span class="na">datastore</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/datastore/&lt;datastore_1&gt;</span>
+            <span class="na">folder</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/vm/&lt;folder&gt;</span>
+            <span class="na">resourcePool</span><span class="pi">:</span> <span class="s">/&lt;data_center_1&gt;/host/&lt;cluster_1&gt;/Resources</span>
+            <span class="na">server</span><span class="pi">:</span> <span class="s">&lt;server_ip_address&gt;</span>
+            <span class="na">vmGroup</span><span class="pi">:</span> <span class="s">&lt;name_of_vm_group_1&gt;</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>For each <code>MachineSet</code> CR file, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;name_of_machine_set_file&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling">Enabling features using feature gates</a></p>
 </li>
 </ul>
 </div>
