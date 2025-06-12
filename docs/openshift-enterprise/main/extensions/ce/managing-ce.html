@@ -2156,8 +2156,7 @@
               <ul id="topicSubGroup-30-1" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../scalability_and_performance/recommended-performance-scale-practices/recommended-control-plane-practices.html">Recommended control plane practices</a></li>
-                  <li><a class="" href="../../scalability_and_performance/recommended-performance-scale-practices/recommended-infrastructure-practices.html">Recommended infrastructure practices</a></li>
-                  <li><a class="" href="../../scalability_and_performance/recommended-performance-scale-practices/recommended-etcd-practices.html">Recommended etcd practices</a></li>              </ul>
+                  <li><a class="" href="../../scalability_and_performance/recommended-performance-scale-practices/recommended-infrastructure-practices.html">Recommended infrastructure practices</a></li>              </ul>
             </li>
             <li><a class="" href="../../scalability_and_performance/telco-core-rds.html">Telco core reference design specifications</a></li>
             <li><a class="" href="../../scalability_and_performance/telco-ran-du-rds.html">Telco RAN DU reference design specifications</a></li>
@@ -3269,6 +3268,12 @@
 </li>
 <li><a href="#olmv1-installing-an-operator_managing-ce">Installing a cluster extension in all namespaces</a></li>
 <li><a href="#olmv1-deploying-a-ce-in-a-specific-namespace_managing-ce">Deploying a cluster extension in a specific namespace (Technology Preview)</a></li>
+<li><a href="#olmv1-troubleshooting-rbac-errors-with-preflight-check_managing-ce">Preflight permissions check for cluster extensions (Technology Preview)</a>
+<ul class="sectlevel2">
+<li><a href="#olmv1-preflight-permissions-check-output_managing-ce">Example report from the preflight permissions check</a></li>
+<li><a href="#olmv1-common-rbac-errors_managing-ce">Common permission errors</a></li>
+</ul>
+</li>
 <li><a href="#olmv1-updating-an-operator_managing-ce">Updating a cluster extension</a></li>
 <li><a href="#olmv1-deleting-an-operator_managing-ce">Deleting an Operator</a></li>
 </ul>
@@ -5505,6 +5510,121 @@ metadata:
 <p><a href="../../extensions/ce/update-paths.html#olmv1-version-range-support_update-paths">Support for version ranges</a></p>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="olmv1-troubleshooting-rbac-errors-with-preflight-check_managing-ce"><a class="anchor" href="#olmv1-troubleshooting-rbac-errors-with-preflight-check_managing-ce"></a>Preflight permissions check for cluster extensions (Technology Preview)</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When you try to install an extension, the Operator Controller performs a dry run of the installation process. This dry run verifies that the specified service account can perform all the actions required to install the extension. This includes creating all the Kubernetes objects in the bundle and the role-based access control (RBAC) rules for the roles and bindings defined by the bundle.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The preflight permissions check for cluster extensions is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>If the service account is missing any required RBAC rules, the preflight check fails before the actual installation proceeds. If the preflight check fails, the Operator Controller reports the errors in the status conditions of the extension and in the logs of the Operator Controller.</p>
+</div>
+<div class="paragraph">
+<p>To proceed with the installation, update the roles and bindings to grant the missing permissions to the service account and apply the changes. If there are no errors, the Operator Controller reconciles the updated permissions and completes the installation.</p>
+</div>
+<div class="sect2">
+<h3 id="olmv1-preflight-permissions-check-output_managing-ce"><a class="anchor" href="#olmv1-preflight-permissions-check-output_managing-ce"></a>Example report from the preflight permissions check</h3>
+<div class="paragraph">
+<p>The following report indicates that the service account requires the following missing permissions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>RBAC rules to perform <code>list</code> and <code>watch</code> actions for the <code>services</code> resource in the core API group for the entire cluster</p>
+</li>
+<li>
+<p>RBAC rules to perform <code>create</code> actions for <code>deployments</code> resources in the <code>apps</code> API group for the <code>pipelines</code> namespace</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>You can access the reports from the preflight permissions check in the status conditions of the cluster extension. The <code>oc describe clusterextension</code> command prints information about a cluster extension, including the status conditions.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe clusterextension &lt;extension_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example report</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">apiVersion: v1
+items:
+- apiVersion: olm.operatorframework.io/v1
+  kind: ClusterExtension
+...
+Conditions:
+  Type:    Progressing
+  Status:  False
+  Reason:  Retrying
+  Message: pre-authorization failed: service account requires the following permissions to manage cluster extension:
+           Namespace:"" APIGroups:[] Resources:[services] Verbs:[list,watch]
+           Namespace:"pipelines" APIGroups:["apps"] Resources:[deployments] Verbs:[create]</code></pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>Namespace</code></dt>
+<dd>
+<p>Specifies the scope of the required RBAC rules at the namespace level, for example the <code>pipelines</code> namespace. An empty namespace value, <code>""</code>, indicates that you must scope the permission to the cluster.</p>
+</dd>
+<dt class="hdlist1"><code>APIGroups</code></dt>
+<dd>
+<p>Specifies the name of the API group the required permissions apply to. An empty value in the API group, <code>[]</code>, indicates the permissions apply to the core API group. For example, services, secrets, and config maps are all core resources.</p>
+<div class="paragraph">
+<p>If a resource belongs to a named API group, the report lists the name in between the brackets. For example, the value of <code>APIGroups:[apps]</code> indicates the extension requires RBAC rules to act on resources in the <code>apps</code> API group.</p>
+</div>
+</dd>
+<dt class="hdlist1"><code>Resources</code></dt>
+<dd>
+<p>Specifies the resource types that require permissions. For example, services, secrets, and custom resource definitions are common resource types.</p>
+</dd>
+<dt class="hdlist1"><code>Verbs</code></dt>
+<dd>
+<p>Specifies the actions, or <em>verbs</em>, that the service account needs permission to perform. If the report lists several verbs, all of the listed verbs require RBAC rules.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="olmv1-common-rbac-errors_managing-ce"><a class="anchor" href="#olmv1-common-rbac-errors_managing-ce"></a>Common permission errors</h3>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Missing verbs</dt>
+<dd>
+<p>The service account does not have permission to perform a required action. To resolve this issue, update or create a role and binding to grant the necessary permissions. Roles and role bindings define resource permissions for a namespace. Cluster roles and cluster role bindings define resource permissions for the cluster.</p>
+</dd>
+<dt class="hdlist1">Privilege escalation</dt>
+<dd>
+<p>The service account does not have enough permission to create a role or cluster role that the extension needs. When this happens, the preflight check reports the verbs as missing to prevent privilege escalation. To resolve this issue, grant enough permission to the service account so that it can create the roles.</p>
+</dd>
+<dt class="hdlist1">Missing role references</dt>
+<dd>
+<p>The extension references a role or cluster role that the Operator Controller cannot find. When this happens, the preflight check lists the missing role and reports an <code>authorization evalutation error</code>. To resolve the issue, create or update the roles and cluster roles to ensure that all role references exist.</p>
+</dd>
+</dl>
+</div>
 </div>
 </div>
 </div>

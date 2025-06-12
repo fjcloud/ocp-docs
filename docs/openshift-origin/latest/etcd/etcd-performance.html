@@ -1742,8 +1742,7 @@
               <ul id="topicSubGroup-27-1" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../scalability_and_performance/recommended-performance-scale-practices/recommended-control-plane-practices.html">Recommended control plane practices</a></li>
-                  <li><a class="" href="../scalability_and_performance/recommended-performance-scale-practices/recommended-infrastructure-practices.html">Recommended infrastructure practices</a></li>
-                  <li><a class="" href="../scalability_and_performance/recommended-performance-scale-practices/recommended-etcd-practices.html">Recommended etcd practices</a></li>              </ul>
+                  <li><a class="" href="../scalability_and_performance/recommended-performance-scale-practices/recommended-infrastructure-practices.html">Recommended infrastructure practices</a></li>              </ul>
             </li>
             <li><a class="" href="../scalability_and_performance/telco-core-rds.html">Telco core reference design specifications</a></li>
             <li><a class="" href="../scalability_and_performance/telco-ran-du-rds.html">Telco RAN DU reference design specifications</a></li>
@@ -2755,7 +2754,1142 @@
         </div>
         
         
-        
+        <div id="preamble">
+<div class="sectionbody">
+<div id="toc" class="toc">
+<div id="toctitle" class="title"></div>
+<ul class="sectlevel1">
+<li><a href="#etcd-node-scaling_etcd-performance">Node scaling for etcd</a></li>
+<li><a href="#move-etcd-different-disk_etcd-performance">Moving etcd to a different disk</a></li>
+<li><a href="#etcd-defrag_etcd-performance">Defragmenting etcd data</a>
+<ul class="sectlevel2">
+<li><a href="#automatic-defrag-etcd-data_etcd-performance">Automatic defragmentation</a></li>
+<li><a href="#manual-defrag-etcd-data_etcd-performance">Manual defragmentation</a></li>
+</ul>
+</li>
+<li><a href="#etcd-tuning-parameters_etcd-performance">Setting tuning parameters for etcd</a>
+<ul class="sectlevel2">
+<li><a href="#etcd-changing-hardware-speed-tolerance_etcd-performance">Changing hardware speed tolerance</a></li>
+</ul>
+</li>
+<li><a href="#etcd-increase-db_etcd-performance">Increasing the database size for etcd</a>
+<ul class="sectlevel2">
+<li><a href="#etcd-change-db-size_etcd-performance">Changing the etcd database size</a></li>
+<li><a href="#etcd-change-db-size-troubleshooting_etcd-performance">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To ensure optimal performance and scalability for etcd in OKD, you can complete the following practices.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-node-scaling_etcd-performance"><a class="anchor" href="#etcd-node-scaling_etcd-performance"></a>Node scaling for etcd</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In general, clusters must have 3 control plane nodes. However, if your cluster is installed on a bare metal platform, it can have up to 5 control plane nodes. If an existing bare-metal cluster has fewer than 5 control plane nodes, you can scale the cluster up as a postinstallation task.</p>
+</div>
+<div class="paragraph">
+<p>For example, to scale from 3 to 4 control plane nodes after installation, you can add a host and install it as a control plane node. Then, the etcd Operator scales accordingly to account for the additional control plane node.</p>
+</div>
+<div class="paragraph">
+<p>Scaling a cluster to 4 or 5 control plane nodes is available only on bare metal platforms.</p>
+</div>
+<div class="paragraph">
+<p>For more information about how to scale control plane nodes by using the Assisted Installer, see "Adding hosts with the API" and "Installing a primary control plane node on a healthy cluster".</p>
+</div>
+<div class="paragraph">
+<p>The following table shows failure tolerance for clusters of different sizes:</p>
+</div>
+<table class="tableblock frame-all grid-all fit-content">
+<caption class="title">Table 1. Failure tolerances by cluster size</caption>
+<colgroup>
+<col>
+<col>
+<col>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Cluster size</th>
+<th class="tableblock halign-left valign-top">Majority</th>
+<th class="tableblock halign-left valign-top">Failure tolerance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1 node</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3 nodes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4 nodes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">5 nodes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>For more information about recovering from quorum loss, see "Restoring to a previous cluster state".</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/assisted_installer_for_openshift_container_platform/2024/html/installing_openshift_container_platform_with_the_assisted_installer/expanding-the-cluster#adding-hosts-with-the-api_expanding-the-cluster">Adding hosts with the API</a></p>
+</li>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/assisted_installer_for_openshift_container_platform/2023/html/assisted_installer_for_openshift_container_platform/expanding-the-cluster#installing-primary-control-plane-node-healthy-cluster_expanding-the-cluster">Installing a primary control plane node on a healthy cluster</a></p>
+</li>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/assisted_installer_for_openshift_container_platform/2024/html/installing_openshift_container_platform_with_the_assisted_installer/expanding-the-cluster#installing-control-plane-node-healthy-cluster_expanding-the-cluster">Expanding the cluster</a></p>
+</li>
+<li>
+<p><a href="../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/scenario-2-restoring-cluster-state.html#dr-restoring-cluster-state">Restoring to a previous cluster state</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="move-etcd-different-disk_etcd-performance"><a class="anchor" href="#move-etcd-different-disk_etcd-performance"></a>Moving etcd to a different disk</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can move etcd from a shared disk to a separate disk to prevent or resolve performance issues.</p>
+</div>
+<div class="paragraph">
+<p>The Machine Config Operator (MCO) is responsible for mounting a secondary disk for OKD 4 container storage.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This encoded script only supports device names for the following device types:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">SCSI or SATA</dt>
+<dd>
+<p><code>/dev/sd*</code></p>
+</dd>
+<dt class="hdlist1">Virtual device</dt>
+<dd>
+<p><code>/dev/vd*</code></p>
+</dd>
+<dt class="hdlist1">NVMe</dt>
+<dd>
+<p><code>/dev/nvme*[0-9]*n*</code></p>
+</dd>
+</dl>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Limitations</div>
+<ul>
+<li>
+<p>When the new disk is attached to the cluster, the etcd database is part of the root mount. It is not part of the secondary disk or the intended disk when the primary node is recreated. As a result, the primary node will not create a separate <code>/var/lib/etcd</code> mount.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have a backup of your cluster&#8217;s etcd data.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have access to the cluster with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>Add additional disks before uploading the machine configuration.</p>
+</li>
+<li>
+<p>The <code>MachineConfigPool</code> must match <code>metadata.labels[machineconfiguration.openshift.io/role]</code>. This applies to a controller, worker, or a custom pool.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This procedure does not move parts of the root file system, such as <code>/var/</code>, to another disk or partition on an installed node.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This procedure is not supported when using control plane machine sets.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Attach the new disk to the cluster and verify that the disk is detected in the node by running the <code>lsblk</code> command in a debug shell:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>lsblk</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note the device name of the new disk reported by the <code>lsblk</code> command.</p>
+</div>
+</li>
+<li>
+<p>Create the following script and name it <code>etcd-find-secondary-device.sh</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="bash"><span class="c">#!/bin/bash</span>
+<span class="nb">set</span> <span class="nt">-uo</span> pipefail
+
+<span class="k">for </span>device <span class="k">in</span> &lt;device_type_glob&gt;<span class="p">;</span> <span class="k">do</span> <i class="conum" data-value="1"></i><b>(1)</b>
+/usr/sbin/blkid <span class="s2">"</span><span class="k">${</span><span class="nv">device</span><span class="k">}</span><span class="s2">"</span> &amp;&gt; /dev/null
+ <span class="k">if</span> <span class="o">[</span> <span class="nv">$?</span> <span class="o">==</span> 2  <span class="o">]</span><span class="p">;</span> <span class="k">then
+    </span><span class="nb">echo</span> <span class="s2">"secondary device found </span><span class="k">${</span><span class="nv">device</span><span class="k">}</span><span class="s2">"</span>
+    <span class="nb">echo</span> <span class="s2">"creating filesystem for etcd mount"</span>
+    mkfs.xfs <span class="nt">-L</span> var-lib-etcd <span class="nt">-f</span> <span class="s2">"</span><span class="k">${</span><span class="nv">device</span><span class="k">}</span><span class="s2">"</span> &amp;&gt; /dev/null
+    udevadm settle
+    <span class="nb">touch</span> /etc/var-lib-etcd-mount
+    <span class="nb">exit
+ </span><span class="k">fi
+done
+</span><span class="nb">echo</span> <span class="s2">"Couldn't find secondary block device!"</span> <span class="o">&gt;</span>&amp;2
+<span class="nb">exit </span>77</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;device_type_glob&gt;</code> with a shell glob for your block device type. For SCSI or SATA drives, use <code>/dev/sd*</code>; for virtual drives, use <code>/dev/vd*</code>; for NVMe drives, use <code>/dev/nvme*[0-9]*n*</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a base64-encoded string from the <code>etcd-find-secondary-device.sh</code> script and note its contents:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">base64</span> <span class="nt">-w0</span> etcd-find-secondary-device.sh</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a <code>MachineConfig</code> YAML file named <code>etcd-mc.yml</code> with contents such as the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">98-var-lib-etcd</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">ignition</span><span class="pi">:</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">3.5.0</span>
+    <span class="na">storage</span><span class="pi">:</span>
+      <span class="na">files</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/find-secondary-device</span>
+          <span class="na">mode</span><span class="pi">:</span> <span class="m">0755</span>
+          <span class="na">contents</span><span class="pi">:</span>
+            <span class="na">source</span><span class="pi">:</span> <span class="s">data:text/plain;charset=utf-8;base64,&lt;encoded_etcd_find_secondary_device_script&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">systemd</span><span class="pi">:</span>
+      <span class="na">units</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">find-secondary-device.service</span>
+          <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="na">contents</span><span class="pi">:</span> <span class="pi">|</span>
+            <span class="s">[Unit]</span>
+            <span class="s">Description=Find secondary device</span>
+            <span class="s">DefaultDependencies=false</span>
+            <span class="s">After=systemd-udev-settle.service</span>
+            <span class="s">Before=local-fs-pre.target</span>
+            <span class="s">ConditionPathExists=!/etc/var-lib-etcd-mount</span>
+
+            <span class="s">[Service]</span>
+            <span class="s">RemainAfterExit=yes</span>
+            <span class="s">ExecStart=/etc/find-secondary-device</span>
+
+            <span class="s">RestartForceExitStatus=77</span>
+
+            <span class="s">[Install]</span>
+            <span class="s">WantedBy=multi-user.target</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">var-lib-etcd.mount</span>
+          <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="na">contents</span><span class="pi">:</span> <span class="pi">|</span>
+            <span class="s">[Unit]</span>
+            <span class="s">Before=local-fs.target</span>
+
+            <span class="s">[Mount]</span>
+            <span class="s">What=/dev/disk/by-label/var-lib-etcd</span>
+            <span class="s">Where=/var/lib/etcd</span>
+            <span class="s">Type=xfs</span>
+            <span class="s">TimeoutSec=120s</span>
+
+            <span class="s">[Install]</span>
+            <span class="s">RequiredBy=local-fs.target</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">sync-var-lib-etcd-to-etcd.service</span>
+          <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="na">contents</span><span class="pi">:</span> <span class="pi">|</span>
+            <span class="s">[Unit]</span>
+            <span class="s">Description=Sync etcd data if new mount is empty</span>
+            <span class="s">DefaultDependencies=no</span>
+            <span class="s">After=var-lib-etcd.mount var.mount</span>
+            <span class="s">Before=crio.service</span>
+
+            <span class="s">[Service]</span>
+            <span class="s">Type=oneshot</span>
+            <span class="s">RemainAfterExit=yes</span>
+            <span class="s">ExecCondition=/usr/bin/test ! -d /var/lib/etcd/member</span>
+            <span class="s">ExecStart=/usr/sbin/setsebool -P rsync_full_access 1</span>
+            <span class="s">ExecStart=/bin/rsync -ar /sysroot/ostree/deploy/rhcos/var/lib/etcd/ /var/lib/etcd/</span>
+            <span class="s">ExecStart=/usr/sbin/semanage fcontext -a -t container_var_lib_t '/var/lib/etcd(/.*)?'</span>
+            <span class="s">ExecStart=/usr/sbin/setsebool -P rsync_full_access 0</span>
+            <span class="s">TimeoutSec=0</span>
+
+            <span class="s">[Install]</span>
+            <span class="s">WantedBy=multi-user.target graphical.target</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">restorecon-var-lib-etcd.service</span>
+          <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="na">contents</span><span class="pi">:</span> <span class="pi">|</span>
+            <span class="s">[Unit]</span>
+            <span class="s">Description=Restore recursive SELinux security contexts</span>
+            <span class="s">DefaultDependencies=no</span>
+            <span class="s">After=var-lib-etcd.mount</span>
+            <span class="s">Before=crio.service</span>
+
+            <span class="s">[Service]</span>
+            <span class="s">Type=oneshot</span>
+            <span class="s">RemainAfterExit=yes</span>
+            <span class="s">ExecStart=/sbin/restorecon -R /var/lib/etcd/</span>
+            <span class="s">TimeoutSec=0</span>
+
+            <span class="s">[Install]</span>
+            <span class="s">WantedBy=multi-user.target graphical.target</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;encoded_etcd_find_secondary_device_script&gt;</code> with the encoded script contents that you noted.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Apply the created <code>MachineConfig</code> YAML file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> etcd-mc.yml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification steps</div>
+<ul>
+<li>
+<p>Run the <code>grep /var/lib/etcd /proc/mounts</code> command in a debug shell for the node to ensure that the disk is mounted:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">grep</span> <span class="nt">-w</span> <span class="s2">"/var/lib/etcd"</span> /proc/mounts</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">/dev/sdb /var/lib/etcd xfs rw,seclabel,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../architecture/architecture-rhcos.html#architecture-rhcos">Red Hat Enterprise Linux CoreOS (RHCOS)</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-defrag_etcd-performance"><a class="anchor" href="#etcd-defrag_etcd-performance"></a>Defragmenting etcd data</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For large and dense clusters, etcd can suffer from poor performance if the keyspace grows too large and exceeds the space quota. Periodically maintain and defragment etcd to free up space in the data store. Monitor Prometheus for etcd metrics and defragment it when required; otherwise, etcd can raise a cluster-wide alarm that puts the cluster into a maintenance mode that accepts only key reads and deletes.</p>
+</div>
+<div class="paragraph">
+<p>Monitor these key metrics:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>etcd_server_quota_backend_bytes</code>, which is the current quota limit</p>
+</li>
+<li>
+<p><code>etcd_mvcc_db_total_size_in_use_in_bytes</code>, which indicates the actual database usage after a history compaction</p>
+</li>
+<li>
+<p><code>etcd_mvcc_db_total_size_in_bytes</code>, which shows the database size, including free space waiting for defragmentation</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Defragment etcd data to reclaim disk space after events that cause disk fragmentation, such as etcd history compaction.</p>
+</div>
+<div class="paragraph">
+<p>History compaction is performed automatically every five minutes and leaves gaps in the back-end database. This fragmented space is available for use by etcd, but is not available to the host file system. You must defragment etcd to make this space available to the host file system.</p>
+</div>
+<div class="paragraph">
+<p>Defragmentation occurs automatically, but you can also trigger it manually.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Automatic defragmentation is good for most cases, because the etcd operator uses cluster information to determine the most efficient operation for the user.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="automatic-defrag-etcd-data_etcd-performance"><a class="anchor" href="#automatic-defrag-etcd-data_etcd-performance"></a>Automatic defragmentation</h3>
+<div class="paragraph">
+<p>The etcd Operator automatically defragments disks. No manual intervention is needed.</p>
+</div>
+<div class="paragraph">
+<p>Verify that the defragmentation process is successful by viewing one of these logs:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>etcd logs</p>
+</li>
+<li>
+<p>cluster-etcd-operator pod</p>
+</li>
+<li>
+<p>operator status error log</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Automatic defragmentation can cause leader election failure in various OpenShift core components, such as the Kubernetes controller manager, which triggers a restart of the failing component. The restart is harmless and either triggers failover to the next running instance or the component resumes work again after the restart.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example log output for successful defragmentation</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">etcd member has been defragmented: <em>&lt;member_name&gt;</span></em>, memberID: <em>&lt;member_id&gt;</em></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example log output for unsuccessful defragmentation</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">failed defrag on member: <em>&lt;member_name&gt;</span></em>, memberID: <em>&lt;member_id&gt;</em>: <em>&lt;error_message&gt;</em></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="manual-defrag-etcd-data_etcd-performance"><a class="anchor" href="#manual-defrag-etcd-data_etcd-performance"></a>Manual defragmentation</h3>
+<div class="paragraph">
+<p>A Prometheus alert indicates when you need to use manual defragmentation. The alert is displayed in two cases:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When etcd uses more than 50% of its available space for more than 10 minutes</p>
+</li>
+<li>
+<p>When etcd is actively using less than 50% of its total database size for more than 10 minutes</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>You can also determine whether defragmentation is needed by checking the etcd database size in MB that will be freed by defragmentation with the PromQL expression: <code>(etcd_mvcc_db_total_size_in_bytes - etcd_mvcc_db_total_size_in_use_in_bytes)/1024/1024</code></p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Defragmenting etcd is a blocking action. The etcd member will not respond until defragmentation is complete. For this reason, wait at least one minute between defragmentation actions on each of the pods to allow the cluster to recover.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Follow this procedure to defragment etcd data on each etcd member.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Determine which etcd member is the leader, because the leader should be defragmented last.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Get the list of etcd pods:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-etcd get pods <span class="nt">-l</span> k8s-app<span class="o">=</span>etcd <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">etcd-ip-10-0-159-225.example.redhat.com                3/3     Running     0          175m   10.0.159.225   ip-10-0-159-225.example.redhat.com   &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;
+<span class="gp">etcd-ip-10-0-191-37.example.redhat.com                 3/3     Running     0          173m   10.0.191.37    ip-10-0-191-37.example.redhat.com    &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;
+<span class="gp">etcd-ip-10-0-199-170.example.redhat.com                3/3     Running     0          176m   10.0.199.170   ip-10-0-199-170.example.redhat.com   &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Choose a pod and run the following command to determine which etcd member is the leader:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-n</span> openshift-etcd etcd-ip-10-0-159-225.example.redhat.com etcdctl endpoint status <span class="nt">--cluster</span> <span class="nt">-w</span> table</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Defaulting container name to etcdctl.
+Use 'oc describe pod/etcd-ip-10-0-159-225.example.redhat.com -n openshift-etcd' to see all of the containers in this pod.
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+|         ENDPOINT          |        ID        | VERSION | DB SIZE | IS LEADER | IS LEARNER | RAFT TERM | RAFT INDEX | RAFT APPLIED INDEX | ERRORS |
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+|  https://10.0.191.37:2379 | 251cd44483d811c3 |   3.5.9 |  104 MB |     false |      false |         7 |      91624 |              91624 |        |
+| https://10.0.159.225:2379 | 264c7c58ecbdabee |   3.5.9 |  104 MB |     false |      false |         7 |      91624 |              91624 |        |
+| https://10.0.199.170:2379 | 9ac311f93915cc79 |   3.5.9 |  104 MB |      true |      false |         7 |      91624 |              91624 |        |
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Based on the <code>IS LEADER</code> column of this output, the <code>https://10.0.199.170:2379</code> endpoint is the leader. Matching this endpoint with the output of the previous step, the pod name of the leader is <code>etcd-ip-10-0-199-170.example.redhat.com</code>.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Defragment an etcd member.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Connect to the running etcd container, passing in the name of a pod that is <em>not</em> the leader:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-n</span> openshift-etcd etcd-ip-10-0-159-225.example.redhat.com</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Unset the <code>ETCDCTL_ENDPOINTS</code> environment variable:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">unset </span>ETCDCTL_ENDPOINTS</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Defragment the etcd member:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>etcdctl <span class="nt">--command-timeout</span><span class="o">=</span>30s <span class="nt">--endpoints</span><span class="o">=</span>https://localhost:2379 defrag</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Finished defragmenting etcd member[https://localhost:2379]</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If a timeout error occurs, increase the value for <code>--command-timeout</code> until the command succeeds.</p>
+</div>
+</li>
+<li>
+<p>Verify that the database size was reduced:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>etcdctl endpoint status <span class="nt">-w</span> table <span class="nt">--cluster</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">+---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+|         ENDPOINT          |        ID        | VERSION | DB SIZE | IS LEADER | IS LEARNER | RAFT TERM | RAFT INDEX | RAFT APPLIED INDEX | ERRORS |
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+|  https://10.0.191.37:2379 | 251cd44483d811c3 |   3.5.9 |  104 MB |     false |      false |         7 |      91624 |              91624 |        |
+| https://10.0.159.225:2379 | 264c7c58ecbdabee |   3.5.9 |   41 MB |     false |      false |         7 |      91624 |              91624 |        | <i class="conum" data-value="1"></i><b>(1)</b>
+| https://10.0.199.170:2379 | 9ac311f93915cc79 |   3.5.9 |  104 MB |      true |      false |         7 |      91624 |              91624 |        |
++---------------------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This example shows that the database size for this etcd member is now 41 MB as opposed to the starting size of 104 MB.</p>
+</div>
+</li>
+<li>
+<p>Repeat these steps to connect to each of the other etcd members and defragment them. Always defragment the leader last.</p>
+<div class="paragraph">
+<p>Wait at least one minute between defragmentation actions to allow the etcd pod to recover. Until the etcd pod recovers, the etcd member will not respond.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>If any <code>NOSPACE</code> alarms were triggered due to the space quota being exceeded, clear them.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Check if there are any <code>NOSPACE</code> alarms:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>etcdctl alarm list</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">memberID:12345678912345678912 alarm:NOSPACE</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Clear the alarms:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>etcdctl alarm disarm</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-tuning-parameters_etcd-performance"><a class="anchor" href="#etcd-tuning-parameters_etcd-performance"></a>Setting tuning parameters for etcd</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can set the control plane hardware speed to <code>"Standard"</code>, <code>"Slower"</code>, or the default, which is <code>""</code>.</p>
+</div>
+<div class="paragraph">
+<p>The default setting allows the system to decide which speed to use. This value enables upgrades from versions where this feature does not exist, as the system can select values from previous versions.</p>
+</div>
+<div class="paragraph">
+<p>By selecting one of the other values, you are overriding the default. If you see many leader elections due to timeouts or missed heartbeats and your system is set to <code>""</code> or <code>"Standard"</code>, set the hardware speed to <code>"Slower"</code> to make the system more tolerant to the increased latency.</p>
+</div>
+<div class="sect2">
+<h3 id="etcd-changing-hardware-speed-tolerance_etcd-performance"><a class="anchor" href="#etcd-changing-hardware-speed-tolerance_etcd-performance"></a>Changing hardware speed tolerance</h3>
+<div class="paragraph">
+<p>To change the hardware speed tolerance for etcd, complete the following steps.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check to see what the current value is by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe etcd/cluster | <span class="nb">grep</span> <span class="s2">"Control Plane Hardware Speed"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">Control Plane Hardware Speed:  &lt;VALUE&gt;</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the output is empty, the field has not been set and should be considered as the default ("").</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Change the value by entering the following command. Replace <code>&lt;value&gt;</code> with one of the valid values: <code>""</code>, <code>"Standard"</code>, or <code>"Slower"</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"controlPlaneHardwareSpeed": "&lt;value&gt;"}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following table indicates the heartbeat interval and leader election timeout for each profile. These values are subject to change.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Profile</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ETCD_HEARTBEAT_INTERVAL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ETCD_LEADER_ELECTION_TIMEOUT</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>""</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Varies depending on platform</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Varies depending on platform</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Standard</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">100</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1000</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Slower</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">500</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2500</p></td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>Review the output:</p>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">etcd.operator.openshift.io/cluster patched</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you enter any value besides the valid values, error output is displayed. For example, if you entered <code>"Faster"</code> as the value, the output is as follows:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">The Etcd "cluster" is invalid: spec.controlPlaneHardwareSpeed: Unsupported value: "Faster": supported values: "", "Standard", "Slower"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the value was changed by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe etcd/cluster | <span class="nb">grep</span> <span class="s2">"Control Plane Hardware Speed"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Control Plane Hardware Speed:  ""</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Wait for etcd pods to roll out:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-etcd <span class="nt">-w</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following output shows the expected entries for master-0. Before you continue, wait until all masters show a status of <code>4/4 Running</code>.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">installer-9-ci-ln-qkgs94t-72292-9clnd-master-0           0/1     Pending             0          0s
+installer-9-ci-ln-qkgs94t-72292-9clnd-master-0           0/1     Pending             0          0s
+installer-9-ci-ln-qkgs94t-72292-9clnd-master-0           0/1     ContainerCreating   0          0s
+installer-9-ci-ln-qkgs94t-72292-9clnd-master-0           0/1     ContainerCreating   0          1s
+installer-9-ci-ln-qkgs94t-72292-9clnd-master-0           1/1     Running             0          2s
+installer-9-ci-ln-qkgs94t-72292-9clnd-master-0           0/1     Completed           0          34s
+installer-9-ci-ln-qkgs94t-72292-9clnd-master-0           0/1     Completed           0          36s
+installer-9-ci-ln-qkgs94t-72292-9clnd-master-0           0/1     Completed           0          36s
+etcd-guard-ci-ln-qkgs94t-72292-9clnd-master-0            0/1     Running             0          26m
+etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  4/4     Terminating         0          11m
+etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  4/4     Terminating         0          11m
+etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  0/4     Pending             0          0s
+etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  0/4     Init:1/3            0          1s
+etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  0/4     Init:2/3            0          2s
+etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  0/4     PodInitializing     0          3s
+etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  3/4     Running             0          4s
+etcd-guard-ci-ln-qkgs94t-72292-9clnd-master-0            1/1     Running             0          26m
+etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  3/4     Running             0          20s
+etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  4/4     Running             0          20s</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the following command to review to the values:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe <span class="nt">-n</span> openshift-etcd pod/&lt;ETCD_PODNAME&gt; | <span class="nb">grep</span> <span class="nt">-e</span> HEARTBEAT_INTERVAL <span class="nt">-e</span> ELECTION_TIMEOUT</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>These values might not have changed from the default.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling-features-about_nodes-cluster-enabling">Understanding feature gates</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-increase-db_etcd-performance"><a class="anchor" href="#etcd-increase-db_etcd-performance"></a>Increasing the database size for etcd</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can set the disk quota in gibibytes (GiB) for each etcd instance. If you set a disk quota for your etcd instance, you can specify integer values from 8 to 32. The default value is 8. You can specify only increasing values.</p>
+</div>
+<div class="paragraph">
+<p>You might want to increase the disk quota if you encounter a <code>low space</code> alert. This alert indicates that the cluster is too large to fit in etcd despite automatic compaction and defragmentation. If you see this alert, you need to increase the disk quota immediately because after etcd runs out of space, writes fail.</p>
+</div>
+<div class="paragraph">
+<p>Another scenario where you might want to increase the disk quota is if you encounter an <code>excessive database growth</code> alert. This alert is a warning that the database might grow too large in the next four hours. In this scenario, consider increasing the disk quota so that you do not eventually encounter a <code>low space</code> alert and possible write fails.</p>
+</div>
+<div class="paragraph">
+<p>If you increase the disk quota, the disk space that you specify is not immediately reserved. Instead, etcd can grow to that size if needed. Ensure that etcd is running on a dedicated disk that is larger than the value that you specify for the disk quota.</p>
+</div>
+<div class="paragraph">
+<p>For large etcd databases, the control plane nodes must have additional memory and storage. Because you must account for the API server cache, the minimum memory required is at least three times the configured size of the etcd database.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Increasing the database size for etcd is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="etcd-change-db-size_etcd-performance"><a class="anchor" href="#etcd-change-db-size_etcd-performance"></a>Changing the etcd database size</h3>
+<div class="paragraph">
+<p>To change the database size for etcd, complete the following steps.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check the current value of the disk quota for each etcd instance by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe etcd/cluster | <span class="nb">grep</span> <span class="s2">"Backend Quota"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">Backend Quota Gi B: &lt;value&gt;</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Change the value of the disk quota by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"backendQuotaGiB": &lt;value&gt;}}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">etcd.operator.openshift.io/cluster patched</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the new value for the disk quota is set by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe etcd/cluster | <span class="nb">grep</span> <span class="s2">"Backend Quota"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The etcd Operator automatically rolls out the etcd instances with the new values.</p>
+</div>
+</li>
+<li>
+<p>Verify that the etcd pods are up and running by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-etcd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following output shows the expected entries.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                                   READY   STATUS      RESTARTS   AGE
+etcd-ci-ln-b6kfsw2-72292-mzwbq-master-0                4/4     Running     0          39m
+etcd-ci-ln-b6kfsw2-72292-mzwbq-master-1                4/4     Running     0          37m
+etcd-ci-ln-b6kfsw2-72292-mzwbq-master-2                4/4     Running     0          41m
+etcd-guard-ci-ln-b6kfsw2-72292-mzwbq-master-0          1/1     Running     0          51m
+etcd-guard-ci-ln-b6kfsw2-72292-mzwbq-master-1          1/1     Running     0          49m
+etcd-guard-ci-ln-b6kfsw2-72292-mzwbq-master-2          1/1     Running     0          54m
+installer-5-ci-ln-b6kfsw2-72292-mzwbq-master-1         0/1     Completed   0          51m
+installer-7-ci-ln-b6kfsw2-72292-mzwbq-master-0         0/1     Completed   0          46m
+installer-7-ci-ln-b6kfsw2-72292-mzwbq-master-1         0/1     Completed   0          44m
+installer-7-ci-ln-b6kfsw2-72292-mzwbq-master-2         0/1     Completed   0          49m
+installer-8-ci-ln-b6kfsw2-72292-mzwbq-master-0         0/1     Completed   0          40m
+installer-8-ci-ln-b6kfsw2-72292-mzwbq-master-1         0/1     Completed   0          38m
+installer-8-ci-ln-b6kfsw2-72292-mzwbq-master-2         0/1     Completed   0          42m
+revision-pruner-7-ci-ln-b6kfsw2-72292-mzwbq-master-0   0/1     Completed   0          43m
+revision-pruner-7-ci-ln-b6kfsw2-72292-mzwbq-master-1   0/1     Completed   0          43m
+revision-pruner-7-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0          43m
+revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-0   0/1     Completed   0          42m
+revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-1   0/1     Completed   0          42m
+revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0          42m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the disk quota value is updated for the etcd pod by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe <span class="nt">-n</span> openshift-etcd pod/&lt;etcd_podname&gt; | <span class="nb">grep</span> <span class="s2">"ETCD_QUOTA_BACKEND_BYTES"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The value might not have changed from the default value of <code>8</code>.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">ETCD_QUOTA_BACKEND_BYTES:                               8589934592</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>While the value that you set is an integer in GiB, the value shown in the output is converted to bytes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="etcd-change-db-size-troubleshooting_etcd-performance"><a class="anchor" href="#etcd-change-db-size-troubleshooting_etcd-performance"></a>Troubleshooting</h3>
+<div class="paragraph">
+<p>If you encounter issues when you try to increase the database size for etcd, the following troubleshooting steps might help.</p>
+</div>
+<div class="sect3">
+<h4 id="etcd-troubleshoot-small-value_etcd-performance"><a class="anchor" href="#etcd-troubleshoot-small-value_etcd-performance"></a>Value is too small</h4>
+<div class="paragraph">
+<p>If the value that you specify is less than <code>8</code>, you see the following error message:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"backendQuotaGiB": 5}}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example error message</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">The Etcd "cluster" is invalid:
+* spec.backendQuotaGiB: Invalid value: 5: spec.backendQuotaGiB in body should be greater than or equal to 8
+* spec.backendQuotaGiB: Invalid value: "integer": etcd backendQuotaGiB may not be decreased</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To resolve this issue, specify an integer between <code>8</code> and <code>32</code>.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="etcd-troubleshoot-large-value_etcd-performance"><a class="anchor" href="#etcd-troubleshoot-large-value_etcd-performance"></a>Value is too large</h4>
+<div class="paragraph">
+<p>If the value that you specify is greater than <code>32</code>, you see the following error message:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"backendQuotaGiB": 64}}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example error message</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">The Etcd "cluster" is invalid: spec.backendQuotaGiB: Invalid value: 64: spec.backendQuotaGiB in body should be less than or equal to 32</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To resolve this issue, specify an integer between <code>8</code> and <code>32</code>.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="etcd-troubleshoot-decreasing-value_etcd-performance"><a class="anchor" href="#etcd-troubleshoot-decreasing-value_etcd-performance"></a>Value is decreasing</h4>
+<div class="paragraph">
+<p>If the value is set to a valid value between <code>8</code> and <code>32</code>, you cannot decrease the value. Otherwise, you see an error message.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Check to see the current value by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe etcd/cluster | <span class="nb">grep</span> <span class="s2">"Backend Quota"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Backend Quota Gi B: 10</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Decrease the disk quota value by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"backendQuotaGiB": 8}}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example error message</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">The Etcd "cluster" is invalid: spec.backendQuotaGiB: Invalid value: "integer": etcd backendQuotaGiB may not be decreased</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To resolve this issue, specify an integer greater than <code>10</code>.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+</div>
       </div>
     </div>
   </div>

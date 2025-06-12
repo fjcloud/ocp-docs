@@ -2156,8 +2156,7 @@
               <ul id="topicSubGroup-30-1" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../scalability_and_performance/recommended-performance-scale-practices/recommended-control-plane-practices.html">Recommended control plane practices</a></li>
-                  <li><a class="" href="../../scalability_and_performance/recommended-performance-scale-practices/recommended-infrastructure-practices.html">Recommended infrastructure practices</a></li>
-                  <li><a class="" href="../../scalability_and_performance/recommended-performance-scale-practices/recommended-etcd-practices.html">Recommended etcd practices</a></li>              </ul>
+                  <li><a class="" href="../../scalability_and_performance/recommended-performance-scale-practices/recommended-infrastructure-practices.html">Recommended infrastructure practices</a></li>              </ul>
             </li>
             <li><a class="" href="../../scalability_and_performance/telco-core-rds.html">Telco core reference design specifications</a></li>
             <li><a class="" href="../../scalability_and_performance/telco-ran-du-rds.html">Telco RAN DU reference design specifications</a></li>
@@ -3293,7 +3292,8 @@
 <h2 id="configuring-ntp-for-disconnected-clusters_bare-metal-postinstallation-configuration"><a class="anchor" href="#configuring-ntp-for-disconnected-clusters_bare-metal-postinstallation-configuration"></a>Configuring NTP for disconnected clusters</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>OpenShift Container Platform installs the <code>chrony</code> Network Time Protocol (NTP) service on the cluster nodes.</p>
+<p>OpenShift Container Platform installs the <code>chrony</code> Network Time Protocol (NTP) service on the cluster nodes.
+Use the following procedure to configure NTP servers on the control plane nodes and configure compute nodes as NTP clients of the control plane nodes after a successful deployment.</p>
 </div>
 <div class="imageblock">
 <div class="content">
@@ -3448,6 +3448,42 @@
 </div>
 </div>
 </li>
+<li>
+<p>Apply the <code>99-master-chrony-conf-override.yaml</code> policy to the control plane nodes.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> 99-master-chrony-conf-override.yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">machineconfig.machineconfiguration.openshift.io/99-master-chrony-conf-override created</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>99-worker-chrony-conf-override.yaml</code> policy to the compute nodes.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> 99-worker-chrony-conf-override.yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">machineconfig.machineconfiguration.openshift.io/99-worker-chrony-conf-override created</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the status of the applied NTP settings.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe machineconfigpool</code></pre>
+</div>
+</div>
+</li>
 </ol>
 </div>
 </div>
@@ -3570,7 +3606,37 @@
 <h2 id="creating-manifest-file-customized-br-ex-bridge_bare-metal-postinstallation-configuration"><a class="anchor" href="#creating-manifest-file-customized-br-ex-bridge_bare-metal-postinstallation-configuration"></a>Creating a manifest object that includes a customized <code>br-ex</code> bridge</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>As an alternative to using the <code>configure-ovs.sh</code> shell script to set a <code>br-ex</code> bridge on a bare-metal platform, you can create a <code>MachineConfig</code> object that includes an NMState configuration file. The NMState configuration file creates a customized <code>br-ex</code> bridge network configuration on each node in your cluster.</p>
+<p>As an alternative to using the <code>configure-ovs.sh</code> shell script to set a <code>br-ex</code> bridge on a bare-metal platform, you can create a <code>NodeNetworkConfigurationPolicy</code> (NNCP) custom resource (CR) that includes an NMState configuration file. The Kubernetes NMState Operator uses the NMState configuration file to create a customized <code>br-ex</code> bridge network configuration on each node in your cluster.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>After creating the <code>NodeNetworkConfigurationPolicy</code> CR, copy content from the NMState configuration file that was created during cluster installation into the NNCP CR. An incomplete NNCP CR file means that the the network policy described in the file cannot get applied to nodes in the cluster.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>This feature supports the following tasks:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Modifying the maximum transmission unit (MTU) for your cluster.</p>
+</li>
+<li>
+<p>Modifying attributes of a different bond interface, such as MIImon (Media Independent Interface Monitor), bonding mode, or Quality of Service (QoS).</p>
+</li>
+<li>
+<p>Updating DNS values.</p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>Consider the following use cases for creating a manifest object that includes a customized <code>br-ex</code> bridge:</p>
@@ -3588,72 +3654,91 @@
 </li>
 </ul>
 </div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If you require an environment with a single network interface controller (NIC) and default network settings, use the <code>configure-ovs.sh</code> shell script.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>After you install Red&#160;Hat Enterprise Linux CoreOS (RHCOS) and the system reboots, the Machine Config Operator injects Ignition configuration files into each node in your cluster, so that each node received the <code>br-ex</code> bridge network configuration. To prevent configuration conflicts, the <code>configure-ovs.sh</code> shell script receives a signal to not configure the <code>br-ex</code> bridge.</p>
-</div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Optional: You have installed the <a href="https://nmstate.io/"><code>nmstate</code></a> API so that you can validate the NMState configuration.</p>
+<p>You set a customized <code>br-ex</code> by using the alternative method to <code>configure-ovs</code>.</p>
+</li>
+<li>
+<p>You installed the Kubernetes NMState Operator.</p>
 </li>
 </ul>
 </div>
-<div class="olist arabic">
+<div class="ulist">
 <div class="title">Procedure</div>
-<ol class="arabic">
+<ul>
 <li>
-<p>Create a NMState configuration file that has decoded base64 information for your customized <code>br-ex</code> bridge network:</p>
+<p>Create a <code>NodeNetworkConfigurationPolicy</code> (NNCP) CR and define a customized <code>br-ex</code> bridge network configuration. Depending on your needs, ensure that you set a masquerade IP for either the <code>ipv4.address.ip</code>, <code>ipv6.address.ip</code>, or both parameters. Always include a masquerade IP address in the NNCP CR and this address must match an in-use IP address block.</p>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>As a post-installation task, you can configure most parameters for a customized <code>br-ex</code> bridge that you defined in an existing NNCP CR, except for the primary IP address of the customized <code>br-ex</code> bridge.</p>
+</div>
+<div class="paragraph">
+<p>If you want to convert your single-stack cluster network to a dual-stack cluster network, you can add or change a secondary IPv6 address in the NNCP CR, but the existing primary IP address cannot be changed.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="listingblock">
-<div class="title">Example of an NMState configuration for a customized <code>br-ex</code> bridge network</div>
+<div class="title">Example of an NNCP CR that sets IPv6 and IPv4 masquerade IP addresses</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">interfaces</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span> <i class="conum" data-value="2"></i><b>(2)</b>
-  <span class="na">state</span><span class="pi">:</span> <span class="s">up</span> <i class="conum" data-value="3"></i><b>(3)</b>
-  <span class="na">ipv4</span><span class="pi">:</span>
-    <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="4"></i><b>(4)</b>
-  <span class="na">ipv6</span><span class="pi">:</span>
-    <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
-<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex</span>
-  <span class="na">type</span><span class="pi">:</span> <span class="s">ovs-bridge</span>
-  <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
-  <span class="na">ipv4</span><span class="pi">:</span>
-    <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
-    <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
-  <span class="na">ipv6</span><span class="pi">:</span>
-    <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
-    <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
-  <span class="na">bridge</span><span class="pi">:</span>
-    <span class="na">options</span><span class="pi">:</span>
-      <span class="na">mcast-snooping-enable</span><span class="pi">:</span> <span class="no">true</span>
-    <span class="na">port</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span> <i class="conum" data-value="5"></i><b>(5)</b>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nmstate.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NodeNetworkConfigurationPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">worker-0-br-ex</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">nodeSelector</span><span class="pi">:</span>
+    <span class="s">kubernetes.io/hostname</span><span class="pi">:</span> <span class="s">worker-0</span>
+    <span class="na">desiredState</span><span class="pi">:</span>
+    <span class="na">interfaces</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span> <i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="na">state</span><span class="pi">:</span> <span class="s">up</span> <i class="conum" data-value="4"></i><b>(4)</b>
+      <span class="na">ipv4</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="5"></i><b>(5)</b>
+      <span class="na">ipv6</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex</span>
-<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex</span>
-  <span class="na">type</span><span class="pi">:</span> <span class="s">ovs-interface</span>
-  <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
-  <span class="na">copy-mac-from</span><span class="pi">:</span> <span class="s">enp2s0</span>
-  <span class="na">ipv4</span><span class="pi">:</span>
-    <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
-    <span class="na">dhcp</span><span class="pi">:</span> <span class="no">true</span>
-  <span class="na">ipv6</span><span class="pi">:</span>
-    <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
-    <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">ovs-bridge</span>
+      <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+      <span class="na">ipv4</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+        <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">ipv6</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+        <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">bridge</span><span class="pi">:</span>
+        <span class="na">options</span><span class="pi">:</span>
+          <span class="na">mcast-snooping-enable</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">port</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span> <i class="conum" data-value="6"></i><b>(6)</b>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">ovs-interface</span>
+      <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+      <span class="na">copy-mac-from</span><span class="pi">:</span> <span class="s">enp2s0</span>
+      <span class="na">ipv4</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">dhcp</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">auto-route-metric</span><span class="pi">:</span> <span class="s">48</span> <i class="conum" data-value="7"></i><b>(7)</b>
+        <span class="na">address</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s2">"</span><span class="s">169.254.169.2"</span>
+          <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">29</span>
+      <span class="na">ipv6</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">dhcp</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">auto-route-metric</span><span class="pi">:</span> <span class="m">48</span>
+        <span class="na">address</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s2">"</span><span class="s">fd69::2"</span>
+        <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">125</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -3661,85 +3746,55 @@
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Name of the policy.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
 <td>Name of the interface.</td>
 </tr>
 <tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
 <td>The type of ethernet.</td>
 </tr>
 <tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
 <td>The requested state for the interface after creation.</td>
 </tr>
 <tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
 <td>Disables IPv4 and IPv6 in this example.</td>
 </tr>
 <tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>The node NIC to which the bridge attaches.</td>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>The node NIC to which the bridge is attached.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>Set the parameter to <code>48</code> to ensure the <code>br-ex</code> default route always has the highest precedence (lowest metric). This configuration prevents routing conflicts with any other interfaces that are automatically configured by the <code>NetworkManager</code> service.</td>
 </tr>
 </table>
 </div>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Next steps</div>
+<ul>
+<li>
+<p>Scaling compute nodes to apply the manifest object that includes a customized <code>br-ex</code> bridge to each compute node that exists in your cluster. For more information, see "Expanding the cluster" in the <em>Additional resources</em> section.</p>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../networking/ovn_kubernetes_network_provider/converting-to-dual-stack.html#nw-dual-stack-convert_converting-to-dual-stack">Converting to a dual-stack cluster network</a></p>
 </li>
 <li>
-<p>Use the <code>cat</code> command to base64-encode the contents of the NMState configuration:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> &lt;nmstate_configuration&gt;.yaml | <span class="nb">base64</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;nmstate_configuration&gt;</code> with the name of your NMState resource YAML file.</td>
-</tr>
-</table>
-</div>
+<p><a href="../../installing/installing_bare_metal/bare-metal-expanding-the-cluster.html#bare-metal-expanding-the-cluster">Expanding the cluster</a></p>
 </li>
-<li>
-<p>Create a <code>MachineConfig</code> manifest file and define a customized <code>br-ex</code> bridge network configuration analogous to the following example:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfig</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">labels</span><span class="pi">:</span>
-    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">worker</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">10-br-ex-worker</span> <i class="conum" data-value="2"></i><b>(2)</b>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">config</span><span class="pi">:</span>
-    <span class="na">ignition</span><span class="pi">:</span>
-      <span class="na">version</span><span class="pi">:</span> <span class="s">3.2.0</span>
-    <span class="na">storage</span><span class="pi">:</span>
-      <span class="na">files</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span>
-          <span class="na">source</span><span class="pi">:</span> <span class="s">data:text/plain;charset=utf-8;base64,&lt;base64_encoded_nmstate_configuration&gt;</span> <i class="conum" data-value="3"></i><b>(3)</b>
-        <span class="na">mode</span><span class="pi">:</span> <span class="m">0644</span>
-        <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
-        <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/nmstate/openshift/cluster.yml</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>For each node in your cluster, specify the hostname path to your node and the base-64 encoded Ignition configuration file data for the machine type. If you have a single global configuration specified in an <code>/etc/nmstate/openshift/cluster.yml</code> configuration file that you want to apply to all nodes in your cluster, you do not need to specify the hostname path for each node. The <code>worker</code> role is the default role for nodes in your cluster. The <code>.yaml</code> extension does not work when specifying the hostname path for each node or all nodes in the <code>MachineConfig</code> manifest file.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>The name of the policy.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Writes the encoded base64 information to the specified path.</td>
-</tr>
-</table>
-</div>
-</li>
-</ol>
+</ul>
 </div>
 </div>
 </div>
