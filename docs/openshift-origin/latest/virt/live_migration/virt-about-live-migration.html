@@ -2760,6 +2760,9 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#live-migration-requirements_virt-about-live-migration">Live migration requirements</a></li>
+<li><a href="#virt-about-live-migration-permissions_virt-about-live-migration">About live migration permissions</a></li>
+<li><a href="#virt-preserving-lm-perms_virt-about-live-migration">Preserving pre-4.19 live migration permissions during update</a></li>
+<li><a href="#virt-granting-live-migration-permissions_virt-about-live-migration">Granting live migration permissions</a></li>
 <li><a href="#virt-vm-migration-tuning_virt-about-live-migration">VM migration tuning</a></li>
 <li><a href="#common-live-migration-tasks_virt-about-live-migration">Common live migration tasks</a></li>
 <li><a href="#additional-resources_virt-about-live-migration">Additional resources</a></li>
@@ -2814,6 +2817,188 @@
 </li>
 <li>
 <p><a href="../../virt/vm_networking/virt-dedicated-network-live-migration.html#virt-dedicated-network-live-migration">Configuring a dedicated Multus network</a> for live migration is highly recommended. A dedicated network minimizes the effects of network saturation on tenant workloads during migration.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-about-live-migration-permissions_virt-about-live-migration"><a class="anchor" href="#virt-about-live-migration-permissions_virt-about-live-migration"></a>About live migration permissions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In OKD Virtualization 4.19 and later, live migration operations are restricted to users who are explicitly granted the <code>kubevirt.io:migrate</code> cluster role. Users with this role can create, delete, and update virtual machine (VM) live migration requests, which are represented by <code>VirtualMachineInstanceMigration</code> (VMIM) custom resources.</p>
+</div>
+<div class="paragraph">
+<p>Cluster administrators can bind the <code>kubevirt.io:migrate</code> role to trusted users or groups at either the namespace or cluster level.</p>
+</div>
+<div class="paragraph">
+<p>Before OKD Virtualization 4.19, namespace administrators had live migration permissions by default. This behavior changed in version 4.19 to prevent unintended or malicious disruptions to infrastructure-critical migration operations.</p>
+</div>
+<div class="paragraph">
+<p>As a cluster administrator, you can preserve the old behavior by creating a temporary cluster role before updating. After assigning the new role to users, delete the temporary role to enforce the more restrictive permissions. If you have already updated, you can still revert to the old behavior by aggregating the <code>kubevirt.io:migrate</code> role into the <code>admin</code> cluster role.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-preserving-lm-perms_virt-about-live-migration"><a class="anchor" href="#virt-preserving-lm-perms_virt-about-live-migration"></a>Preserving pre-4.19 live migration permissions during update</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Before you update to OKD Virtualization 4.19, you can create a temporary cluster role to preserve the previous live migration permissions until you are ready for the more restrictive default permissions to take effect.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The OKD CLI (<code>oc</code>) is installed.</p>
+</li>
+<li>
+<p>You have cluster administrator permissions.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Before updating to OKD Virtualization 4.19, create a temporary <code>ClusterRole</code> object. For example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">rbac.authorization.k8s.io/aggregate-to-admin=true</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt.io:upgrademigrate</span>
+<span class="na">rules</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">subresources.kubevirt.io</span>
+  <span class="na">resources</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">virtualmachines/migrate</span>
+  <span class="na">verbs</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">update</span>
+<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">kubevirt.io</span>
+  <span class="na">resources</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">virtualmachineinstancemigrations</span>
+  <span class="na">verbs</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">get</span>
+  <span class="pi">-</span> <span class="s">delete</span>
+  <span class="pi">-</span> <span class="s">create</span>
+  <span class="pi">-</span> <span class="s">update</span>
+  <span class="pi">-</span> <span class="s">patch</span>
+  <span class="pi">-</span> <span class="s">list</span>
+  <span class="pi">-</span> <span class="s">watch</span>
+  <span class="pi">-</span> <span class="s">deletecollection</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>This cluster role is aggregated into the <code>admin</code> role before you update OKD Virtualization. The update process does not modify it, ensuring the previous behavior is maintained.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Add the cluster role manifest to the cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;cluster_role_file_name&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Update OKD Virtualization to version 4.19.</p>
+</li>
+<li>
+<p>Bind the <code>kubevirt.io:migrate</code> cluster role to trusted users or groups by running one of the following commands, replacing <code>&lt;namespace&gt;</code>, <code>&lt;first_user&gt;</code>, <code>&lt;second_user&gt;</code>, and <code>&lt;group_name&gt;</code> with your own values.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>To bind the role at the namespace level, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-n</span> &lt;namespace&gt; rolebinding kvmigrate <span class="nt">--clusterrole</span><span class="o">=</span>kubevirt.io:migrate <span class="nt">--user</span><span class="o">=</span>&lt;first_user&gt; <span class="nt">--user</span><span class="o">=</span>&lt;second_user&gt; <span class="nt">--group</span><span class="o">=</span>&lt;group_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To bind the role at the cluster level, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create clusterrolebinding kvmigrate <span class="nt">--clusterrole</span><span class="o">=</span>kubevirt.io:migrate <span class="nt">--user</span><span class="o">=</span>&lt;first_user&gt; <span class="nt">--user</span><span class="o">=</span>&lt;second_user&gt; <span class="nt">--group</span><span class="o">=</span>&lt;group_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>When you have bound the <code>kubevirt.io:migrate</code> role to all necessary users, delete the temporary <code>ClusterRole</code> object by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete clusterrole kubevirt.io:upgrademigrate</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>After you delete the temporary cluster role, only users with the <code>kubevirt.io:migrate</code> role can create, delete, and update live migration requests.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-granting-live-migration-permissions_virt-about-live-migration"><a class="anchor" href="#virt-granting-live-migration-permissions_virt-about-live-migration"></a>Granting live migration permissions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Grant trusted users or groups the ability to create, delete, and update live migration instances.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The OKD CLI (<code>oc</code>) is installed.</p>
+</li>
+<li>
+<p>You have cluster administrator permissions.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>(Optional) To change the default behavior so that namespace administrators always have permission to create, delete, and update live migrations, aggregate the <code>kubevirt.io:migrate</code> role into the <code>admin</code> cluster role by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label <span class="nt">--overwrite</span> clusterrole kubevirt.io:migrate rbac.authorization.k8s.io/aggregate-to-admin<span class="o">=</span><span class="nb">true</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Bind the <code>kubevirt.io:migrate</code> cluster role to trusted users or groups by running one of the following commands, replacing <code>&lt;namespace&gt;</code>, <code>&lt;first_user&gt;</code>, <code>&lt;second_user&gt;</code>, and <code>&lt;group_name&gt;</code> with your own values.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>To bind the role at the namespace level, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-n</span> &lt;namespace&gt; rolebinding kvmigrate <span class="nt">--clusterrole</span><span class="o">=</span>kubevirt.io:migrate <span class="nt">--user</span><span class="o">=</span>&lt;first_user&gt; <span class="nt">--user</span><span class="o">=</span>&lt;second_user&gt; <span class="nt">--group</span><span class="o">=</span>&lt;group_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To bind the role at the cluster level, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create clusterrolebinding kvmigrate <span class="nt">--clusterrole</span><span class="o">=</span>kubevirt.io:migrate <span class="nt">--user</span><span class="o">=</span>&lt;first_user&gt; <span class="nt">--user</span><span class="o">=</span>&lt;second_user&gt; <span class="nt">--group</span><span class="o">=</span>&lt;group_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
 </li>
 </ul>
 </div>
@@ -2882,6 +3067,9 @@
 <div class="sectionbody">
 <div class="ulist">
 <ul>
+<li>
+<p><a href="../../virt/about_virt/virt-security-policies.html#default-cluster-roles-for-virt_virt-security-policies">Default cluster roles for OKD Virtualization</a></p>
+</li>
 <li>
 <p><a href="../../virt/monitoring/virt-prometheus-queries.html#virt-live-migration-metrics_virt-prometheus-queries">Prometheus queries for live migration</a></p>
 </li>
