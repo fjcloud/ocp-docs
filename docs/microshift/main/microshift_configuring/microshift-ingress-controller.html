@@ -657,7 +657,12 @@
 <div id="toctitle"></div>
 <ul class="sectlevel1">
 <li><a href="#microshift-ingress-control-concept_microshift-ingress-controller">Using ingress control in MicroShift</a></li>
-<li><a href="#microshift-ingress-control-config_microshift-ingress-controller">Configuring ingress control in MicroShift</a></li>
+<li><a href="#microshift-ingress-control-config_microshift-ingress-controller">Configuring ingress control in MicroShift</a>
+<ul class="sectlevel2">
+<li><a href="#microshift-ingress-controller-create-certificate-secret_microshift-ingress-controller">Creating a secret for the ingress controller certificate</a></li>
+<li><a href="#microshift-ingress-controller-config_microshift-ingress-controller">Configuring the TLS security profile for the ingress controller</a></li>
+</ul>
+</li>
 <li><a href="#additional-resources_microshift-ingress-controller_microshift-ingress-controller">Additional resources</a></li>
 </ul>
 </div>
@@ -686,6 +691,16 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 </li>
 <li>
 <p>If the router has many connections open because an application running on the cluster does not close connections properly, you can set the <code>ingress.tuningOptions.serverTimeout</code> and <code>spec.tuningOptions.serverFinTimeout</code> parameters to a lower value, forcing those connections to close sooner.</p>
+</li>
+<li>
+<p>If you need to configure the ingress controller to verify client certificates, you can use the <code>ingress.clientTLS</code> parameter to set a clientCA value, which is a reference to a config map. The config map contains the PEM-encoded CA certificate bundle that is used to verify a client&#8217;s certificate. Optionally, you can also configure a list of certificate subject filters.</p>
+</li>
+<li>
+<p>If you need to configure a TLS security profile for an ingress controller, you can use the <code>ingress.tlsSecurityProfile</code> parameter to specify a default or custom individual TLS security profiles. The TLS security profile defines the minimum TLS version and the TLS ciphers for TLS connections for the ingress controllers.
+If a TLS security profile is not configured, the default value is based on the TLS security profile set for the API server.</p>
+</li>
+<li>
+<p>If you need to define a policy for handling new route claims, you can use the <code>routeAdmission</code> parameter to allow or deny claims across namespaces. You set the <code>routeAdmission</code> parameter to describe how hostname claims across namespaces should be handled and to describe how routes with wildcard policies are handled by the ingress controller.</p>
 </li>
 </ul>
 </div>
@@ -749,27 +764,42 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 <pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiServer</span><span class="pi">:</span>
 <span class="c1"># ...</span>
 <span class="na">ingress</span><span class="pi">:</span>
-    <span class="na">defaultHTTPVersion</span><span class="pi">:</span> <span class="m">1</span>
-    <span class="na">forwardedHeaderPolicy</span><span class="pi">:</span> <span class="s">Append</span>
-    <span class="na">httpCompression</span><span class="pi">:</span>
-        <span class="na">mimeTypes</span><span class="pi">:</span>
-            <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-    <span class="na">httpEmptyRequestsPolicy</span><span class="pi">:</span> <span class="s">Respond</span>
-<span class="c1"># ...</span>
-    <span class="na">logEmptyRequests</span><span class="pi">:</span> <span class="s">Log</span>
-<span class="c1"># ...</span>
-    <span class="na">tuningOptions</span><span class="pi">:</span>
-        <span class="na">clientFinTimeout</span><span class="pi">:</span> <span class="s">1s</span>
-        <span class="na">clientTimeout</span><span class="pi">:</span> <span class="s">30s</span>
-        <span class="na">headerBufferBytes</span><span class="pi">:</span> <span class="m">0</span>
-        <span class="na">headerBufferMaxRewriteBytes</span><span class="pi">:</span> <span class="m">0</span>
-        <span class="na">healthCheckInterval</span><span class="pi">:</span> <span class="s">5s</span>
-        <span class="na">maxConnections</span><span class="pi">:</span> <span class="m">0</span>
-        <span class="na">serverFinTimeout</span><span class="pi">:</span> <span class="s">1s</span>
-        <span class="na">serverTimeout</span><span class="pi">:</span> <span class="s">30s</span>
-        <span class="na">threadCount</span><span class="pi">:</span> <span class="m">4</span>
-        <span class="na">tlsInspectDelay</span><span class="pi">:</span> <span class="s">5s</span>
-        <span class="na">tunnelTimeout</span><span class="pi">:</span> <span class="s">1h</span>
+  <span class="na">certificateSecret</span><span class="pi">:</span> <span class="s">router-certs-custom</span>
+  <span class="na">clientTLS</span><span class="pi">:</span>
+    <span class="na">allowedSubjectPatterns</span><span class="pi">:</span> <span class="s">^/CN=example.com/ST=NC/C=US/O=Security/OU=OpenShift$</span>
+    <span class="na">clientCA</span><span class="pi">:</span> <span class="s">ca-config-map</span>
+    <span class="na">clientCertificatePolicy</span><span class="pi">:</span> <span class="s">Required</span>
+  <span class="na">defaultHTTPVersion</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">forwardedHeaderPolicy</span><span class="pi">:</span> <span class="s">Append</span>
+  <span class="na">httpCompression</span><span class="pi">:</span>
+    <span class="na">mimeTypes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
+  <span class="na">httpEmptyRequestsPolicy</span><span class="pi">:</span> <span class="s">Respond</span>
+  <span class="na">logEmptyRequests</span><span class="pi">:</span> <span class="s">Log</span>
+  <span class="na">routeAdmission</span><span class="pi">:</span>
+    <span class="na">namespaceOwnership</span><span class="pi">:</span> <span class="s">InterNamespaceAllowed</span>
+    <span class="na">wildcardPolicy</span><span class="pi">:</span> <span class="s">WildcardPolicyAllowed</span>
+  <span class="na">tlsSecurityProfile</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">Custom</span>
+    <span class="na">custom</span><span class="pi">:</span>
+      <span class="na">ciphers</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">ECDHE-ECDSA-CHACHA20-POLY1305</span>
+        <span class="pi">-</span> <span class="s">ECDHE-RSA-CHACHA20-POLY1305</span>
+        <span class="pi">-</span> <span class="s">ECDHE-RSA-AES128-GCM-SHA256</span>
+        <span class="pi">-</span> <span class="s">ECDHE-ECDSA-AES128-GCM-SHA256</span>
+      <span class="na">minTLSVersion</span><span class="pi">:</span> <span class="s">VersionTLS12</span>
+  <span class="na">tuningOptions</span><span class="pi">:</span>
+    <span class="na">clientFinTimeout</span><span class="pi">:</span> <span class="s">1s</span>
+    <span class="na">clientTimeout</span><span class="pi">:</span> <span class="s">30s</span>
+    <span class="na">headerBufferBytes</span><span class="pi">:</span> <span class="m">0</span>
+    <span class="na">headerBufferMaxRewriteBytes</span><span class="pi">:</span> <span class="m">0</span>
+    <span class="na">healthCheckInterval</span><span class="pi">:</span> <span class="s">5s</span>
+    <span class="na">maxConnections</span><span class="pi">:</span> <span class="m">0</span>
+    <span class="na">serverFinTimeout</span><span class="pi">:</span> <span class="s">1s</span>
+    <span class="na">serverTimeout</span><span class="pi">:</span> <span class="s">30s</span>
+    <span class="na">threadCount</span><span class="pi">:</span> <span class="m">4</span>
+    <span class="na">tlsInspectDelay</span><span class="pi">:</span> <span class="s">5s</span>
+    <span class="na">tunnelTimeout</span><span class="pi">:</span> <span class="s">1h</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -786,6 +816,53 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 </tr>
 </thead>
 <tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>certificateSecret</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The <code>certificateSecret</code> value is a reference to a secret that contains the default certificate that is served by the ingress controller. When routes do not specify their own certificate, <code>certificateSecret</code> is used.</p>
+</div>
+<div class="paragraph">
+<p>The secret must contain the following keys and data:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>tls.crt</code>: certificate file contents</p>
+</li>
+<li>
+<p><code>tls.key</code>: key file contents</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If not set, a wildcard certificate is automatically generated and used. The certificate is valid for the ingress controller <code>domain</code> and <code>subdomains</code>, and the generated certificate&#8217;s CA is automatically integrated with the cluster&#8217;s truststore.</p>
+</div>
+<div class="paragraph">
+<p>The in-use certificate, whether generated or user-specified, is automatically integrated with MicroShift built-in OAuth server.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>clientTLS</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>clientTLS</code> authenticates client access to the cluster and services. As a result, mutual TLS authentication is enabled. If not set, then client TLS is not enabled.</p>
+</div>
+<div class="paragraph">
+<p><code>clientTLS</code> has the required subfields, <code>spec.clientTLS.clientCertificatePolicy</code> and <code>spec.clientTLS.ClientCA</code>.</p>
+</div>
+<div class="paragraph">
+<p>The <code>ClientCertificatePolicy</code> subfield accepts one of the two values: <code>Required</code> or <code>Optional</code>. The ingress controller only checks client certificates for edge-terminated and re-encrypted TLS routes. The ingress controller cannot check certificates for plain text HTTP or passthrough TLS routes.</p>
+</div>
+<div class="paragraph">
+<p>The <code>ClientCA</code> subfield specifies a config map that is in the openshift-ingress namespace. The config map should contain a CA certificate bundle. A config map is required for this field.</p>
+</div>
+<div class="paragraph">
+<p>The <code>AllowedSubjectPatterns</code> is an optional value that specifies a list of regular expressions, which are matched against the distinguished name on a valid client certificate to filter requests. The regular expressions must use PCRE syntax. This field must contain a valid expression or the MicroShift service fails. At least one pattern must match a client certificate&#8217;s distinguished name; otherwise, the ingress controller rejects the certificate and denies the connection. If the field value is not set, the ingress controller does not reject certificates based on the distinguished name.</p>
+</div></div></td>
+</tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p><code>defaultHTTPVersion</code></p>
@@ -828,7 +905,7 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 <div class="ulist">
 <ul>
 <li>
-<p><code>httpCompression.mimeTypes</code> defines a list of or a single MIME type to which compression is applied. For example, <code>text/css; charset=utf-8</code>, <code>text/html</code>, <code>text/*</code>, <code>image/svg+xml</code>, <code>application/octet-stream</code>, <code>X-custom/customsub</code>, using the format pattern, <code>type/subtype; [;attribute=value]</code>. The <code>types</code> are: application, image, message, multipart, text, video, or a custom type prefaced by <code>X-</code>. To see the full notation for MIME types and subtypes, see <a href="https://datatracker.ietf.org/doc/html/rfc1341#page-7">RFC1341</a> (IETF Datatracker documentation).</p>
+<p><code>httpCompressionmimeTypes</code> defines a list of MIME types to which compression should be applied. For example, <code>text/css; charset=utf-8</code>, <code>text/html</code>, <code>text/*</code>, <code>image/svg+xml</code>, <code>application/octet-stream</code>, <code>X-custom/customsub</code>, using the format pattern, <code>type/subtype; [;attribute=value]</code>. The <code>types</code> are: application, image, message, multipart, text, video, or a custom type prefaced by <code>X-</code>. To see the full notation for MIME types and subtypes, see <a href="https://datatracker.ietf.org/doc/html/rfc1341#page-7">RFC1341</a> (IETF Datatracker documentation).</p>
 </li>
 </ul>
 </div></div></td>
@@ -838,20 +915,23 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 <p><code>httpEmptyRequestsPolicy</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Describes how HTTP connections are handled if the connection times out before a request is received. Allowed values for this field are <code>Respond</code> and <code>Ignore</code>. The default value is <code>Respond</code>. The following are valid values:</p>
+<p><code>httpEmptyRequestsPolicy</code> describes how HTTP connections are handled if the connection times out before a request is received. Allowed values for this field are <code>Respond</code> and <code>Ignore</code>. The default value is <code>Respond</code>.</p>
+</div>
+<div class="paragraph">
+<p>The <code>httpEmptyRequestsPolicy</code> type accepts either one of two values:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><code>Respond</code>, causes the ingress controller to send an HTTP <code>400</code> or <code>408</code> response, logs the connection if access logging is enabled, and counts the connection in the appropriate metrics.</p>
+<p><code>Respond</code>: If the field is set to <code>Respond</code>, the ingress controller sends an HTTP <code>400</code> or <code>408</code> response, logs the connection if access logging is enabled, and counts the connection in the appropriate metrics.</p>
 </li>
 <li>
-<p><code>Ignore</code>, adds the <code>http-ignore-probes</code> parameter in the <code>HAproxy</code> configuration. If the field is set to <code>Ignore</code>, the ingress controller closes the connection without sending a response, then logs the connection or incrementing metrics.</p>
+<p><code>Ignore</code>: Setting the option to <code>Ignore</code> adds the <code>http-ignore-probes</code> parameter in the <code>HAproxy</code> configuration. If the field is set to <code>Ignore</code>, the ingress controller closes the connection without sending a response, then logs the connection, or incrementing metrics.</p>
 </li>
 </ul>
 </div>
 <div class="paragraph">
-<p>Usually, empty request connections come from load balancer health probes or web browser preconnects and can be safely ignored. However, network errors and port scans can also create these empty requests, so setting this field to <code>Ignore</code> can impede detecting or diagnosing problems and also impede the detection of intrusion attempts.</p>
+<p>These connections come from load-balancer health probes or preconnects and can be safely ignored. However, these requests can be caused by network errors, so setting this field to <code>Ignore</code> can impede detection or diagnosis of problems. These requests can be caused by port scans, in which case logging empty requests can aid in detecting intrusion attempts.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -859,20 +939,96 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 <p><code>logEmptyRequests</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies connections for which no request is received and logged. Usually, these empty requests come from load balancer health probes or web browser speculative connections such as preconnects. Logging these types of empty requests can be undesirable. However, network errors and port scans can also create empty requests, so setting this field to <code>Ignore</code> can impede detecting or diagnosing problems and also impede the detection of intrusion attempts.</p>
+<p><code>logEmptyRequests</code> specifies connections for which no request is received and logged. These empty requests come from load balancer health probes or web browser speculative connections (preconnect) and logging these requests can be undesirable. However, these requests can be caused by network errors, in which case logging empty requests can be useful for diagnosing the errors. These requests can be caused by port scans, and logging empty requests can aid in detecting intrusion attempts. Allowed values for this field are <code>Log</code> and <code>Ignore</code>. The default is <code>Log</code>.</p>
 </div>
 <div class="paragraph">
-<p>The following are valid values:</p>
+<p>The <code>LoggingPolicy</code> type accepts either one of two values:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><code>Log</code>, which indicates that an event should be logged.</p>
+<p><code>Log</code>: Setting this value to <code>Log</code> indicates that an event should be logged.</p>
 </li>
 <li>
-<p><code>Ignore</code>, which sets the <code>dontlognull</code> option in the <code>HAproxy</code> configuration.</p>
+<p><code>Ignore</code>: Setting this value to <code>Ignore</code> sets the <code>dontlognull</code> option in the HAproxy configuration.</p>
 </li>
 </ul>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>routeAdmission</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>routeAdmission</code> defines a policy for handling new route claims, such as allowing or denying claims across namespaces.</p>
+</div>
+<div class="paragraph">
+<p><code>namespaceOwnership</code> describes how hostname claims across namespaces should be handled. The default is <code>InterNamespaceAllowed</code>.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>Strict</code>: does not allow routes to claim the same hostname across namespaces.</p>
+</li>
+<li>
+<p><code>InterNamespaceAllowed</code>: allows routes to claim different paths of the same hostname across namespaces.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><code>wildcardPolicy</code> describes how routes with wildcard policies are handled by the ingress controller.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>WildcardsDisallowed</code>: Indicates only routes with a wildcard policy of <code>None</code> are admitted by the ingress controller. Updating <code>wildcardPolicy</code> from <code>WildcardsAllowed</code> to <code>WildcardsDisallowed</code> causes admitted routes with a wildcard policy of <code>Subdomain</code> to stop working. These routes must be recreated to a wildcard policy of <code>None</code> to be readmitted by the ingress The default value can change in future releases.</p>
+</li>
+</ul>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>tlsSecurityProfile</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>tlsSecurityProfile</code> specifies settings for TLS connections for Ingress Controllers.</p>
+</div>
+<div class="paragraph">
+<p>If not set, the default value is based on the <code>apiservers.config.openshift.io/cluster</code> resource.</p>
+</div>
+<div class="paragraph">
+<p><code>Intermediate</code> is the default setting.</p>
+</div>
+<div class="paragraph">
+<p>The minimum TLS version for ingress controllers is <code>1.1</code>. The maximum TLS version is <code>1.3</code>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Ciphers and the minimum TLS version of the configured security profile are reflected in the <code>TLSProfile</code> status.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The TLS <code>1.0</code> version of an <code>Old</code> or <code>Custom</code> profile is automatically converted to <code>1.1</code> by the ingress controller.</p>
+</div>
+</td>
+</tr>
+</table>
 </div></div></td>
 </tr>
 <tr>
@@ -880,18 +1036,18 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 <p><code>tuningOptions</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies options for tuning the performance of ingress controller pods.</p>
+<p><code>tuningOptions</code> specifies options for tuning the performance of ingress controller pods.</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>The <code>tuningOptions.clientFinTimeout</code> parameter specifies how long a connection is held open while waiting for the client response to the server closing the connection. The default timeout is <code>1s</code>.</p>
+<p><code>clientFinTimeout</code> specifies how long a connection is held open while waiting for the client response to the server closing the connection. The default timeout is <code>1s</code>.</p>
 </li>
 <li>
-<p>The <code>tuningOptions.clientTimeout</code> parameter specifies how long a connection is held open while waiting for a client response. The default timeout is <code>30s</code>.</p>
+<p><code>clientTimeout</code> specifies how long a connection is held open while waiting for a client response. The default timeout is <code>30s</code>.</p>
 </li>
 <li>
-<p>The <code>tuningOptions.headerBufferBytes</code> parameter specifies how much memory is reserved, in bytes, for Ingress Controller connection sessions. This value must be at least <code>16384</code> if HTTP/2 is enabled for the Ingress Controller. If not set, the default value is <code>32768</code> bytes.</p>
+<p><code>headerBufferBytes</code> specifies how much memory is reserved, in bytes, for ingress controller connection sessions. This value must be at least <code>16384</code> if HTTP/2 is enabled for the ingress controller. If not set, the default value is <code>32768</code> bytes.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -908,10 +1064,7 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 </div>
 </li>
 <li>
-<p>The <code>tuningOptions.headerBufferMaxRewriteBytes</code> parameter specifies how much memory should be reserved, in bytes, from <code>headerBufferBytes</code> for HTTP header rewriting and appending for Ingress Controller connection sessions. The minimum value for <code>headerBufferMaxRewriteBytes</code> is <code>4096</code>. The <code>headerBufferBytes</code> value must be greater than the <code>headerBufferMaxRewriteBytes</code> value for incoming HTTP requests.</p>
-</li>
-<li>
-<p>If not set, the default value is <code>8192</code> bytes.</p>
+<p><code>headerBufferMaxRewriteBytes</code> specifies how much memory should be reserved, in bytes, from <code>headerBufferBytes</code> for HTTP header rewriting and appending for ingress controller connection sessions. The minimum value for <code>headerBufferMaxRewriteBytes</code> is <code>4096</code>. <code>headerBufferBytes</code> must be greater than the <code>headerBufferMaxRewriteBytes</code> value for incoming HTTP requests. If not set, the default value is <code>8192</code> bytes.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -920,7 +1073,7 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Setting this field is not recommended because <code>headerBufferMaxRewriteBytes</code> parameter values that are too small can break the ingress controller. Conversely, values for <code>headerBufferMaxRewriteBytes</code> that are too large could cause the ingress controller to use significantly more memory than necessary.</p>
+<p>Setting this field is not recommended because <code>headerBufferMaxRewriteBytes</code> values that are too small can break the ingress controller and <code>headerBufferMaxRewriteBytes</code> that are too large could cause the ingress controller to use significantly more memory than necessary.</p>
 </div>
 </td>
 </tr>
@@ -928,16 +1081,16 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 </div>
 </li>
 <li>
-<p>The <code>tuningOptions.healthCheckInterval</code> parameter specifies how long the router waits between health checks. The default is <code>5s</code>.</p>
+<p><code>healthCheckInterval</code> specifies how long the router waits between health checks. The default is <code>5s</code>.</p>
 </li>
 <li>
-<p>The <code>tuningOptions.serverFinTimeout</code> parameter specifies how long a connection is held open while waiting for the server response to the client that is closing the connection. The default timeout is <code>1s</code>.</p>
+<p><code>serverFinTimeout</code> specifies how long a connection is held open while waiting for the server response to the client that is closing the connection. The default timeout is <code>1s</code>.</p>
 </li>
 <li>
-<p>The <code>tuningOptions.serverTimeout</code> parameter specifies how long a connection is held open while waiting for a server response. The default timeout is <code>30s</code>.</p>
+<p><code>serverTimeout</code> specifies how long a connection is held open while waiting for a server response. The default timeout is <code>30s</code>.</p>
 </li>
 <li>
-<p>The <code>tuningOptions.threadCount</code> parameter specifies the number of threads to create per HAProxy process. Creating more threads allows each ingress controller pod to handle more connections, at the cost of more system resources being used. <code>HAProxy</code> supports up to <code>64</code> threads. If this field is empty, default value is <code>4</code> threads.</p>
+<p><code>threadCount</code> specifies the number of threads to create per HAProxy process. Creating more threads allows each ingress controller pod to handle more connections, at the cost of more system resources being used. <code>HAProxy</code> supports up to <code>64</code> threads. If this field is empty, the ingress controller uses the default value of <code>4</code> threads.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -946,7 +1099,7 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Setting this field is not recommended because increasing the number of <code>HAProxy</code> threads allows ingress controller pods to use more CPU time under load, and prevent other pods from receiving the CPU resources they need to perform.</p>
+<p>Setting this field is not recommended because increasing the number of <code>HAProxy</code> threads allows ingress controller pods to use more CPU time under load, and prevent other pods from receiving the CPU resources they need to perform. Reducing the number of threads can cause the ingress controller to perform poorly.</p>
 </div>
 </td>
 </tr>
@@ -954,12 +1107,37 @@ closed before it can respond, you can set the <code>ingress.tuningOptions.server
 </div>
 </li>
 <li>
-<p>The <code>tuningOptions.tlsInspectDelay</code> parameter specifies how long the router can hold data to find a matching route. Setting this value too short can cause the router to fall back to the default certificate for edge-terminated, re-encrypted, or passthrough routes, even when using a better-matched certificate. The default inspect delay is <code>5s</code>.</p>
+<p><code>tlsInspectDelay</code> specifies how long the router can hold data to find a matching route. Setting this value too short can cause the router to fall back to the default certificate for edge-terminated, re-encrypted, or passthrough routes, even when using a better-matched certificate. The default inspect delay is <code>5s</code>.</p>
 </li>
 <li>
-<p>The <code>tuningOptions.tunnelTimeout</code> parameter specifies how long a tunnel connection, including websockets, remains open while the tunnel is idle. The default timeout is <code>1h</code>.</p>
+<p><code>tunnelTimeout</code> specifies how long a tunnel connection, including websockets, remains open while the tunnel is idle. The default timeout is <code>1h</code>.</p>
+</li>
+<li>
+<p><code>maxConnections</code> specifies the maximum number of simultaneous connections that can be established per HAProxy process. Increasing this value allows each ingress controller pod to handle more connections at the cost of additional system resources. Permitted values are <code>0</code>, <code>-1</code>, any value within the range <code>2000</code> and <code>2000000</code>, or the field can be left empty.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If this field is left empty or has the value <code>0</code>, the ingress controller uses the default value of <code>50000</code>. This value is subject to change in future releases.</p>
+</li>
+<li>
+<p>If the field has the value of <code>-1</code>, then HAProxy dynamically computes a maximum value based on the available <code>ulimits</code> in the running container. This process results in a large computed value that incurs significant memory usage compared to the current default value of <code>50000</code>.</p>
+</li>
+<li>
+<p>If the field has a value that is greater than the current operating system limit, the <code>HAProxy</code> processes do not start.</p>
+</li>
+<li>
+<p>If you choose a discrete value and the router pod is migrated to a new node, it is possible that the new node does not have an identical <code>ulimit</code> configured. In such cases, the pod fails to start.</p>
+</li>
+<li>
+<p>If you have nodes with different <code>ulimits</code> configured, and you choose a discrete value, it is recommended to use the value of <code>-1</code> for this field so that the maximum number of connections is calculated at runtime.</p>
 </li>
 </ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>**</p>
 </div></div></td>
 </tr>
 </tbody>
@@ -1002,6 +1180,141 @@ router-default-8649b5bf65-w29cn   1/1     Running   0          6m10s</span></cod
 </div>
 </li>
 </ul>
+</div>
+<div class="sect2">
+<h3 id="microshift-ingress-controller-create-certificate-secret_microshift-ingress-controller"><a class="anchor" href="#microshift-ingress-controller-create-certificate-secret_microshift-ingress-controller"></a>Creating a secret for the ingress controller certificate</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>certificateSecret</code> parameter value is a reference to a secret that contains the default certificate that is served by the ingress controller. When routes do not specify their own certificate, the <code>certificateSecret</code> parameter is used. The certificate is valid for the ingress controller domain and subdomains, and the generated certificate&#8217;s CA is automatically integrated with the cluster&#8217;s truststore.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The in-use certificate, whether generated or user-specified, is automatically integrated with the MicroShift built-in OAuth server.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The private key must be unencrypted. If your key is encrypted, decrypt it before importing it into MicroShift.</p>
+</li>
+<li>
+<p>The certificate must include the <code>subjectAltName</code> extension showing <code>*.apps.&lt;clustername&gt;.&lt;domain&gt;</code>.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a secret that contains the wildcard certificate chain and key:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret tls &lt;secret&gt; <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">     --cert=&lt;/path/to/cert.crt&gt;</span><span class="w"> <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="gp">     --key=&lt;/path/to/cert.key&gt;</span><span class="w"> <i class="conum" data-value="3"></i><b>(3)</b>
+</span><span class="go">     -n openshift-ingress</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td><code>&lt;secret&gt;</code> is the name of the secret that contains the certificate chain and private key.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td><code>&lt;/path/to/cert.crt&gt;</code> is the path to the certificate chain on your local file system.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td><code>&lt;/path/to/cert.key&gt;</code> is the path to the private key associated with this certificate.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Update the <code>certificateSecret</code> parameter value in the MicroShift YAML configuration file with the newly created secret.</p>
+</li>
+<li>
+<p>Restart the MicroShift service.</p>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="microshift-ingress-controller-config_microshift-ingress-controller"><a class="anchor" href="#microshift-ingress-controller-config_microshift-ingress-controller"></a>Configuring the TLS security profile for the ingress controller</h3>
+<div class="paragraph">
+<p>You can configure the TLS security profile for the ingress controller to use by setting the type in MicroShift configuration YAML.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have root access to the MicroShift cluster.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Add the <code>spec.tlsSecurityProfile</code> field to the MicroShift YAML configuration file.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"> <span class="s">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">tlsSecurityProfile</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">Custom</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">custom</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">ciphers</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="pi">-</span> <span class="s">ECDHE-ECDSA-CHACHA20-POLY1305</span>
+      <span class="pi">-</span> <span class="s">ECDHE-RSA-CHACHA20-POLY1305</span>
+      <span class="pi">-</span> <span class="s">ECDHE-RSA-AES128-GCM-SHA256</span>
+      <span class="pi">-</span> <span class="s">ECDHE-ECDSA-AES128-GCM-SHA256</span>
+      <span class="na">minTLSVersion</span><span class="pi">:</span> <span class="s">VersionTLS11</span>
+ <span class="s">...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Specify the TLS security profile type (<code>Old</code>, <code>Intermediate</code>, or <code>Custom</code>). The default is <code>Intermediate</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Specify the appropriate field for the selected type:
+<div class="ulist">
+<ul>
+<li>
+<p><code>old: {}</code></p>
+</li>
+<li>
+<p><code>intermediate: {}</code></p>
+</li>
+<li>
+<p><code>custom:</code></p>
+</li>
+</ul>
+</div></td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>For the <code>custom</code> type, specify a list of TLS ciphers and minimum accepted TLS version.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Save the file to apply the changes.</p>
+</li>
+<li>
+<p>Restart the MicroShift service.</p>
+</li>
+</ol>
+</div>
 </div>
 </div>
 </div>
