@@ -3268,6 +3268,7 @@
 <li><a href="#cumulativetodelta-processor_otel-collector-processors">Cumulative-to-Delta Processor</a></li>
 <li><a href="#groupbyattrsprocessor-processor_otel-collector-processors">Group-by-Attributes Processor</a></li>
 <li><a href="#transform-processor_otel-collector-processors">Transform Processor</a></li>
+<li><a href="#tail-sampling-processor_otel-collector-processors">Tail Sampling Processor</a></li>
 <li><a href="#additional-resources_otel-collector-processors">Additional resources</a></li>
 </ul>
 </div>
@@ -3314,6 +3315,9 @@
 </li>
 <li>
 <p><a href="../../../observability/otel/otel-collector/otel-collector-processors.html#transform-processor_otel-collector-processors">Transform Processor</a></p>
+</li>
+<li>
+<p><a href="../../../observability/otel/otel-collector/otel-collector-processors.html#tail-sampling-processor_otel-collector-processors">Tail Sampling Processor</a></p>
 </li>
 </ul>
 </div>
@@ -3599,23 +3603,6 @@
 <div class="paragraph">
 <p>The Attributes Processor can modify attributes of a span, log, or metric. You can configure this processor to filter and match input data and include or exclude such data for specific actions.</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The Attributes Processor is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
 <div class="paragraph">
 <p>This processor operates on a list of actions, executing them in the order specified in the configuration. The following actions are supported:</p>
 </div>
@@ -3687,23 +3674,6 @@
 <div class="sectionbody">
 <div class="paragraph">
 <p>The Resource Processor applies changes to the resource attributes. This processor supports traces, metrics, and logs.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The Resource Processor is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 <div class="listingblock">
 <div class="title">OpenTelemetry Collector using the Resource Detection Processor</div>
@@ -3985,10 +3955,13 @@ This processor automatically identifies the Kubernetes resources, extracts the m
 <h2 id="cumulativetodelta-processor_otel-collector-processors"><a class="anchor" href="#cumulativetodelta-processor_otel-collector-processors"></a>Cumulative-to-Delta Processor</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The Cumulative-to-Delta Processor processor converts monotonic, cumulative-sum, and histogram metrics to monotonic delta metrics.</p>
+<p>The Cumulative-to-Delta Processor converts monotonic, cumulative-sum, and histogram metrics to monotonic delta metrics.</p>
 </div>
 <div class="paragraph">
 <p>You can filter metrics by using the <code>include:</code> or <code>exclude:</code> fields and specifying the <code>strict</code> or <code>regexp</code> metric name matching.</p>
+</div>
+<div class="paragraph">
+<p>Because this processor calculates delta by storing the previous value of a metric, you must set up the metric source to send the metric data to a single stateful Collector instance rather than a deployment of multiple Collectors.</p>
 </div>
 <div class="paragraph">
 <p>This processor does not convert non-monotonic sums and exponential histograms.</p>
@@ -4014,18 +3987,19 @@ This processor automatically identifies the Kubernetes resources, extracts the m
 <div class="title">Example of an OpenTelemetry Collector custom resource with an enabled Cumulative-to-Delta Processor</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
-  <span class="na">config</span><span class="pi">:</span>
-    <span class="na">processors</span><span class="pi">:</span>
-      <span class="na">cumulativetodelta</span><span class="pi">:</span>
-        <span class="na">include</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-          <span class="na">match_type</span><span class="pi">:</span> <span class="s">strict</span> <i class="conum" data-value="2"></i><b>(2)</b>
-          <span class="na">metrics</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
-          <span class="pi">-</span> <span class="s">&lt;metric_1_name&gt;</span>
-          <span class="pi">-</span> <span class="s">&lt;metric_2_name&gt;</span>
-        <span class="na">exclude</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
-          <span class="na">match_type</span><span class="pi">:</span> <span class="s">regexp</span>
-          <span class="na">metrics</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="s2">"</span><span class="s">&lt;regular_expression_for_metric_names&gt;"</span>
+<span class="na">mode</span><span class="pi">:</span> <span class="s">sidecar</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">config</span><span class="pi">:</span>
+  <span class="na">processors</span><span class="pi">:</span>
+    <span class="na">cumulativetodelta</span><span class="pi">:</span>
+      <span class="na">include</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+        <span class="na">match_type</span><span class="pi">:</span> <span class="s">strict</span> <i class="conum" data-value="3"></i><b>(3)</b>
+        <span class="na">metrics</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+        <span class="pi">-</span> <span class="s">&lt;metric_1_name&gt;</span>
+        <span class="pi">-</span> <span class="s">&lt;metric_2_name&gt;</span>
+      <span class="na">exclude</span><span class="pi">:</span> <i class="conum" data-value="5"></i><b>(5)</b>
+        <span class="na">match_type</span><span class="pi">:</span> <span class="s">regexp</span>
+        <span class="na">metrics</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">&lt;regular_expression_for_metric_names&gt;"</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -4033,19 +4007,23 @@ This processor automatically identifies the Kubernetes resources, extracts the m
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Optional: Configures which metrics to include. When omitted, all metrics, except for those listed in the <code>exclude</code> field, are converted to delta metrics.</td>
+<td>To tie the Collector&#8217;s lifecycle to the metric source, you can run the Collector as a sidecar to the application that emits the cumulative temporality metrics.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Defines a value provided in the <code>metrics</code> field as a <code>strict</code> exact match or <code>regexp</code> regular expression.</td>
+<td>Optional: You can limit which metrics the processor converts by explicitly defining which metrics you want converted in this stanza. If you omit this field, the processor converts all metrics, except the metrics that are listed in the <code>exclude</code> field.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Lists the metric names, which are exact matches or matches for regular expressions, of the metrics to be converted to delta metrics. If a metric matches both the <code>include</code> and <code>exclude</code> filters, the <code>exclude</code> filter takes precedence.</td>
+<td>Defines the value that you provided in the <code>metrics</code> field as an exact match by using the <code>strict</code> parameter or a regular expression by using the <code>regex</code> parameter.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Optional: Configures which metrics to exclude. When omitted, no metrics are excluded from conversion to delta metrics.</td>
+<td>Lists the names of the metrics that you want to convert. The processor converts exact matches or matches for regular expressions. If a metric matches both the <code>include</code> and <code>exclude</code> filters, the <code>exclude</code> filter takes precedence.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Optional: You can exclude certain metrics from conversion by explicitly defining them here.</td>
 </tr>
 </table>
 </div>
@@ -4078,6 +4056,7 @@ This processor automatically identifies the Kubernetes resources, extracts the m
 <p>At minimum, configuring this processor involves specifying an array of attribute keys to be used to group spans, log records, or metric datapoints together, as in the following example:</p>
 </div>
 <div class="listingblock">
+<div class="title">Example of the OpenTelemetry Collector custom resource when using the Group-by-Attributes Processor</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
   <span class="na">config</span><span class="pi">:</span>
@@ -4179,7 +4158,7 @@ The value of the <code>context</code> type specifies which OTTL Context the proc
 </table>
 </div>
 <div class="listingblock">
-<div class="title">Configuration example</div>
+<div class="title">Example of the OpenTelemetry Collector custom resource when using the Transform Processor</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
   <span class="na">config</span><span class="pi">:</span>
@@ -4300,6 +4279,488 @@ The value of the <code>context</code> type specifies which OTTL Context the proc
 </tr>
 </tbody>
 </table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="tail-sampling-processor_otel-collector-processors"><a class="anchor" href="#tail-sampling-processor_otel-collector-processors"></a>Tail Sampling Processor</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Tail Sampling Processor samples traces according to user-defined policies when all of the spans are completed. Tail-based sampling enables you to filter the traces of interest and reduce your data ingestion and storage costs.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The Tail Sampling Processor is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>This processor reassembles spans into new batches and strips spans of their original context.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>In pipelines, place this processor downstream of any processors that rely on context: for example, after the Kubernetes Attributes Processor.</p>
+</li>
+<li>
+<p>If scaling the Collector, ensure that one Collector instance receives all spans of the same trace so that this processor makes correct sampling decisions based on the specified sampling policies. You can achieve this by setting up two layers of Collectors: the first layer of Collectors with the Load Balancing Exporter, and the second layer of Collectors with the Tail Sampling Processor.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example of the OpenTelemetry Collector custom resource when using the Tail Sampling Processor</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">config</span><span class="pi">:</span>
+  <span class="na">processors</span><span class="pi">:</span>
+    <span class="na">tail_sampling</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">decision_wait</span><span class="pi">:</span> <span class="s">30s</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">num_traces</span><span class="pi">:</span> <span class="s">50000</span> <i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="na">expected_new_traces_per_sec</span><span class="pi">:</span> <span class="s">10</span> <i class="conum" data-value="4"></i><b>(4)</b>
+      <span class="na">policies</span><span class="pi">:</span> <i class="conum" data-value="5"></i><b>(5)</b>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">&lt;definition_of_policy_1&gt;</span>
+          <span class="pi">},</span>
+          <span class="pi">{</span>
+            <span class="nv">&lt;definition_of_policy_2&gt;</span>
+          <span class="pi">},</span>
+          <span class="pi">{</span>
+            <span class="nv">&lt;definition_of_policy_3&gt;</span>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Processor name.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Optional: Decision delay time, counted from the time of the first span, before the processor makes a sampling decision on each trace. Defaults to <code>30s</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Optional: The number of traces kept in memory. Defaults to <code>50000</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Optional: The expected number of new traces per second, which is helpful for allocating data structures. Defaults to <code>0</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Definitions of the policies for trace evaluation. The processor evaluates each trace against all of the specified policies and then either samples or drops the trace.</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>You can choose and combine policies from the following list:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The following policy samples all traces:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;always_sample_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">always_sample</span><span class="pi">,</span>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The following policy samples only traces of a duration that is within a specified range:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;latency_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">latency</span><span class="pi">,</span>
+            <span class="nv">latency</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">threshold_ms</span><span class="pi">:</span> <span class="nv">5000</span><span class="pi">,</span> <span class="nv">upper_threshold_ms</span><span class="pi">:</span> <span class="nv">10000</span><span class="pi">}</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The provided <code>5000</code> and <code>10000</code> values are examples. You can estimate the desired latency values by looking at the earliest start time value and latest end time value. If you omit the <code>upper_threshold_ms</code> field, this policy samples all latencies greater than the specified <code>threshold_ms</code> value.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>The following policy samples traces by numeric value matches for resource and record attributes:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;numeric_attribute_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">numeric_attribute</span><span class="pi">,</span>
+            <span class="nv">numeric_attribute</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">key</span><span class="pi">:</span> <span class="nv">&lt;key1&gt;</span><span class="pi">,</span> <span class="nv">min_value</span><span class="pi">:</span> <span class="nv">50</span><span class="pi">,</span> <span class="nv">max_value</span><span class="pi">:</span> <span class="nv">100</span><span class="pi">}</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The provided <code>50</code> and <code>100</code> values are examples.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>The following policy samples only a percentage of traces:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;probabilistic_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">probabilistic</span><span class="pi">,</span>
+            <span class="nv">probabilistic</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">sampling_percentage</span><span class="pi">:</span> <span class="nv">10</span><span class="pi">}</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The provided <code>10</code> value is an example.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>The following policy samples traces by the status code: <code>OK</code>, <code>ERROR</code>, or <code>UNSET</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;status_code_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">status_code</span><span class="pi">,</span>
+            <span class="nv">status_code</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">status_codes</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ERROR</span><span class="pi">,</span> <span class="nv">UNSET</span><span class="pi">]}</span>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The following policy samples traces by string value matches for resource and record attributes:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;string_attribute_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">string_attribute</span><span class="pi">,</span>
+            <span class="nv">string_attribute</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">key</span><span class="pi">:</span> <span class="nv">&lt;key2&gt;</span><span class="pi">,</span> <span class="nv">values</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">&lt;value1&gt;</span><span class="pi">,</span> <span class="nv">&lt;val&gt;*</span><span class="pi">],</span> <span class="nv">enabled_regex_matching</span><span class="pi">:</span> <span class="nv">true</span><span class="pi">,</span> <span class="nv">cache_max_size</span><span class="pi">:</span> <span class="nv">10</span><span class="pi">}</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>This policy definition supports both exact and regular-expression value matches. The provided <code>10</code> value in the <code>cache_max_size</code> field is an example.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>The following policy samples traces by the rate of spans per second:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;rate_limiting_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">rate_limiting</span><span class="pi">,</span>
+            <span class="nv">rate_limiting</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">spans_per_second</span><span class="pi">:</span> <span class="nv">35</span><span class="pi">}</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The provided <code>35</code> value is an example.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>The following policy samples traces by the minimum and maximum number of spans inclusively:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;span_count_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">span_count</span><span class="pi">,</span>
+            <span class="nv">span_count</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">min_spans</span><span class="pi">:</span> <span class="nv">2</span><span class="pi">,</span> <span class="nv">max_spans</span><span class="pi">:</span> <span class="nv">20</span><span class="pi">}</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>If the sum of all spans in the trace is outside the range threshold, the trace is not sampled. The provided <code>2</code> and <code>20</code> values are examples.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>The following policy samples traces by <code>TraceState</code> value matches:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;trace_state_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">trace_state</span><span class="pi">,</span>
+            <span class="nv">trace_state</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">key</span><span class="pi">:</span> <span class="nv">&lt;key3&gt;</span><span class="pi">,</span> <span class="nv">values</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">&lt;value1&gt;</span><span class="pi">,</span> <span class="nv">&lt;value2&gt;</span><span class="pi">]</span> <span class="pi">}</span>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The following policy samples traces by a boolean attribute (resource and record):</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;bool_attribute_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">boolean_attribute</span><span class="pi">,</span>
+            <span class="nv">boolean_attribute</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">key</span><span class="pi">:</span> <span class="nv">&lt;key4&gt;</span><span class="pi">,</span> <span class="nv">value</span><span class="pi">:</span> <span class="nv">true</span><span class="pi">}</span>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The following policy samples traces by a given boolean OTTL condition for a span or span event:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;ottl_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">ottl_condition</span><span class="pi">,</span>
+            <span class="nv">ottl_condition</span><span class="pi">:</span> <span class="pi">{</span>
+              <span class="nv">error_mode</span><span class="pi">:</span> <span class="nv">ignore</span><span class="pi">,</span>
+              <span class="nv">span</span><span class="pi">:</span> <span class="pi">[</span>
+                <span class="s2">"</span><span class="s">attributes[</span><span class="se">\"</span><span class="s">&lt;test_attr_key_1&gt;</span><span class="se">\"</span><span class="s">]</span><span class="nv"> </span><span class="s">==</span><span class="nv"> </span><span class="se">\"</span><span class="s">&lt;test_attr_value_1&gt;</span><span class="se">\"</span><span class="s">"</span><span class="pi">,</span>
+                <span class="s2">"</span><span class="s">attributes[</span><span class="se">\"</span><span class="s">&lt;test_attr_key_2&gt;</span><span class="se">\"</span><span class="s">]</span><span class="nv"> </span><span class="s">!=</span><span class="nv"> </span><span class="se">\"</span><span class="s">&lt;test_attr_value_1&gt;</span><span class="se">\"</span><span class="s">"</span><span class="pi">,</span>
+              <span class="pi">],</span>
+              <span class="nv">spanevent</span><span class="pi">:</span> <span class="pi">[</span>
+                <span class="s2">"</span><span class="s">name</span><span class="nv"> </span><span class="s">!=</span><span class="nv"> </span><span class="se">\"</span><span class="s">&lt;test_span_event_name&gt;</span><span class="se">\"</span><span class="s">"</span><span class="pi">,</span>
+                <span class="s2">"</span><span class="s">attributes[</span><span class="se">\"</span><span class="s">&lt;test_event_attr_key_2&gt;</span><span class="se">\"</span><span class="s">]</span><span class="nv"> </span><span class="s">!=</span><span class="nv"> </span><span class="se">\"</span><span class="s">&lt;test_event_attr_value_1&gt;</span><span class="se">\"</span><span class="s">"</span><span class="pi">,</span>
+              <span class="pi">]</span>
+            <span class="pi">}</span>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The following is an <code>AND</code> policy that samples traces based on a combination of multiple policies:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;and_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">and</span><span class="pi">,</span>
+            <span class="nv">and</span><span class="pi">:</span> <span class="pi">{</span>
+              <span class="nv">and_sub_policy</span><span class="pi">:</span>
+              <span class="pi">[</span>
+                <span class="pi">{</span>
+                  <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;and_policy_1&gt;</span><span class="pi">,</span>
+                  <span class="nv">type</span><span class="pi">:</span> <span class="nv">numeric_attribute</span><span class="pi">,</span>
+                  <span class="nv">numeric_attribute</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">key</span><span class="pi">:</span> <span class="nv">&lt;key1&gt;</span><span class="pi">,</span> <span class="nv">min_value</span><span class="pi">:</span> <span class="nv">50</span><span class="pi">,</span> <span class="nv">max_value</span><span class="pi">:</span> <span class="nv">100</span> <span class="pi">}</span> <i class="conum" data-value="1"></i><b>(1)</b>
+                <span class="pi">},</span>
+                <span class="pi">{</span>
+                  <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;and_policy_2&gt;</span><span class="pi">,</span>
+                  <span class="nv">type</span><span class="pi">:</span> <span class="nv">string_attribute</span><span class="pi">,</span>
+                  <span class="nv">string_attribute</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">key</span><span class="pi">:</span> <span class="nv">&lt;key2&gt;</span><span class="pi">,</span> <span class="nv">values</span><span class="pi">:</span> <span class="pi">[</span> <span class="nv">&lt;value1&gt;</span><span class="pi">,</span> <span class="nv">&lt;value2&gt;</span> <span class="pi">]</span> <span class="pi">}</span>
+                <span class="pi">},</span>
+              <span class="pi">]</span>
+            <span class="pi">}</span>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The provided <code>50</code> and <code>100</code> values are examples.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>The following is a <code>DROP</code> policy that drops traces from sampling based on a combination of multiple policies:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;drop_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">drop</span><span class="pi">,</span>
+            <span class="nv">drop</span><span class="pi">:</span> <span class="pi">{</span>
+              <span class="nv">drop_sub_policy</span><span class="pi">:</span>
+              <span class="pi">[</span>
+                <span class="pi">{</span>
+                  <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;drop_policy_1&gt;</span><span class="pi">,</span>
+                  <span class="nv">type</span><span class="pi">:</span> <span class="nv">string_attribute</span><span class="pi">,</span>
+                  <span class="nv">string_attribute</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">key</span><span class="pi">:</span> <span class="nv">url.path</span><span class="pi">,</span> <span class="nv">values</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">\/health</span><span class="pi">,</span> <span class="nv">\/metrics</span><span class="pi">],</span> <span class="nv">enabled_regex_matching</span><span class="pi">:</span> <span class="nv">true</span><span class="pi">}</span>
+                <span class="pi">}</span>
+              <span class="pi">]</span>
+            <span class="pi">}</span>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The following policy samples traces by a combination of the previous samplers and with ordering and rate allocation per sampler:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+      <span class="na">policies</span><span class="pi">:</span>
+        <span class="pi">[</span>
+          <span class="pi">{</span>
+            <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;composite_policy&gt;</span><span class="pi">,</span>
+            <span class="nv">type</span><span class="pi">:</span> <span class="nv">composite</span><span class="pi">,</span>
+            <span class="nv">composite</span><span class="pi">:</span>
+              <span class="pi">{</span>
+                <span class="nv">max_total_spans_per_second</span><span class="pi">:</span> <span class="nv">100</span><span class="pi">,</span> <i class="conum" data-value="1"></i><b>(1)</b>
+                <span class="nv">policy_order</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">&lt;composite_policy_1&gt;</span><span class="pi">,</span> <span class="nv">&lt;composite_policy_2&gt;</span><span class="pi">,</span> <span class="nv">&lt;composite_policy_3&gt;</span><span class="pi">],</span>
+                <span class="nv">composite_sub_policy</span><span class="pi">:</span>
+                  <span class="pi">[</span>
+                    <span class="pi">{</span>
+                      <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;composite_policy_1&gt;</span><span class="pi">,</span>
+                      <span class="nv">type</span><span class="pi">:</span> <span class="nv">numeric_attribute</span><span class="pi">,</span>
+                      <span class="nv">numeric_attribute</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">key</span><span class="pi">:</span> <span class="nv">&lt;key1&gt;</span><span class="pi">,</span> <span class="nv">min_value</span><span class="pi">:</span> <span class="nv">50</span><span class="pi">}</span>
+                    <span class="pi">},</span>
+                    <span class="pi">{</span>
+                      <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;composite_policy_2&gt;</span><span class="pi">,</span>
+                      <span class="nv">type</span><span class="pi">:</span> <span class="nv">string_attribute</span><span class="pi">,</span>
+                      <span class="nv">string_attribute</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">key</span><span class="pi">:</span> <span class="nv">&lt;key2&gt;</span><span class="pi">,</span> <span class="nv">values</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">&lt;value1&gt;</span><span class="pi">,</span> <span class="nv">&lt;value2&gt;</span><span class="pi">]}</span>
+                    <span class="pi">},</span>
+                    <span class="pi">{</span>
+                      <span class="nv">name</span><span class="pi">:</span> <span class="nv">&lt;composite_policy_3&gt;</span><span class="pi">,</span>
+                      <span class="nv">type</span><span class="pi">:</span> <span class="nv">always_sample</span>
+                    <span class="pi">}</span>
+                  <span class="pi">],</span>
+                  <span class="nv">rate_allocation</span><span class="pi">:</span>
+                  <span class="pi">[</span>
+                    <span class="pi">{</span>
+                      <span class="nv">policy</span><span class="pi">:</span> <span class="nv">&lt;composite_policy_1&gt;</span><span class="pi">,</span>
+                      <span class="nv">percent</span><span class="pi">:</span> <span class="nv">50</span> <i class="conum" data-value="1"></i><b>(1)</b>
+                    <span class="pi">},</span>
+                    <span class="pi">{</span>
+                      <span class="nv">policy</span><span class="pi">:</span> <span class="nv">&lt;composite_policy_2&gt;</span><span class="pi">,</span>
+                      <span class="nv">percent</span><span class="pi">:</span> <span class="nv">25</span>
+                    <span class="pi">}</span>
+                  <span class="pi">]</span>
+              <span class="pi">}</span>
+          <span class="pi">},</span>
+        <span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Allocates percentages of spans according to the order of applied policies. For example, if you set the <code>100</code> value in the <code>max_total_spans_per_second</code> field, you can set the following values in the <code>rate_allocation</code> section: the <code>50</code> percent value in the <code>policy: &lt;composite_policy_1&gt;</code> section to allocate 50 spans per second, and the <code>25</code> percent value in the <code>policy: &lt;composite_policy_2&gt;</code> section to allocate 25 spans per second. To fill the remaining capacity, you can set the <code>always_sample</code> value in the <code>type</code> field of the <code>name: &lt;composite_policy_3&gt;</code> section.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://opentelemetry.io/blog/2022/tail-sampling/">Tail Sampling with OpenTelemetry: Why it’s useful, how to do it, and what to consider</a> (OpenTelemetry Blog)</p>
+</li>
+<li>
+<p><a href="https://opentelemetry.io/docs/collector/deployment/gateway/">Gateway</a> (OpenTelemetry Documentation)</p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1 _additional-resources">

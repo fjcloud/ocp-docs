@@ -3266,6 +3266,7 @@
 <li><a href="#distr-tracing-tempo-config-receiver-tls-for-tempomonolithic_distr-tracing-tempo-configuring">Receiver TLS configuration for a TempoMonolithic instance</a></li>
 </ul>
 </li>
+<li><a href="#distr-tracing-tempo-configuring-query-rbac_distr-tracing-tempo-configuring">Configuring the query RBAC</a></li>
 <li><a href="#taints-and-tolerations_distr-tracing-tempo-configuring">Using taints and tolerations</a></li>
 <li><a href="#setting-up-monitoring-for-tempo_distr-tracing-tempo-configuring">Configuring monitoring and alerts</a>
 <ul class="sectlevel2">
@@ -3319,7 +3320,10 @@
   <span class="na">storage</span><span class="pi">:</span> <span class="pi">{}</span> <i class="conum" data-value="6"></i><b>(6)</b>
   <span class="na">resources</span><span class="pi">:</span> <span class="pi">{}</span> <i class="conum" data-value="7"></i><b>(7)</b>
   <span class="na">replicationFactor</span><span class="pi">:</span> <span class="s">1</span> <i class="conum" data-value="8"></i><b>(8)</b>
-  <span class="na">retention</span><span class="pi">:</span> <span class="pi">{}</span> <i class="conum" data-value="9"></i><b>(9)</b>
+  <span class="na">retention</span><span class="pi">:</span> <i class="conum" data-value="9"></i><b>(9)</b>
+    <span class="na">global</span><span class="pi">:</span>
+      <span class="na">traces</span><span class="pi">:</span> <span class="s">48h</span>
+    <span class="na">perTenant</span><span class="pi">:</span> <span class="pi">{}</span>
   <span class="na">template</span><span class="pi">:</span>
       <span class="na">distributor</span><span class="pi">:</span> <span class="pi">{}</span> <i class="conum" data-value="10"></i><b>(10)</b>
       <span class="na">ingester</span><span class="pi">:</span> <span class="pi">{}</span> <i class="conum" data-value="11"></i><b>(11)</b>
@@ -3375,7 +3379,7 @@
 </tr>
 <tr>
 <td><i class="conum" data-value="9"></i><b>9</b></td>
-<td>Configuration options for retention of traces.</td>
+<td>Configuration options for retention of traces. The default value is <code>48h</code>.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="10"></i><b>10</b></td>
@@ -4322,6 +4326,168 @@
 </li>
 </ul>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="distr-tracing-tempo-configuring-query-rbac_distr-tracing-tempo-configuring"><a class="anchor" href="#distr-tracing-tempo-configuring-query-rbac_distr-tracing-tempo-configuring"></a>Configuring the query RBAC</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As an administrator, you can set up the query role-based access control (RBAC) to filter the span attributes for your users by the namespaces for which you granted them permissions.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When you enable the query RBAC, users can still access traces from all namespaces, and the <code>service.name</code> and <code>k8s.namespace.name</code> attributes are also visible to all users.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>An active OpenShift CLI (<code>oc</code>) session by a cluster administrator with the <code>cluster-admin</code> role.</p>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Ensure that your OpenShift CLI (<code>oc</code>) version is up to date and matches your OpenShift Container Platform version.</p>
+</li>
+<li>
+<p>Run <code>oc login</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc login <span class="nt">--username</span><span class="o">=</span>&lt;your_username&gt;</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Enable multitenancy and query RBAC in the <code>TempoStack</code> custom resource (CR), for example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">tempo.grafana.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">TempoStack</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">simplest</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">chainsaw-multitenancy</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">secret</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">minio</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">s3</span>
+  <span class="na">storageSize</span><span class="pi">:</span> <span class="s">1Gi</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">total</span><span class="pi">:</span>
+      <span class="na">limits</span><span class="pi">:</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s">2Gi</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s">2000m</span>
+  <span class="na">tenants</span><span class="pi">:</span>
+    <span class="na">mode</span><span class="pi">:</span> <span class="s">openshift</span>
+    <span class="na">authentication</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">tenantName</span><span class="pi">:</span> <span class="s">dev</span>
+        <span class="na">tenantId</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1610b0c3-c509-4592-a256-a1871353dbfb"</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">gateway</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">rbac</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="na">queryFrontend</span><span class="pi">:</span>
+      <span class="na">jaegerQuery</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Always set to <code>true</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Always set to <code>true</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Always set to <code>false</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a cluster role and cluster role binding to grant the target users the permissions to access the tenant that you specified in the <code>TempoStack</code> CR, for example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">tempo-dev-read</span>
+<span class="na">rules</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">tempo.grafana.com</span><span class="pi">]</span>
+  <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">dev</span><span class="pi">]</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">resourceNames</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">traces</span><span class="pi">]</span>
+  <span class="na">verbs</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">get</span><span class="pi">]</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRoleBinding</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">tempo-dev-read</span>
+<span class="na">roleRef</span><span class="pi">:</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">tempo-dev-read</span>
+<span class="na">subjects</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">Group</span>
+    <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">system:authenticated</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Tenant name in the <code>TempoStack</code> CR.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Means all authenticated OpenShift users.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Grant the target users the permissions to read attributes for the project. You can do this by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="bash"><span class="nv">$ </span>oc adm policy add-role-to-user view &lt;username&gt; <span class="nt">-n</span> &lt;project&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
