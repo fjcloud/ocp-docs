@@ -3244,7 +3244,9 @@
 </li>
 <li><a href="#distr-tracing-tempo-object-storage-setup_distr-tracing-tempo-installing">Object storage setup</a>
 <ul class="sectlevel2">
-<li><a href="#distr-tracing-tempo-object-storage-setup-aws-sts-install_distr-tracing-tempo-installing">Setting up the Amazon S3 storage with the Security Token Service</a></li>
+<li><a href="#setting-up-amazon-s3-storage-with-security-token-service_distr-tracing-tempo-installing">Setting up the Amazon S3 storage with the Security Token Service</a></li>
+<li><a href="#setting-up-azure-storage-with-security-token-service_distr-tracing-tempo-installing">Setting up the Azure storage with the Security Token Service</a></li>
+<li><a href="#setting-up-google-cloud-storage-with-security-token-service_distr-tracing-tempo-installing">Setting up the Google Cloud storage with the Security Token Service</a></li>
 <li><a href="#distr-tracing-tempo-object-storage-setup-ibm-storage_distr-tracing-tempo-installing">Setting up IBM Cloud Object Storage</a></li>
 </ul>
 </li>
@@ -3623,9 +3625,9 @@ EOF</span></code></pre>
 </div>
 </div>
 <div class="sect2">
-<h3 id="distr-tracing-tempo-object-storage-setup-aws-sts-install_distr-tracing-tempo-installing"><a class="anchor" href="#distr-tracing-tempo-object-storage-setup-aws-sts-install_distr-tracing-tempo-installing"></a>Setting up the Amazon S3 storage with the Security Token Service</h3>
+<h3 id="setting-up-amazon-s3-storage-with-security-token-service_distr-tracing-tempo-installing"><a class="anchor" href="#setting-up-amazon-s3-storage-with-security-token-service_distr-tracing-tempo-installing"></a>Setting up the Amazon S3 storage with the Security Token Service</h3>
 <div class="paragraph">
-<p>You can set up the Amazon S3 storage with the Security Token Service (STS) by using the AWS Command Line Interface (AWS CLI).</p>
+<p>You can set up the Amazon S3 storage with the Security Token Service (STS) and AWS Command Line Interface (AWS CLI). Optionally, you can also use the Cloud Credential Operator (CCO).</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3635,7 +3637,7 @@ EOF</span></code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The Amazon S3 storage with the Security Token Service is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+<p>Using the Distributed Tracing Platform with the Amazon S3 storage and STS is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
 </div>
 <div class="paragraph">
 <p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
@@ -3650,6 +3652,9 @@ EOF</span></code></pre>
 <li>
 <p>You have installed the latest version of the AWS CLI.</p>
 </li>
+<li>
+<p>If you intend to use the CCO, you have installed and configured the CCO in your cluster.</p>
+</li>
 </ul>
 </div>
 <div class="olist arabic">
@@ -3659,8 +3664,9 @@ EOF</span></code></pre>
 <p>Create an AWS S3 bucket.</p>
 </li>
 <li>
-<p>Create the following <code>trust.json</code> file for the AWS IAM policy that will set up a trust relationship for the AWS IAM role, created in the next step, with the service account of the TempoStack instance:</p>
+<p>Create the following <code>trust.json</code> file for the AWS Identity and Access Management (AWS IAM) policy for the purpose of setting up a trust relationship between the AWS IAM role, which you will create in the next step, and the service account of either the <code>TempoStack</code> or <code>TempoMonolithic</code> instance:</p>
 <div class="listingblock">
+<div class="title"><code>trust.json</code></div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="pi">{</span>
     <span class="s2">"</span><span class="s">Version"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2012-10-17"</span><span class="pi">,</span>
@@ -3668,14 +3674,14 @@ EOF</span></code></pre>
       <span class="pi">{</span>
         <span class="s2">"</span><span class="s">Effect"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Allow"</span><span class="pi">,</span>
         <span class="s2">"</span><span class="s">Principal"</span><span class="pi">:</span> <span class="pi">{</span>
-          <span class="s2">"</span><span class="s">Federated"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">arn:aws:iam::${&lt;aws_account_id&gt;}:oidc-provider/${&lt;oidc_provider&gt;}"</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="s2">"</span><span class="s">Federated"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">arn:aws:iam::&lt;aws_account_id&gt;:oidc-provider/&lt;oidc_provider&gt;"</span> <i class="conum" data-value="1"></i><b>(1)</b>
         <span class="pi">},</span>
         <span class="s2">"</span><span class="s">Action"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">sts:AssumeRoleWithWebIdentity"</span><span class="pi">,</span>
         <span class="s2">"</span><span class="s">Condition"</span><span class="pi">:</span> <span class="pi">{</span>
           <span class="s2">"</span><span class="s">StringEquals"</span><span class="pi">:</span> <span class="pi">{</span>
-            <span class="s2">"</span><span class="s">${OIDC_PROVIDER}:sub"</span><span class="pi">:</span> <span class="pi">[</span>
-              <span class="s2">"</span><span class="s">system:serviceaccount:${&lt;openshift_project_for_tempostack&gt;}:tempo-${&lt;tempostack_cr_name&gt;}"</span> <i class="conum" data-value="2"></i><b>(2)</b>
-              <span class="s2">"</span><span class="s">system:serviceaccount:${&lt;openshift_project_for_tempostack&gt;}:tempo-${&lt;tempostack_cr_name&gt;}-query-frontend"</span>
+            <span class="s2">"</span><span class="s">&lt;oidc_provider&gt;:sub"</span><span class="pi">:</span> <span class="pi">[</span>
+              <span class="s2">"</span><span class="s">system:serviceaccount:&lt;openshift_project_for_tempo&gt;:tempo-&lt;tempo_custom_resource_name&gt;"</span> <i class="conum" data-value="2"></i><b>(2)</b>
+              <span class="s2">"</span><span class="s">system:serviceaccount:&lt;openshift_project_for_tempo&gt;:tempo-&lt;tempo_custom_resource_name&gt;-query-frontend"</span>
            <span class="pi">]</span>
          <span class="pi">}</span>
        <span class="pi">}</span>
@@ -3688,17 +3694,36 @@ EOF</span></code></pre>
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>OIDC provider that you have configured on the OpenShift Container Platform. You can get the configured OIDC provider value also by running the following command: <code>$ oc get authentication cluster -o json | jq -r '.spec.serviceAccountIssuer' | sed 's<sub>http[s]*://</sub>~g'</code>.</td>
+<td>The OpenID Connect (OIDC) provider that you have configured on the OpenShift Container Platform.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Namespace in which you intend to create the TempoStack instance.</td>
+<td>The namespace in which you intend to create either a <code>TempoStack</code> or <code>TempoMonolithic</code> instance. Replace <code>&lt;tempo_custom_resource_name&gt;</code> with the <code>metadata</code> name that you define in your <code>TempoStack</code> or <code>TempoMonolithic</code> custom resource.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can also get the value for the OIDC provider by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get authentication cluster <span class="nt">-o</span> json | jq <span class="nt">-r</span> <span class="s1">'.spec.serviceAccountIssuer'</span> | <span class="nb">sed</span> <span class="s1">'s~http[s]*://~~g'</span></code></pre>
+</div>
+</div>
+</td>
 </tr>
 </table>
 </div>
 </li>
 <li>
-<p>Create an AWS IAM role by attaching the <code>trust.json</code> policy file that you created:</p>
+<p>Create an AWS IAM role by attaching the created <code>trust.json</code> policy file. You can do this by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws iam create-role <span class="se">\</span>
@@ -3710,7 +3735,7 @@ EOF</span></code></pre>
 </div>
 </li>
 <li>
-<p>Attach an AWS IAM policy to the created role:</p>
+<p>Attach an AWS IAM policy to the created AWS IAM role. You can do this by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws iam attach-role-policy <span class="se">\</span>
@@ -3720,19 +3745,110 @@ EOF</span></code></pre>
 </div>
 </li>
 <li>
+<p>If you are not using the CCO, skip this step. If you are using the CCO, configure the cloud provider environment for the Tempo Operator. You can do this by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch subscription &lt;tempo_operator_sub&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">          -n &lt;tempo_operator_namespace&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+<span class="gp">          --type='merge' -p '{"spec": {"config": {"env": [{"name": "ROLEARN", "value": "'"&lt;role_arn&gt;</span><span class="s2">"'"</span><span class="o">}]}}}</span><span class="s1">' <i class="conum" data-value="3"></i><b>(3)</b>
+</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of the Tempo Operator subscription.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The namespace of the Tempo Operator.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The AWS STS requires adding the <code>ROLEARN</code> environment variable to the Tempo Operator subcription. As the <code>&lt;role_arn&gt;</code> value, add the Amazon Resource Name (ARN) of the AWS IAM role that you created in step 3.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
 <p>In the OpenShift Container Platform, create an object storage secret with keys as follows:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Secret</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">minio-test</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;secret_name&gt;</span>
 <span class="na">stringData</span><span class="pi">:</span>
   <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;s3_bucket_name&gt;</span>
   <span class="na">region</span><span class="pi">:</span> <span class="s">&lt;s3_region&gt;</span>
   <span class="na">role_arn</span><span class="pi">:</span> <span class="s">&lt;s3_role_arn&gt;</span>
 <span class="na">type</span><span class="pi">:</span> <span class="s">Opaque</span></code></pre>
 </div>
+</div>
+</li>
+<li>
+<p>When the object storage secret is created, update the relevant custom resource of the Distributed Tracing Platform instance as follows:</p>
+<div class="listingblock">
+<div class="title">Example <code>TempoStack</code> custom resource</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">tempo.grafana.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">TempoStack</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">secret</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;secret_name&gt;</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">s3</span>
+      <span class="na">credentialMode</span><span class="pi">:</span> <span class="s">token-cco</span> <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The secret that you created in the previous step.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>If you are not using the CCO, omit this line. If you are using the CCO, add this parameter with the <code>token-cco</code> value.</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>TempoMonolithic</code> custom resource</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">tempo.grafana.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">TempoMonolithic</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">traces</span><span class="pi">:</span>
+      <span class="na">backend</span><span class="pi">:</span> <span class="s">s3</span>
+      <span class="na">s3</span><span class="pi">:</span>
+        <span class="na">secret</span><span class="pi">:</span> <span class="s">&lt;secret_name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+        <span class="na">credentialMode</span><span class="pi">:</span> <span class="s">token-cco</span> <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The secret that you created in the previous step.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>If you are not using the CCO, omit this line. If you are using the CCO, add this parameter with the <code>token-cco</code> value.</td>
+</tr>
+</table>
 </div>
 </li>
 </ol>
@@ -3751,6 +3867,572 @@ EOF</span></code></pre>
 </li>
 <li>
 <p><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/reference-arns.html">Identify AWS resources with Amazon Resource Names (ARNs)</a> (AWS documentation)</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="setting-up-azure-storage-with-security-token-service_distr-tracing-tempo-installing"><a class="anchor" href="#setting-up-azure-storage-with-security-token-service_distr-tracing-tempo-installing"></a>Setting up the Azure storage with the Security Token Service</h3>
+<div class="paragraph">
+<p>You can set up the Azure storage with the Security Token Service (STS) by using the Azure Command Line Interface (Azure CLI).</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Using the Distributed Tracing Platform with the Azure storage and STS is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the latest version of the Azure CLI.</p>
+</li>
+<li>
+<p>You have created an Azure storage account.</p>
+</li>
+<li>
+<p>You have created an Azure blob storage container.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create an Azure managed identity by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az identity create <span class="se">\</span>
+  <span class="nt">--name</span> &lt;identity_name&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">  --resource-group &lt;resource_group&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+<span class="gp">  --location &lt;region&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="3"></i><b>(3)</b>
+<span class="gp">  --subscription &lt;subscription_id&gt;</span><span class="w"> <i class="conum" data-value="4"></i><b>(4)</b>
+</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name you have chosen for the managed identity.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The Azure resource group where you want the identity to be created.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The Azure region, which must be the same region as for the resource group.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>The Azure subscription ID.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a federated identity credential for the OpenShift Container Platform service account for use by all components of the Distributed Tracing Platform except the Query Frontend. You can do this by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az identity federated-credential create <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">  --name &lt;credential_name&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+<span class="gp">  --identity-name &lt;identity_name&gt;</span><span class="w"> </span><span class="se">\</span>
+  <span class="nt">--resource-group</span> &lt;resource_group&gt; <span class="se">\</span>
+  <span class="nt">--issuer</span> &lt;oidc_provider&gt; <span class="se">\ </span><i class="conum" data-value="3"></i><b>(3)</b>
+<span class="gp">  --subject &lt;tempo_service_account_subject&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="4"></i><b>(4)</b>
+<span class="gp">  --audiences &lt;audience&gt;</span><span class="w"> <i class="conum" data-value="5"></i><b>(5)</b>
+</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Federated identity credentials allow OpenShift Container Platform service accounts to authenticate as an Azure managed identity without storing secrets or using an Azure service principal identity.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The name you have chosen for the federated credential.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The URL of the OpenID Connect (OIDC) provider for your cluster.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>The service account subject for your cluster in the following format: <code>system:serviceaccount:&lt;namespace&gt;:tempo-&lt;tempostack_instance_name&gt;</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>The expected audience, which is to be used for validating the issued tokens for the federated identity credential. This is commonly set to <code>api://AzureADTokenExchange</code>.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can get the URL of the OpenID Connect (OIDC) issuer for your cluster by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="nowrap">$ oc get authentication cluster -o json | jq -r .spec.serviceAccountIssuer</pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a federated identity credential for the OpenShift Container Platform service account for use by the Query Frontend component of the Distributed Tracing Platform. You can do this by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az identity federated-credential create <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">  --name &lt;credential_name&gt;</span><span class="nt">-frontend</span> <span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+<span class="gp">  --identity-name &lt;identity_name&gt;</span><span class="w"> </span><span class="se">\</span>
+  <span class="nt">--resource-group</span> &lt;resource_group&gt; <span class="se">\</span>
+  <span class="nt">--issuer</span> &lt;cluster_issuer&gt; <span class="se">\</span>
+  <span class="nt">--subject</span> &lt;tempo_service_account_query_frontend_subject&gt; <span class="se">\ </span><i class="conum" data-value="3"></i><b>(3)</b>
+<span class="gp">  --audiences &lt;audience&gt;</span><span class="w"> </span>| jq</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Federated identity credentials allow OpenShift Container Platform service accounts to authenticate as an Azure managed identity without storing secrets or using an Azure service principal identity.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The name you have chosen for the frontend federated identity credential.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The service account subject for your cluster in the following format: <code>system:serviceaccount:&lt;namespace&gt;:tempo-&lt;tempostack_instance_name&gt;</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Assign the Storage Blob Data Contributor role to the Azure service principal identity of the created Azure managed identity. You can do this by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az role assignment create <span class="se">\</span>
+  <span class="nt">--assignee</span> &lt;assignee_name&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">  --role "Storage Blob Data Contributor" \
+  --scope "/subscriptions/&lt;subscription_id&gt;</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The Azure service principal identity of the Azure managed identity that you created in step 1.</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can get the <code>&lt;assignee_name&gt;</code> value by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="nowrap">$ az ad sp list --all --filter "servicePrincipalType eq 'ManagedIdentity'" | jq -r --arg idName &lt;identity_name&gt; '.[] | select(.displayName == $idName) | .appId'`</pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Fetch the client ID of the Azure managed identity that you created in step 1:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="bash"><span class="nv">CLIENT_ID</span><span class="o">=</span><span class="si">$(</span>az identity show <span class="se">\</span>
+  <span class="nt">--name</span> &lt;identity_name&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="nt">--resource-group</span> &lt;resource_group&gt; <span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="nt">--query</span> clientId <span class="se">\</span>
+  <span class="nt">-o</span> tsv<span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Copy and paste the <code>&lt;identity_name&gt;</code> value from step 1.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Copy and paste the <code>&lt;resource_group&gt;</code> value from step 1.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create an OpenShift Container Platform secret for the Azure workload identity federation (WIF). You can do this by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-n</span> &lt;tempo_namespace&gt; secret generic azure-secret <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">container</span><span class="o">=</span>&lt;azure_storage_azure_container&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">  --from-literal=account_name=&lt;azure_storage_azure_accountname&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+<span class="gp">  --from-literal=client_id=&lt;client_id&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="3"></i><b>(3)</b>
+<span class="gp">  --from-literal=audience=&lt;audience&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="4"></i><b>(4)</b>
+<span class="gp">  --from-literal=tenant_id=&lt;tenant_id&gt;</span><span class="w"> <i class="conum" data-value="5"></i><b>(5)</b>
+</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of the Azure Blob Storage container.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The name of the Azure Storage account.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The client ID of the managed identity that you fetched in the previous step.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Optional: Defaults to <code>api://AzureADTokenExchange</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Azure Tenant ID.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>When the object storage secret is created, update the relevant custom resource of the Distributed Tracing Platform instance as follows:</p>
+<div class="listingblock">
+<div class="title">Example <code>TempoStack</code> custom resource</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">tempo.grafana.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">TempoStack</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">secret</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;secret_name&gt;</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">azure</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The secret that you created in the previous step.</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>TempoMonolithic</code> custom resource</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">tempo.grafana.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">TempoMonolithic</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">traces</span><span class="pi">:</span>
+      <span class="na">backend</span><span class="pi">:</span> <span class="s">azure</span>
+      <span class="na">azure</span><span class="pi">:</span>
+        <span class="na">secret</span><span class="pi">:</span> <span class="s">&lt;secret_name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The secret that you created in the previous step.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux">Install the Azure CLI on Linux</a> (Azure documentation)</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="setting-up-google-cloud-storage-with-security-token-service_distr-tracing-tempo-installing"><a class="anchor" href="#setting-up-google-cloud-storage-with-security-token-service_distr-tracing-tempo-installing"></a>Setting up the Google Cloud storage with the Security Token Service</h3>
+<div class="paragraph">
+<p>You can set up the Google Cloud Storage (GCS) with the Security Token Service (STS) by using the Google Cloud CLI.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Using the Distributed Tracing Platform with the GCS and STS is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the latest version of the Google Cloud CLI.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a GCS bucket on the Google Cloud Platform (GCP).</p>
+</li>
+<li>
+<p>Create or reuse a service account with Google&#8217;s Identity and Access Management (IAM):</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="bash"><span class="nv">SERVICE_ACCOUNT_EMAIL</span><span class="o">=</span><span class="si">$(</span>gcloud iam service-accounts create &lt;iam_service_account_name&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="nt">--display-name</span><span class="o">=</span><span class="s2">"Tempo Account"</span> <span class="se">\</span>
+    <span class="nt">--project</span> &lt;project_id&gt;  <span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="nt">--format</span><span class="o">=</span><span class="s1">'value(email)'</span> <span class="se">\</span>
+    <span class="nt">--quiet</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of the service account on the GCP.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The project ID of the service account on the GCP.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Bind the required GCP roles to the created service account at the project level. You can do this by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud projects add-iam-policy-binding &lt;project_id&gt; <span class="se">\</span>
+    <span class="nt">--member</span> <span class="s2">"serviceAccount:</span><span class="nv">$SERVICE_ACCOUNT_EMAIL</span><span class="s2">"</span> <span class="se">\</span>
+    <span class="nt">--role</span> <span class="s2">"roles/storage.objectAdmin"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Retrieve the <code>POOL_ID</code> value of the Google Cloud Workload Identity Pool that is associated with the cluster. How you can retrieve this value depends on your environment, so the following command is only an example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">OIDC_ISSUER</span><span class="o">=</span><span class="si">$(</span>oc get authentication.config cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.serviceAccountIssuer}'</span><span class="si">)</span> <span class="se">\</span>
+<span class="o">&amp;&amp;</span>
+<span class="gp">  POOL_ID=$</span><span class="o">(</span><span class="nb">echo</span> <span class="s2">"</span><span class="nv">$OIDC_ISSUER</span><span class="s2">"</span> | <span class="nb">awk</span> <span class="nt">-F</span><span class="s1">'/'</span> <span class="s1">'{print $NF}'</span> | <span class="nb">sed</span> <span class="s1">'s/-oidc$//'</span><span class="o">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add the IAM policy bindings. You can do this by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud iam service-accounts add-iam-policy-binding <span class="s2">"</span><span class="nv">$SERVICE_ACCOUNT_EMAIL</span><span class="s2">"</span> <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">  --role="roles/iam.workloadIdentityUser" \
+  --member="principal://iam.googleapis.com/projects/&lt;project_number&gt;</span>/locations/global/workloadIdentityPools/&lt;pool_id&gt;/subject/system:serviceaccount:&lt;tempo_namespace&gt;:tempo-&lt;tempo_name&gt;<span class="s2">" </span><span class="se">\</span><span class="s2">
+  --project=&lt;project_id&gt; </span><span class="se">\</span><span class="s2">
+  --quiet </span><span class="se">\</span><span class="s2">
+&amp;&amp;
+</span><span class="gp">  gcloud iam service-accounts add-iam-policy-binding "$</span><span class="s2">SERVICE_ACCOUNT_EMAIL"</span> <span class="se">\</span>
+  <span class="nt">--role</span><span class="o">=</span><span class="s2">"roles/iam.workloadIdentityUser"</span> <span class="se">\</span>
+  <span class="nt">--member</span><span class="o">=</span><span class="s2">"principal://iam.googleapis.com/projects/&lt;project_number&gt;/locations/global/workloadIdentityPools/&lt;pool_id&gt;/subject/system:serviceaccount:&lt;tempo_namespace&gt;:tempo-&lt;tempo_name&gt;-query-frontend"</span> <span class="se">\</span>
+  <span class="nt">--project</span><span class="o">=</span>&lt;project_id&gt; <span class="se">\</span>
+  <span class="nt">--quiet</span>
+<span class="go">&amp;&amp;
+</span><span class="gp">  gcloud storage buckets add-iam-policy-binding "gs://$</span>BUCKET_NAME<span class="s2">" </span><span class="se">\</span><span class="s2">
+  --role="</span>roles/storage.admin<span class="s2">" </span><span class="se">\</span><span class="s2">
+  --member="</span>serviceAccount:<span class="nv">$SERVICE_ACCOUNT_EMAIL</span><span class="s2">" </span><span class="se">\</span><span class="s2">
+  --condition=None</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The <code>$SERVICE_ACCOUNT_EMAIL</code> is the output of the command in step 2.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a credential file for the <code>key.json</code> key of the storage secret for use by the <code>TempoStack</code> custom resource. You can do this by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud iam workload-identity-pools create-cred-config <span class="se">\</span>
+    <span class="s2">"projects/&lt;project_number&gt;/locations/global/workloadIdentityPools/&lt;pool_id&gt;/providers/&lt;provider_id&gt;"</span> <span class="se">\</span>
+    <span class="nt">--service-account</span><span class="o">=</span><span class="s2">"</span><span class="nv">$SERVICE_ACCOUNT_EMAIL</span><span class="s2">"</span> <span class="se">\</span>
+    <span class="nt">--credential-source-file</span><span class="o">=</span>/var/run/secrets/storage/serviceaccount/token <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">    --credential-source-type=text \
+    --output-file=&lt;output_file_path&gt;</span><span class="w"> <i class="conum" data-value="2"></i><b>(2)</b>
+</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The <code>credential-source-file</code> parameter must always point to the <code>/var/run/secrets/storage/serviceaccount/token</code> path because the Operator mounts the token from this path.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The path for saving the output file.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Get the correct audience by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud iam workload-identity-pools providers describe <span class="s2">"</span><span class="nv">$PROVIDER_NAME</span><span class="s2">"</span> <span class="nt">--format</span><span class="o">=</span><span class="s1">'value(oidc.allowedAudiences[0])'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a storage secret for the Distributed Tracing Platform by running the following command.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> &lt;tempo_namespace&gt; create secret generic gcs-secret <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">bucketname</span><span class="o">=</span><span class="s2">"&lt;bucket_name&gt;"</span> <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">  --from-literal=audience="&lt;audience&gt;</span><span class="s2">" </span><span class="se">\ </span><span class="s2">     <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="gp">  --from-file=key.json=&lt;output_file_path&gt;</span><span class="w">    <i class="conum" data-value="3"></i><b>(3)</b>
+</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The bucket name of the Google Cloud Storage.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The audience that you got in the previous step.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The credential file that you created in step 6.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>When the object storage secret is created, update the relevant custom resource of the Distributed Tracing Platform instance as follows:</p>
+<div class="listingblock">
+<div class="title">Example <code>TempoStack</code> custom resource</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">tempo.grafana.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">TempoStack</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">secret</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;secret_name&gt;</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">gcs</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The secret that you created in the previous step.</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>TempoMonolithic</code> custom resource</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">tempo.grafana.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">TempoMonolithic</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">traces</span><span class="pi">:</span>
+      <span class="na">backend</span><span class="pi">:</span> <span class="s">gcs</span>
+      <span class="na">gcs</span><span class="pi">:</span>
+        <span class="na">secret</span><span class="pi">:</span> <span class="s">&lt;secret_name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The secret that you created in the previous step.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://cloud.google.com/sdk/docs/install">Install the gcloud CLI</a> (Google Cloud Documentation)</p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/iam/docs/service-account-overview">Service accounts overview</a> (Google Cloud Documentation)</p>
 </li>
 </ul>
 </div>
