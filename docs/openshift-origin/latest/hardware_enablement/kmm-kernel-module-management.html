@@ -92,6 +92,7 @@
             </a>
             <select id="version-selector" onchange="versionSelector(this);">
               <option value="latest">latest</option>
+              <option value="4.19">4.19</option>
               <option value="4.18">4.18</option>
               <option value="4.17">4.17</option>
               <option value="4.16">4.16</option>
@@ -2777,6 +2778,7 @@
 <li><a href="#kmm-example-cr_kernel-module-management-operator">Example Module CR</a></li>
 </ul>
 </li>
+<li><a href="#kmm-using-intree-modules_kernel-module-management-operator">Using in-tree modules with the device plugin</a></li>
 <li><a href="#kmm-symbolic-links-for-in-tree-dependencies_kernel-module-management-operator">Symbolic links for in-tree dependencies</a></li>
 <li><a href="#kmm-creating-kmod-image_kernel-module-management-operator">Creating a kmod image</a>
 <ul class="sectlevel2">
@@ -3222,43 +3224,51 @@ kmm-operator-controller           1/1   1           1         97s</span></code><
 <h2 id="kmm-configuring-kmmo_kernel-module-management-operator"><a class="anchor" href="#kmm-configuring-kmmo_kernel-module-management-operator"></a>Configuring the Kernel Module Management Operator</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>In most cases, the default configuration for the Kernel Module Management (KMM) Operator does not need to be modified. However, you can modify the Operator settings to suit your environment using the following procedure.</p>
+<p>In most cases, the default configuration for the Kernel Module Management (KMM) Operator does not need to be modified. However, you can modify the Operator settings to suit your environment.</p>
 </div>
-<div class="paragraph">
-<p>The Operator configuration is set in the <code>kmm-operator-manager-config</code> <code>ConfigMap</code> in the Operator namespace.</p>
-</div>
-<div class="olist arabic">
+<div class="ulist">
 <div class="title">Procedure</div>
-<ol class="arabic">
+<ul>
 <li>
-<p>To modify the settings, edit the <code>ConfigMap</code> data by entering the following command:</p>
+<p>To modify any setting, create a <code>ConfigMap</code> with the name <code>kmm-operator-manager-config</code> in the Operator namespace with the relevant data and restart the controller using the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit configmap <span class="nt">-n</span> <span class="s2">"</span><span class="nv">$namespace</span><span class="s2">"</span> kmm-operator-manager-config</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rollout restart <span class="nt">-n</span> <span class="s2">"</span><span class="nv">$namespace</span><span class="s2">"</span> deployment/kmm-operator-controller</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>The value of <code>$namespace</code> depends on your installation method.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">healthProbeBindAddress</span><span class="pi">:</span> <span class="s">:8081</span>
-<span class="na">job</span><span class="pi">:</span>
-  <span class="na">gcDelay</span><span class="pi">:</span> <span class="s">1h</span>
-<span class="na">leaderElection</span><span class="pi">:</span>
-  <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
-  <span class="na">resourceID</span><span class="pi">:</span> <span class="s">kmm.sigs.x-k8s.io</span>
-<span class="na">webhook</span><span class="pi">:</span>
-  <span class="na">disableHTTP2</span><span class="pi">:</span> <span class="no">true</span>  <span class="c1"># CVE-2023-44487</span>
-  <span class="na">port</span><span class="pi">:</span> <span class="m">9443</span>
-<span class="na">metrics</span><span class="pi">:</span>
-  <span class="na">enableAuthnAuthz</span><span class="pi">:</span> <span class="no">true</span>
-  <span class="na">disableHTTP2</span><span class="pi">:</span> <span class="no">true</span>  <span class="c1"># CVE-2023-44487</span>
-  <span class="na">bindAddress</span><span class="pi">:</span> <span class="s">0.0.0.0:8443</span>
-  <span class="na">secureServing</span><span class="pi">:</span> <span class="no">true</span>
-<span class="na">worker</span><span class="pi">:</span>
-  <span class="na">runAsUser</span><span class="pi">:</span> <span class="m">0</span>
-  <span class="na">seLinuxType</span><span class="pi">:</span> <span class="s">spc_t</span>
-  <span class="na">setFirmwareClassPath</span><span class="pi">:</span> <span class="s">/var/lib/firmware</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="s">controller_config.yaml</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">worker:</span>
+      <span class="s">firmwareHostPath: /example/different/firmware/path</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">kmm-operator-manager-config</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-kmm</span></code></pre>
 </div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you want to configure <code>KMM Hub</code>, create the <code>ConfigMap</code> using the name <code>kmm-operator-hub-manager-config</code> in the KMM Hub controller&#8217;s namespace.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 1. Operator configuration parameters</caption>
@@ -3279,23 +3289,23 @@ kmm-operator-controller           1/1   1           1         97s</span></code><
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>job.gcDelay</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Defines the duration that successful build pods should be preserved for before they are deleted. There is no recommended value for this setting. For information about the valid values for this setting, see <a href="https://pkg.go.dev/time#ParseDuration">ParseDuration</a>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Defines the duration for which successful build pods should be preserved before they are deleted. For information about the valid values for this setting, see <a href="https://pkg.go.dev/time#ParseDuration">ParseDuration</a>. The default value is <code>0s</code>.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>leaderElection.enabled</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Determines whether leader election is used to ensure that only one replica of the KMM Operator is running at any time. For more information, see <a href="https://kubernetes.io/docs/concepts/architecture/leases/">Leases</a>. The recommended value is <code>true</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Determines whether leader election is used to ensure that only one replica of the KMM Operator is running at any time. For more information, see <a href="https://kubernetes.io/docs/concepts/architecture/leases/">Leases</a>. The default value is <code>true</code>.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>leaderElection.resourceID</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Determines the name of the resource that leader election uses for holding the leader lock. The recommended value is <code>kmm.sigs.x-k8s.io</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Determines the name of the resource that leader election uses for holding the leader lock. The default value for KMM is <code>kmm.sigs.x-k8s.io</code>. The default value for KMM-hub is <code>kmm-hub.sigs.x-k8s.io</code>.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>webhook.disableHTTP2</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">If <code>true</code>, disables HTTP/2 for the webhook server, as a mitigation for <a href="https://access.redhat.com/security/cve/cve-2023-44487">cve-2023-44487</a>. The recommended value is <code>true</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>metrics.bindAddress</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Determines the bind address for the metrics server. Set this to "0" to disable the metrics server. The default value is <code>0.0.0.0:8443</code>.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>webhook.port</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Defines the port on which the Operator monitors webhook requests. The recommended value is <code>9443</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>metrics.disableHTTP2</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If <code>true</code>, disables HTTP/2 for the metrics server as a mitigation for <a href="https://access.redhat.com/security/cve/cve-2023-44487">CVE-2023-44487</a>. The default value is <code>true</code>.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>metrics.enableAuthnAuthz</code></p></td>
@@ -3326,60 +3336,35 @@ kmm-operator-controller           1/1   1           1         97s</span></code><
 </ul>
 </div>
 <div class="paragraph">
-<p>The recommended value is <code>true</code>.</p>
+<p>The default value is <code>true</code>.</p>
 </div></div></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>metrics.disableHTTP2</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">If <code>true</code>, disables HTTP/2 for the metrics server as a mitigation for <a href="https://access.redhat.com/security/cve/cve-2023-44487">CVE-2023-44487</a>. The recommended value is <code>true</code>.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>metrics.bindAddress</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Determines the bind address for the metrics server. If unspecified, the default is <code>:8080</code>. To disable the metrics server, set to <code>0</code>. The recommended value is <code>0.0.0.0:8443</code>.</p></td>
-</tr>
-<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>metrics.secureServing</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Determines whether the metrics are served over HTTPS instead of HTTP. The recommended value is <code>true</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Determines whether the metrics are served over HTTPS instead of HTTP. The default value is <code>true</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>webhook.disableHTTP2</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If <code>true</code>, disables HTTP/2 for the webhook server, as a mitigation for <a href="https://access.redhat.com/security/cve/cve-2023-44487">CVE-2023-44487</a>. The default value is <code>true</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>webhook.port</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Defines the port on which the Operator monitors webhook requests. The default value is <code>9443</code>.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>worker.runAsUser</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Determines the value of the <code>runAsUser</code> field of the worker container&#8217;s security context. For more information, see <a href="https://kubernetes.io/docs/tasks/configure-pod-container/security-context/">SecurityContext</a>. The recommended value is <code>9443</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Determines the value of the <code>runAsUser</code> field of the worker container&#8217;s security context. For more information, see <a href="https://kubernetes.io/docs/tasks/configure-pod-container/security-context/">SecurityContext</a>. The default value is <code>9443</code>.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>worker.seLinuxType</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Determines the value of the <code>seLinuxOptions.type</code> field of the worker container&#8217;s security context. For more information, see <a href="https://kubernetes.io/docs/tasks/configure-pod-container/security-context/">SecurityContext</a>. The recommended value is <code>spc_t</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Determines the value of the <code>seLinuxOptions.type</code> field of the worker container&#8217;s security context. For more information, see <a href="https://kubernetes.io/docs/tasks/configure-pod-container/security-context/">SecurityContext</a>. The default value is <code>spc_t</code>.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>worker.setFirmwareClassPath</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Sets the kernel&#8217;s firmware search path into the <code>/sys/module/firmware_class/parameters/path</code> file on the node. The recommended value is <code>/var/lib/firmware</code> if you need to set that value through the worker app. Otherwise, unset.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>worker.firmwareHostPath</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If set, the value of this field is written by the worker container into the /sys/module/firmware_class/parameters/path file on the node. For more information see <a href="https://openshift-kmm.netlify.app/documentation/firmwares/#setting-the-kernels-firmware-search-path">Setting the kernel&#8217;s firmware search path</a>. The default value is <code>/var/lib/firmware</code>.</p></td>
 </tr>
 </tbody>
 </table>
-</li>
-<li>
-<p>After modifying the settings, restart the controller with the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete pod <span class="nt">-n</span> <span class="s2">"&lt;namespace&gt;"</span> <span class="nt">-l</span> app.kubernetes.io/component<span class="o">=</span>kmm</code></pre>
-</div>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The value of &lt;namespace&gt; depends on your original installation method.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-</ol>
-</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
@@ -3988,6 +3973,29 @@ by replacing the cluster&#8217;s CA bundle.
 </div>
 </div>
 <div class="sect1">
+<h2 id="kmm-using-intree-modules_kernel-module-management-operator"><a class="anchor" href="#kmm-using-intree-modules_kernel-module-management-operator"></a>Using in-tree modules with the device plugin</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In some cases, you might need to configure the KMM Module to avoid loading an out-of-tree kernel module and instead use the in-tree module, running only the device plugin. In such cases, you can omit the <code>moduleLoader</code> parameter from the <code>Module</code> custom resource (CR), and leave only the <code>devicePlugin</code> section, as shown in the following example.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>Module</code> CR</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kmm.sigs.x-k8s.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Module</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-kmod</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="s">node-role.kubernetes.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+  <span class="na">devicePlugin</span><span class="pi">:</span>
+    <span class="na">container</span><span class="pi">:</span>
+      <span class="na">image</span><span class="pi">:</span> <span class="s">some.registry/org/my-device-plugin:latest</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="kmm-symbolic-links-for-in-tree-dependencies_kernel-module-management-operator"><a class="anchor" href="#kmm-symbolic-links-for-in-tree-dependencies_kernel-module-management-operator"></a>Symbolic links for in-tree dependencies</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -4065,6 +4073,9 @@ The location of the <code>.ko</code> files must match the following pattern: <co
 <p><code>kernel-version</code> must not be empty and must be equal to the kernel version the kernel modules were built for.</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>In addition to the <code>.ko</code> files, the kmod image also requires the <code>cp</code> binary to be present because the <code>.ko</code> files are copied from this image to the image-loader worker pod created by the Operator. This is a minimal requirement and no other binary tool is required in the image.</p>
 </div>
 <div class="sect2">
 <h3 id="kmm-running-depmod_kernel-module-management-operator"><a class="anchor" href="#kmm-running-depmod_kernel-module-management-operator"></a>Running depmod</h3>
