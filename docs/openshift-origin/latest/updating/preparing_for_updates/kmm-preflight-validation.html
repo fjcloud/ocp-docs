@@ -1610,7 +1610,8 @@
                     <li><a class="" href="../../observability/cluster_observability_operator/ui_plugins/distributed-tracing-ui-plugin.html" style="padding-left: 70px;">Distributed tracing UI plugin</a></li>
                     <li><a class="" href="../../observability/cluster_observability_operator/ui_plugins/troubleshooting-ui-plugin.html" style="padding-left: 70px;">Troubleshooting UI plugin</a></li>                  </ul>
                   </li>
-              </ul>
+
+                  <li><a class="" href="../../observability/cluster_observability_operator/api-monitoring-package.html">Monitoring API reference</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-26-2"><span id="sgSpan-26-2" class="fa fa-caret-right"></span>&nbsp;Monitoring</a>
               <ul id="topicSubGroup-26-2" class="nav-tertiary list-unstyled collapse">
@@ -2744,13 +2745,7 @@
 <li><a href="#kmm-validation-kickoff_kmm-preflight-validation">Validation kickoff</a></li>
 <li><a href="#kmm-validation-lifecycle_kmm-preflight-validation">Validation lifecycle</a></li>
 <li><a href="#kmm-validation-status_kmm-preflight-validation">Validation status</a></li>
-<li><a href="#kmm-preflight-validation-stages-per-module_kmm-preflight-validation">Preflight validation stages per Module</a>
-<ul class="sectlevel2">
 <li><a href="#kmm-image-validation-stage_kmm-preflight-validation">Image validation stage</a></li>
-<li><a href="#kmm-build-validation-stage_kmm-preflight-validation">Build validation stage</a></li>
-<li><a href="#kmm-sign-validation-stage_kmm-preflight-validation">Sign validation stage</a></li>
-</ul>
-</li>
 <li><a href="#kmm-example-cr_kmm-preflight-validation">Example PreflightValidationOCP resource</a></li>
 </ul>
 </div>
@@ -2763,13 +2758,40 @@
 <h2 id="kmm-validation-kickoff_kmm-preflight-validation"><a class="anchor" href="#kmm-validation-kickoff_kmm-preflight-validation"></a>Validation kickoff</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Preflight validation is triggered by creating a <code>PreflightValidationOCP</code> resource in the cluster. This spec contains two fields:</p>
+<p>Preflight validation is triggered by creating a <code>PreflightValidationOCP</code> resource in the cluster. This resource contains the following fields:</p>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><code>releaseImage</code></dt>
+<dt class="hdlist1"><code>dtkImage</code></dt>
 <dd>
-<p>Mandatory field that provides the name of the release image for the OKD version the cluster is upgraded to.</p>
+<p>The DTK container image released for the specific OKD version of the cluster. If this value is not set, the <code>DTK_AUTO</code> feature cannot be used.</p>
+<div class="paragraph">
+<p>You can obtain the image by running one of the following commands in the cluster:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>For x86_64 image:
+<span class="gp">$</span><span class="w"> </span>oc adm release info quay.io/openshift-release-dev/ocp-release:4.19.0-x86_64 <span class="nt">--image-for</span><span class="o">=</span>driver-toolkit</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>For ARM64 image:
+<span class="gp">$</span><span class="w"> </span>oc adm release info quay.io/openshift-release-dev/ocp-release:4.19.0-aarch64 <span class="nt">--image-for</span><span class="o">=</span>driver-toolkit</code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1"><code>kernelVersion</code></dt>
+<dd>
+<p>Required field that provides the version of the kernel that the cluster is upgraded to.</p>
+<div class="paragraph">
+<p>You can obtain the version by running the following command in the cluster:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>podman run <span class="nt">-it</span> <span class="nt">--rm</span> <span class="si">$(</span>oc adm release info quay.io/openshift-release-dev/ocp-release:4.19.0-x86_64 <span class="nt">--image-for</span><span class="o">=</span>driver-toolkit<span class="si">)</span> <span class="nb">cat</span> /etc/driver-toolkit-release.json</code></pre>
+</div>
+</div>
 </dd>
 <dt class="hdlist1"><code>pushBuiltImage</code></dt>
 <dd>
@@ -2798,10 +2820,6 @@
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><code>lastTransitionTime</code></dt>
-<dd>
-<p>The last time the <code>Module</code> resource status transitioned from one status to another. This should be when the underlying status has changed. If that is not known, then using the time when the API field changed is acceptable.</p>
-</dd>
 <dt class="hdlist1"><code>name</code></dt>
 <dd>
 <p>The name of the <code>Module</code> resource.</p>
@@ -2820,13 +2838,10 @@
 <div class="ulist">
 <ul>
 <li>
-<p><code>image</code>: Image existence verification</p>
+<p><code>Image</code>: Image existence verification</p>
 </li>
 <li>
-<p><code>build</code>: Build process verification</p>
-</li>
-<li>
-<p><code>sign</code>: Sign process verification</p>
+<p><code>Done</code>: Verification is done</p>
 </li>
 </ul>
 </div>
@@ -2837,16 +2852,13 @@
 <div class="ulist">
 <ul>
 <li>
-<p><code>true</code>: Verified</p>
+<p><code>Success</code>: Verified</p>
 </li>
 <li>
-<p><code>false</code>: Verification failed</p>
+<p><code>Failure</code>: Verification failed</p>
 </li>
 <li>
-<p><code>error</code>: Error during the verification process</p>
-</li>
-<li>
-<p><code>unknown</code>: Verification has not started</p>
+<p><code>InProgress</code>: Verification is in progress</p>
 </li>
 </ul>
 </div>
@@ -2856,47 +2868,13 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="kmm-preflight-validation-stages-per-module_kmm-preflight-validation"><a class="anchor" href="#kmm-preflight-validation-stages-per-module_kmm-preflight-validation"></a>Preflight validation stages per Module</h2>
+<h2 id="kmm-image-validation-stage_kmm-preflight-validation"><a class="anchor" href="#kmm-image-validation-stage_kmm-preflight-validation"></a>Image validation stage</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Preflight runs the following validations on every KMM Module present in the cluster:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>Image validation stage</p>
-</li>
-<li>
-<p>Build validation stage</p>
-</li>
-<li>
-<p>Sign validation stage</p>
-</li>
-</ol>
-</div>
-<div class="sect2">
-<h3 id="kmm-image-validation-stage_kmm-preflight-validation"><a class="anchor" href="#kmm-image-validation-stage_kmm-preflight-validation"></a>Image validation stage</h3>
-<div class="paragraph">
-<p>Image validation is always the first stage of the preflight validation to be executed. If image validation is successful, no other validations are run on that specific module.</p>
+<p>Image validation is always the first stage of the preflight validation to be executed. If image validation is successful, no other validations are run on that specific module. The Operator uses the container runtime to check the image existence and accessibility for the updaded kernel in the module.</p>
 </div>
 <div class="paragraph">
-<p>Image validation consists of two stages:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>Image existence and accessibility. The code tries to access the image defined for the upgraded kernel in the module and get its manifests.</p>
-</li>
-<li>
-<p>Verify the presence of the kernel module defined in the <code>Module</code> in the correct path for future <code>modprobe</code> execution. If this validation is successful, it probably means that the kernel module was compiled with the correct Linux headers. The correct path is <code>&lt;dirname&gt;/lib/modules/&lt;upgraded_kernel&gt;/</code>.</p>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect2">
-<h3 id="kmm-build-validation-stage_kmm-preflight-validation"><a class="anchor" href="#kmm-build-validation-stage_kmm-preflight-validation"></a>Build validation stage</h3>
-<div class="paragraph">
-<p>Build validation is executed only when image validation has failed and there is a <code>build</code> section in the <code>Module</code> that is relevant for the upgraded kernel. Build validation attempts to run the build job and validate that it finishes successfully.</p>
+<p>If the image validation fails and there is a <code>build/sign</code> section in the module that is relevant to the upgraded kernel, the controller tries to build or sign the image. If the <code>PushBuiltImage</code> flag is defined in the <code>PreflightValidationOCP</code> resource, the controller will also try to push the resulting image into its repository. The resulting image name is taken from the definition of the <code>containerImage</code> field of the <code>Module</code> CR.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -2906,57 +2884,11 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>You must specify the kernel version when running <code>depmod</code>, as shown here:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>RUN depmod <span class="nt">-b</span> /opt <span class="k">${</span><span class="nv">KERNEL_VERSION</span><span class="k">}</span></code></pre>
-</div>
+<p>In case a <code>build</code> section exists, the input image in the <code>sign</code> section is used as the output image by the <code>build</code> section. Therefore, in order for the input image to be available to the <code>sign</code> section, the <code>PushBuiltImage</code> flag must be defined in the <code>PreflightValidationOCP</code> CR.</p>
 </div>
 </td>
 </tr>
 </table>
-</div>
-<div class="paragraph">
-<p>If the <code>PushBuiltImage</code> flag is defined in the <code>PreflightValidationOCP</code> custom resource (CR), it also tries to push the resulting image into its repository. The resulting image name is taken from the definition of the <code>containerImage</code> field of the <code>Module</code> CR.</p>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If the <code>sign</code> section is defined for the upgraded kernel, then the resulting image will not be the <code>containerImage</code> field of the <code>Module</code> CR, but a temporary image name, because the resulting image should be the product of Sign flow.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="kmm-sign-validation-stage_kmm-preflight-validation"><a class="anchor" href="#kmm-sign-validation-stage_kmm-preflight-validation"></a>Sign validation stage</h3>
-<div class="paragraph">
-<p>Sign validation is executed only when image validation has failed. There is a <code>sign</code> section in the <code>Module</code> resource that is relevant for the upgrade kernel, and build validation finishes successfully in case there was a <code>build</code> section in the <code>Module</code> relevant for the upgraded kernel. Sign validation attempts to run the sign job and validate that it finishes successfully.</p>
-</div>
-<div class="paragraph">
-<p>If the <code>PushBuiltImage</code> flag is defined in the <code>PreflightValidationOCP</code> CR, sign validation also tries to push the resulting image to its registry. The resulting image is always the image defined in the <code>ContainerImage</code> field of the <code>Module</code>. The input image is either the output of the Build stage, or an image defined in the <code>UnsignedImage</code> field.</p>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If a <code>build</code> section exists, the <code>sign</code> section input image is the <code>build</code> section&#8217;s output image. Therefore, in order for the input image to be available for the <code>sign</code> section, the <code>PushBuiltImage</code> flag must be defined in the <code>PreflightValidationOCP</code> CR.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
 </div>
 </div>
 </div>
@@ -2964,18 +2896,10 @@
 <h2 id="kmm-example-cr_kmm-preflight-validation"><a class="anchor" href="#kmm-example-cr_kmm-preflight-validation"></a>Example PreflightValidationOCP resource</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>This section shows an example of the <code>PreflightValidationOCP</code> resource in the YAML format.</p>
+<p>The following example shows a <code>PreflightValidationOCP</code> resource in the YAML format.</p>
 </div>
 <div class="paragraph">
-<p>The example verifies all of the currently present modules against the upcoming kernel version included in the OKD release 4.11.18, which the following release image points to:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">quay.io/openshift-release-dev/ocp-release@sha256:22e149142517dfccb47be828f012659b1ccf71d26620e6f62468c264a7ce7863</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Because <code>.spec.pushBuiltImage</code> is set to <code>true</code>, KMM pushes the resulting images of Build/Sign in to the defined repositories.</p>
+<p>The example verifies all of the currently present modules against the upcoming <code>5.14.0-570.19.1.el9_6.x86_64</code> kernel. Because <code>.spec.pushBuiltImage</code> is set to <code>true</code>, KMM pushes the resulting images of Build/Sign into the defined repositories.</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -2984,7 +2908,8 @@
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">preflight</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">releaseImage</span><span class="pi">:</span> <span class="s">quay.io/openshift-release-dev/ocp-release@sha256:22e149142517dfccb47be828f012659b1ccf71d26620e6f62468c264a7ce7863</span>
+  <span class="na">kernelVersion</span><span class="pi">:</span> <span class="s">5.14.0-570.19.1.el9_6.x86_64</span>
+  <span class="na">dtkImage</span><span class="pi">:</span> <span class="s">quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:fe0322730440f1cbe6fffaaa8cac131b56574bec8abe3ec5b462e17557fecb32</span>
   <span class="na">pushBuiltImage</span><span class="pi">:</span> <span class="no">true</span></code></pre>
 </div>
 </div>

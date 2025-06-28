@@ -1992,7 +1992,8 @@
                     <li><a class="" href="../../observability/cluster_observability_operator/ui_plugins/distributed-tracing-ui-plugin.html" style="padding-left: 70px;">Distributed tracing UI plugin</a></li>
                     <li><a class="" href="../../observability/cluster_observability_operator/ui_plugins/troubleshooting-ui-plugin.html" style="padding-left: 70px;">Troubleshooting UI plugin</a></li>                  </ul>
                   </li>
-              </ul>
+
+                  <li><a class="" href="../../observability/cluster_observability_operator/api-monitoring-package.html">Monitoring API reference</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-29-2"><span id="sgSpan-29-2" class="fa fa-caret-right"></span>&nbsp;Monitoring</a>
               <ul id="topicSubGroup-29-2" class="nav-tertiary list-unstyled collapse">
@@ -3251,6 +3252,7 @@
 <li><a href="#specifying-how-a-service-is-monitored-by-cluster-observability-operator_configuring_the_cluster_observability_operator_to_monitor_a_service">Specifying how a service is monitored by Cluster Observability Operator</a></li>
 <li><a href="#creating-a-monitoringstack-object-for-cluster-observability-operator_configuring_the_cluster_observability_operator_to_monitor_a_service">Creating a MonitoringStack object for the Cluster Observability Operator</a></li>
 <li><a href="#monitoring-validating-a-monitoringstack-for-cluster-observability-operator_configuring_the_cluster_observability_operator_to_monitor_a_service">Validating the monitoring stack</a></li>
+<li><a href="#monitoring-scrape-targets-in-multiple-namespaces_configuring_the_cluster_observability_operator_to_monitor_a_service">Scrape targets in multiple namespaces</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -3709,6 +3711,228 @@ example-coo-monitoring-stack   81m</span></code></pre>
 </span><span class="p">}</span></code></pre>
 </div>
 </div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="monitoring-scrape-targets-in-multiple-namespaces_configuring_the_cluster_observability_operator_to_monitor_a_service"><a class="anchor" href="#monitoring-scrape-targets-in-multiple-namespaces_configuring_the_cluster_observability_operator_to_monitor_a_service"></a>Scrape targets in multiple namespaces</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To scrape targets in multiple namespaces, set the namespace and resource selector in the <code>MonitoringStack</code> object.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> cluster role or as a user with administrative permissions for the namespace.</p>
+</li>
+<li>
+<p>You have installed the Cluster Observability Operator.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Deploy the following namespace object and <code>MonitoringStack</code> YAML file:</p>
+<div class="listingblock">
+<div class="title">Example <code>MonitoringStack</code></div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ns1-coo</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">monitoring.rhobs/stack</span><span class="pi">:</span> <span class="s">multi-ns</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">monitoring.rhobs/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MonitoringStack</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">example-coo-monitoring-stack</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">ns1-coo</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">logLevel</span><span class="pi">:</span> <span class="s">debug</span>
+  <span class="na">retention</span><span class="pi">:</span> <span class="s">1d</span>
+  <span class="na">resourceSelector</span><span class="pi">:</span>
+      <span class="na">matchLabels</span><span class="pi">:</span>
+        <span class="na">k8s-app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-monitor</span>
+  <span class="na">namespaceSelector</span><span class="pi">:</span>
+      <span class="na">matchLabels</span><span class="pi">:</span>
+        <span class="s">monitoring.rhobs/stack</span><span class="pi">:</span> <span class="s">multi-ns</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Deploy a sample application in the namespace <code>ns1-coo</code>, with an alert that is always firing:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">ns1-coo</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">image</span><span class="pi">:</span> <span class="s">ghcr.io/rhobs/prometheus-example-app:0.4.2</span>
+        <span class="na">imagePullPolicy</span><span class="pi">:</span> <span class="s">IfNotPresent</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">ns1-coo</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">ports</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+    <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="m">8080</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterIP</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">monitoring.rhobs/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceMonitor</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">k8s-app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-monitor</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">prometheus-coo-example-monitor</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">ns1-coo</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">endpoints</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">interval</span><span class="pi">:</span> <span class="s">30s</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="s">web</span>
+    <span class="na">scheme</span><span class="pi">:</span> <span class="s">http</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">monitoring.rhobs/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PrometheusRule</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">example-alert</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">ns1-coo</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">k8s-app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-monitor</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">groups</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">example</span>
+    <span class="na">rules</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">alert</span><span class="pi">:</span> <span class="s">VersionAlert</span>
+      <span class="na">for</span><span class="pi">:</span> <span class="s">1m</span>
+      <span class="na">expr</span><span class="pi">:</span> <span class="s">version{job="prometheus-coo-example-app"} &gt; </span><span class="m">0</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">severity</span><span class="pi">:</span> <span class="s">warning</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Deploy the same example application in another namespace labeled with <code>monitoring.rhobs/stack: multi-ns</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ns2-coo</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">monitoring.rhobs/stack</span><span class="pi">:</span> <span class="s">multi-ns</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">ns2-coo</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">image</span><span class="pi">:</span> <span class="s">ghcr.io/rhobs/prometheus-example-app:0.4.2</span>
+        <span class="na">imagePullPolicy</span><span class="pi">:</span> <span class="s">IfNotPresent</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">ns2-coo</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">ports</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">8080</span>
+    <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="m">8080</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">web</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterIP</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">monitoring.rhobs/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceMonitor</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">k8s-app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-monitor</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">prometheus-coo-example-monitor</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">ns2-coo</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">endpoints</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">interval</span><span class="pi">:</span> <span class="s">30s</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="s">web</span>
+    <span class="na">scheme</span><span class="pi">:</span> <span class="s">http</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">prometheus-coo-example-app</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the Prometheus instance adds new targets and that the alert are firing. Use a port-forward command to expose the Prometheus or the Alertmanager user interface that has been deployed by the <code>Monitoringstack</code> instance.</p>
+<div class="listingblock">
+<div class="title">Prometheus</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc port-forward <span class="nt">-n</span> ns1-coo pod/prometheus-example-coo-monitoring-stack-0 9090</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Alertmanager</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc port-forward <span class="nt">-n</span> ns1-coo pod/alertmanager-example-coo-monitoring-stack-0 9093</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the targets are being scraped and that the alerts are firing by browsing to <code><a href="http://localhost:9090/targets" class="bare">http://localhost:9090/targets</a></code> or <code><a href="http://localhost:9093/#/alerts" class="bare">http://localhost:9093/#/alerts</a></code>.</p>
 </li>
 </ol>
 </div>
