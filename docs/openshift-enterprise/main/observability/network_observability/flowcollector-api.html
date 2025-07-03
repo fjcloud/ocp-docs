@@ -3331,8 +3331,6 @@
 <li><a href="#spec-processor-deduper">.spec.processor.deduper</a></li>
 <li><a href="#spec-processor-filters">.spec.processor.filters</a></li>
 <li><a href="#spec-processor-filters-2">.spec.processor.filters[]</a></li>
-<li><a href="#spec-processor-filters-allof">.spec.processor.filters[].allOf</a></li>
-<li><a href="#spec-processor-filters-allof-2">.spec.processor.filters[].allOf[]</a></li>
 <li><a href="#spec-processor-kafkaconsumerautoscaler">.spec.processor.kafkaConsumerAutoscaler</a></li>
 <li><a href="#spec-processor-metrics">.spec.processor.metrics</a></li>
 <li><a href="#spec-processor-metrics-server">.spec.processor.metrics.server</a></li>
@@ -3584,7 +3582,7 @@ is set to <code>eBPF</code>.</p></td>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code> [deprecated *] selects the flows tracing agent. Previously, this field allowed to select between <code>eBPF</code> or <code>IPFIX</code>.
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code> [deprecated (*)] selects the flows tracing agent. Previously, this field allowed to select between <code>eBPF</code> or <code>IPFIX</code>.
 Only <code>eBPF</code> is allowed now, so this field is deprecated and is planned for removal in a future version of the API.</p></td>
 </tr>
 </tbody>
@@ -3630,7 +3628,8 @@ is set to <code>eBPF</code>.</p>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>object</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>advanced</code> allows setting some aspects of the internal configuration of the eBPF agent.
 This section is aimed mostly for debugging and fine-grained performance optimizations,
-such as <code>GOGC</code> and <code>GOMAXPROCS</code> env vars. Set these values at your own risk.</p></td>
+such as <code>GOGC</code> and <code>GOMAXPROCS</code> environment vars. Set these values at your own risk. You can also
+override the default Linux capabilities from there.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>cacheActiveTimeout</code></p></td>
@@ -3658,19 +3657,19 @@ Otherwise it is matched as a case-sensitive string.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>array (string)</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">List of additional features to enable. They are all disabled by default. Enabling additional features might have performance impacts. Possible values are:<br></p>
 <p class="tableblock">- <code>PacketDrop</code>: Enable the packets drop flows logging feature. This feature requires mounting
-the kernel debug filesystem, so the eBPF agent pods must run as privileged.
-If the <code>spec.agent.ebpf.privileged</code> parameter is not set, an error is reported.<br></p>
+the kernel debug filesystem, so the eBPF agent pods must run as privileged via <code>spec.agent.ebpf.privileged</code>.<br></p>
 <p class="tableblock">- <code>DNSTracking</code>: Enable the DNS tracking feature.<br></p>
 <p class="tableblock">- <code>FlowRTT</code>: Enable flow latency (sRTT) extraction in the eBPF agent from TCP traffic.<br></p>
 <p class="tableblock">- <code>NetworkEvents</code>: Enable the network events monitoring feature, such as correlating flows and network policies.
-This feature requires mounting the kernel debug filesystem, so the eBPF agent pods must run as privileged.
-It requires using the OVN-Kubernetes network plugin with the Observability feature.<br>
-IMPORTANT: This feature is available as a Technology Preview.</p>
+This feature requires mounting the kernel debug filesystem, so the eBPF agent pods must run as privileged via <code>spec.agent.ebpf.privileged</code>.
+It requires using the OVN-Kubernetes network plugin with the Observability feature.
+IMPORTANT: This feature is available as a Technology Preview.<br></p>
 <p class="tableblock">- <code>PacketTranslation</code>: Enable enriching flows with packet translation information, such as Service NAT.<br></p>
-<p class="tableblock">- <code>EbpfManager</code>: Unsupported * . Use eBPF Manager to manage Network Observability eBPF programs. Pre-requisite: the eBPF Manager operator (or upstream bpfman operator) must be installed.<br></p>
-<p class="tableblock">- <code>UDNMapping</code>: Unsupported *. Enable interfaces mapping to User Defined Networks (UDN). <br>
-This feature requires mounting the kernel debug filesystem, so the eBPF agent pods must run as privileged.
-It requires using the OVN-Kubernetes network plugin with the Observability feature.</p></td>
+<p class="tableblock">- <code>EbpfManager</code>: [Unsupported (*)]. Use eBPF Manager to manage Network Observability eBPF programs. Pre-requisite: the eBPF Manager operator (or upstream bpfman operator) must be installed.<br></p>
+<p class="tableblock">- <code>UDNMapping</code>: Enable interfaces mapping to User Defined Networks (UDN). <br></p>
+<p class="tableblock">This feature requires mounting the kernel debug filesystem, so the eBPF agent pods must run as privileged via <code>spec.agent.ebpf.privileged</code>.
+It requires using the OVN-Kubernetes network plugin with the Observability feature. <br></p>
+<p class="tableblock">- <code>IPSec</code>, to track flows between nodes with IPsec encryption. <br></p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>flowFilter</code></p></td>
@@ -3709,7 +3708,7 @@ Otherwise it is matched as a case-sensitive string.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>privileged</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>boolean</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Privileged mode for the eBPF Agent container. When ignored or set to <code>false</code>, the operator sets
-granular capabilities (BPF, PERFMON, NET_ADMIN, SYS_RESOURCE) to the container.
+granular capabilities (BPF, PERFMON, NET_ADMIN) to the container.
 If for some reason these capabilities cannot be set, such as if an old kernel version not knowing CAP_BPF
 is in use, then you can turn on this mode for more global privileges.
 Some agent features require the privileged mode, such as packet drops tracking (see <code>features</code>) and SR-IOV support.</p></td>
@@ -3723,7 +3722,7 @@ For more information, see <a href="https://kubernetes.io/docs/concepts/configura
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>integer</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Sampling rate of the flow reporter. 100 means one flow on 100 is sent. 0 or 1 means all flows are sampled.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sampling ratio of the eBPF probe. 100 means one packet on 100 is sent. 0 or 1 means all packets are sampled.</p></td>
 </tr>
 </tbody>
 </table>
@@ -3739,7 +3738,8 @@ For more information, see <a href="https://kubernetes.io/docs/concepts/configura
 <div class="paragraph">
 <p><code>advanced</code> allows setting some aspects of the internal configuration of the eBPF agent.
 This section is aimed mostly for debugging and fine-grained performance optimizations,
-such as <code>GOGC</code> and <code>GOMAXPROCS</code> env vars. Set these values at your own risk.</p>
+such as <code>GOGC</code> and <code>GOMAXPROCS</code> environment vars. Set these values at your own risk. You can also
+override the default Linux capabilities from there.</p>
 </div>
 </div>
 </div>
@@ -3764,6 +3764,11 @@ such as <code>GOGC</code> and <code>GOMAXPROCS</code> env vars. Set these values
 </tr>
 </thead>
 <tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>capOverride</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>array (string)</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Linux capabilities override, when not running as privileged. Default capabilities are BPF, PERFMON and NET_ADMIN.</p></td>
+</tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>env</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>object (string)</code></p></td>
@@ -3991,13 +3996,12 @@ To filter two ports, use a "port1,port2" in string format. For example, <code>po
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>array</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>rules</code> defines a list of filtering rules on the eBPF Agents.
 When filtering is enabled, by default, flows that don&#8217;t match any rule are rejected.
-To change the default, you can define a rule that accepts everything: <code>{ action: "Accept", cidr: "0.0.0.0/0" }</code>, and then refine with rejecting rules.
-Unsupported *.</p></td>
+To change the default, you can define a rule that accepts everything: <code>{ action: "Accept", cidr: "0.0.0.0/0" }</code>, and then refine with rejecting rules.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>integer</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code> sampling rate for the matched flows, overriding the global sampling defined at <code>spec.agent.ebpf.sampling</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code> is the sampling ratio for the matched packets, overriding the global sampling defined at <code>spec.agent.ebpf.sampling</code>.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sourcePorts</code></p></td>
@@ -4027,8 +4031,7 @@ In addition to the standard flags (RFC-9293), you can also filter by one of the 
 <div class="paragraph">
 <p><code>rules</code> defines a list of filtering rules on the eBPF Agents.
 When filtering is enabled, by default, flows that don&#8217;t match any rule are rejected.
-To change the default, you can define a rule that accepts everything: <code>{ action: "Accept", cidr: "0.0.0.0/0" }</code>, and then refine with rejecting rules.
-Unsupported *.</p>
+To change the default, you can define a rule that accepts everything: <code>{ action: "Accept", cidr: "0.0.0.0/0" }</code>, and then refine with rejecting rules.</p>
 </div>
 </div>
 </div>
@@ -4141,7 +4144,7 @@ To filter two ports, use a "port1,port2" in string format. For example, <code>po
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>integer</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code> sampling rate for the matched flows, overriding the global sampling defined at <code>spec.agent.ebpf.sampling</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code> is the sampling ratio for the matched packets, overriding the global sampling defined at <code>spec.agent.ebpf.sampling</code>.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sourcePorts</code></p></td>
@@ -4326,7 +4329,7 @@ If set to <code>true</code>, the <code>providedCaFile</code> field is ignored.</
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Select the type of TLS configuration:<br></p>
 <p class="tableblock">- <code>Disabled</code> (default) to not configure TLS for the endpoint.
-- <code>Provided</code> to manually provide cert file and a key file. Unsupported *.
+- <code>Provided</code> to manually provide cert file and a key file. [Unsupported (*)].
 - <code>Auto</code> to use OpenShift Container Platform auto generated certificate using annotations.</p></td>
 </tr>
 </tbody>
@@ -4544,7 +4547,7 @@ More info: <a href="https://kubernetes.io/docs/concepts/configuration/manage-res
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>object</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>advanced</code> allows setting some aspects of the internal configuration of the console plugin.
 This section is aimed mostly for debugging and fine-grained performance optimizations,
-such as <code>GOGC</code> and <code>GOMAXPROCS</code> env vars. Set these values at your own risk.</p></td>
+such as <code>GOGC</code> and <code>GOMAXPROCS</code> environment vars. Set these values at your own risk.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>autoscaler</code></p></td>
@@ -4601,7 +4604,7 @@ For more information, see <a href="https://kubernetes.io/docs/concepts/configura
 <div class="paragraph">
 <p><code>advanced</code> allows setting some aspects of the internal configuration of the console plugin.
 This section is aimed mostly for debugging and fine-grained performance optimizations,
-such as <code>GOGC</code> and <code>GOMAXPROCS</code> env vars. Set these values at your own risk.</p>
+such as <code>GOGC</code> and <code>GOMAXPROCS</code> environment vars. Set these values at your own risk.</p>
 </div>
 </div>
 </div>
@@ -5181,7 +5184,7 @@ More info: <a href="https://kubernetes.io/docs/concepts/configuration/manage-res
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sasl</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>object</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">SASL authentication configuration. Unsupported *.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SASL authentication configuration. [Unsupported (*)].</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>tls</code></p></td>
@@ -5205,7 +5208,7 @@ More info: <a href="https://kubernetes.io/docs/concepts/configuration/manage-res
 <div class="openblock">
 <div class="content">
 <div class="paragraph">
-<p>SASL authentication configuration. Unsupported *.</p>
+<p>SASL authentication configuration. [Unsupported (*)].</p>
 </div>
 </div>
 </div>
@@ -6041,7 +6044,7 @@ If the namespace is different, the config map or the secret is copied so that it
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sasl</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>object</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">SASL authentication configuration. Unsupported *.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SASL authentication configuration. [Unsupported (*)].</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>tls</code></p></td>
@@ -6065,7 +6068,7 @@ If the namespace is different, the config map or the secret is copied so that it
 <div class="openblock">
 <div class="content">
 <div class="paragraph">
-<p>SASL authentication configuration. Unsupported *.</p>
+<p>SASL authentication configuration. [Unsupported (*)].</p>
 </div>
 </div>
 </div>
@@ -6685,7 +6688,7 @@ It is ignored for other modes.</p>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>authToken</code> describes the way to get a token to authenticate to Loki.<br></p>
 <p class="tableblock">- <code>Disabled</code> does not send any token with the request.<br></p>
 <p class="tableblock">- <code>Forward</code> forwards the user token for authorization.<br></p>
-<p class="tableblock">- <code>Host</code> [deprecated *] - uses the local pod service account to authenticate to Loki.<br></p>
+<p class="tableblock">- <code>Host</code> [deprecated (*)] - uses the local pod service account to authenticate to Loki.<br></p>
 <p class="tableblock">When using the Loki Operator, this must be set to <code>Forward</code>.</p></td>
 </tr>
 <tr>
@@ -7677,7 +7680,7 @@ This feature requires the "topology.kubernetes.io/zone" label to be set on nodes
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>object</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>advanced</code> allows setting some aspects of the internal configuration of the flow processor.
 This section is aimed mostly for debugging and fine-grained performance optimizations,
-such as <code>GOGC</code> and <code>GOMAXPROCS</code> env vars. Set these values at your own risk.</p></td>
+such as <code>GOGC</code> and <code>GOMAXPROCS</code> environment vars. Set these values at your own risk.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>clusterName</code></p></td>
@@ -7687,16 +7690,14 @@ such as <code>GOGC</code> and <code>GOMAXPROCS</code> env vars. Set these values
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>deduper</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>object</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>deduper</code> allows you to sample or drop flows identified as duplicates, in order to save on resource usage.
-Unsupported *.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>deduper</code> allows you to sample or drop flows identified as duplicates, in order to save on resource usage.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>filters</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>array</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>filters</code> lets you define custom filters to limit the amount of generated flows.
 These filters provide more flexibility than the eBPF Agent filters (in <code>spec.agent.ebpf.flowFilter</code>), such as allowing to filter by Kubernetes namespace,
-but with a lesser improvement in performance.
-Unsupported *.</p></td>
+but with a lesser improvement in performance.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>imagePullPolicy</code></p></td>
@@ -7735,8 +7736,8 @@ This setting is ignored when Kafka is disabled.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>logTypes</code> defines the desired record types to generate. Possible values are:<br></p>
 <p class="tableblock">- <code>Flows</code> to export regular network flows. This is the default.<br></p>
-<p class="tableblock">- <code>Conversations</code> to generate events for started conversations, ended conversations as well as periodic "tick" updates.<br></p>
-<p class="tableblock">- <code>EndedConversations</code> to generate only ended conversations events.<br></p>
+<p class="tableblock">- <code>Conversations</code> to generate events for started conversations, ended conversations as well as periodic "tick" updates. Note that in this mode, Prometheus metrics are not accurate on long-standing conversations.<br></p>
+<p class="tableblock">- <code>EndedConversations</code> to generate only ended conversations events. Note that in this mode, Prometheus metrics are not accurate on long-standing conversations.<br></p>
 <p class="tableblock">- <code>All</code> to generate both network flows and all conversations events. It is not recommended due to the impact on resources footprint.<br></p></td>
 </tr>
 <tr>
@@ -7775,7 +7776,7 @@ When a subnet matches the source or destination IP of a flow, a corresponding fi
 <div class="paragraph">
 <p><code>advanced</code> allows setting some aspects of the internal configuration of the flow processor.
 This section is aimed mostly for debugging and fine-grained performance optimizations,
-such as <code>GOGC</code> and <code>GOMAXPROCS</code> env vars. Set these values at your own risk.</p>
+such as <code>GOGC</code> and <code>GOMAXPROCS</code> environment vars. Set these values at your own risk.</p>
 </div>
 </div>
 </div>
@@ -7819,7 +7820,7 @@ This delay is ignored when a FIN packet is collected for TCP flows (see <code>co
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>dropUnusedFields</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>boolean</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dropUnusedFields</code> [deprecated *] this setting is not used anymore.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dropUnusedFields</code> [deprecated (*)] this setting is not used anymore.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>enableKubeProbes</code></p></td>
@@ -7979,7 +7980,8 @@ For documentation, refer to <a href="https://kubernetes.io/docs/reference/kubern
 <div class="content">
 <div class="paragraph">
 <p>Defines secondary networks to be checked for resources identification.
-To guarantee a correct identification, indexed values must form an unique identifier across the cluster. If the same index is used by several resources, those resources might be incorrectly labeled.</p>
+To guarantee a correct identification, indexed values must form an unique identifier across the cluster.
+If the same index is used by several resources, those resources might be incorrectly labeled.</p>
 </div>
 </div>
 </div>
@@ -8060,8 +8062,7 @@ Fields absent from the 'k8s.v1.cni.cncf.io/network-status' annotation must not b
 <div class="openblock">
 <div class="content">
 <div class="paragraph">
-<p><code>deduper</code> allows you to sample or drop flows identified as duplicates, in order to save on resource usage.
-Unsupported *.</p>
+<p><code>deduper</code> allows you to sample or drop flows identified as duplicates, in order to save on resource usage.</p>
 </div>
 </div>
 </div>
@@ -8089,7 +8090,7 @@ Unsupported *.</p>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>mode</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Set the Processor de-duplication mode. It comes in addition to the Agent-based deduplication because the Agent cannot de-duplicate same flows reported from different nodes.<br></p>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set the Processor de-duplication mode. It comes in addition to the Agent-based deduplication, since the Agent cannot de-duplicate same flows reported from different nodes.<br></p>
 <p class="tableblock">- Use <code>Drop</code> to drop every flow considered as duplicates, allowing saving more on resource usage but potentially losing some information such as the network interfaces used from peer, or network events.<br></p>
 <p class="tableblock">- Use <code>Sample</code> to randomly keep only one flow on 50, which is the default, among the ones considered as duplicates. This is a compromise between dropping every duplicate or keeping every duplicate. This sampling action comes in addition to the Agent-based sampling. If both Agent and Processor sampling values are <code>50</code>, the combined sampling is 1:2500.<br></p>
 <p class="tableblock">- Use <code>Disabled</code> to turn off Processor-based de-duplication.<br></p></td>
@@ -8097,7 +8098,7 @@ Unsupported *.</p>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>integer</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code> is the sampling rate when deduper <code>mode</code> is <code>Sample</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code> is the sampling ratio when deduper <code>mode</code> is <code>Sample</code>. For example, a value of <code>50</code> means that 1 flow in 50 is sampled.</p></td>
 </tr>
 </tbody>
 </table>
@@ -8113,8 +8114,7 @@ Unsupported *.</p>
 <div class="paragraph">
 <p><code>filters</code> lets you define custom filters to limit the amount of generated flows.
 These filters provide more flexibility than the eBPF Agent filters (in <code>spec.agent.ebpf.flowFilter</code>), such as allowing to filter by Kubernetes namespace,
-but with a lesser improvement in performance.
-Unsupported *.</p>
+but with a lesser improvement in performance.</p>
 </div>
 </div>
 </div>
@@ -8161,106 +8161,19 @@ Unsupported *.</p>
 </thead>
 <tbody>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>allOf</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>array</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>filters</code> is a list of matches that must be all satisfied in order to remove a flow.</p></td>
-</tr>
-<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>outputTarget</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">If specified, these filters only target a single output: <code>Loki</code>, <code>Metrics</code> or <code>Exporters</code>. By default, all outputs are targeted.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If specified, these filters target a single output: <code>Loki</code>, <code>Metrics</code> or <code>Exporters</code>. By default, all outputs are targeted.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>query</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A query that selects the network flows to keep. More information about this query language in <a href="https://github.com/netobserv/flowlogs-pipeline/blob/main/docs/filtering.md" class="bare">https://github.com/netobserv/flowlogs-pipeline/blob/main/docs/filtering.md</a>.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>integer</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code> is an optional sampling rate to apply to this filter.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="sect2">
-<h3 id="spec-processor-filters-allof"><a class="anchor" href="#spec-processor-filters-allof"></a>.spec.processor.filters[].allOf</h3>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">Description</dt>
-<dd>
-<div class="openblock">
-<div class="content">
-<div class="paragraph">
-<p><code>filters</code> is a list of matches that must be all satisfied in order to remove a flow.</p>
-</div>
-</div>
-</div>
-</dd>
-<dt class="hdlist1">Type</dt>
-<dd>
-<p><code>array</code></p>
-</dd>
-</dl>
-</div>
-</div>
-<div class="sect2">
-<h3 id="spec-processor-filters-allof-2"><a class="anchor" href="#spec-processor-filters-allof-2"></a>.spec.processor.filters[].allOf[]</h3>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">Description</dt>
-<dd>
-<div class="openblock">
-<div class="content">
-<div class="paragraph">
-<p><code>FLPSingleFilter</code> defines the desired configuration for a single FLP-based filter.</p>
-</div>
-</div>
-</div>
-</dd>
-<dt class="hdlist1">Type</dt>
-<dd>
-<p><code>object</code></p>
-</dd>
-<dt class="hdlist1">Required</dt>
-<dd>
-<div class="ulist">
-<ul>
-<li>
-<p><code>field</code></p>
-</li>
-<li>
-<p><code>matchType</code></p>
-</li>
-</ul>
-</div>
-</dd>
-</dl>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3334%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Property</th>
-<th class="tableblock halign-left valign-top">Type</th>
-<th class="tableblock halign-left valign-top">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>field</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Name of the field to filter on.
-Refer to the documentation for the list of available fields: <a href="https://github.com/netobserv/network-observability-operator/blob/main/docs/flows-format.adoc" class="bare">https://github.com/netobserv/network-observability-operator/blob/main/docs/flows-format.adoc</a>.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>matchType</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Type of matching to apply.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>value</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Value to filter on. When <code>matchType</code> is <code>Equal</code> or <code>NotEqual</code>, you can use field injection with <code>$(SomeField)</code> to refer to any other field of the flow.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sampling</code> is an optional sampling ratio to apply to this filter. For example, a value of <code>50</code> means that 1 matching flow in 50 is sampled.</p></td>
 </tr>
 </tbody>
 </table>
@@ -8463,7 +8376,7 @@ If set to <code>true</code>, the <code>providedCaFile</code> field is ignored.</
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Select the type of TLS configuration:<br></p>
 <p class="tableblock">- <code>Disabled</code> (default) to not configure TLS for the endpoint.
-- <code>Provided</code> to manually provide cert file and a key file. Unsupported *.
+- <code>Provided</code> to manually provide cert file and a key file. [Unsupported (*)].
 - <code>Auto</code> to use OpenShift Container Platform auto generated certificate using annotations.</p></td>
 </tr>
 </tbody>

@@ -3252,6 +3252,12 @@
 <li><a href="#network-observability-flowcollector-kafka-config_network_observability">Configuring the Flow Collector resource with Kafka</a></li>
 <li><a href="#network-observability-enriched-flows_network_observability">Export enriched network flow data</a></li>
 <li><a href="#network-observability-config-FLP-sampling_network_observability">Updating the Flow Collector resource</a></li>
+<li><a href="#network-observability-filter-network-flows-at-ingestion_network_observability">Filter network flows at ingestion</a>
+<ul class="sectlevel2">
+<li><a href="#ebpf-agent-filters_network_observability">eBPF agent filters</a></li>
+<li><a href="#flowlogs-pipeline-filters_network_observability">Flowlogs-pipeline filters</a></li>
+</ul>
+</li>
 <li><a href="#network-observability-config-quick-filters_network_observability">Configuring quick filters</a></li>
 <li><a href="#network-observability-resource-recommendations_network_observability">Resource management and performance considerations</a>
 <ul class="sectlevel2">
@@ -3604,6 +3610,127 @@
 </div>
 </div>
 <div class="sect1">
+<h2 id="network-observability-filter-network-flows-at-ingestion_network_observability"><a class="anchor" href="#network-observability-filter-network-flows-at-ingestion_network_observability"></a>Filter network flows at ingestion</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can create filters to reduce the number of generated network flows. Filtering network flows can reduce the resource usage of the Network Observability components.</p>
+</div>
+<div class="paragraph">
+<p>You can configure two kinds of filters:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>eBPF agent filters</p>
+</li>
+<li>
+<p>Flowlogs-pipeline filters</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="ebpf-agent-filters_network_observability"><a class="anchor" href="#ebpf-agent-filters_network_observability"></a>eBPF agent filters</h3>
+<div class="paragraph">
+<p>eBPF agent filters maximize performance because they take effect at the earliest stage of the network flows collection process.</p>
+</div>
+<div class="paragraph">
+<p>To configure eBPF agent filters with the Network Observability Operator, see "Filtering eBPF flow data using multiple rules".</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="flowlogs-pipeline-filters_network_observability"><a class="anchor" href="#flowlogs-pipeline-filters_network_observability"></a>Flowlogs-pipeline filters</h3>
+<div class="paragraph">
+<p>Flowlogs-pipeline filters provide greater control over traffic selection because they take effect later in the network flows collection process. They are primarily used to improve data storage.</p>
+</div>
+<div class="paragraph">
+<p>Flowlogs-pipeline filters use a simple query language to filter network flow, as shown in the following example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">(srcnamespace="netobserv" OR (srcnamespace="ingress" AND dstnamespace="netobserv")) AND srckind!="service"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The query language uses the following syntax:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Query language syntax</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Category</th>
+<th class="tableblock halign-left valign-top">Operators</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Logical boolean operators (not case-sensitive)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>and</code>, <code>or</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Comparison operators</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>=</code> (equals),<br>
+<code>!=</code> (not equals),<br>
+<code>=~</code> (matches regexp),<br>
+<code>!~</code> (not matches regexp),<br>
+<code>&lt;</code> / <code>&lt;=</code> (less than or equal to),<br>
+<code>&gt;</code> / <code>&gt;=</code> (greater than or equal to)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unary operations</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>with(field)</code> (field is present),<br>
+<code>without(field)</code> (field is absent)</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>You can configure flowlogs-pipeline filters in the <code>spec.processor.filters</code> section of the <code>FlowCollector</code> resource. For example:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example YAML Flowlogs-pipeline filter</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">flows.netobserv.io/v1beta2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">FlowCollector</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">netobserv</span>
+  <span class="na">agent</span><span class="pi">:</span>
+  <span class="na">processor</span><span class="pi">:</span>
+    <span class="na">filters</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">query</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">(SrcK8S_Namespace="netobserv" OR (SrcK8S_Namespace="openshift-ingress" AND DstK8S_Namespace="netobserv"))</span>
+        <span class="na">outputTarget</span><span class="pi">:</span> <span class="s">Loki</span>  <i class="conum" data-value="1"></i><b>(1)</b>
+        <span class="na">sampling</span><span class="pi">:</span> <span class="s">10</span>  <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Sends matching flows to a specific output, such as Loki, Prometheus, or an external system. When omitted, sends to all configured outputs.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Optional. Applies a sampling ratio to limit the number of matching flows to be stored or exported. For example, <code>sampling: 10</code> means 1/10 of the flows are kept.</td>
+</tr>
+</table>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../network_observability/observing-network-traffic.html#network-observability-filtering-ebpf-rule_nw-observe-network-traffic">Filtering eBPF flow data using multiple rules</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="network-observability-config-quick-filters_network_observability"><a class="anchor" href="#network-observability-config-quick-filters_network_observability"></a>Configuring quick filters</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -3627,7 +3754,7 @@
 <p>Here is a list of all available filter keys:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 1. Filter keys</caption>
+<caption class="title">Table 2. Filter keys</caption>
 <colgroup>
 <col style="width: 9.0909%;">
 <col style="width: 9.0909%;">
@@ -3797,7 +3924,7 @@
 </table>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 2. Resource recommendations</caption>
+<caption class="title">Table 3. Resource recommendations</caption>
 <colgroup>
 <col style="width: 25%;">
 <col style="width: 25%;">
@@ -3923,7 +4050,7 @@
 </table>
 </div>
 <table class="tableblock frame-all grid-all fit-content">
-<caption class="title">Table 3. Total average resource usage</caption>
+<caption class="title">Table 4. Total average resource usage</caption>
 <colgroup>
 <col>
 <col>
