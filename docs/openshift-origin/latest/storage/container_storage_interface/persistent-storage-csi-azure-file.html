@@ -2079,7 +2079,7 @@
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/troubleshooting.html" style="padding-left: 70px;">Troubleshooting OADP</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/velero-cli-tool.html" style="padding-left: 70px;">Velero CLI tool</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/pods-crash-or-restart-due-to-lack-of-memory-or-cpu.html" style="padding-left: 70px;">Pods crash or restart due to lack of memory or CPU</a></li>
-                    <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/issues-with-velero-and-admission-webhooks.html" style="padding-left: 70px;">Issues with Velero and admission webhooks</a></li>
+                    <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/restoring-workarounds-for-velero-backups-that-use-admission-webhooks.html" style="padding-left: 70px;">Restoring workarounds for Velero backups that use admission webhooks</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-installation-issues.html" style="padding-left: 70px;">OADP installation issues</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-operator-issues.html" style="padding-left: 70px;">OADP Operator issues</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-timeouts.html" style="padding-left: 70px;">OADP timeouts</a></li>
@@ -2776,6 +2776,7 @@
 <li><a href="#persistent-storage-csi-azure-file-cross-sub-dynamic-pre-provisioning-pv-pvc-procedure_persistent-storage-csi-azure-file">Static provisioning across subscriptions for Azure File by creating a PV and PVC:</a></li>
 </ul>
 </li>
+<li><a href="#persistent-storage-csi-azure-file-static-provisioning-procedure_persistent-storage-csi-azure-file">Static provisioning for Azure File</a></li>
 </ul>
 </div>
 </div>
@@ -3278,6 +3279,233 @@ metadata:
 <div class="title">Recommendation to use a storage class</div>
 <p>In the preceding example of static provisioning across subscriptions, the storage class referenced in the PV and PVC is not strictly necessary, as storage classes are not required to accomplish static provisioning. However, it is advisable to use a storage class to avoid cases where a manually created PVC accidentally does not match a manually created PV, and thus potentially triggers dynamic provisioning of a new PV. Other ways to avoid this issue would be to create a storage class with <code>provisioner: kubernetes.io/no-provisioner</code> or reference a non-existing storage class, which in both cases ensures that dynamic provisioning does not occur. When using either of these strategies, if a mis-matched PV and PVC occurs, the PVC stays in a pending state, and you can correct the error.</p>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="persistent-storage-csi-azure-file-static-provisioning-procedure_persistent-storage-csi-azure-file"><a class="anchor" href="#persistent-storage-csi-azure-file-static-provisioning-procedure_persistent-storage-csi-azure-file"></a>Static provisioning for Azure File</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For static provisioning, cluster administrators create persistent volumes (PVs) that define the details of the real storage. Cluster users can then create persistent volume claims (PVCs) that consume these PVs.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Access to an OKD cluster with administrator rights</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<div class="title">Procedure</div>
+<p>To use static provisioning for Azure File:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>If you have not yet created a secret for the Azure storage account, create it now:</p>
+<div class="paragraph">
+<p>This secret must contain the Azure Storage Account name and key with the following very specific format with two key-value pairs:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>azurestorageaccountname</code>: &lt;storage_account_name&gt;</p>
+</li>
+<li>
+<p><code>azurestorageaccountkey</code>: &lt;account_key&gt;</p>
+<div class="paragraph">
+<p>To create a secret named <em>azure-secret</em>, run the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">oc create secret generic azure-secret  -n &lt;namespace_name&gt;</span><span class="w"> </span><span class="nt">--type</span><span class="o">=</span>Opaque <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">azurestorageaccountname</span><span class="o">=</span><span class="s2">"&lt;storage_account_name&gt;"</span> <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">azurestorageaccountkey</span><span class="o">=</span><span class="s2">"&lt;account_key&gt;"</span>  <i class="conum" data-value="1"></i><b>(1)</b> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Set <code>&lt;namespace_name&gt;</code> to the namespace where the PV is consumed.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Provide your values for <code>&lt;storage_account_name&gt;</code> and <code>&lt;account_key&gt;</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Create a PV by using the following example YAML file:</p>
+<div class="listingblock">
+<div class="title">Example PV YAML file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolume</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">pv.kubernetes.io/provisioned-by</span><span class="pi">:</span> <span class="s">file.csi.azure.com</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">pv-azurefile</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">capacity</span><span class="pi">:</span>
+    <span class="na">storage</span><span class="pi">:</span> <span class="s">5Gi</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">accessModes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ReadWriteMany</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">persistentVolumeReclaimPolicy</span><span class="pi">:</span> <span class="s">Retain</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">&lt;sc-name&gt;</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="na">mountOptions</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">dir_mode=0777</span>  <i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="pi">-</span> <span class="s">file_mode=0777</span>
+    <span class="pi">-</span> <span class="s">uid=0</span>
+    <span class="pi">-</span> <span class="s">gid=0</span>
+    <span class="pi">-</span> <span class="s">cache=strict</span>  <i class="conum" data-value="6"></i><b>(6)</b>
+    <span class="pi">-</span> <span class="s">nosharesock</span>  <i class="conum" data-value="7"></i><b>(7)</b>
+    <span class="pi">-</span> <span class="s">actimeo=30</span>  <i class="conum" data-value="8"></i><b>(8)</b>
+    <span class="pi">-</span> <span class="s">nobrl</span>  <i class="conum" data-value="9"></i><b>(9)</b>
+  <span class="na">csi</span><span class="pi">:</span>
+    <span class="na">driver</span><span class="pi">:</span> <span class="s">file.csi.azure.com</span>
+    <span class="na">volumeHandle</span><span class="pi">:</span> <span class="s2">"</span><span class="s">{resource-group-name}#{account-name}#{file-share-name}"</span> <i class="conum" data-value="10"></i><b>(10)</b>
+    <span class="na">volumeAttributes</span><span class="pi">:</span>
+      <span class="na">shareName</span><span class="pi">:</span> <span class="s">EXISTING_FILE_SHARE_NAME</span>  <i class="conum" data-value="11"></i><b>(11)</b>
+    <span class="na">nodeStageSecretRef</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">azure-secret</span> <i class="conum" data-value="12"></i><b>(12)</b>
+      <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;my-namespace&gt;</span> <i class="conum" data-value="13"></i><b>(13)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Volume size.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Access mode. Defines the read-write and mount permissions. For more information, under <em>Additional Resources</em>, see <em>Access modes</em>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Reclaim policy. Tells the cluster what to do with the volume after it is released. Accepted values are <code>Retain</code>, <code>Recycle</code>, or <code>Delete</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Storage class name. This name is used by the PVC to bind to this specific PV. For static provisioning, a <code>StorageClass</code> object does not need to exist, but the name in the PV and PVC must match.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Modify this permission if you want to enhance the security.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Cache mode. Accepted values are <code>none</code>, <code>strict</code>, and <code>loose</code>. The default is <code>strict</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>Use to reduce the probability of a reconnect race.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="8"></i><b>8</b></td>
+<td>The time (in seconds) that the CIFS client caches attributes of a file or directory before it requests attribute information from a server.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="9"></i><b>9</b></td>
+<td>Disables sending byte range lock requests to the server, and for applications which have challenges with POSIX locks.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="10"></i><b>10</b></td>
+<td>Ensure that <code>volumeHandle</code> is unique across the cluster. The <code>resource-group-name</code> is the Azure resource group where the storage account resides.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="11"></i><b>11</b></td>
+<td>File share name. Use only the file share name; do not use full path.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="12"></i><b>12</b></td>
+<td>Provide the name of the secret created in step 1 of this procedure. In this example, it is <em>azure-secret</em>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="13"></i><b>13</b></td>
+<td>The namespace that the secret was created in. This must be the namespace where the PV is consumed.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a PVC that references the PV using the following example file:</p>
+<div class="listingblock">
+<div class="title">Example PVC YAML file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pvc-name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;my-namespace&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">volumeName</span><span class="pi">:</span> <span class="s">pv-azurefile</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">&lt;sc-name&gt;</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="na">accessModes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ReadWriteMany</span> <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">5Gi</span> <i class="conum" data-value="6"></i><b>(6)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>PVC name.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Namespace for the PVC.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The name of the PV that you created in the previous step.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Storage class name. This name is used by the PVC to bind to this specific PV. For static provisioning, a <code>StorageClass</code> object does not need to exist, but the name in the PV and PVC must match.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Access mode. Defines the requested read-write access for the PVC. Claims use the same conventions as volumes when requesting storage with specific access modes. For more information, under <em>Additional Resources</em>, see <em>Access modes</em>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>PVC size.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Ensure that the PVC is created and in <code>Bound</code> status after a while by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pvc &lt;pvc-name&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of your PVC.</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME       STATUS    VOLUME         CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+pvc-name   Bound     pv-azurefile   5Gi        ReadWriteMany  my-sc          7m2s</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
@@ -3287,8 +3515,10 @@ metadata:
 <li>
 <p><a href="../../storage/container_storage_interface/persistent-storage-csi.html#persistent-storage-csi">Configuring CSI volumes</a></p>
 </li>
+<li>
+<p><a href="../../storage/understanding-persistent-storage.html#pv-access-modes_understanding-persistent-storage">Access modes</a></p>
+</li>
 </ul>
-</div>
 </div>
 </div>
 </div>

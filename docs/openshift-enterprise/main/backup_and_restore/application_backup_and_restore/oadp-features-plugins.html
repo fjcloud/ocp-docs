@@ -2511,7 +2511,7 @@
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/troubleshooting.html" style="padding-left: 70px;">Troubleshooting OADP</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/velero-cli-tool.html" style="padding-left: 70px;">Velero CLI tool</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/pods-crash-or-restart-due-to-lack-of-memory-or-cpu.html" style="padding-left: 70px;">Pods crash or restart due to lack of memory or CPU</a></li>
-                    <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/issues-with-velero-and-admission-webhooks.html" style="padding-left: 70px;">Issues with Velero and admission webhooks</a></li>
+                    <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/restoring-workarounds-for-velero-backups-that-use-admission-webhooks.html" style="padding-left: 70px;">Restoring workarounds for Velero backups that use admission webhooks</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-installation-issues.html" style="padding-left: 70px;">OADP installation issues</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-operator-issues.html" style="padding-left: 70px;">OADP Operator issues</a></li>
                     <li><a class="" href="../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-timeouts.html" style="padding-left: 70px;">OADP timeouts</a></li>
@@ -3280,7 +3280,6 @@
 <ul class="sectlevel2">
 <li><a href="#default-velero-cloud-provider-plugins">Default Velero cloud provider plugins</a></li>
 <li><a href="#custom-velero-plugins">Custom Velero plugins</a></li>
-<li><a href="#oadp-plugins-receiving-eof-message_oadp-features-plugins">Velero plugins returning "received EOF, stopping recv loop" message</a></li>
 </ul>
 </li>
 <li><a href="#oadp-supported-architecture_oadp-features-plugins">Supported architectures for OADP</a></li>
@@ -3291,12 +3290,8 @@
 </ul>
 </li>
 <li><a href="#oadp-fips_oadp-features-plugins">OADP and FIPS</a></li>
-<li><a href="#oadp-features-plugins-known-issues_oadp-features-plugins">OADP plugins known issues</a>
-<ul class="sectlevel2">
-<li><a href="#velero-plugin-panic_oadp-features-plugins">Velero plugin panics during imagestream backups due to a missing secret</a></li>
-<li><a href="#openshift-adp-controller-manager-seg-fault_oadp-features-plugins">OpenShift ADP Controller segmentation fault</a></li>
-</ul>
-</li>
+<li><a href="#avoiding-the-velero-plugin-panic-error_oadp-features-plugins">Avoiding the Velero plugin panic error</a></li>
+<li><a href="#workaround-for-openshift-adp-controller-segmentation-fault_oadp-features-plugins">Workaround for OpenShift ADP Controller segmentation fault</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -3572,23 +3567,6 @@
 </div>
 </div>
 </div>
-<div class="sect2">
-<h3 id="oadp-plugins-receiving-eof-message_oadp-features-plugins"><a class="anchor" href="#oadp-plugins-receiving-eof-message_oadp-features-plugins"></a>Velero plugins returning "received EOF, stopping recv loop" message</h3>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Velero plugins are started as separate processes. After the Velero operation has completed, either successfully or not, they exit. Receiving a <code>received EOF, stopping recv loop</code> message in the debug logs indicates that a plugin operation has completed. It does not mean that an error has occurred.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</div>
 </div>
 </div>
 <div class="sect1">
@@ -3704,36 +3682,33 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="oadp-features-plugins-known-issues_oadp-features-plugins"><a class="anchor" href="#oadp-features-plugins-known-issues_oadp-features-plugins"></a>OADP plugins known issues</h2>
+<h2 id="avoiding-the-velero-plugin-panic-error_oadp-features-plugins"><a class="anchor" href="#avoiding-the-velero-plugin-panic-error_oadp-features-plugins"></a>Avoiding the Velero plugin panic error</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The following section describes known issues in OpenShift API for Data Protection (OADP) plugins:</p>
-</div>
-<div class="sect2">
-<h3 id="velero-plugin-panic_oadp-features-plugins"><a class="anchor" href="#velero-plugin-panic_oadp-features-plugins"></a>Velero plugin panics during imagestream backups due to a missing secret</h3>
-<div class="paragraph">
-<p>When the backup and the Backup Storage Location (BSL) are managed outside the scope of the Data Protection Application (DPA), the OADP controller, meaning the DPA reconciliation does not create the relevant <code>oadp-&lt;BSL Name&gt;-&lt;BSL Provider&gt;-registry-secret</code>.</p>
+<p>A missing secret can cause a panic error for the Velero plugin during image stream backups.</p>
 </div>
 <div class="paragraph">
-<p>When the backup is run, the OpenShift Velero plugin panics on the imagestream backup, with a panic error:</p>
+<p>When the backup and the Backup Storage Location (BSL) are managed outside the scope of the Data Protection Application (DPA), the OADP controller does not create the relevant <code>oadp-&lt;bsl_name&gt;-&lt;bsl_provider&gt;-registry-secret</code> parameter.</p>
+</div>
+<div class="paragraph">
+<p>During the backup operation, the OpenShift Velero plugin panics on the imagestream backup, with the following panic error:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">024-02-27T10:46:50.028951744Z time="2024-02-27T10:46:50Z" level=error msg="Error backing up item"
-</span><span class="gp">backup=openshift-adp/&lt;backup name&gt;</span><span class="w"> </span><span class="nv">error</span><span class="o">=</span><span class="s2">"error executing custom action (groupResource=imagestreams.image.openshift.io,
-</span><span class="gp">namespace=&lt;BSL Name&gt;</span><span class="s2">, name=postgres): rpc error: code = Aborted desc = plugin panicked:
-</span><span class="go">runtime error: index out of range with length 1, stack trace: goroutine 94…</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="text">024-02-27T10:46:50.028951744Z time="2024-02-27T10:46:50Z" level=error msg="Error backing up item"
+backup=openshift-adp/&lt;backup name&gt; error="error executing custom action (groupResource=imagestreams.image.openshift.io,
+namespace=&lt;BSL Name&gt;, name=postgres): rpc error: code = Aborted desc = plugin panicked:
+runtime error: index out of range with length 1, stack trace: goroutine 94…</code></pre>
 </div>
 </div>
-<div class="sect3">
-<h4 id="velero-plugin-panic-workaround_oadp-features-plugins"><a class="anchor" href="#velero-plugin-panic-workaround_oadp-features-plugins"></a>Workaround to avoid the panic error</h4>
 <div class="paragraph">
-<p>To avoid the Velero plugin panic error, perform the following steps:</p>
+<p>Use the following workaround to avoid the Velero plugin panic error.</p>
 </div>
 <div class="olist arabic">
+<div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Label the custom BSL with the relevant label</p>
+<p>Label the custom BSL with the relevant label by using the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label backupstoragelocations.velero.io &lt;bsl_name&gt; app.kubernetes.io/component<span class="o">=</span>bsl</code></pre>
@@ -3757,45 +3732,44 @@
 </table>
 </div>
 </li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
 <li>
-<p>When the DPA reconciles, confirm that the relevant <code>oadp-&lt;BSL Name&gt;-&lt;BSL Provider&gt;-registry-secret</code> has been created and that the correct registry data has been populated into it:</p>
+<p>After the DPA is reconciled, confirm that the parameter has been created and that the correct registry data has been populated into it by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-adp get secret/oadp-&lt;bsl_name&gt;-&lt;bsl_provider&gt;-registry-secret <span class="nt">-o</span> json | jq <span class="nt">-r</span> <span class="s1">'.data'</span></code></pre>
 </div>
 </div>
 </li>
-</ol>
+</ul>
 </div>
 </div>
 </div>
-<div class="sect2">
-<h3 id="openshift-adp-controller-manager-seg-fault_oadp-features-plugins"><a class="anchor" href="#openshift-adp-controller-manager-seg-fault_oadp-features-plugins"></a>OpenShift ADP Controller segmentation fault</h3>
+<div class="sect1">
+<h2 id="workaround-for-openshift-adp-controller-segmentation-fault_oadp-features-plugins"><a class="anchor" href="#workaround-for-openshift-adp-controller-segmentation-fault_oadp-features-plugins"></a>Workaround for OpenShift ADP Controller segmentation fault</h2>
+<div class="sectionbody">
 <div class="paragraph">
-<p>If you configure a DPA with both <code>cloudstorage</code> and <code>restic</code> enabled, the <code>openshift-adp-controller-manager</code> pod crashes and restarts indefinitely until the pod fails with a crash loop segmentation fault.</p>
+<p>If you configure a Data Protection Application (DPA) with both <code>cloudstorage</code> and <code>restic</code> enabled, the <code>openshift-adp-controller-manager</code> pod crashes and restarts indefinitely until the pod fails with a crash loop segmentation fault.</p>
 </div>
 <div class="paragraph">
-<p>You can have either <code>velero</code> or <code>cloudstorage</code> defined, because they are mutually exclusive fields.</p>
+<p>Define either <code>velero</code> or <code>cloudstorage</code> when you configure a DPA. Otherwise, the <code>openshift-adp-controller-manager</code> pod fails with a crash loop segmentation fault due to the following settings:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>If you have both <code>velero</code> and  <code>cloudstorage</code> defined, the <code>openshift-adp-controller-manager</code> fails.</p>
+<p>If you define both <code>velero</code> and <code>cloudstorage</code>, the <code>openshift-adp-controller-manager</code> fails.</p>
 </li>
 <li>
-<p>If you have neither <code>velero</code> nor <code>cloudstorage</code> defined, the <code>openshift-adp-controller-manager</code> fails.</p>
+<p>If you do not define both <code>velero</code> and <code>cloudstorage</code>, the <code>openshift-adp-controller-manager</code> fails.</p>
 </li>
 </ul>
 </div>
 <div class="paragraph">
 <p>For more information about this issue, see <a href="https://issues.redhat.com/browse/OADP-1054">OADP-1054</a>.</p>
-</div>
-<div class="sect3">
-<h4 id="openshift-adp-controller-manager-seg-fault-workaround_oadp-features-plugins"><a class="anchor" href="#openshift-adp-controller-manager-seg-fault-workaround_oadp-features-plugins"></a>OpenShift ADP Controller segmentation fault workaround</h4>
-<div class="paragraph">
-<p>You must define either <code>velero</code> or <code>cloudstorage</code> when you configure a DPA. If you define both APIs in your DPA, the <code>openshift-adp-controller-manager</code> pod fails with a crash loop segmentation fault.</p>
-</div>
-</div>
 </div>
 </div>
 </div>
