@@ -3275,6 +3275,7 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#virt-using-wasp-agent-to-configure-higher-vm-workload-density_virt-configuring-higher-vm-workload-density">Using wasp-agent to increase VM workload density</a></li>
+<li><a href="#virt-removing-wasp-agent_virt-configuring-higher-vm-workload-density">Removing the wasp-agent component</a></li>
 <li><a href="#virt-wasp-agent-pod-eviction_virt-configuring-higher-vm-workload-density">Pod eviction conditions used by wasp-agent</a>
 <ul class="sectlevel2">
 <li><a href="#environment-variables_virt-configuring-higher-vm-workload-density">Environment variables</a></li>
@@ -3806,6 +3807,115 @@
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-removing-wasp-agent_virt-configuring-higher-vm-workload-density"><a class="anchor" href="#virt-removing-wasp-agent_virt-configuring-higher-vm-workload-density"></a>Removing the wasp-agent component</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>If you no longer need memory overcommitment, you can remove the <code>wasp-agent</code> component and associated resources from your cluster.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You are logged in to the cluster with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Remove the <code>wasp-agent</code> DaemonSet:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete daemonset wasp-agent <span class="nt">-n</span> wasp</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If deployed, remove the alerting rules:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete prometheusrule wasp-rules <span class="nt">-n</span> wasp</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optionally, delete the <code>wasp</code> namespace if no other resources depend on it:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete namespace wasp</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Revert the memory overcommitment configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-cnv patch HyperConverged/kubevirt-hyperconverged <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span><span class="s1">'json'</span> <span class="se">\</span>
+  <span class="nt">-p</span><span class="o">=</span><span class="s1">'[{"op": "remove", "path": "/spec/higherWorkloadDensity"}]'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the <code>MachineConfig</code> that provisions swap memory:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete machineconfig 90-worker-swap</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the associated <code>KubeletConfig</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete kubeletconfig custom-config</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Wait for the worker nodes to reconcile:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">wait </span>mcp worker <span class="nt">--for</span> <span class="nv">condition</span><span class="o">=</span><span class="nv">Updated</span><span class="o">=</span>True <span class="nt">--timeout</span><span class="o">=</span><span class="nt">-1s</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Confirm that the <code>wasp-agent</code> DaemonSet is removed:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get daemonset <span class="nt">-n</span> wasp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>No <code>wasp-agent</code> should be listed.</p>
+</div>
+</li>
+<li>
+<p>Confirm that swap is no longer enabled on a node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;selected_node&gt; <span class="nt">--</span> free <span class="nt">-m</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Ensure that the <code>Swap:</code> row shows <code>0</code> or that no swap space shows as provisioned.</p>
+</div>
+</li>
+</ul>
 </div>
 </div>
 </div>
