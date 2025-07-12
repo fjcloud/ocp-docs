@@ -1795,7 +1795,8 @@
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-aws.html">Backing up and restoring etcd on AWS</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-virt.html">Backing up and restoring a hosted cluster on OpenShift Virtualization</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-aws.html">Disaster recovery for a hosted cluster in AWS</a></li>
-                  <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-oadp.html">Disaster recovery for a hosted cluster by using OADP</a></li>              </ul>
+                  <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-oadp.html">Disaster recovery for a hosted cluster by using OADP</a></li>
+                  <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-oadp-auto.html">Automated disaster recovery for a hosted cluster by using OADP</a></li>              </ul>
             </li>
             <li><a class="" href="../../hosted_control_planes/hcp-authentication-authorization.html">Authentication and authorization for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-machine-config.html">Handling machine configuration for hosted control planes</a></li>
@@ -3276,7 +3277,11 @@
 <ul class="sectlevel1">
 <li><a href="#hcp-ibm-power-prereqs_hcp-deploy-ibm-power">Prerequisites to configure hosted control planes on IBM Power</a></li>
 <li><a href="#hcp-ibm-power-infra-reqs_hcp-deploy-ibm-power">IBM Power infrastructure requirements</a></li>
-<li><a href="#hcp-ibm-power-dns_hcp-deploy-ibm-power">DNS configuration for hosted control planes on IBM Power</a></li>
+<li><a href="#hcp-ibm-power-dns_hcp-deploy-ibm-power">DNS configuration for hosted control planes on IBM Power</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-custom-dns_hcp-deploy-ibm-power">Defining a custom DNS name</a></li>
+</ul>
+</li>
 <li><a href="#hcp-bm-hc_hcp-deploy-ibm-power">Creating a hosted cluster on bare metal</a></li>
 <li><a href="#hcp-ibm-power-heterogeneous-nodepools_hcp-deploy-ibm-power">Creating heterogeneous node pools on agent hosted clusters</a>
 <ul class="sectlevel2">
@@ -3448,6 +3453,97 @@ api-int               IN A 1xx.2x.2xx.1xx
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">compute-0              IN A 1xx.2x.2xx.1yy
 compute-1              IN A 1xx.2x.2xx.1yy</span></code></pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-custom-dns_hcp-deploy-ibm-power"><a class="anchor" href="#hcp-custom-dns_hcp-deploy-ibm-power"></a>Defining a custom DNS name</h3>
+<div class="paragraph">
+<p>As a cluster administrator, you can create a hosted cluster with an external API DNS name that is different from the internal endpoint that is used for node bootstraps and control plane communication. You might want to define a different DNS name for the following reasons:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>To replace the user-facing TLS certificate with one from a public CA without breaking the control plane functions that are bound to the internal root CA</p>
+</li>
+<li>
+<p>To support split-horizon DNS and NAT scenarios</p>
+</li>
+<li>
+<p>To ensure a similar experience to standalone control planes, where you can use functions, such as the "Show Login Command" function, with the correct <code>kubeconfig</code> and DNS configuration</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>You can define a DNS name either during your initial setup or during day-2 operations, by entering a domain name in the <code>kubeAPIServerDNSName</code> field of a <code>HostedCluster</code> object.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have a valid TLS certificate that covers the DNS name that you will set in the <code>kubeAPIServerDNSName</code> field.</p>
+</li>
+<li>
+<p>Your DNS name is a resolvable URI that is reachable and pointing to the right address.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>In the specification for the <code>HostedCluster</code> object, add the <code>kubeAPIServerDNSName</code> field and the address for the domain and specify which certificate to use, as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1">#...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">apiServer</span><span class="pi">:</span>
+      <span class="na">servingCerts</span><span class="pi">:</span>
+        <span class="na">namedCertificates</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">names</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s">xxx.example.com</span>
+          <span class="pi">-</span> <span class="s">yyy.example.com</span>
+          <span class="na">servingCertificate</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;my_serving_certificate&gt;</span>
+  <span class="na">kubeAPIServerDNSName</span><span class="pi">:</span> <span class="s">&lt;your_custom_address&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The value for the <code>kubeAPIServerDNSName</code> field must be a valid, addressable domain.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>After you define the <code>kubeAPIServerDNSName</code> field and specify the certificate, the Control Plane Operator controllers create a <code>kubeconfig</code> file named <code>custom-admin-kubeconfig</code>, which is stored in the <code>HostedControlPlane</code> namespace. The certificates are generated from the root CA, and the <code>HostedControlPlane</code> namespace manages their expiration and renewal.</p>
+</div>
+<div class="paragraph">
+<p>The Control Plane Operator reports a new <code>kubeconfig</code> file named <code>CustomKubeconfig</code> in the <code>HostedControlPlane</code> namespace. That file uses the new server that is defined in the <code>kubeAPIServerDNSName</code> field.</p>
+</div>
+<div class="paragraph">
+<p>The custom <code>kubeconfig</code> file is referenced in the <code>HostedCluster</code> object in the <code>status</code> field as <code>CustomKubeconfig</code>. The <code>CustomKubeConfig</code> field is optional, and can be added only if the <code>kubeAPIServerDNSName</code> field is not empty. When the <code>CustomKubeConfig</code> field is set, it triggers the generation of a secret named <code>&lt;hosted_cluster_name&gt;-custom-admin-kubeconfig</code> in the <code>HostedCluster</code> namespace. You can use the secret to access the <code>HostedCluster</code> API server. If you remove the <code>CustomKubeConfig</code> field during day-2 operations, all related secrets and status references are deleted.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This process does not directly affect the data plane, so no rollouts are expected to occur. The <code>HostedControlPlane</code> namespace receives the changes from the HyperShift Operator and deletes the corresponding fields.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>If you remove the <code>kubeAPIServerDNSName</code> field from the specification for the <code>HostedCluster</code> object, all newly generated secrets and the <code>CustomKubeconfig</code> reference are removed from the cluster and from the <code>status</code> field.</p>
 </div>
 </div>
 </div>

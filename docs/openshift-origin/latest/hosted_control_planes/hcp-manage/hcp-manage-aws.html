@@ -1456,7 +1456,8 @@
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-aws.html">Backing up and restoring etcd on AWS</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-virt.html">Backing up and restoring a hosted cluster on OpenShift Virtualization</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-aws.html">Disaster recovery for a hosted cluster in AWS</a></li>
-                  <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-oadp.html">Disaster recovery for a hosted cluster by using OADP</a></li>              </ul>
+                  <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-oadp.html">Disaster recovery for a hosted cluster by using OADP</a></li>
+                  <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-oadp-auto.html">Automated disaster recovery for a hosted cluster by using OADP</a></li>              </ul>
             </li>
             <li><a class="" href="../../hosted_control_planes/hcp-authentication-authorization.html">Authentication and authorization for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-machine-config.html">Handling machine configuration for hosted control planes</a></li>
@@ -2787,6 +2788,7 @@
 </li>
 <li><a href="#hcp-migrate-aws-single-to-multiarch_hcp-managing-aws">Transitioning a hosted cluster from single-architecture to multi-architecture</a></li>
 <li><a href="#hcp-migrate-aws-multiarch-nodepools_hcp-managing-aws">Creating node pools on the multi-architecture hosted cluster</a></li>
+<li><a href="#hcp-aws-tags_hcp-managing-aws">Adding or updating AWS tags for a hosted cluster</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -4173,6 +4175,136 @@ linux/arm64   sha256:7b046404572ac96202d82b6cb029b421dddd40e88c73bbf35f602ffc130
 </div>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-aws-tags_hcp-managing-aws"><a class="anchor" href="#hcp-aws-tags_hcp-managing-aws"></a>Adding or updating AWS tags for a hosted cluster</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As a cluster instance administrator, you can add or update Amazon Web Services (AWS) tags without needing to re-create your hosted cluster. <em>Tags</em> are key-value pairs that are attached to AWS resources for management and automation.</p>
+</div>
+<div class="paragraph">
+<p>You might want to use tags for the following purposes:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Managing access controls.</p>
+</li>
+<li>
+<p>Tracking chargeback or showback.</p>
+</li>
+<li>
+<p>Managing cloud IAM conditional permissions.</p>
+</li>
+<li>
+<p>Aggregating resources based on tags. For example, you can query tags to calculate resource usage and billing costs.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>You can add or update tags for several different types of resources, including EFS access points, load balancer resources, Amazon EBS volumes, IAM users, and AWS S3.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>On network load balancers, tags cannot be added or updated. The AWS load balancer reconciles whatever tags are in the <code>HostedCluster</code> resource. If you try to add or update a tag, the load balancer overwrites the tag.</p>
+</div>
+<div class="paragraph">
+<p>In addition, tags cannot be updated on the default security group resource that is created directly by hosted control planes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You must have cluster administrator permissions for your hosted cluster on AWS.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>If you want to add or update tags for EFS access points, complete steps 1 and 2. If you are adding or updating tags for other types of resources, complete only step 2.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>In the <code>aws-efs-csi-driver-operator</code> service account, add two annotations, as shown in the following example. These annotations are required so that the AWS EKS pod identity webhook that runs on the cluster can correctly assign AWS roles to the pods that the EFS Operator uses.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;service_account_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;project_name&gt;</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">eks.amazonaws.com/role-arn:&lt;role_arn&gt;</span>
+    <span class="s">eks.amazonaws.com/audience:sts.amazonaws.com</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the Operator pod or roll out a restart of the <code>aws-efs-csi-driver-operator</code> deployment.</p>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>In the <code>HostedCluster</code> resource, enter information in the <code>resourceTags</code> fields, as shown in the following example:</p>
+<div class="listingblock">
+<div class="title">Example <code>HostedCluster</code> resource</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hypershift.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HostedCluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="c1">#...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">autoscaling</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">clusterID</span><span class="pi">:</span> <span class="s">&lt;cluster_id&gt;</span>
+  <span class="na">configuration</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">controllerAvailabilityPolicy</span><span class="pi">:</span> <span class="s">SingleReplica</span>
+  <span class="na">dns</span><span class="pi">:</span>
+    <span class="c1">#...</span>
+  <span class="na">etcd</span><span class="pi">:</span>
+    <span class="c1">#...</span>
+  <span class="na">fips</span><span class="pi">:</span> <span class="no">false</span>
+  <span class="na">infraID</span><span class="pi">:</span> <span class="s">&lt;infra_id&gt;</span>
+  <span class="na">infrastructureAvailabilityPolicy</span><span class="pi">:</span> <span class="s">SingleReplica</span>
+  <span class="na">issuerURL</span><span class="pi">:</span> <span class="s">https://&lt;issuer_url&gt;.s3.&lt;region&gt;.amazonaws.com</span>
+  <span class="na">networking</span><span class="pi">:</span>
+    <span class="c1">#...</span>
+  <span class="na">olmCatalogPlacement</span><span class="pi">:</span> <span class="s">management</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">aws</span><span class="pi">:</span>
+      <span class="c1">#...</span>
+      <span class="na">resourceTags</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">kubernetes.io/cluster/&lt;tag&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+        <span class="na">value</span><span class="pi">:</span> <span class="s">owned</span>
+      <span class="na">rolesRef</span><span class="pi">:</span>
+        <span class="c1">#...</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">AWS</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Specify the tag that you want to add to your resource.</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
