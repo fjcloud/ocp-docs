@@ -2847,7 +2847,7 @@
 </li>
 <li><a href="#post-install-topology-manager">Topology Manager</a>
 <ul class="sectlevel2">
-<li><a href="#topology_manager_policies_post-install-node-tasks">Topology Manager policies</a></li>
+<li><a href="#topology-manager-policies_post-install-node-tasks">Topology Manager policies</a></li>
 <li><a href="#setting_up_topology_manager_post-install-node-tasks">Setting up Topology Manager</a></li>
 <li><a href="#pod-interactions-with-topology-manager_post-install-node-tasks">Pod interactions with Topology Manager policies</a></li>
 </ul>
@@ -6809,7 +6809,7 @@ only if Device Manager is enabled.</p>
 <p>Understand and work with Topology Manager.</p>
 </div>
 <div class="sect2">
-<h3 id="topology_manager_policies_post-install-node-tasks"><a class="anchor" href="#topology_manager_policies_post-install-node-tasks"></a>Topology Manager policies</h3>
+<h3 id="topology-manager-policies_post-install-node-tasks"><a class="anchor" href="#topology-manager-policies_post-install-node-tasks"></a>Topology Manager policies</h3>
 <div class="paragraph">
 <p>Topology Manager aligns <code>Pod</code> resources of all Quality of Service (QoS) classes by collecting topology hints from Hint Providers, such as CPU Manager and Device Manager, and using the collected hints to align the <code>Pod</code> resources.</p>
 </div>
@@ -6824,18 +6824,15 @@ only if Device Manager is enabled.</p>
 </dd>
 <dt class="hdlist1"><code>best-effort</code> policy</dt>
 <dd>
-<p>For each container in a pod with the <code>best-effort</code> topology management policy, kubelet calls each Hint Provider to discover their resource
-availability. Using this information, the Topology Manager stores the preferred NUMA Node affinity for that container. If the affinity is not preferred, Topology Manager stores this and admits the pod to the node.</p>
+<p>For each container in a pod with the <code>best-effort</code> topology management policy, kubelet tries to align all the required resources on a NUMA node according to the preferred NUMA node affinity for that container. Even if the allocation is not possible due to insufficient resources, the Topology Manager still admits the pod but the allocation is shared with other NUMA nodes.</p>
 </dd>
 <dt class="hdlist1"><code>restricted</code> policy</dt>
 <dd>
-<p>For each container in a pod with the <code>restricted</code> topology management policy, kubelet calls each Hint Provider to discover their resource
-availability. Using this information, the Topology Manager stores the preferred NUMA Node affinity for that container. If the affinity is not
-preferred, Topology Manager rejects this pod from the node, resulting in a pod in a <code>Terminated</code> state with a pod admission failure.</p>
+<p>For each container in a pod with the <code>restricted</code> topology management policy, kubelet determines the theoretical minimum number of NUMA nodes that can fulfill the request. If the actual allocation requires more than the that number of NUMA nodes, the Topology Manager rejects the admission, placing the pod in a <code>Terminated</code> state. If the number of NUMA nodes can fulfill the request, the Topology Manager admits the pod and the pod starts running.</p>
 </dd>
 <dt class="hdlist1"><code>single-numa-node</code> policy</dt>
 <dd>
-<p>For each container in a pod with the <code>single-numa-node</code> topology management policy, kubelet calls each Hint Provider to discover their resource availability. Using this information, the Topology Manager determines if a single NUMA Node affinity is possible. If it is, the pod is admitted to the node. If a single NUMA Node affinity is not possible, the Topology Manager rejects the pod from the node. This results in a pod in a Terminated state with a pod admission failure.</p>
+<p>For each container in a pod with the <code>single-numa-node</code> topology management policy, kubelet admits the pod if all the resources required by the pod can be allocated on the same NUMA node. If a single NUMA node affinity is not possible, the Topology Manager rejects the pod from the node. This results in a pod in a <code>Terminated</code> state with a pod admission failure.</p>
 </dd>
 </dl>
 </div>
@@ -6902,7 +6899,7 @@ Acceptable values are: <code>default</code>, <code>best-effort</code>, <code>res
 <div class="sect2">
 <h3 id="pod-interactions-with-topology-manager_post-install-node-tasks"><a class="anchor" href="#pod-interactions-with-topology-manager_post-install-node-tasks"></a>Pod interactions with Topology Manager policies</h3>
 <div class="paragraph">
-<p>The example <code>Pod</code> specs below help illustrate pod interactions with Topology Manager.</p>
+<p>The example <code>Pod</code> specs illustrate pod interactions with Topology Manager.</p>
 </div>
 <div class="paragraph">
 <p>The following pod runs in the <code>BestEffort</code> QoS class because no resource requests or limits are specified.</p>
@@ -6932,10 +6929,12 @@ Acceptable values are: <code>default</code>, <code>best-effort</code>, <code>res
 </div>
 </div>
 <div class="paragraph">
-<p>If the selected policy is anything other than <code>none</code>, Topology Manager would not consider either of these <code>Pod</code> specifications.</p>
+<p>If the selected policy is anything other than <code>none</code>, Topology Manager would process all the pods and it enforces resource alignment only for the <code>Guaranteed</code> Qos <code>Pod</code> specification.
+When the Topology Manager policy is set to <code>none</code>, the relevant containers are pinned to any available CPU without considering NUMA affinity. This is the default behavior and it does not optimize for performance-sensitive workloads.
+Other values enable the use of topology awareness information from device plugins core resources, such as CPU and memory. The Topology Manager attempts to align the CPU, memory, and device allocations according to the topology of the node when the policy is set to other values than <code>none</code>. For more information about the available values, see <em>Topology Manager policies</em>.</p>
 </div>
 <div class="paragraph">
-<p>The last example pod below runs in the Guaranteed QoS class because requests are equal to limits.</p>
+<p>The following example pod runs in the <code>Guaranteed</code> QoS class because requests are equal to limits.</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -6955,7 +6954,7 @@ Acceptable values are: <code>default</code>, <code>best-effort</code>, <code>res
 </div>
 </div>
 <div class="paragraph">
-<p>Topology Manager would consider this pod. The Topology Manager would consult the hint providers, which are CPU Manager and Device Manager, to get topology hints for the pod.</p>
+<p>Topology Manager would consider this pod. The Topology Manager would consult the Hint Providers, which are the CPU Manager, the Device Manager, and the Memory Manager, to get topology hints for the pod.</p>
 </div>
 <div class="paragraph">
 <p>Topology Manager will use this information to store the best topology for this container. In the case of this pod, CPU Manager and Device Manager will use this stored information at the resource allocation stage.</p>
