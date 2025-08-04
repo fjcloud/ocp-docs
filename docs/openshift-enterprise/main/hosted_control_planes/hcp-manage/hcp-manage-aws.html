@@ -3321,6 +3321,11 @@
 <li><a href="#hcp-migrate-aws-single-to-multiarch_hcp-managing-aws">Transitioning a hosted cluster from single-architecture to multi-architecture</a></li>
 <li><a href="#hcp-migrate-aws-multiarch-nodepools_hcp-managing-aws">Creating node pools on the multi-architecture hosted cluster</a></li>
 <li><a href="#hcp-aws-tags_hcp-managing-aws">Adding or updating AWS tags for a hosted cluster</a></li>
+<li><a href="#hcp-np-capacity-blocks_hcp-managing-aws">Configuring node pool capacity blocks on AWS</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-np-capacity-blocks-destroy_hcp-managing-aws">Destroying a hosted cluster after configuring node pool capacity blocks</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <div class="paragraph">
@@ -4837,6 +4842,257 @@ linux/arm64   sha256:7b046404572ac96202d82b6cb029b421dddd40e88c73bbf35f602ffc130
 <td>Specify the tag that you want to add to your resource.</td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-np-capacity-blocks_hcp-managing-aws"><a class="anchor" href="#hcp-np-capacity-blocks_hcp-managing-aws"></a>Configuring node pool capacity blocks on AWS</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>After creating a hosted cluster, you can configure node pool capacity blocks for graphics processing unit (GPU) reservations on Amazon Web Services (AWS).</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create GPU reservations on AWS by running the following command:</p>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The zone of the GPU reservation must match your hosted cluster zone.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 describe-capacity-block-offerings <span class="se">\</span>
+      <span class="nt">--instance-type</span> <span class="s2">"p4d.24xlarge"</span><span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="go">      --instance-count  "1" \ <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="gp">      --start-date-range "$</span><span class="o">(</span><span class="nb">date</span> <span class="nt">-u</span> +<span class="s2">"%Y-%m-%dT%H:%M:%SZ"</span><span class="o">)</span><span class="s2">"  </span><span class="se">\ </span><span class="s2"><i class="conum" data-value="3"></i><b>(3)</b>
+</span><span class="gp">      --end-date-range "$</span><span class="s2">(date -u -d "</span>2 day<span class="s2">" +"</span>%Y-%m-%dT%H:%M:%SZ<span class="s2">")"</span> <span class="se">\ </span><i class="conum" data-value="4"></i><b>(4)</b>
+<span class="go">      --capacity-duration-hours 24 \ <i class="conum" data-value="5"></i><b>(5)</b>
+      --output json</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Defines the type of your AWS instance, for example, <code>p4d.24xlarge</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Defines your instance purchase quantity, for example, <code>1</code>. Valid values are integers ranging from <code>1</code> to <code>64</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Defines the start date range, for example, <code>2025-07-21T10:14:39Z</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Defines the end date range, for example, <code>2025-07-22T10:16:36Z</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Defines the duration of capacity blocks in hours, for example, <code>24</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Purchase the minimum fee capacity block by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 purchase-capacity-block <span class="se">\</span>
+      <span class="nt">--capacity-block-offering-id</span> <span class="s2">"</span><span class="k">${</span><span class="nv">MIN_FEE_ID</span><span class="k">}</span><span class="s2">"</span> <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="go">      --instance-platform "Linux/UNIX"\ <i class="conum" data-value="2"></i><b>(2)</b>
+      --tag-specifications 'ResourceType=capacity-reservation,Tags=[{Key=usage-cluster-type,Value=hypershift-hosted}]' \ <i class="conum" data-value="3"></i><b>(3)</b>
+</span><span class="gp">      --output json   &gt;</span><span class="w"> </span><span class="s2">"</span><span class="k">${</span><span class="nv">CR_OUTPUT_FILE</span><span class="k">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Defines the ID of the capacity block offering.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Defines the platform of your instance.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Defines the tag for your instance.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create an environment variable to set the capacity reservation ID by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">CB_RESERVATION_ID</span><span class="o">=</span><span class="si">$(</span>jq <span class="nt">-r</span> <span class="s1">'.CapacityReservation.CapacityReservationId'</span> <span class="s2">"</span><span class="k">${</span><span class="nv">CR_OUTPUT_FILE</span><span class="k">}</span><span class="s2">"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wait for a couple of minutes for the GPU reservation to become available.</p>
+</div>
+</li>
+<li>
+<p>Add a node pool to use the GPU reservation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>hcp create nodepool aws <span class="se">\</span>
+  <span class="nt">--cluster-name</span> &lt;hosted_cluster_name&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="gp">  --name &lt;node_pool_name&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+<span class="go">  --node-count 1 \ <i class="conum" data-value="3"></i><b>(3)</b>
+  --instance-type p4d.24xlarge \ <i class="conum" data-value="4"></i><b>(4)</b>
+  --arch amd64 \ <i class="conum" data-value="5"></i><b>(5)</b>
+</span><span class="gp">  --release-image &lt;release_image&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="6"></i><b>(6)</b>
+<span class="gp">  --render &gt;</span><span class="w"> </span>/tmp/np.yaml</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;hosted_cluster_name&gt;</code> with the name of your hosted cluster.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Replace <code>&lt;node_pool_name&gt;</code> with the name of your node pool.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Defines the node pool count, for example, <code>1</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Defines the instance type, for example, <code>p4d.24xlarge</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Defines an architecture type, for example, <code>amd64</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Replace <code>&lt;release_image&gt;</code> with the release image you want to use.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Add the <code>capacityReservation</code> setting in your <code>NodePool</code> resource by using the following example configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">arch</span><span class="pi">:</span> <span class="s">amd64</span>
+  <span class="na">clusterName</span><span class="pi">:</span> <span class="s">cb-np-hcp</span>
+  <span class="na">management</span><span class="pi">:</span>
+    <span class="na">autoRepair</span><span class="pi">:</span> <span class="no">false</span>
+    <span class="na">upgradeType</span><span class="pi">:</span> <span class="s">Replace</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">aws</span><span class="pi">:</span>
+      <span class="na">instanceProfile</span><span class="pi">:</span> <span class="s">cb-np-hcp-dqppw-worker</span>
+      <span class="na">instanceType</span><span class="pi">:</span> <span class="s">p4d.24xlarge</span>
+      <span class="na">rootVolume</span><span class="pi">:</span>
+        <span class="na">size</span><span class="pi">:</span> <span class="m">120</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">gp3</span>
+      <span class="na">subnet</span><span class="pi">:</span>
+        <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-00000</span>
+      <span class="na">placement</span><span class="pi">:</span>
+        <span class="na">capacityReservation</span><span class="pi">:</span>
+          <span class="na">id</span><span class="pi">:</span> <span class="s">${CB_RESERVATION_ID}</span>
+          <span class="na">marketType</span><span class="pi">:</span> <span class="s">CapacityBlocks</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">AWS</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the node pool configuration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> /tmp/np.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that your new node pool is created successfully by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get np <span class="nt">-n</span> clusters</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAMESPACE   NAME    CLUSTER     DESIRED NODES   CURRENT  NODES   AUTOSCALING     AUTOREPAIR   VERSION                               UPDATINGVERSION   UPDATINGCONFIG   MESSAGE
+clusters    cb-np   cb-np-hcp   1               1                False           False        4.20.0-0.nightly-2025-06-05-224220    False             False</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that your new compute nodes are created in the hosted cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                           STATUS   ROLES    AGE    VERSION
+ip-10-0-132-74.ec2.internal    Ready    worker   17m    v1.32.5
+ip-10-0-134-183.ec2.internal   Ready    worker   4h5m   v1.32.5</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="sect2">
+<h3 id="hcp-np-capacity-blocks-destroy_hcp-managing-aws"><a class="anchor" href="#hcp-np-capacity-blocks-destroy_hcp-managing-aws"></a>Destroying a hosted cluster after configuring node pool capacity blocks</h3>
+<div class="paragraph">
+<p>After you configured node pool capacity blocks, you can optionally destroy a hosted cluster and uninstall the HyperShift Operator.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>To destroy a hosted cluster, run the following example command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>hcp destroy cluster aws <span class="se">\</span>
+  <span class="nt">--name</span> cb-np-hcp <span class="se">\</span>
+  <span class="nt">--aws-creds</span> <span class="nv">$HOME</span>/.aws/credentials <span class="se">\</span>
+  <span class="nt">--namespace</span> clusters <span class="se">\</span>
+  <span class="nt">--region</span> us-east-2</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To uninstall the HyperShift Operator, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>hcp <span class="nb">install </span>render <span class="nt">--format</span><span class="o">=</span>yaml | oc delete <span class="nt">-f</span> -</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
 </div>
 </div>
 </div>
