@@ -3322,6 +3322,7 @@
 <li><a href="#out-of-band-management_ipi-install-prerequisites">Out-of-band management</a></li>
 <li><a href="#required-data-for-installation_ipi-install-prerequisites">Required data for installation</a></li>
 <li><a href="#validation-checklist-for-nodes_ipi-install-prerequisites">Validation checklist for nodes</a></li>
+<li><a href="#installation-overview_ipi-install-prerequisites">Installation overview</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -4692,6 +4693,107 @@ CPU architecture.</p>
 <p><i class="fa fa-square-o"></i> Required data for installation.</p>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="installation-overview_ipi-install-prerequisites"><a class="anchor" href="#installation-overview_ipi-install-prerequisites"></a>Installation overview</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The installation program supports interactive mode. However, you can prepare an <code>install-config.yaml</code> file containing the provisioning details for all of the bare-metal hosts, and the relevant cluster details, in advance.</p>
+</div>
+<div class="paragraph">
+<p>The installation program loads the <code>install-config.yaml</code> file and the administrator generates the manifests and verifies all prerequisites.</p>
+</div>
+<div class="paragraph">
+<p>The installation program performs the following tasks:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Enrolls all nodes in the cluster</p>
+</li>
+<li>
+<p>Starts the bootstrap virtual machine (VM)</p>
+</li>
+<li>
+<p>Starts the metal platform components as <code>systemd</code> services, which have the following containers:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Ironic-dnsmasq: The DHCP server responsible for handing over the IP addresses to the provisioning interface of various nodes on the provisioning network. Ironic-dnsmasq is only enabled when you deploy an OpenShift Container Platform cluster with a provisioning network.</p>
+</li>
+<li>
+<p>Ironic-httpd: The HTTP server that is used to ship the images to the nodes.</p>
+</li>
+<li>
+<p>Image-customization</p>
+</li>
+<li>
+<p>Ironic</p>
+</li>
+<li>
+<p>Ironic-inspector (available in OpenShift Container Platform 4.16 and earlier)</p>
+</li>
+<li>
+<p>Ironic-ramdisk-logs</p>
+</li>
+<li>
+<p>Extract-machine-os</p>
+</li>
+<li>
+<p>Provisioning-interface</p>
+</li>
+<li>
+<p>Metal3-baremetal-operator</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The nodes enter the validation phase, where each node moves to a <em>manageable</em> state after Ironic validates the credentials to access the Baseboard Management Controller (BMC).</p>
+</div>
+<div class="paragraph">
+<p>When the node is in the manageable state, the <em>inspection</em> phase starts. The inspection phase ensures that the hardware meets the minimum requirements needed for a successful deployment of OpenShift Container Platform.</p>
+</div>
+<div class="paragraph">
+<p>The <code>install-config.yaml</code> file details the provisioning network. On the bootstrap VM, the installation program uses the Pre-Boot Execution Environment (PXE) to push a live image to every node with the Ironic Python Agent (IPA) loaded. When using virtual media, it connects directly to the BMC of each node to virtually attach the image.</p>
+</div>
+<div class="paragraph">
+<p>When using PXE boot, all nodes reboot to start the process:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>ironic-dnsmasq</code> service running on the bootstrap VM provides the IP address of the node and the TFTP boot server.</p>
+</li>
+<li>
+<p>The first-boot software loads the root file system over HTTP.</p>
+</li>
+<li>
+<p>The <code>ironic</code> service on the bootstrap VM receives the hardware information from each node.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The nodes enter the cleaning state, where each node must clean all the disks before continuing with the configuration.</p>
+</div>
+<div class="paragraph">
+<p>After the cleaning state finishes, the nodes enter the available state and the installation program moves the nodes to the deploying state.</p>
+</div>
+<div class="paragraph">
+<p>IPA runs the <code>coreos-installer</code> command to install the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) image on the disk defined by the <code>rootDeviceHints</code> parameter in the <code>install-config.yaml</code> file. The node boots by using RHCOS.</p>
+</div>
+<div class="paragraph">
+<p>After the installation program configures the control plane nodes, it moves control from the bootstrap VM to the control plane nodes and deletes the bootstrap VM.</p>
+</div>
+<div class="paragraph">
+<p>The Bare-Metal Operator continues the deployment of the workers, storage, and infra nodes.</p>
+</div>
+<div class="paragraph">
+<p>After the installation completes, the nodes move to the active state. You can then proceed with postinstallation configuration and other Day 2 tasks.</p>
 </div>
 </div>
 </div>

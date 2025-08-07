@@ -3290,7 +3290,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            Customizing cert-manager Operator API fields
+            Customizing the cert-manager Operator by using the CertManager custom resource
           </h1>
         </div>
         
@@ -3300,6 +3300,15 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#cert-manager-explanation-of-certmanager-cr-fields_cert-manager-customizing-api-fields">Explanation of fields in the CertManager custom resource</a>
+<ul class="sectlevel2">
+<li><a href="#cert-manager-common-configuration-fields_cert-manager-customizing-api-fields">Common configurable fields in the CertManager CR for the cert-manager components</a></li>
+<li><a href="#cert-manager-overridable-arguments_cert-manager-customizing-api-fields">Overridable arguments for the cert-manager components</a></li>
+<li><a href="#cert-manager-overridable-env-variables_cert-manager-customizing-api-fields">Overridable environment variables for the cert-manager controller</a></li>
+<li><a href="#cert-manager-overridable-resource-parameters_cert-manager-customizing-api-fields">Overridable resource parameters for the cert-manager components</a></li>
+<li><a href="#cert-manager-overridable-scheduling-parameters_cert-manager-customizing-api-fields">Overridable scheduling parameters for the cert-manager components</a></li>
+</ul>
+</li>
 <li><a href="#cert-manager-override-environment-variables_cert-manager-customizing-api-fields">Customizing cert-manager by overriding environment variables from the cert-manager Operator API</a></li>
 <li><a href="#cert-manager-override-arguments_cert-manager-customizing-api-fields">Customizing cert-manager by overriding arguments from the cert-manager Operator API</a></li>
 <li><a href="#cert-manager-override-flag-controller_cert-manager-customizing-api-fields">Deleting a TLS secret automatically upon Certificate removal</a></li>
@@ -3308,7 +3317,70 @@
 </ul>
 </div>
 <div class="paragraph">
-<p>You can customize the cert-manager Operator for Red Hat OpenShift API fields by overriding environment variables and arguments.</p>
+<p>After installing the cert-manager Operator for Red Hat OpenShift, you can perform the following actions by configuring the <code>CertManager</code> custom resource (CR):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Configure the arguments to modify the behavior of the cert-manager components, such as the cert-manager controller, CA injector, and Webhook.</p>
+</li>
+<li>
+<p>Set environment variables for the controller pod.</p>
+</li>
+<li>
+<p>Define resource requests and limits to manage CPU and memory usage.</p>
+</li>
+<li>
+<p>Configure scheduling rules to control where pods run in your cluster.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="title">Example CertManager CR YAML file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">CertManager</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">controllerConfig</span><span class="pi">:</span>
+    <span class="na">overrideArgs</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">--dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53"</span>
+    <span class="na">overrideEnv</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">HTTP_PROXY</span>
+        <span class="na">value</span><span class="pi">:</span> <span class="s">http://proxy.example.com:8080</span>
+    <span class="na">overrideResources</span><span class="pi">:</span>
+      <span class="na">limits</span><span class="pi">:</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">200m"</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>
+      <span class="na">requests</span><span class="pi">:</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100m"</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span>
+    <span class="na">overrideScheduling</span><span class="pi">:</span>
+      <span class="na">nodeSelector</span><span class="pi">:</span>
+        <span class="na">custom</span><span class="pi">:</span> <span class="s2">"</span><span class="s">label"</span>
+      <span class="na">tolerations</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">key1"</span>
+          <span class="na">operator</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Equal"</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">value1"</span>
+          <span class="na">effect</span><span class="pi">:</span> <span class="s2">"</span><span class="s">NoSchedule"</span>
+
+  <span class="na">webhookConfig</span><span class="pi">:</span>
+    <span class="na">overrideArgs</span><span class="pi">:</span>
+<span class="c1">#...</span>
+    <span class="na">overrideResources</span><span class="pi">:</span>
+<span class="c1">#...</span>
+    <span class="na">overrideScheduling</span><span class="pi">:</span>
+<span class="c1">#...</span>
+
+  <span class="na">cainjectorConfig</span><span class="pi">:</span>
+    <span class="na">overrideArgs</span><span class="pi">:</span>
+<span class="c1">#...</span>
+    <span class="na">overrideResources</span><span class="pi">:</span>
+<span class="c1">#...</span>
+    <span class="na">overrideScheduling</span><span class="pi">:</span>
+<span class="c1">#...</span></code></pre>
+</div>
 </div>
 <div class="admonitionblock warning">
 <table>
@@ -3323,6 +3395,333 @@
 </td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="cert-manager-explanation-of-certmanager-cr-fields_cert-manager-customizing-api-fields"><a class="anchor" href="#cert-manager-explanation-of-certmanager-cr-fields_cert-manager-customizing-api-fields"></a>Explanation of fields in the CertManager custom resource</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can use the <code>CertManager</code> custom resource (CR) to configure the following core components of the cert-manager Operator for Red Hat OpenShift:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Cert-manager controller: You can use the <code>spec.controllerConfig</code> field to configure the cert‑manager controller pod.</p>
+</li>
+<li>
+<p>Webhook: You can use the <code>spec.webhookConfig</code> field to configure the webhook pod, which handles validation and mutation requests.</p>
+</li>
+<li>
+<p>CA injector: You can use the <code>spec.cainjectorConfig</code> field to configure the CA injector pod.</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="cert-manager-common-configuration-fields_cert-manager-customizing-api-fields"><a class="anchor" href="#cert-manager-common-configuration-fields_cert-manager-customizing-api-fields"></a>Common configurable fields in the CertManager CR for the cert-manager components</h3>
+<div class="paragraph">
+<p>The following table lists the common fields that you can configure in the <code>spec.controllerConfig</code>, <code>spec.webhookConfig</code>, and <code>spec.cainjectorConfig</code> sections in the <code>CertManager</code> CR.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Common configurable fields in the CertManager CR for the cert-manager components</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideArgs</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>You can override the supported arguments for the cert-manager components.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideEnv</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>dict</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>You can override the supported environment variables for the cert-manager controller. This field is only supported for the cert-manager controller component.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideResources</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>You can configure the CPU and memory limits for the cert-manager components.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideScheduling</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>You can configure the pod scheduling constraints for the cert-manager components.</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="cert-manager-overridable-arguments_cert-manager-customizing-api-fields"><a class="anchor" href="#cert-manager-overridable-arguments_cert-manager-customizing-api-fields"></a>Overridable arguments for the cert-manager components</h3>
+<div class="paragraph">
+<p>You can configure the overridable arguments for the cert-manager components in the <code>spec.controllerConfig</code>, <code>spec.webhookConfig</code>, and <code>spec.cainjectorConfig</code> sections in the <code>CertManager</code> CR.</p>
+</div>
+<div class="paragraph">
+<p>The following table describes the overridable arguments for the cert-manager components:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. Overridable arguments the cert-manager components</caption>
+<colgroup>
+<col style="width: 45.4545%;">
+<col style="width: 18.1818%;">
+<col style="width: 36.3637%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Argument</th>
+<th class="tableblock halign-left valign-middle">Component</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--dns01-recursive-nameservers=&lt;server_address&gt;</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Provide a comma-separated list of nameservers to query for the DNS-01 self check. The nameservers can be specified either as <code>&lt;host&gt;:&lt;port&gt;</code>, for example, <code>1.1.1.1:53</code>, or use DNS over HTTPS (DoH), for example, <code>https://1.1.1.1/dns-query</code>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>DNS over HTTPS (DoH) is supported starting only from cert-manager Operator for Red Hat OpenShift version 1.13.0 and later.</p>
+</div>
+</td>
+</tr>
+</table>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--dns01-recursive-nameservers-only</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Specify to only use recursive nameservers instead of checking the authoritative nameservers associated with that domain.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--acme-http01-solver-nameservers=&lt;host&gt;:&lt;port&gt;</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Provide a comma-separated list of <code>&lt;host&gt;:&lt;port&gt;</code> nameservers to query for the Automated Certificate Management Environment (ACME) HTTP01 self check. For example, <code>--acme-http01-solver-nameservers=1.1.1.1:53</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--metrics-listen-address=&lt;host&gt;:&lt;port&gt;</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Specify the host and port for the metrics endpoint. The default value is <code>--metrics-listen-address=0.0.0.0:9402</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--issuer-ambient-credentials</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>You can use this argument to configure an ACME Issuer to solve DNS-01 challenges by using ambient credentials.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--enable-certificate-owner-ref</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>This argument sets the certificate resource as an owner of the secret where the TLS certificate is stored. For more information, see "Deleting a TLS secret automatically upon Certificate removal".</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--acme-http01-solver-resource-limits-cpu</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Defines the maximum CPU limit for ACME HTTP‑01 solver pods. The default value is <code>100m</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--acme-http01-solver-resource-limits-memory</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Defines the maximum memory limit for ACME HTTP‑01 solver pods. The default value is <code>64Mi</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--acme-http01-solver-resource-request-cpu</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Defines the minimum CPU request for ACME HTTP‑01 solver pods. The default value is <code>10m</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--acme-http01-solver-resource-request-memory</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Defines the minimum memory request for ACME HTTP‑01 solver pods. The default value is <code>64Mi</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>--v=&lt;verbosity_level&gt;</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Controller, Webhook, CA injector</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Specify the log level verbosity to determine the verbosity of log messages.</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="cert-manager-overridable-env-variables_cert-manager-customizing-api-fields"><a class="anchor" href="#cert-manager-overridable-env-variables_cert-manager-customizing-api-fields"></a>Overridable environment variables for the cert-manager controller</h3>
+<div class="paragraph">
+<p>You can configure the overridable environment variables for the cert-manager controller in the <code>spec.controllerConfig.overrideEnv</code> field in the <code>CertManager</code> CR.</p>
+</div>
+<div class="paragraph">
+<p>The following table describes the overridable environment variables for the cert-manager controller:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 3. Overridable environment variables for the cert-manager controller</caption>
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Environment variable</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>HTTP_PROXY</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Proxy server for outgoing HTTP requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>HTTPS_PROXY</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Proxy server for outgoing HTTPS requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>NO_PROXY</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Comma‑separated list of hosts that bypass the proxy.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="cert-manager-overridable-resource-parameters_cert-manager-customizing-api-fields"><a class="anchor" href="#cert-manager-overridable-resource-parameters_cert-manager-customizing-api-fields"></a>Overridable resource parameters for the cert-manager components</h3>
+<div class="paragraph">
+<p>You can configure the CPU and memory limits for the cert-manager components in the <code>spec.controllerConfig</code>, <code>spec.webhookConfig</code>, and <code>spec.cainjectorConfig</code> sections in the <code>CertManager</code> CR.</p>
+</div>
+<div class="paragraph">
+<p>The following table describes the overridable resource parameters for the cert-manager components:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 4. Overridable resource parameters for the cert-manager components</caption>
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideResources.limits.cpu</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Defines the maximum amount of CPU that a component pod can use.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideResources.limits.memory</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Defines the maximum amount of memory that a component pod can use.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideResources.requests.cpu</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Defines the minimum amount of CPU requested by the scheduler for a component pod.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideResources.requests.memory</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Defines the minimum amount of memory requested by the scheduler for a component pod.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="cert-manager-overridable-scheduling-parameters_cert-manager-customizing-api-fields"><a class="anchor" href="#cert-manager-overridable-scheduling-parameters_cert-manager-customizing-api-fields"></a>Overridable scheduling parameters for the cert-manager components</h3>
+<div class="paragraph">
+<p>You can configure the pod scheduling constrainsts for the cert-manager components in the <code>spec.controllerConfig</code>, <code>spec.webhookConfig</code> field, and <code>spec.cainjectorConfig</code> sections in the <code>CertManager</code> CR.</p>
+</div>
+<div class="paragraph">
+<p>The following table describes the pod scheduling parameters for the cert-manager components:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 5. Overridable scheduling parameters for the cert-manager components</caption>
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideScheduling.nodeSelector</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">Key‑value pairs to constrain pods to specific nodes.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>overrideScheduling.tolerations</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">List of tolerations to schedule pods on tainted nodes.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../security/cert_manager_operator/cert-manager-customizing-api-fields.html#cert-manager-override-flag-controller_cert-manager-customizing-api-fields">Deleting a TLS secret automatically upon Certificate removal</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
@@ -3384,6 +3783,20 @@
 </tr>
 </table>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For more information about the overridable environment variables, see "Overridable environment variables for the cert-manager components" in "Explanation of fields in the CertManager custom resource".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 <li>
 <p>Save your changes and quit the text editor to apply your changes.</p>
@@ -3431,6 +3844,14 @@ cert-manager-bd7fbb9fc-wvbbt  1/1     Running   0          39s</span></code></pr
 </li>
 </ol>
 </div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../security/cert_manager_operator/cert-manager-customizing-api-fields.html#cert-manager-explanation-of-certmanager-cr-fields_cert-manager-customizing-api-fields">Explanation of fields in the CertManager custom resource</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -3472,58 +3893,28 @@ cert-manager-bd7fbb9fc-wvbbt  1/1     Running   0          39s</span></code></pr
   <span class="s">controllerConfig</span><span class="pi">:</span>
     <span class="na">overrideArgs</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="s1">'</span><span class="s">--dns01-recursive-nameservers=&lt;server_address&gt;'</span> <i class="conum" data-value="1"></i><b>(1)</b>
-      <span class="pi">-</span> <span class="s1">'</span><span class="s">--dns01-recursive-nameservers-only'</span> <i class="conum" data-value="2"></i><b>(2)</b>
-      <span class="pi">-</span> <span class="s1">'</span><span class="s">--acme-http01-solver-nameservers=&lt;host&gt;:&lt;port&gt;'</span> <i class="conum" data-value="3"></i><b>(3)</b>
-      <span class="pi">-</span> <span class="s1">'</span><span class="s">--v=&lt;verbosity_level&gt;'</span> <i class="conum" data-value="4"></i><b>(4)</b>
-      <span class="pi">-</span> <span class="s1">'</span><span class="s">--metrics-listen-address=&lt;host&gt;:&lt;port&gt;'</span> <i class="conum" data-value="5"></i><b>(5)</b>
-      <span class="pi">-</span> <span class="s1">'</span><span class="s">--issuer-ambient-credentials'</span> <i class="conum" data-value="6"></i><b>(6)</b>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--dns01-recursive-nameservers-only'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--acme-http01-solver-nameservers=&lt;host&gt;:&lt;port&gt;'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--v=&lt;verbosity_level&gt;'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--metrics-listen-address=&lt;host&gt;:&lt;port&gt;'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--issuer-ambient-credentials'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--acme-http01-solver-resource-limits-cpu=&lt;quantity&gt;'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--acme-http01-solver-resource-limits-memory=&lt;quantity&gt;'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--acme-http01-solver-resource-request-cpu=&lt;quantity&gt;'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--acme-http01-solver-resource-request-memory=&lt;quantity&gt;'</span>
   <span class="na">webhookConfig</span><span class="pi">:</span>
     <span class="na">overrideArgs</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s1">'</span><span class="s">--v=4'</span> <i class="conum" data-value="4"></i><b>(4)</b>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--v=&lt;verbosity_level&gt;'</span>
   <span class="na">cainjectorConfig</span><span class="pi">:</span>
     <span class="na">overrideArgs</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s1">'</span><span class="s">--v=2'</span> <i class="conum" data-value="4"></i><b>(4)</b></code></pre>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">--v=&lt;verbosity_level&gt;'</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Provide a comma-separated list of nameservers to query for the DNS-01 self check. The nameservers can be specified either as <code>&lt;host&gt;:&lt;port&gt;</code>, for example, <code>1.1.1.1:53</code>, or use DNS over HTTPS (DoH), for example, <code><a href="https://1.1.1.1/dns-query" class="bare">https://1.1.1.1/dns-query</a></code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify to only use recursive nameservers instead of checking the authoritative nameservers associated with that domain.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Provide a comma-separated list of <code>&lt;host&gt;:&lt;port&gt;</code> nameservers to query for the Automated Certificate Management Environment (ACME) HTTP01 self check. For example, <code>--acme-http01-solver-nameservers=1.1.1.1:53</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Specify to set the log level verbosity to determine the verbosity of log messages.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Specify the host and port for the metrics endpoint. The default value is <code>--metrics-listen-address=0.0.0.0:9402</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>You must use the <code>--issuer-ambient-credentials</code> argument when configuring an ACME Issuer to solve DNS-01 challenges by using ambient credentials.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>DNS over HTTPS (DoH) is supported starting only from cert-manager Operator for Red Hat OpenShift version 1.13.0 and later.</p>
-</div>
-</td>
+<td>For information about the overridable aruguments, see "Overridable arguments for the cert-manager components" in "Explanation of fields in the CertManager custom resource".</td>
 </tr>
 </table>
 </div>
@@ -3584,6 +3975,14 @@ cert-manager-bd7fbb9fc-wvbbt  1/1     Running   0          39s</span></code></pr
       <span class="pi">-</span> <span class="s">--v=4</span></code></pre>
 </div>
 </div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../security/cert_manager_operator/cert-manager-customizing-api-fields.html#cert-manager-explanation-of-certmanager-cr-fields_cert-manager-customizing-api-fields">Explanation of fields in the CertManager custom resource</a></p>
 </li>
 </ul>
 </div>
@@ -3701,7 +4100,7 @@ certificate-from-clusterissuer-route53-ambient   True    certificate-from-cluste
 <h2 id="cert-manager-configure-cpu-memory_cert-manager-customizing-api-fields"><a class="anchor" href="#cert-manager-configure-cpu-memory_cert-manager-customizing-api-fields"></a>Overriding CPU and memory limits for the cert-manager components</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>After installing the cert-manager Operator for Red Hat OpenShift, you can configure the CPU and memory limits from the cert-manager Operator for Red Hat OpenShift API for the cert-manager components such as cert-manager controller, CA injector, and Webhook.</p>
+<p>After installing the cert-manager Operator for Red Hat OpenShift, you can configure the CPU and memory limits from the cert-manager Operator for Red Hat OpenShift API for the cert-manager components, such as the cert-manager controller, CA injector, and Webhook.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3793,84 +4192,40 @@ cert-manager-webhook      1/1     1            1           53m</span></code></pr
 <p>To configure the CPU and memory limits for the cert-manager controller, CA injector, and Webhook, enter the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="s">$ oc patch certmanager.operator cluster --type=merge -p="</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">controllerConfig</span><span class="pi">:</span>
-    <span class="na">overrideResources</span><span class="pi">:</span>
-      <span class="na">limits</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s">200m</span> <i class="conum" data-value="2"></i><b>(2)</b>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s">64Mi</span> <i class="conum" data-value="3"></i><b>(3)</b>
-      <span class="na">requests</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s">10m</span> <i class="conum" data-value="2"></i><b>(2)</b>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s">16Mi</span> <i class="conum" data-value="3"></i><b>(3)</b>
-  <span class="na">webhookConfig</span><span class="pi">:</span>
-    <span class="na">overrideResources</span><span class="pi">:</span>
-      <span class="na">limits</span><span class="pi">:</span> <i class="conum" data-value="5"></i><b>(5)</b>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s">200m</span> <i class="conum" data-value="6"></i><b>(6)</b>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s">64Mi</span> <i class="conum" data-value="7"></i><b>(7)</b>
-      <span class="na">requests</span><span class="pi">:</span> <i class="conum" data-value="8"></i><b>(8)</b>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s">10m</span> <i class="conum" data-value="6"></i><b>(6)</b>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s">16Mi</span> <i class="conum" data-value="7"></i><b>(7)</b>
-  <span class="na">cainjectorConfig</span><span class="pi">:</span>
-    <span class="na">overrideResources</span><span class="pi">:</span>
-      <span class="na">limits</span><span class="pi">:</span> <i class="conum" data-value="9"></i><b>(9)</b>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s">200m</span> <i class="conum" data-value="10"></i><b>(10)</b>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s">64Mi</span> <i class="conum" data-value="11"></i><b>(11)</b>
-      <span class="na">requests</span><span class="pi">:</span> <i class="conum" data-value="12"></i><b>(12)</b>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s">10m</span> <i class="conum" data-value="10"></i><b>(10)</b>
-        <span class="na">memory</span><span class="pi">:</span> <span class="s">16Mi</span> <i class="conum" data-value="11"></i><b>(11)</b>
-<span class="s2">"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch certmanager.operator cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span><span class="o">=</span><span class="s2">"
+</span><span class="go">spec:
+  controllerConfig:
+    overrideResources: <i class="conum" data-value="1"></i><b>(1)</b>
+      limits:
+        cpu: 200m
+        memory: 64Mi
+      requests:
+        cpu: 10m
+        memory: 16Mi
+  webhookConfig:
+    overrideResources:
+      limits:
+        cpu: 200m
+        memory: 64Mi
+      requests:
+        cpu: 10m
+        memory: 16Mi
+  cainjectorConfig:
+    overrideResources:
+      limits:
+        cpu: 200m
+        memory: 64Mi
+      requests:
+        cpu: 10m
+        memory: 16Mi
+"</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Defines the maximum amount of CPU and memory that a single container in a cert-manager controller pod can request.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>You can specify the CPU limit that a cert-manager controller pod can request. The default value is <code>10m</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>You can specify the memory limit that a cert-manager controller pod can request. The default value is <code>32Mi</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Defines the amount of CPU and memory set by scheduler for the cert-manager controller pod.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Defines the maximum amount of CPU and memory that a single container in a CA injector pod can request.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>You can specify the CPU limit that a CA injector pod can request. The default value is <code>10m</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>You can specify the memory limit that a CA injector pod can request. The default value is <code>32Mi</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>Defines the amount of CPU and memory set by scheduler for the CA injector pod.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="9"></i><b>9</b></td>
-<td>Defines the maximum amount of CPU and memory Defines the maximum amount of CPU and memory that a single container in a Webhook pod can request.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="10"></i><b>10</b></td>
-<td>You can specify the CPU limit that a Webhook pod can request. The default value is <code>10m</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="11"></i><b>11</b></td>
-<td>You can specify the memory limit that a Webhook pod can request. The default value is <code>32Mi</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="12"></i><b>12</b></td>
-<td>Defines the amount of CPU and memory set by scheduler for the Webhook pod.</td>
+<td>For information about the overridable resource parameters, see "Overridable resource parameters for the cert-manager components" in "Explanation of fields in the CertManager custom resource".</td>
 </tr>
 </table>
 </div>
@@ -3953,13 +4308,21 @@ cert-manager-webhook      1/1     1            1           53m</span></code></pr
 </li>
 </ol>
 </div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../security/cert_manager_operator/cert-manager-customizing-api-fields.html#cert-manager-explanation-of-certmanager-cr-fields_cert-manager-customizing-api-fields">Explanation of fields in the CertManager custom resource</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="cert-manager-override-scheduling_cert-manager-customizing-api-fields"><a class="anchor" href="#cert-manager-override-scheduling_cert-manager-customizing-api-fields"></a>Configuring scheduling overrides for cert-manager components</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>You can configure the pod scheduling from the cert-manager Operator for Red Hat OpenShift API for the cert-manager Operator for Red Hat OpenShift components such as cert-manager controller, CA injector, and Webhook.</p>
+<p>You can configure the pod scheduling from the cert-manager Operator for Red Hat OpenShift API for the cert-manager Operator for Red Hat OpenShift components, such as the cert-manager controller, CA injector, and Webhook.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3982,57 +4345,37 @@ cert-manager-webhook      1/1     1            1           53m</span></code></pr
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch certmanager.operator cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span><span class="o">=</span><span class="s2">"
 </span><span class="go">spec:
   controllerConfig:
-    overrideScheduling:
+    overrideScheduling: <i class="conum" data-value="1"></i><b>(1)</b>
       nodeSelector:
-        node-role.kubernetes.io/control-plane: '' <i class="conum" data-value="1"></i><b>(1)</b>
+        node-role.kubernetes.io/control-plane: ''
       tolerations:
         - key: node-role.kubernetes.io/master
           operator: Exists
-          effect: NoSchedule <i class="conum" data-value="2"></i><b>(2)</b>
+          effect: NoSchedule
   webhookConfig:
     overrideScheduling:
       nodeSelector:
-        node-role.kubernetes.io/control-plane: '' <i class="conum" data-value="3"></i><b>(3)</b>
+        node-role.kubernetes.io/control-plane: ''
       tolerations:
         - key: node-role.kubernetes.io/master
           operator: Exists
-          effect: NoSchedule <i class="conum" data-value="4"></i><b>(4)</b>
+          effect: NoSchedule
   cainjectorConfig:
     overrideScheduling:
       nodeSelector:
-        node-role.kubernetes.io/control-plane: '' <i class="conum" data-value="5"></i><b>(5)</b>
+        node-role.kubernetes.io/control-plane: ''
       tolerations:
         - key: node-role.kubernetes.io/master
           operator: Exists
-          effect: NoSchedule" <i class="conum" data-value="6"></i><b>(6)</b>
-</span></code></pre>
+          effect: NoSchedule"
+"</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Defines the <code>nodeSelector</code> for the cert-manager controller deployment.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Defines the <code>tolerations</code> for the cert-manager controller deployment.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Defines the <code>nodeSelector</code> for the cert-manager webhook deployment.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Defines the <code>tolerations</code> for the cert-manager webhook deployment.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Defines the <code>nodeSelector</code> for the cert-manager cainjector deployment.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Defines the <code>tolerations</code> for the cert-manager cainjector deployment.</td>
+<td>For information about the overridable scheduling parameters, see "Overridable scheduling parameters for the cert-manager components" in "Explanation of fields in the CertManager custom resource".</td>
 </tr>
 </table>
 </div>
@@ -4099,6 +4442,14 @@ cert-manager-webhook
 </div>
 </li>
 </ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../security/cert_manager_operator/cert-manager-customizing-api-fields.html#cert-manager-explanation-of-certmanager-cr-fields_cert-manager-customizing-api-fields">Explanation of fields in the CertManager custom resource</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
