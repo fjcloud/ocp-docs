@@ -3320,10 +3320,12 @@
 </li>
 <li><a href="#hcp-aws-deploy-hc_hcp-deploy-aws">Creating a hosted cluster on AWS</a>
 <ul class="sectlevel2">
+<li><a href="#hcp-access-hc-aws_hcp-deploy-aws">Accessing a hosted cluster on AWS</a></li>
 <li><a href="#hcp-access-pub-hc-aws_hcp-deploy-aws">Accessing a hosted cluster on AWS by using the kubeadmin credentials</a></li>
 <li><a href="#hcp-access-pub-hc-aws-cli_hcp-deploy-aws">Accessing a hosted cluster on AWS by using the hcp CLI</a></li>
 </ul>
 </li>
+<li><a href="#hcp-custom-cert_hcp-deploy-aws">Configuring a custom API server certificate in a hosted cluster</a></li>
 <li><a href="#hc-create-aws-multiple-zones_hcp-deploy-aws">Creating a hosted cluster in multiple zones on AWS</a>
 <ul class="sectlevel2">
 <li><a href="#hcp-create-hc-multi-zone-aws-creds_hcp-deploy-aws">Creating a hosted cluster by providing AWS STS credentials</a></li>
@@ -4676,6 +4678,41 @@ external-dns-7c89788c69-rn8gp   1/1     Running   0          40s</span></code></
 </ul>
 </div>
 <div class="sect2">
+<h3 id="hcp-access-hc-aws_hcp-deploy-aws"><a class="anchor" href="#hcp-access-hc-aws_hcp-deploy-aws"></a>Accessing a hosted cluster on AWS</h3>
+<div class="paragraph">
+<p>You can access the hosted cluster by getting the <code>kubeconfig</code> file and the <code>kubeadmin</code> credentials directly from resources.</p>
+</div>
+<div class="paragraph">
+<p>You must be familiar with the access secrets for hosted clusters. The hosted cluster namespace contains hosted cluster resources, and the hosted control plane namespace is where the hosted control plane runs. The secret name formats are as follows:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>kubeconfig</code> secret: <code>&lt;hosted-cluster-namespace&gt;-&lt;name&gt;-admin-kubeconfig</code>. For example, <code>clusters-hypershift-demo-admin-kubeconfig</code>.</p>
+</li>
+<li>
+<p><code>kubeadmin</code> password secret: <code>&lt;hosted-cluster-namespace&gt;-&lt;name&gt;-kubeadmin-password</code>. For example, <code>clusters-hypershift-demo-kubeadmin-password</code>.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>The <code>kubeconfig</code> secret contains a Base64-encoded <code>kubeconfig</code> field, which you can decode and save into a file to use with the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;hosted_cluster_name&gt;.kubeconfig get nodes</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>kubeadmin</code> password secret is also Base64-encoded. You can decode it and use the password to log in to the API server or console of the hosted cluster.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
 <h3 id="hcp-access-pub-hc-aws_hcp-deploy-aws"><a class="anchor" href="#hcp-access-pub-hc-aws_hcp-deploy-aws"></a>Accessing a hosted cluster on AWS by using the kubeadmin credentials</h3>
 <div class="paragraph">
 <p>After creating a hosted cluster on Amazon Web Services (AWS), you can access a hosted cluster by getting the <code>kubeconfig</code> file, access secrets, and the <code>kubeadmin</code> credentials.</p>
@@ -4754,6 +4791,110 @@ external-dns-7c89788c69-rn8gp   1/1     Running   0          40s</span></code></
 </li>
 </ol>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-custom-cert_hcp-deploy-aws"><a class="anchor" href="#hcp-custom-cert_hcp-deploy-aws"></a>Configuring a custom API server certificate in a hosted cluster</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To configure a custom certificate for the API server, specify the certificate details in the <code>spec.configuration.apiServer</code> section of your <code>HostedCluster</code> configuration.</p>
+</div>
+<div class="paragraph">
+<p>You can configure a custom certificate during either day-1 or day-2 operations. However, because the service publishing strategy is immutable after you set it during hosted cluster creation, you must know what the hostname is for the Kubernetes API server that you plan to configure.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You created a Kubernetes secret that contains your custom certificate in the management cluster. The secret contains the following keys:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>tls.crt</code>: The certificate</p>
+</li>
+<li>
+<p><code>tls.key</code>: The private key</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>If your <code>HostedCluster</code> configuration includes a service publishing strategy that uses a load balancer, ensure that the Subject Alternative Names (SANs) of the certificate do not conflict with the internal API endpoint (<code>api-int</code>). The internal API endpoint is automatically created and managed by your platform. If you use the same hostname in both the custom certificate and the internal API endpoint, routing conflictcs can occur. The only exception to this rule is when you use AWS as the provider with either <code>Private</code> or <code>PublicAndPrivate</code> configurations. In those cases, the SAN conflict is managed by the platform.</p>
+</li>
+<li>
+<p>The certificate must be valid for the external API endpoint.</p>
+</li>
+<li>
+<p>The validity period of the certificate aligns with your cluster&#8217;s expected life cycle.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a secret with your custom certificate by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret tls sample-hosted-kas-custom-cert <span class="se">\</span>
+  <span class="nt">--cert</span><span class="o">=</span>path/to/cert.crt <span class="se">\</span>
+  <span class="nt">--key</span><span class="o">=</span>path/to/key.key <span class="se">\</span>
+  <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Update your <code>HostedCluster</code> configuration with the custom certificate details, as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">apiServer</span><span class="pi">:</span>
+      <span class="na">servingCerts</span><span class="pi">:</span>
+        <span class="na">namedCertificates</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">names</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="pi">-</span> <span class="s">api-custom-cert-sample-hosted.sample-hosted.example.com</span>
+          <span class="na">servingCertificate</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">sample-hosted-kas-custom-cert</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The list of DNS names that the certificate is valid for.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The name of the secret that contains the custom certificate.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Apply the changes to your <code>HostedCluster</code> configuration by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;hosted_cluster_config&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Check the API server pods to ensure that the new certificate is mounted.</p>
+</li>
+<li>
+<p>Test the conncetion to the API server by using the custom domain name.</p>
+</li>
+<li>
+<p>Verify the certificate details in your browser or by using tools such as <code>openssl</code>.</p>
+</li>
+</ul>
 </div>
 </div>
 </div>
