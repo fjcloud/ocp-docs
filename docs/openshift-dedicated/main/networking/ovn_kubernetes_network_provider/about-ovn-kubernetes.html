@@ -959,16 +959,47 @@
 </table>
 </div>
 <div class="paragraph">
-<p>OVN-Kubernetes, which arose from the OVS project, uses many of the same constructs, such as open flow rules, to determine how packets travel through the network. For more information, see the <a href="https://www.ovn.org/en/">Open Virtual Network website</a>.</p>
+<p>OVN-Kubernetes, which arose from the OVS project, uses many of the same constructs, such as open flow rules, to decide how packets travel through the network. For more information, see the <a href="https://www.ovn.org/en/">Open Virtual Network website</a>.</p>
 </div>
 <div class="paragraph">
-<p>OVN-Kubernetes is a series of daemons for OVS that translate virtual network configurations into <code>OpenFlow</code> rules. <code>OpenFlow</code> is a protocol for communicating with network switches and routers, providing a means for remotely controlling the flow of network traffic on a network device so that network administrators can configure, manage, and monitor the flow of network traffic.</p>
+<p>OVN-Kubernetes is a series of daemons for OVS that transform virtual network configurations into <code>OpenFlow</code> rules. <code>OpenFlow</code> is a protocol for communicating with network switches and routers, providing a means for remotely controlling the flow of network traffic on a network device. This means that network administrators can configure, manage, and watch the flow of network traffic.</p>
 </div>
 <div class="paragraph">
-<p>OVN-Kubernetes provides more of the advanced functionality not available with <code>OpenFlow</code>. OVN supports distributed virtual routing, distributed logical switches, access control, Dynamic Host Configuration Protocol (DHCP), and DNS. OVN implements distributed virtual routing within logic flows that equate to open flows. For example, if you have a pod that sends out a DHCP request to the DHCP server on the network, a logic flow rule in the request helps the OVN-Kubernetes handle the packet so that the server can respond with gateway, DNS server, IP address, and other information.</p>
+<p>OVN-Kubernetes provides more of the advanced functionality not available with <code>OpenFlow</code>. OVN supports distributed virtual routing, distributed logical switches, access control, Dynamic Host Configuration Protocol (DHCP), and DNS. OVN implements distributed virtual routing within logic flows that equate to open flows. For example, if you have a pod that sends out a DHCP request to the DHCP server on the network, a logic flow rule in the request helps the OVN-Kubernetes handle the packet. This means that the server can respond with gateway, DNS server, IP address, and other information.</p>
 </div>
 <div class="paragraph">
-<p>OVN-Kubernetes runs a daemon on each node. There are daemon sets for the databases and for the OVN controller that run on every node. The OVN controller programs the Open vSwitch daemon on the nodes to support the network provider features: egress IPs, firewalls, routers, hybrid networking, IPSEC encryption, IPv6, network policy, network policy logs, hardware offloading, and multicast.</p>
+<p>OVN-Kubernetes runs a daemon on each node. There are daemon sets for the databases and for the OVN controller that run on every node. The OVN controller programs the Open vSwitch daemon on the nodes to support the following network provider features:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Egress IPs</p>
+</li>
+<li>
+<p>Firewalls</p>
+</li>
+<li>
+<p>Hardware offloading</p>
+</li>
+<li>
+<p>Hybrid networking</p>
+</li>
+<li>
+<p>Internet Protocol Security (IPsec) encryption</p>
+</li>
+<li>
+<p>IPv6</p>
+</li>
+<li>
+<p>Multicast.</p>
+</li>
+<li>
+<p>Network policy and network policy logs</p>
+</li>
+<li>
+<p>Routers</p>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -1022,6 +1053,38 @@
 </li>
 </ul>
 </div>
+<div class="paragraph">
+<p>Red&#160;Hat does not support the following postinstallation configurations that use the OVN-Kubernetes network plugin:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Configuring the primary network interface, including using the NMState Operator to configure bonding for the interface.</p>
+</li>
+<li>
+<p>Configuring a sub-interface or additional network interface on a network device that uses the Open vSwitch (OVS) or an OVN-Kubernetes <code>br-ex</code> bridge network.</p>
+</li>
+<li>
+<p>Creating additional virtual local area networks (VLANs) on the primary network interface.</p>
+</li>
+<li>
+<p>Using the primary network interface, such as <code>eth0</code> or <code>bond0</code>, that you created for a node during cluster installation to create additional secondary networks.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Red&#160;Hat does support the following postinstallation configurations that use the OVN-Kubernetes network plugin:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Creating additional VLANs from the base physical interface, such as <code>eth0.100</code>, where you configured the primary network interface as a VLAN for a node during cluster installation. This works because the Open vSwitch (OVS) bridge attaches to the initial VLAN sub-interface, such as <code>eth0.100</code>, leaving the base physical interface available for new configurations.</p>
+</li>
+<li>
+<p>Creating an additional OVN secondary network with a <code>localnet</code> topology network requires that you define the secondary network in a <code>NodeNetworkConfigurationPolicy</code> (NNCP) object. After you create the network, pods or virtual machines (VMs) can then attach to the network. These secondary networks give a dedicated connection to the physical network, which might or might not use VLAN tagging. You cannot access these networks from the host network of a node where the host does not have the required setup, such as the required network settings.</p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -1033,16 +1096,13 @@
 <div class="ulist">
 <ul>
 <li>
-<p>If you set the <code>ipv6.disable</code> parameter to <code>1</code> in the <code>kernelArgument</code> section of the <code>MachineConfig</code> custom resource (CR) for your cluster, OVN-Kubernetes pods enter a <code>CrashLoopBackOff</code> state. Additionally, updating your cluster to a later version of OpenShift Dedicated fails because the Network Operator is stuck on a <code>Degraded</code> state. Red&#160;Hat does not support disabling IPv6 adddresses for your cluster so do not set the <code>ipv6.disable</code> parameter to <code>1</code>.</p>
-</li>
-</ul>
+<p>For clusters configured for dual-stack networking, both IPv4 and IPv6 traffic must use the same network interface as the default gateway.</p>
+<div class="paragraph">
+<p>If this requirement is not met, pods on the host in the <code>ovnkube-node</code> daemon set enter the <code>CrashLoopBackOff</code> state.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p>For clusters configured for dual-stack networking, both IPv4 and IPv6 traffic must use the same network interface as the default gateway.
-If this requirement is not met, pods on the host in the <code>ovnkube-node</code> daemon set enter the <code>CrashLoopBackOff</code> state.
-If you display a pod with a command such as <code>oc get pod -n openshift-ovn-kubernetes -l app=ovnkube-node -o yaml</code>, the <code>status</code> field contains more than one message about the default gateway, as shown in the following output:</p>
+<div class="paragraph">
+<p>If you display a pod with a command such as <code>oc get pod -n openshift-ovn-kubernetes -l app=ovnkube-node -o yaml</code>, the <code>status</code> field has more than one message about the default gateway, as shown in the following output:</p>
+</div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">I1006 16:09:50.985852   60651 helper_linux.go:73] Found default gateway interface br-ex 192.168.127.1
@@ -1055,9 +1115,13 @@ F1006 16:09:50.985939   60651 ovnkube.go:130] multiple gateway interfaces detect
 </div>
 </li>
 <li>
-<p>For clusters configured for dual-stack networking, both the IPv4 and IPv6 routing tables must contain the default gateway.
-If this requirement is not met, pods on the host in the <code>ovnkube-node</code> daemon set enter the <code>CrashLoopBackOff</code> state.
-If you display a pod with a command such as <code>oc get pod -n openshift-ovn-kubernetes -l app=ovnkube-node -o yaml</code>, the <code>status</code> field contains more than one message about the default gateway, as shown in the following output:</p>
+<p>For clusters configured for dual-stack networking, both the IPv4 and IPv6 routing tables must contain the default gateway.</p>
+<div class="paragraph">
+<p>If this requirement is not met, pods on the host in the <code>ovnkube-node</code> daemon set enter the <code>CrashLoopBackOff</code> state.</p>
+</div>
+<div class="paragraph">
+<p>If you display a pod with a command such as <code>oc get pod -n openshift-ovn-kubernetes -l app=ovnkube-node -o yaml</code>, the <code>status</code> field has more than one message about the default gateway, as shown in the following output:</p>
+</div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">I0512 19:07:17.589083  108432 helper_linux.go:74] Found default gateway interface br-ex 192.168.123.1
@@ -1067,6 +1131,9 @@ F0512 19:07:17.589141  108432 ovnkube.go:133] failed to get default gateway inte
 <div class="paragraph">
 <p>The only resolution is to reconfigure the host networking so that both IP families contain the default gateway.</p>
 </div>
+</li>
+<li>
+<p>If you set the <code>ipv6.disable</code> parameter to <code>1</code> in the <code>kernelArgument</code> section of the <code>MachineConfig</code> custom resource (CR) for your cluster, OVN-Kubernetes pods enter a <code>CrashLoopBackOff</code> state. Additionally, updating your cluster to a later version of OpenShift Dedicated fails because the Network Operator remains on a <code>Degraded</code> state. Red&#160;Hat does not support disabling IPv6 adddresses for your cluster so do not set the <code>ipv6.disable</code> parameter to <code>1</code>.</p>
 </li>
 </ul>
 </div>
