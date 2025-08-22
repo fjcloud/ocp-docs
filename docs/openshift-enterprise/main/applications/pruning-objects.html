@@ -14,6 +14,8 @@
   
   
   
+  
+
   <title>Pruning objects to reclaim resources | Building applications | OpenShift Container Platform Branch Build</title>
   <link href="https://assets.openshift.net/content/subdomain.css" rel="stylesheet" type="text/css"/>
   <link href="https://docs.okd.io/latest/_stylesheets/search.css" rel="stylesheet" media="screen"/>
@@ -3314,9 +3316,12 @@
 <li><a href="#pruning-images_pruning-objects">Automatically pruning images</a></li>
 <li><a href="#pruning-images-manual_pruning-objects">Manually pruning images</a>
 <ul class="sectlevel2">
+<li><a href="#considerations-pruning-images_pruning-objects">Considerations when pruning images</a></li>
+<li><a href="#additional-pruning-limitations_pruning-objects">Limitations when pruning images</a></li>
 <li><a href="#pruning-images-conditions_pruning-objects">Image prune conditions</a></li>
-<li><a href="#pruning-images-running-operation_pruning-objects">Running the image prune operation</a></li>
+<li><a href="#pruning-images-running-operation_pruning-objects">Running image prune operations</a></li>
 <li><a href="#pruning-images-secure-insecure_pruning-objects">Using secure or insecure connections</a></li>
+<li><a href="#pruning-images-options_pruning-objects">Image pruning CLI options</a></li>
 <li><a href="#pruning-images-troubleshooting_pruning-objects">Image pruning problems</a></li>
 </ul>
 </li>
@@ -3803,137 +3808,303 @@ following command:</p>
 <h2 id="pruning-images-manual_pruning-objects"><a class="anchor" href="#pruning-images-manual_pruning-objects"></a>Manually pruning images</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The pruning custom resource enables automatic image pruning for the images from the OpenShift image registry. However, administrators can manually prune images that are no longer required by the system due to age, status, or exceed limits. There are two methods to manually prune images:</p>
+<p>The pruning custom resource enables automatic image pruning for the images from the OpenShift image registry. Administrators can manually prune images with the <code>oc adm prune images &lt;image_prune_option&gt;</code> command. For example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm prune images &lt;image_prune_option&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>For more information about available pruning options, see "Manual image pruning command options".</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>This command removes images that are no longer required by the system.</p>
+</div>
+<div class="paragraph">
+<p>Depending on your needs, you can prune images based on their age and tag history, or prune images that cause a project to exceed its defined storage limits.</p>
+</div>
+<div class="sect2">
+<h3 id="considerations-pruning-images_pruning-objects"><a class="anchor" href="#considerations-pruning-images_pruning-objects"></a>Considerations when pruning images</h3>
+<div class="paragraph">
+<p>Consider the following information before manually pruning images:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Running image pruning as a <code>Job</code> or <code>CronJob</code> on the cluster.</p>
+<p>Pruning with the <code>--namespace</code> flag does not remove images. It only removes image streams, because images are cluster-scoped resources. Limiting pruning to a particular namespace makes it impossible to calculate current usage.</p>
 </li>
 <li>
-<p>Running the <code>oc adm prune images</code> command.</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>To prune images, you must first log in to the CLI as a user with an access token. The user must also have the <code>system:image-pruner</code> cluster role or greater (for example, <code>cluster-admin</code>).</p>
-</li>
-<li>
-<p>Expose the image registry.</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<div class="title">Procedure</div>
-<p>To manually prune images that are no longer required by the system due to age, status, or exceed limits, use one of the following methods:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Run image pruning as a <code>Job</code> or <code>CronJob</code> on the cluster by creating a YAML file for the <code>pruner</code> service account, for example:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;filename&gt;.yaml</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">List</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">items</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-  <span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
-  <span class="na">metadata</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">pruner</span>
-    <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-image-registry</span>
-<span class="pi">-</span> <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-  <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRoleBinding</span>
-  <span class="na">metadata</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-image-registry-pruner</span>
-  <span class="na">roleRef</span><span class="pi">:</span>
-    <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
-    <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">system:image-pruner</span>
-  <span class="na">subjects</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">pruner</span>
-    <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-image-registry</span>
-<span class="pi">-</span> <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">batch/v1</span>
-  <span class="na">kind</span><span class="pi">:</span> <span class="s">CronJob</span>
-  <span class="na">metadata</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">image-pruner</span>
-    <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-image-registry</span>
-  <span class="na">spec</span><span class="pi">:</span>
-    <span class="na">schedule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">0</span><span class="nv"> </span><span class="s">0</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*</span><span class="nv"> </span><span class="s">*"</span>
-    <span class="na">concurrencyPolicy</span><span class="pi">:</span> <span class="s">Forbid</span>
-    <span class="na">successfulJobsHistoryLimit</span><span class="pi">:</span> <span class="m">1</span>
-    <span class="na">failedJobsHistoryLimit</span><span class="pi">:</span> <span class="m">3</span>
-    <span class="na">jobTemplate</span><span class="pi">:</span>
-      <span class="na">spec</span><span class="pi">:</span>
-        <span class="na">template</span><span class="pi">:</span>
-          <span class="na">spec</span><span class="pi">:</span>
-            <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>
-            <span class="na">containers</span><span class="pi">:</span>
-            <span class="pi">-</span> <span class="na">image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">quay.io/openshift/origin-cli:4.1"</span>
-              <span class="na">resources</span><span class="pi">:</span>
-                <span class="na">requests</span><span class="pi">:</span>
-                  <span class="na">cpu</span><span class="pi">:</span> <span class="m">1</span>
-                  <span class="na">memory</span><span class="pi">:</span> <span class="s">1Gi</span>
-              <span class="na">terminationMessagePolicy</span><span class="pi">:</span> <span class="s">FallbackToLogsOnError</span>
-              <span class="na">command</span><span class="pi">:</span>
-              <span class="pi">-</span> <span class="s">oc</span>
-              <span class="na">args</span><span class="pi">:</span>
-              <span class="pi">-</span> <span class="s">adm</span>
-              <span class="pi">-</span> <span class="s">prune</span>
-              <span class="pi">-</span> <span class="s">images</span>
-              <span class="pi">-</span> <span class="s">--certificate-authority=/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt</span>
-              <span class="pi">-</span> <span class="s">--keep-tag-revisions=5</span>
-              <span class="pi">-</span> <span class="s">--keep-younger-than=96h</span>
-              <span class="pi">-</span> <span class="s">--confirm=true</span>
-              <span class="na">name</span><span class="pi">:</span> <span class="s">image-pruner</span>
-            <span class="na">serviceAccountName</span><span class="pi">:</span> <span class="s">pruner</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Run the <code>oc adm prune images [&lt;options&gt;]</code> command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm prune images <span class="o">[</span>&lt;options&gt;]</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Pruning images removes data from the integrated registry unless <code>--prune-registry=false</code> is used.</p>
-</div>
-<div class="paragraph">
-<p>Pruning images with the <code>--namespace</code> flag does not remove images, only image streams. Images are non-namespaced resources. Therefore, limiting pruning to a particular namespace makes it impossible to calculate its current usage.</p>
-</div>
-<div class="paragraph">
-<p>By default, the integrated registry caches metadata of blobs to reduce the number of requests to storage, and to increase the request-processing speed. Pruning does not update the integrated registry cache. Images that still contain pruned layers after pruning will be broken because the pruned layers that have metadata in the cache will not be pushed. Therefore, you must redeploy the registry to clear the cache after pruning:</p>
-</div>
+<p>By default, the integrated registry caches metadata of blobs to reduce the number of requests to storage, and to increase request-processing speed. Pruning does not update the integrated registry cache. Images that still contain pruned layers after pruning will be broken because the pruned layers that have metadata in the cache will not be pushed. Therefore, you must redeploy the registry to clear the cache after pruning:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rollout restart deployment/image-registry <span class="nt">-n</span> openshift-image-registry</code></pre>
 </div>
 </div>
-<div class="paragraph">
+</li>
+<li>
 <p>If the integrated registry uses a Redis cache, you must clean the database manually.</p>
-</div>
-<div class="paragraph">
+</li>
+<li>
 <p>If redeploying the registry after pruning is not an option, then you must permanently disable the cache.</p>
-</div>
-<div class="paragraph">
+</li>
+<li>
 <p><code>oc adm prune images</code> operations require a route for your registry. Registry routes are not created by default.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="additional-pruning-limitations_pruning-objects"><a class="anchor" href="#additional-pruning-limitations_pruning-objects"></a>Limitations when pruning images</h3>
+<div class="paragraph">
+<p>The following limitations apply when pruning an image:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Pruning images from external registries is unsupported.</p>
+</li>
+<li>
+<p>When an image is pruned, all references to the image are removed from all image streams that contain the image in <code>status.tags</code>.</p>
+</li>
+<li>
+<p>Image layers that are no longer referenced by any images are removed.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="pruning-images-conditions_pruning-objects"><a class="anchor" href="#pruning-images-conditions_pruning-objects"></a>Image prune conditions</h3>
+<div class="paragraph">
+<p>OpenShift Container Platform supports two methodologies for pruning images:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Pruning by age and tag</p>
+</li>
+<li>
+<p>Pruning by size limit</p>
+</li>
+</ol>
 </div>
 <div class="paragraph">
-<p>The <strong>Prune images CLI configuration options</strong> table describes the options you can use with the <code>oc adm prune images &lt;options&gt;</code> command.</p>
+<p>These methodologies are mutually exclusive. You must choose whether to prune by age and tag, or by size limit. Regardless of the method that you choose, the image pruner checks to ensure that images in use are not removed.</p>
+</div>
+<div class="paragraph">
+<p>An image is only pruned if it meets the primary condition <strong>and</strong> is not actively referenced by a system component.</p>
+</div>
+<div class="sect3">
+<h4 id="pruning-images-age-tag_pruning-objects"><a class="anchor" href="#pruning-images-age-tag_pruning-objects"></a>Pruning an image by age and tag</h4>
+<div class="paragraph">
+<p>Pruning an image by age and tag is the default pruning strategy. It identifies images for removal by using the <code>--keep-younger-than</code> and <code>--keep-tag-revisions</code> flags. To prune an image by age and tag, the image must be older than the <code>--keep-younger-than</code> threshold, not one of the most recent tag revisions, and cannot be in use by an active workload.</p>
+</div>
+<div class="paragraph">
+<p>For an image to be pruned by age and tag, <strong>all</strong> of the following conditions must be met:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>The image is managed by OpenShift Container Platform or has the <code>openshift.io/image.managed</code> annotation.</p>
+</li>
+<li>
+<p>The image is older than the time specified by the <code>--keep-younger-than</code> flag.</p>
+</li>
+<li>
+<p>The image is not one of the most recent images for its tag, as specified by the <code>--keep-tag-revisions</code> flag.</p>
+</li>
+<li>
+<p>The image is <strong>not</strong> currently referenced by any of the following active or recent API objects:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Pods or image streams created more recently than the <code>--keep-younger-than</code> duration.</p>
+</li>
+<li>
+<p>Running or pending pods</p>
+</li>
+<li>
+<p>Deployments, replication controllers, replica sets, or stateful sets.</p>
+</li>
+<li>
+<p>Builds, build configurations, jobs, or cronjobs.</p>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>An image is only removed if it is old, not a recent tag revision, and is confirmed to have no active references by system components.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="pruning-images-size-limit_pruning-objects"><a class="anchor" href="#pruning-images-size-limit_pruning-objects"></a>Pruning an image by size limit</h4>
+<div class="paragraph">
+<p>Pruning an image by size limit uses the <code>--prune-over-size-limit</code> flag. This method is used to bring a project back under its defined image storage limit.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>--prune-over-size-limit</code> flag cannot be combined with the <code>--keep-tag-revisions</code> flag nor the <code>--keep-younger-than</code> flags. Doing so returns information that this operation is not allowed.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>For an image to be pruned using this method, all of the following conditions must be true:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>The image is part of a project that is currently exceeding its smallest defined size limit.</p>
+</li>
+<li>
+<p>The image is selected by the pruner as a candidate for deletion to reduce the total size.</p>
+</li>
+<li>
+<p>The image is not currently referenced by any of the following active API objects:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Pods that are in a <code>running</code> or <code>pending</code> state.</p>
+</li>
+<li>
+<p>Deployments, replication controllers, replica sets, or stateful sets.</p>
+</li>
+<li>
+<p>Builds, build configurations, jobs, or cronjobs.</p>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>With this method, the primary trigger is the project&#8217;s size, but the safety check to ensure that the image is not actively in use is still performed.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="pruning-images-running-operation_pruning-objects"><a class="anchor" href="#pruning-images-running-operation_pruning-objects"></a>Running image prune operations</h3>
+<div class="paragraph">
+<p>Use the following procedure to run an image prune operation</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You must be logged into the CLI with an access token.</p>
+</li>
+<li>
+<p>You must have the <code>system:image-pruner</code> cluster role or greater (for example, <code>cluster-admin</code>).</p>
+</li>
+<li>
+<p>The image registry must be exposed.</p>
+</li>
+<li>
+<p>You have reviewed the "Considerations when manually pruning images" section of this document.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Optional: To preview which images would be pruned, enter the following command. This command prints a list of the images, image streams, and pods that would be removed. Note that nothing is deleted until you add the <code>--confirm</code> flag.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm prune images &lt;image_prune_option_one&gt; &lt;image_prune_option_two&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>For more information about available pruning options, see "Manual image pruning command options".</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Review the output to confirm the list of images, image streams, and pods to be removed.</p>
+</li>
+<li>
+<p>Run the <code>oc adm prune images</code> command with the appropriate options for your cluster. Add the <code>--confirm</code> flag to confirm deletion. For example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm prune images &lt;image_prune_option_one&gt; &lt;image_prune_option_two&gt; <span class="nt">--confirm</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="pruning-images-secure-insecure_pruning-objects"><a class="anchor" href="#pruning-images-secure-insecure_pruning-objects"></a>Using secure or insecure connections</h3>
+<div class="paragraph">
+<p>The secure connection is the preferred and recommended approach. It is done over
+HTTPS protocol with a mandatory certificate verification. The <code>prune</code> command
+always attempts to use it if possible. If it is not possible, in some cases it
+can fall-back to insecure connection, which is dangerous. In this case, either
+certificate verification is skipped or plain HTTP protocol is used.</p>
+</div>
+<div class="paragraph">
+<p>The fall-back to insecure connection is allowed in the following cases unless
+<code>--certificate-authority</code> is specified:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>The <code>prune</code> command is run with the <code>--force-insecure</code> option.</p>
+</li>
+<li>
+<p>The provided <code>registry-url</code> is prefixed with the <code>http://</code> scheme.</p>
+</li>
+<li>
+<p>The provided <code>registry-url</code> is a local-link address or <code>localhost</code>.</p>
+</li>
+<li>
+<p>The configuration of the current user allows for an insecure connection. This
+can be caused by the user either logging in using <code>--insecure-skip-tls-verify</code>
+or choosing the insecure connection when prompted.</p>
+</li>
+</ol>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the registry is secured by a certificate authority different from the one used by OpenShift Container Platform, it must be specified using the
+<code>--certificate-authority</code> flag. Otherwise, the <code>prune</code> command fails with an error.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="pruning-images-options_pruning-objects"><a class="anchor" href="#pruning-images-options_pruning-objects"></a>Image pruning CLI options</h3>
+<div class="paragraph">
+<p>The following table describes the options you can use with the <code>oc adm prune images &lt;image_prune_option&gt;</code> command.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 4. Prune images CLI configuration options</caption>
+<caption class="title">Table 4. Manual image pruning command options</caption>
 <colgroup>
 <col style="width: 33.3333%;">
 <col style="width: 66.6667%;">
@@ -4006,238 +4177,25 @@ API objects and corresponding data in the registry.</p>
 </tr>
 </tbody>
 </table>
-</li>
-</ul>
-</div>
-<div class="sect2">
-<h3 id="pruning-images-conditions_pruning-objects"><a class="anchor" href="#pruning-images-conditions_pruning-objects"></a>Image prune conditions</h3>
+<div class="sect3">
+<h4 id="information-about-prune-registry-flag_pruning-objects"><a class="anchor" href="#information-about-prune-registry-flag_pruning-objects"></a>Additional information about the --prune-registry flag</h4>
 <div class="paragraph">
-<p>You can apply conditions to your manually pruned images.</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>To remove any image managed by OpenShift Container Platform, or images with the annotation <code>openshift.io/image.managed</code>:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Created at least <code>--keep-younger-than</code> minutes ago and are not currently referenced by any:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Pods created less than <code>--keep-younger-than</code> minutes ago</p>
-</li>
-<li>
-<p>Image streams created less than <code>--keep-younger-than</code> minutes ago</p>
-</li>
-<li>
-<p>Running pods</p>
-</li>
-<li>
-<p>Pending pods</p>
-</li>
-<li>
-<p>Replication controllers</p>
-</li>
-<li>
-<p>Deployments</p>
-</li>
-<li>
-<p>Deployment configs</p>
-</li>
-<li>
-<p>Replica sets</p>
-</li>
-<li>
-<p>Build configurations</p>
-</li>
-<li>
-<p>Builds</p>
-</li>
-<li>
-<p>Jobs</p>
-</li>
-<li>
-<p>Cronjobs</p>
-</li>
-<li>
-<p>Stateful sets</p>
-</li>
-<li>
-<p><code>--keep-tag-revisions</code> most recent items in <code>stream.status.tags[].items</code></p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>That are exceeding the smallest limit defined in the same project and are not currently referenced by any:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Running pods</p>
-</li>
-<li>
-<p>Pending pods</p>
-</li>
-<li>
-<p>Replication controllers</p>
-</li>
-<li>
-<p>Deployments</p>
-</li>
-<li>
-<p>Deployment configs</p>
-</li>
-<li>
-<p>Replica sets</p>
-</li>
-<li>
-<p>Build configurations</p>
-</li>
-<li>
-<p>Builds</p>
-</li>
-<li>
-<p>Jobs</p>
-</li>
-<li>
-<p>Cronjobs</p>
-</li>
-<li>
-<p>Stateful sets</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>There is no support for pruning from external registries.</p>
-</li>
-<li>
-<p>When an image is pruned, all references to the image are removed from all
-image streams that have a reference to the image in <code>status.tags</code>.</p>
-</li>
-<li>
-<p>Image layers that are no longer referenced by any images are removed.</p>
-</li>
-</ul>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The <code>--prune-over-size-limit</code> flag cannot be combined with the <code>--keep-tag-revisions</code> flag nor the <code>--keep-younger-than</code> flags. Doing so returns
-information that this operation is not allowed.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>Separating the removal of OpenShift Container Platform image API objects and image data from the registry by using <code>--prune-registry=false</code>, followed by hard pruning the registry, can narrow timing windows and is safer when compared to trying to prune both through one command. However, timing windows are not completely removed.</p>
-</div>
-<div class="paragraph">
-<p>For example, you can still create a pod referencing an image as pruning identifies that image for pruning. You should still keep track of an API object created during the pruning operations that might reference images so that you can mitigate any references to deleted content.</p>
-</div>
-<div class="paragraph">
-<p>Re-doing the pruning without the <code>--prune-registry</code> option or with <code>--prune-registry=true</code> does not lead to pruning the associated storage in the image registry for images previously pruned by <code>--prune-registry=false</code>. Any images that were pruned with <code>--prune-registry=false</code> can only be deleted from registry storage by hard pruning the registry.</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="pruning-images-running-operation_pruning-objects"><a class="anchor" href="#pruning-images-running-operation_pruning-objects"></a>Running the image prune operation</h3>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>To see what a pruning operation would delete:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Keeping up to three tag revisions, and keeping resources (images, image streams, and pods) younger than 60 minutes:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm prune images <span class="nt">--keep-tag-revisions</span><span class="o">=</span>3 <span class="nt">--keep-younger-than</span><span class="o">=</span>60m</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Pruning every image that exceeds defined limits:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm prune images <span class="nt">--prune-over-size-limit</span></code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</li>
-<li>
-<p>To perform the prune operation with the options from the previous step:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm prune images <span class="nt">--keep-tag-revisions</span><span class="o">=</span>3 <span class="nt">--keep-younger-than</span><span class="o">=</span>60m <span class="nt">--confirm</span></code></pre>
-</div>
+<p>You can separate the removal of OpenShift Container Platform image API objects from the removal of image data in the registry by passing in the <code>--prune-registry=false</code> flag. For example, the following command prunes only the API objects, leaving the registry storage untouched:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm prune images <span class="nt">--prune-over-size-limit</span> <span class="nt">--confirm</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm prune images <span class="nt">--keep-tag-revisions</span><span class="o">=</span>3 <span class="nt">--keep-younger-than</span><span class="o">=</span>60m <span class="nt">--confirm</span> <span class="nt">--prune-registry</span><span class="o">=</span><span class="nb">false</span></code></pre>
 </div>
-</div>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect2">
-<h3 id="pruning-images-secure-insecure_pruning-objects"><a class="anchor" href="#pruning-images-secure-insecure_pruning-objects"></a>Using secure or insecure connections</h3>
-<div class="paragraph">
-<p>The secure connection is the preferred and recommended approach. It is done over
-HTTPS protocol with a mandatory certificate verification. The <code>prune</code> command
-always attempts to use it if possible. If it is not possible, in some cases it
-can fall-back to insecure connection, which is dangerous. In this case, either
-certificate verification is skipped or plain HTTP protocol is used.</p>
 </div>
 <div class="paragraph">
-<p>The fall-back to insecure connection is allowed in the following cases unless
-<code>--certificate-authority</code> is specified:</p>
+<p>Then, you can perform a hard prune of the registry to remove the associated image data. This approach can narrow the timing window for race conditions compared to pruning both in a single command.</p>
 </div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>The <code>prune</code> command is run with the <code>--force-insecure</code> option.</p>
-</li>
-<li>
-<p>The provided <code>registry-url</code> is prefixed with the <code>http://</code> scheme.</p>
-</li>
-<li>
-<p>The provided <code>registry-url</code> is a local-link address or <code>localhost</code>.</p>
-</li>
-<li>
-<p>The configuration of the current user allows for an insecure connection. This
-can be caused by the user either logging in using <code>--insecure-skip-tls-verify</code>
-or choosing the insecure connection when prompted.</p>
-</li>
-</ol>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
 <div class="paragraph">
-<p>If the registry is secured by a certificate authority different from the one used by OpenShift Container Platform, it must be specified using the
-<code>--certificate-authority</code> flag. Otherwise, the <code>prune</code> command fails with an error.</p>
+<p>However, timing windows are not completely eliminated. For example, a pod might still be created that references an image while that image is being identified for pruning. You should track any API objects created during pruning to ensure that they do not reference deleted content.</p>
 </div>
-</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>Re-running the pruning without the <code>--prune-registry</code> option, or with <code>--prune-registry=true</code>, does not remove the associated registry storage for images previously pruned with <code>--prune-registry=false</code>. Those images can only be removed from registry storage by performing a hard prune of the registry. For more information, see "Hard pruning the registry".</p>
+</div>
 </div>
 </div>
 <div class="sect2">
