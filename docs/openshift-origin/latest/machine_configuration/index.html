@@ -1325,6 +1325,7 @@
             <li><a class="" href="../machine_configuration/machine-configs-configure.html">Using machine config objects to configure nodes</a></li>
             <li><a class="" href="../machine_configuration/machine-config-node-disruption.html">Using node disruption policies to minimize disruption from machine config changes</a></li>
             <li><a class="" href="../machine_configuration/machine-configs-custom.html">Configuring MCO-related custom resources</a></li>
+            <li><a class="" href="../machine_configuration/machine-config-pin-preload-images-about.html">Pinning images to nodes</a></li>
             <li><a class="" href="../machine_configuration/mco-update-boot-images.html">Boot image management</a></li>
             <li><a class="" href="../machine_configuration/machine-configs-garbage-collection.html">Managing unused rendered machine configs</a></li>
             <li><a class="" href="../machine_configuration/mco-coreos-layering.html">Image mode for OpenShift</a></li>
@@ -1936,7 +1937,6 @@
             <li><a class="" href="../hardware_accelerators/amd-gpu-operator.html">AMD GPU Operator</a></li>
             <li><a class="" href="../hardware_accelerators/gaudi-ai-accelerator.html">Intel Gaudi AI accelerators</a></li>
             <li><a class="" href="../hardware_accelerators/rdma-remote-direct-memory-access.html">Remote Direct Memory Access (RDMA)</a></li>
-            <li><a class="" href="../hardware_accelerators/das-about-dynamic-accelerator-slicer-operator.html">Dynamic Accelerator Slicer (DAS) Operator</a></li>
       </ul>
     </li>
     <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup31"><span id="tgSpan31" class="fa fa-angle-right"></span>Backup and restore</a>
@@ -2816,7 +2816,7 @@
 <li><a href="#checking-mco-status_machine-config-overview">Checking machine config pool status</a></li>
 <li><a href="#checking-mco-node-status_machine-config-overview">About checking machine config node status</a>
 <ul class="sectlevel2">
-<li><a href="#checking-mco-node-status-congifuring_machine-config-overview">Checking machine config node status</a></li>
+<li><a href="#checking-mco-node-status-configuring_machine-config-overview">Checking machine config node status</a></li>
 </ul>
 </li>
 <li><a href="#machine-config-operator-certificates_machine-config-overview">Understanding Machine Config Operator certificates</a>
@@ -3710,30 +3710,10 @@ ExecStart=/usr/bin/hyperkube \
 <h2 id="checking-mco-node-status_machine-config-overview"><a class="anchor" href="#checking-mco-node-status_machine-config-overview"></a>About checking machine config node status</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>If you make changes to the default control plane or worker nodes in your cluster, for example by using a machine config or kubelet config, you can get detailed information about the progress of the node updates by using the machine config nodes custom resource. Any change that results in a new machine config triggers the node update process.</p>
+<p>If you make changes to a machine config pool (MCP) that results in a new machine config, for example by using a <code>MachineConfig</code> or <code>KubeletConfig</code> object, you can get detailed information about the progress of the node updates by using the machine config nodes custom resource.</p>
 </div>
 <div class="paragraph">
-<p>You can view this detailed information for nodes in the <code>control plane</code> and <code>worker</code> machine config pools that were created upon OKD installation. You cannot use custom machine config pools.</p>
-</div>
-<div class="paragraph">
-<p>The <code>MachineConfigNode</code> custom resource allows you to monitor the progress of individual node updates as they move through the upgrade phases. This information can be helpful with troubleshooting if one of the nodes has an issue during the update. The custom resource reports where in the update process the node is at the moment, the phases that have completed, and the phases that are remaining.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The machine config node custom resource is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
+<p>The <code>MachineConfigNode</code> custom resource allows you to monitor the progress of individual node updates as they move through the update phases. This information can be helpful with troubleshooting if one of the nodes has an issue during the update. The custom resource reports where in the update process the node is at the moment, the phases that have completed, and the phases that are remaining.</p>
 </div>
 <div class="paragraph">
 <p>The node update process consists of the following phases and subphases that are tracked by the machine config node custom resource, explained with more detail later in this section:</p>
@@ -3742,16 +3722,9 @@ ExecStart=/usr/bin/hyperkube \
 <ul>
 <li>
 <p><strong>Update Prepared</strong>. The MCO stops the configuration drift monitoring process and verifies that the newly-created machine config can be applied to a node.</p>
-<div class="ulist">
-<ul>
-<li>
-<p><strong>UpdateCompatible</strong></p>
-</li>
-</ul>
-</div>
 </li>
 <li>
-<p><strong>Update Executed</strong>. The MCO cordons and drains the node and applies the new machine config to the node&#8217;s files and operating system, as needed. It contains the following sub-phases:</p>
+<p><strong>Update Executed</strong>. The MCO cordons and drains the node and applies the new machine config to the node files and operating system, as needed. It contains the following sub-phases:</p>
 <div class="ulist">
 <ul>
 <li>
@@ -3773,25 +3746,18 @@ ExecStart=/usr/bin/hyperkube \
 <p><strong>PinnedImageSetsDegraded</strong> The pinned image process failed. You can view the reason for the failure by using the <code>oc describe machineconfignode</code> command, as described later in this section.</p>
 </li>
 <li>
-<p><strong>Update Post update action</strong>. The MCO reboots the node or reloads CRI-O, as needed.</p>
+<p><strong>NodeDegraded</strong> The node update failed. You can view the reason for the failure by using the <code>oc describe machineconfignode</code> command, as described later in this section.</p>
+</li>
+<li>
+<p><strong>Update Post update action</strong> The MCO is reloading CRI-O, as needed.</p>
+</li>
+<li>
+<p><strong>Rebooted Node</strong> The MCO is rebooting the node, as needed.</p>
+</li>
+<li>
+<p><strong>Update Complete</strong>. The MCO is uncordoning the node, updating the node state to the cluster, and resumes producing node metrics. It contains the following sub-phase:</p>
 <div class="ulist">
 <ul>
-<li>
-<p><strong>RebootedNode</strong></p>
-</li>
-<li>
-<p><strong>ReloadedCRIO</strong></p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p><strong>Update Complete</strong>. The MCO uncordons the nodes, updates the node state to the cluster, and resumes producing node metrics.</p>
-<div class="ulist">
-<ul>
-<li>
-<p><strong>Updated</strong></p>
-</li>
 <li>
 <p><strong>Uncordoned</strong></p>
 </li>
@@ -3799,7 +3765,10 @@ ExecStart=/usr/bin/hyperkube \
 </div>
 </li>
 <li>
-<p><strong>Resumed</strong>. The MCO restarts the config drift monitor process and the node returns to operational state.</p>
+<p><strong>Updated</strong> The MCO completed a node update and the current config version of the node is equal to the desired updated version.</p>
+</li>
+<li>
+<p><strong>Resumed</strong>. The MCO restarted the config drift monitor process and the node returns to operational state.</p>
 </li>
 </ul>
 </div>
@@ -3809,10 +3778,10 @@ ExecStart=/usr/bin/hyperkube \
 <div class="ulist">
 <ul>
 <li>
-<p><code>True</code>. The phase is complete on that node or the MCO has started that phase on that node.</p>
+<p><code>True</code>. The phase is complete on that node.</p>
 </li>
 <li>
-<p><code>False</code>.  The phase is either being executed or will not be executed on that node.</p>
+<p><code>False</code>.  The phase has not yet started or will not be executed on that node.</p>
 </li>
 <li>
 <p><code>Unknown</code>. The phase is either being executed on that node or has an error. If the phase has an error, you can use the <code>oc describe machineconfignodes</code> command for more information, as described later in this section.</p>
@@ -3830,7 +3799,8 @@ ExecStart=/usr/bin/hyperkube \
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text"># ...
+<pre class="rouge highlight nowrap"><code data-lang="text">NAME                                               GENERATEDBYCONTROLLER                      IGNITIONVERSION   AGE
+# ...
 rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   c00e2c941bc6e236b50e0bf3988e6c790cf2bbb2   3.5.0             6d15h
 rendered-master-a386c2d1550b927d274054124f58be68   c00e2c941bc6e236b50e0bf3988e6c790cf2bbb2   3.5.0             7m26s
 # ...
@@ -3843,11 +3813,11 @@ rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   c00e2c941bc6e236b50e0bf3988e6
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The current machine config for the control plane and worker nodes.</td>
+<td>The current machine config for the worker nodes.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>A newly-created machine config that is being applied to the control plane and worker nodes.</td>
+<td>The newly-created machine config that is being applied to the worker nodes.</td>
 </tr>
 </table>
 </div>
@@ -3862,13 +3832,13 @@ rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   c00e2c941bc6e236b50e0bf3988e6
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">NAME                                       POOLNAME   DESIREDCONFIG                                      CURRENTCONFIG                                      UPDATED
-ci-ln-ds73n5t-72292-9xsm9-master-0         master     rendered-master-a386c2d1550b927d274054124f58be68   rendered-master-a386c2d1550b927d274054124f58be68   True
-ci-ln-ds73n5t-72292-9xsm9-master-1         master     rendered-master-a386c2d1550b927d274054124f58be68   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   False
-ci-ln-ds73n5t-72292-9xsm9-master-2         master     rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   True
-ci-ln-ds73n5t-72292-9xsm9-worker-a-2d8tz   worker     rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   True <i class="conum" data-value="1"></i><b>(1)</b>
-ci-ln-ds73n5t-72292-9xsm9-worker-b-gw5sd   worker     rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   rendered-worker-01f27f752eb84eba917450e43636b210   False <i class="conum" data-value="2"></i><b>(2)</b>
-ci-ln-ds73n5t-72292-9xsm9-worker-c-t227w   worker     rendered-worker-01f27f752eb84eba917450e43636b210   rendered-worker-01f27f752eb84eba917450e43636b210   True <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="text">NAME                                       POOLNAME      DESIREDCONFIG                                      CURRENTCONFIG                                      UPDATED
+ci-ln-ds73n5t-72292-9xsm9-master-0         master        rendered-master-a386c2d1550b927d274054124f58be68   rendered-master-a386c2d1550b927d274054124f58be68   True
+ci-ln-ds73n5t-72292-9xsm9-master-1         master        rendered-master-a386c2d1550b927d274054124f58be68   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   False
+ci-ln-ds73n5t-72292-9xsm9-master-2         master        rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   True
+ci-ln-ds73n5t-72292-9xsm9-worker-a-2d8tz   worker-cnf    rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   True <i class="conum" data-value="1"></i><b>(1)</b>
+ci-ln-ds73n5t-72292-9xsm9-worker-b-gw5sd   worker        rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   rendered-worker-01f27f752eb84eba917450e43636b210   False <i class="conum" data-value="2"></i><b>(2)</b>
+ci-ln-ds73n5t-72292-9xsm9-worker-c-t227w   worker        rendered-worker-01f27f752eb84eba917450e43636b210   rendered-worker-01f27f752eb84eba917450e43636b210   True <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -3919,7 +3889,7 @@ ci-ln-ds73n5t-72292-9xsm9-worker-c-t227w   worker     rendered-worker-01f27f752e
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>UPDATED</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Indicates if the node has been updated with one of the following conditions:</p>
+<p>Indicates if the node has been updated by using one of the following conditions:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -3949,13 +3919,13 @@ ci-ln-ds73n5t-72292-9xsm9-worker-c-t227w   worker     rendered-worker-01f27f752e
 <div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="text">$ oc get machineconfignode -o wide
-NAME                                       POOLNAME   DESIREDCONFIG                                      CURRENTCONFIG                                      UPDATED   UPDATEPREPARED   UPDATEEXECUTED   UPDATEPOSTACTIONCOMPLETE   UPDATECOMPLETE   RESUMED   UPDATECOMPATIBLE   UPDATEDFILESANDOS   CORDONEDNODE   DRAINEDNODE   REBOOTEDNODE   RELOADEDCRIO   UNCORDONEDNODE
-ci-ln-ds73n5t-72292-9xsm9-master-0         master     rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   True      False            False            False                      False            False     False              False               False          False         False          False          False
-ci-ln-ds73n5t-72292-9xsm9-master-1         master     rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   True      False            False            False                      False            False     False              False               False          False         False          False          False
-ci-ln-ds73n5t-72292-9xsm9-master-2         master     rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   True      False            False            False                      False            False     False              False               False          False         False          False          False
-ci-ln-ds73n5t-72292-9xsm9-worker-a-2d8tz   worker     rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   True      False            False            False                      False            False     False              False               False          False         False          False          False
-ci-ln-ds73n5t-72292-9xsm9-worker-b-gw5sd   worker     rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   rendered-worker-01f27f752eb84eba917450e43636b210   False     True             True             Unknown                    False            False     True               True                True           True          Unknown        False          False
-ci-ln-ds73n5t-72292-9xsm9-worker-c-t227w   worker     rendered-worker-01f27f752eb84eba917450e43636b210   rendered-worker-01f27f752eb84eba917450e43636b210   True      False            False            False                      False            False     False              False               False          False         False          False          False</code></pre>
+NAME                                       POOLNAME    DESIREDCONFIG                                      CURRENTCONFIG                                         UPDATED   UPDATEPREPARED   UPDATEEXECUTED   UPDATEPOSTACTIONCOMPLETE   UPDATECOMPLETE   RESUMED   UPDATEDFILESANDOS   CORDONEDNODE   DRAINEDNODE   REBOOTEDNODE   UNCORDONEDNODE
+ci-ln-ds73n5t-72292-9xsm9-master-0         master      rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67      True      False            False            False                      False            False     False               False          False         False          False
+ci-ln-ds73n5t-72292-9xsm9-master-1         master      rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67      True      False            False            False                      False            False     False               False          False         False          False
+ci-ln-ds73n5t-72292-9xsm9-master-2         master      rendered-master-23cf200e4ee97daa6e39fdce24c9fb67   rendered-master-23cf200e4ee97daa6e39fdce24c9fb67      True      False            False            False                      False            False     False               False          False         False          False
+ci-ln-ds73n5t-72292-9xsm9-worker-a-2d8tz   worker-cnf  rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   rendered-worker-f351f6947f15cd0380514f4b1c89f8f2      True      False            False            False                      False            False     False               False          False         False          False
+ci-ln-ds73n5t-72292-9xsm9-worker-b-gw5sd   worker      rendered-worker-f351f6947f15cd0380514f4b1c89f8f2   rendered-worker-01f27f752eb84eba917450e43636b210      False     True             True             Unknown                    False            False     True                True           True          Unknown        False
+ci-ln-ds73n5t-72292-9xsm9-worker-c-t227w   worker      rendered-worker-01f27f752eb84eba917450e43636b210   rendered-worker-01f27f752eb84eba917450e43636b210      True      False            False            False                      False            False     False               False          False         False          False</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3995,10 +3965,6 @@ ci-ln-ds73n5t-72292-9xsm9-worker-c-t227w   worker     rendered-worker-01f27f752e
 <td class="tableblock halign-left valign-top"><p class="tableblock">Indicates if the node has resumed normal processes.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>UPDATECOMPATIBLE</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Indicates if the MCO has determined it can execute the update on the node.</p></td>
-</tr>
-<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>UPDATEDFILESANDOS</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Indicates if the MCO has updated the node files and operating system.</p></td>
 </tr>
@@ -4013,10 +3979,6 @@ ci-ln-ds73n5t-72292-9xsm9-worker-c-t227w   worker     rendered-worker-01f27f752e
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>REBOOTEDNODE</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Indicates if the MCO has restarted the node.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>RELOADEDCRIO</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Indicates if the MCO has restarted the CRI-O service.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>UNCORDONEDNODE</code></p></td>
@@ -4035,175 +3997,112 @@ ci-ln-ds73n5t-72292-9xsm9-worker-c-t227w   worker     rendered-worker-01f27f752e
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">Name:         &lt;machine_config_node_name&gt; <i class="conum" data-value="1"></i><b>(1)</b>
-Namespace:
-Labels:       &lt;none&gt;
-Annotations:  &lt;none&gt;
-API Version:  machineconfiguration.openshift.io/v1alpha1
-Kind:         MachineConfigNode
-Metadata:
-  Creation Timestamp:  2023-10-17T13:08:58Z
-  Generation:          1
-  Resource Version:    49443
-  UID:                 4bd758ab-2187-413c-ac42-882e61761b1d
-Spec:
-  Node Ref:
-    Name:         &lt;node_name&gt;
-  Pool:
-    Name:         worker
-  ConfigVersion:
-    Desired: rendered-worker-f351f6947f15cd0380514f4b1c89f8f2 <i class="conum" data-value="2"></i><b>(2)</b>
-Status:
-  Conditions:
-    Last Transition Time:  2025-01-14T17:01:16Z
-    Message:               Node ci-ln-ds73n5t-72292-9xsm9-worker-b-gw5sd needs an update
-    Reason:                Updated
-    Status:                False
-    Type:                  Updated
-    Last Transition Time:  2025-01-14T17:01:18Z
-    Message:               Update is Compatible.
-    Reason:                UpdateCompatible
-    Status:                True
-    Type:                  UpdatePrepared
-    Last Transition Time:  2025-01-14T17:04:08Z
-    Message:               Updated the Files and OS on disk as a part of the in progress phase
-    Reason:                AppliedFilesAndOS
-    Status:                True
-    Type:                  UpdateExecuted
-    Last Transition Time:  2025-01-14T17:04:08Z
-    Message:               Node will reboot into config rendered-worker-db01b33f959e5645a721da50a6db1fbb
-    Reason:                RebootedNode
-    Status:                Unknown
-    Type:                  UpdatePostActionComplete
-    Last Transition Time:  2025-01-14T16:04:27Z
-    Message:               Action during update to rendered-worker-f351f6947f15cd0380514f4b1c89f8f2: UnCordoned Node as part of completing upgrade phase
-    Reason:                Uncordoned
-    Status:                False
-    Type:                  UpdateComplete
-    Last Transition Time:  2025-01-14T16:04:27Z
-    Message:               Action during update to rendered-worker-f351f6947f15cd0380514f4b1c89f8f2: In desired config rendered-worker-01f27f752eb84eba917450e43636b210. Resumed normal operations.
-    Reason:                Resumed
-    Status:                False
-    Type:                  Resumed
-    Last Transition Time:  2025-01-14T17:01:18Z
-    Message:               Update Compatible. Post Cfg Actions []: Drain Required: true
-    Reason:                UpdatePreparedUpdateCompatible
-    Status:                True
-    Type:                  UpdateCompatible
-    Last Transition Time:  2025-01-14T17:03:57Z
-    Message:               Drained node. The drain is complete as the desired drainer matches current drainer: drain-rendered-worker-db01b33f959e5645a721da50a6db1fbb
-    Reason:                UpdateExecutedDrained
-    Status:                True
-    Type:                  Drained
-    Last Transition Time:  2025-01-14T17:04:08Z
-    Message:               Applied files and new OS config to node. OS did not need an update. SSH Keys did not need an update
-    Reason:                UpdateExecutedAppliedFilesAndOS
-    Status:                True
-    Type:                  AppliedFilesAndOS
-    Last Transition Time:  2025-01-14T17:01:23Z
-    Message:               Cordoned node. The node is reporting Unschedulable = true
-    Reason:                UpdateExecutedCordoned
-    Status:                True
-    Type:                  Cordoned
-    Last Transition Time:  2025-01-14T17:04:08Z
-    Message:               Upgrade requires a reboot. Currently doing this as the post update action.
-    Reason:                UpdatePostActionCompleteRebootedNode
-    Status:                Unknown
-    Type:                  RebootedNode
-    Last Transition Time:  2025-01-14T15:30:57Z
-    Message:               This node has not yet entered the ReloadedCRIO phase
-    Reason:                NotYetOccured
-    Status:                False
-    Type:                  ReloadedCRIO
-    Last Transition Time:  2025-01-14T16:04:27Z
-    Message:               Action during update to rendered-worker-f351f6947f15cd0380514f4b1c89f8f2: UnCordoned node. The node is reporting Unschedulable = false
-    Reason:                UpdateCompleteUncordoned
-    Status:                False
-    Type:                  Uncordoned
-    Last Transition Time:  2025-01-14T16:04:07Z
-    Message:               All is good
-    Reason:                AsExpected
-    Status:                False
-    Type:                  PinnedImageSetsDegraded
-    Last Transition Time:  2025-01-14T16:04:07Z
-    Message:               All pinned image sets complete
-    Reason:                AsExpected
-    Status:                False
-    Type:                  PinnedImageSetsProgressing
-  Config Version:
-    Current:            rendered-worker-01f27f752eb84eba917450e43636b210 <i class="conum" data-value="3"></i><b>(3)</b>
-    Desired:            rendered-worker-f351f6947f15cd0380514f4b1c89f8f2
-  Observed Generation:  6
-# ...</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="text">apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfigNode
+metadata:
+  creationTimestamp: "2025-04-28T18:40:29Z"
+  generation: 3
+  name: &lt;machine_config_node_name&gt; <i class="conum" data-value="1"></i><b>(1)</b>
+# ...
+spec:
+  configVersion:
+    desired: rendered-master-34f96af2e41acb615410b97ce1c819e6 <i class="conum" data-value="2"></i><b>(2)</b>
+  node:
+    name: ci-ln-921r7qk-72292-kxv95-master-0
+  pool:
+    name: master
+status:
+  conditions:
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: All pinned image sets complete
+    reason: AsExpected
+    status: "False"
+    type: PinnedImageSetsProgressing
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: This node has not yet entered the UpdatePrepared phase
+    reason: NotYetOccurred
+    status: "False"
+    type: UpdatePrepared
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: This node has not yet entered the UpdateExecuted phase
+    reason: NotYetOccurred
+    status: "False"
+    type: UpdateExecuted
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: This node has not yet entered the UpdatePostActionComplete phase
+    reason: NotYetOccurred
+    status: "False"
+    type: UpdatePostActionComplete
+  - lastTransitionTime: "2025-04-28T18:42:08Z"
+    message: 'Action during update to rendered-master-34f96af2e41acb615410b97ce1c819e6:
+      Uncordoned Node as part of completing upgrade phase'
+    reason: Uncordoned
+    status: "False"
+    type: UpdateComplete
+  - lastTransitionTime: "2025-04-28T18:42:08Z"
+    message: 'Action during update to rendered-master-34f96af2e41acb615410b97ce1c819e6:
+      In desired config . Resumed normal operations.'
+    reason: Resumed
+    status: "False"
+    type: Resumed
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: This node has not yet entered the Drained phase
+    reason: NotYetOccurred
+    status: "False"
+    type: Drained
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: This node has not yet entered the AppliedFilesAndOS phase
+    reason: NotYetOccurred
+    status: "False"
+    type: AppliedFilesAndOS
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: This node has not yet entered the Cordoned phase
+    reason: NotYetOccurred
+    status: "False"
+    type: Cordoned
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: This node has not yet entered the RebootedNode phase
+    reason: NotYetOccurred
+    status: "False"
+    type: RebootedNode
+  - lastTransitionTime: "2025-04-28T18:42:08Z"
+    message: Node ci-ln-921r7qk-72292-kxv95-master-0 Updated
+    reason: Updated
+    status: "True"
+    type: Updated
+  - lastTransitionTime: "2025-04-28T18:42:08Z"
+    message: 'Action during update to rendered-master-34f96af2e41acb615410b97ce1c819e6:
+      UnCordoned node. The node is reporting Unschedulable = false'
+    reason: UpdateCompleteUncordoned
+    status: "False"
+    type: Uncordoned
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: This node has not yet entered the NodeDegraded phase
+    reason: NotYetOccurred
+    status: "False"
+    type: NodeDegraded
+  - lastTransitionTime: "2025-04-28T18:41:09Z"
+    message: All is good
+    reason: AsExpected
+    status: "False"
+    type: PinnedImageSetsDegraded
+  configVersion:
+    current: rendered-master-34f96af2e41acb615410b97ce1c819e6 <i class="conum" data-value="3"></i><b>(3)</b>
+    desired: rendered-master-34f96af2e41acb615410b97ce1c819e6
+  observedGeneration: 4
+----
+&lt;1&gt; The `MachineConfigNode` object name.
+&lt;2&gt; The new machine configuration. This field updates after the MCO validates the machine config in the `UPDATEPREPARED` phase, then the status adds the new configuration.
+&lt;3&gt; The current machine config on the node.</code></pre>
 </div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The <code>MachineConfigNode</code> object name.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>The new machine configuration. This field updates after the MCO validates the machine config in the <code>UPDATEPREPARED</code> phase, then the status adds the new configuration.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The current machine config on the node.</td>
-</tr>
-</table>
 </div>
 <div class="sect2">
-<h3 id="checking-mco-node-status-congifuring_machine-config-overview"><a class="anchor" href="#checking-mco-node-status-congifuring_machine-config-overview"></a>Checking machine config node status</h3>
+<h3 id="checking-mco-node-status-configuring_machine-config-overview"><a class="anchor" href="#checking-mco-node-status-configuring_machine-config-overview"></a>Checking machine config node status</h3>
 <div class="paragraph">
-<p>During the update of a machine config pool (MCP), you can monitor the progress of all control plane and worker nodes in your cluster by using the <code>oc get machineconfignodes</code> and <code>oc describe machineconfignodes</code> commands. These commands provide information that can be helpful if issues arise during the update and you need to troubleshoot a node.</p>
-</div>
-<div class="paragraph">
-<p>You cannot use these commands with custom machine config pools.</p>
+<p>During the update of a machine config pool (MCP), you can monitor the progress of all of the nodes in your cluster by using the <code>oc get machineconfignodes</code> and <code>oc describe machineconfignodes</code> commands. These commands provide information that can be helpful if issues arise during the update and you need to troubleshoot a node.</p>
 </div>
 <div class="paragraph">
 <p>For more information on the meaning of these fields, see "About checking machine config node status."</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You enabled the required Technology Preview features for your cluster by editing the <code>FeatureGate</code> CR named <code>cluster</code>:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit featuregate cluster</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example <code>FeatureGate</code> CR</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">FeatureGate</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">featureSet</span><span class="pi">:</span> <span class="s">TechPreviewNoUpgrade</span></code></pre>
-</div>
-</div>
-<div class="admonitionblock warning">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-warning" title="Warning"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Enabling the <code>TechPreviewNoUpgrade</code> feature set on your cluster cannot be undone and prevents minor version updates. This feature set allows you to enable these Technology Preview features on test clusters, where you can fully test them. Do not enable this feature set on production clusters.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>After you save the changes, new machine configs are created, the machine config pools are updated, and scheduling on each node is disabled while the change is being applied.</p>
-</div>
-</li>
-</ul>
 </div>
 <div class="ulist">
 <div class="title">Procedure</div>
@@ -4238,13 +4137,13 @@ ci-ln-mdb23yt-72292-kzdsg-worker-c-mffrx   worker     rendered-worker-8f61bf8398
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">NAME                                       POOLNAME   DESIREDCONFIG                                      CURRENTCONFIG                                      UPDATED   UPDATEPREPARED   UPDATEEXECUTED   UPDATEPOSTACTIONCOMPLETE   UPDATECOMPLETE   RESUMED   UPDATECOMPATIBLE   UPDATEDFILESANDOS   CORDONEDNODE   DRAINEDNODE   REBOOTEDNODE   RELOADEDCRIO   UNCORDONEDNODE
-ci-ln-g6dr34b-72292-g9btv-master-0         master     rendered-master-d4e122320b351cdbe1df59ddb63ddcfc   rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   False     True             Unknown          False                      False            False     True               Unknown             False          False         False          False          False
-ci-ln-g6dr34b-72292-g9btv-master-1         master     rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   True      False            False            False                      False            False     False              False               False          False         False          False          False
-ci-ln-g6dr34b-72292-g9btv-master-2         master     rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   True      False            False            False                      False            False     False              False               False          False         False          False          False
-ci-ln-g6dr34b-72292-g9btv-worker-a-sjh5r   worker     rendered-worker-671b88c8c569fa3f60dc1a27cf9c91f2   rendered-worker-d5534cb730e5e108905fc285c2a42b6c   False     True             Unknown          False                      False            False     True               Unknown             False          False         False          False          False
-ci-ln-g6dr34b-72292-g9btv-worker-b-xthbz   worker     rendered-worker-d5534cb730e5e108905fc285c2a42b6c   rendered-worker-d5534cb730e5e108905fc285c2a42b6c   True      False            False            False                      False            False     False              False               False          False         False          False          False
-ci-ln-g6dr34b-72292-g9btv-worker-c-gnpd6   worker     rendered-worker-d5534cb730e5e108905fc285c2a42b6c   rendered-worker-d5534cb730e5e108905fc285c2a42b6c   True      False            False            False                      False            False     False              False               False          False         False          False          False</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="text">NAME                                       POOLNAME   DESIREDCONFIG                                      CURRENTCONFIG                                      UPDATED   UPDATEPREPARED   UPDATEEXECUTED   UPDATEPOSTACTIONCOMPLETE   UPDATECOMPLETE   RESUMED   UPDATEDFILESANDOS   CORDONEDNODE   DRAINEDNODE   REBOOTEDNODE   UNCORDONEDNODE
+ci-ln-g6dr34b-72292-g9btv-master-0         master     rendered-master-d4e122320b351cdbe1df59ddb63ddcfc   rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   False     True             Unknown          False                      False            False     Unknown             False          False         False          False
+ci-ln-g6dr34b-72292-g9btv-master-1         master     rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   True      False            False            False                      False            False     False               False          False         False          False
+ci-ln-g6dr34b-72292-g9btv-master-2         master     rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   rendered-master-6f2064fcb36d2a914de5b0c660dc49ff   True      False            False            False                      False            False     False               False          False         False          False
+ci-ln-g6dr34b-72292-g9btv-worker-a-sjh5r   worker     rendered-worker-671b88c8c569fa3f60dc1a27cf9c91f2   rendered-worker-d5534cb730e5e108905fc285c2a42b6c   False     True             Unknown          False                      False            False     Unknown             False          False         False          False
+ci-ln-g6dr34b-72292-g9btv-worker-b-xthbz   worker     rendered-worker-d5534cb730e5e108905fc285c2a42b6c   rendered-worker-d5534cb730e5e108905fc285c2a42b6c   True      False            False            False                      False            False     False               False          False         False          False
+ci-ln-g6dr34b-72292-g9btv-worker-c-gnpd6   worker     rendered-worker-d5534cb730e5e108905fc285c2a42b6c   rendered-worker-d5534cb730e5e108905fc285c2a42b6c   True      False            False            False                      False            False     False               False          False         False          False</code></pre>
 </div>
 </div>
 </li>
@@ -4255,6 +4154,14 @@ ci-ln-g6dr34b-72292-g9btv-worker-c-gnpd6   worker     rendered-worker-d5534cb730
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfignodes <span class="si">$(</span>oc get machineconfignodes <span class="nt">-o</span> json | jq <span class="nt">-r</span> <span class="s1">'.items[]|select(.spec.pool.name=="&lt;pool_name&gt;")|.metadata.name'</span><span class="si">)</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;pool_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the machine config pool.</p>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
@@ -4263,6 +4170,9 @@ ci-ln-g6dr34b-72292-g9btv-worker-a-sjh5r   worker     rendered-worker-d5534cb730
 ci-ln-g6dr34b-72292-g9btv-worker-b-xthbz   worker     rendered-worker-d5534cb730e5e108905fc285c2a42b6c   rendered-worker-faf6b50218a8bbce21f1370866283de5   False
 ci-ln-g6dr34b-72292-g9btv-worker-c-gnpd6   worker     rendered-worker-faf6b50218a8bbce21f1370866283de5   rendered-worker-faf6b50218a8bbce21f1370866283de5   True</code></pre>
 </div>
+</div>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -4275,36 +4185,61 @@ ci-ln-g6dr34b-72292-g9btv-worker-c-gnpd6   worker     rendered-worker-faf6b50218
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">Name:         &lt;node_name&gt;
-Namespace:
-Labels:       &lt;none&gt;
-Annotations:  &lt;none&gt;
-API Version:  machineconfiguration.openshift.io/v1alpha1
-Kind:         MachineConfigNode
-Metadata:
-  Creation Timestamp:  2023-10-17T13:08:58Z
-  Generation:          1
-  Resource Version:    49443
-  UID:                 4bd758ab-2187-413c-ac42-882e61761b1d
-Spec:
-  Node Ref:
-    Name:         &lt;node_name&gt;
-  Pool:
-    Name:         master
-  ConfigVersion:
-    Desired: rendered-worker-823ff8dc2b33bf444709ed7cd2b9855b
-Status:
+<pre class="rouge highlight nowrap"><code data-lang="text">apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfigNode
+metadata:
+  creationTimestamp: "2025-04-28T18:52:16Z"
+  generation: 3
+  name: ci-ln-921r7qk-72292-kxv95-worker-a-zmxrr
+  ownerReferences:
+  - apiVersion: v1
+    kind: Node
+    name: ci-ln-921r7qk-72292-kxv95-worker-a-zmxrr
+    uid: e548a8d1-4f16-42cd-9234-87ac5aede6c1
+  resourceVersion: "62331"
+  uid: 11d96e07-582d-4569-a84a-9d8c5229a551
+spec:
+  configVersion:
+    desired: rendered-worker-1930ca7433b7f0153286a3f04e4cb57b
+  node:
+    name: ci-ln-921r7qk-72292-kxv95-worker-a-zmxrr
+  pool:
+    name: worker
+status:
+  conditions:
 # ...
-    Message:               Drained node. The drain is complete as the desired drainer matches current drainer: drain-rendered-worker-01f27f752eb84eba917450e43636b210
-    Reason:                UpdateExecutedDrained
-    Status:                True
-    Type:                  Drained
-    Last Transition Time:  2025-01-14T15:45:55Z
+    lastTransitionTime: 2025-04-23T14:55:31Z
+    message: Update Compatible. Post Cfg Actions: [] Drain Required: true
+    reason: UpdatePrepared
+    status: True
+    type: UpdatePrepared
 # ...
-  Config Version:
-    Current:            rendered-master-8110974a5cea69dff5b263237b58abd8
-    Desired:            rendered-worker-823ff8dc2b33bf444709ed7cd2b9855b
-  Observed Generation:  6
+    lastTransitionTime: 2025-04-23T14:55:31Z
+    message: Draining node. The drain will not be complete until desired drainer drain-rendered-worker-1930ca7433b7f0153286a3f04e4cb57b
+      matches current drainer uncordon-rendered-worker-a9673968884f1ea42c26edcd914af907
+    reason: UpdateExecutedDrained
+    status: True
+    type: Drained
+# ...
+    lastTransitionTime: 2025-04-23T14:55:31Z
+    message: Cordoned node. The node is reporting Unschedulable = true
+    reason: UpdateExecutedCordoned
+    status: True
+    type: Cordoned
+# ...
+  - lastTransitionTime: "2025-04-28T18:52:16Z"
+    message: This node has not yet entered the NodeDegraded phase
+    reason: NotYetOccurred
+    status: "False"
+    type: NodeDegraded
+# ...
+  configversion:
+    current: rendered-worker-8110974a5cea69dff5b263237b58abd8
+    desired: rendered-worker-1930ca7433b7f0153286a3f04e4cb57b
+  observedgeneration:  4
+  pinnedImageSets:
+  - desiredGeneration: 1
+    name: worker-pinned-images
 # ...</code></pre>
 </div>
 </div>
