@@ -1744,6 +1744,7 @@
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-26-4"><span id="sgSpan-26-4" class="fa fa-caret-right"></span>&nbsp;Network Observability</a>
               <ul id="topicSubGroup-26-4" class="nav-tertiary list-unstyled collapse">
 
+                  <li><a class="" href="../observability/network_observability/network-observability-release-notes-1-9-3.html">Network observability release notes 1.9.3</a></li>
                   <li><a class="" href="../observability/network_observability/network-observability-release-notes-1-9-2.html">Network observability release notes 1.9.2</a></li>
                   <li><a class="" href="../observability/network_observability/network-observability-operator-release-notes.html">Network observability release notes</a></li>
                   <li><a class="" href="../observability/network_observability/network-observability-overview.html">Network observability overview</a></li>
@@ -1756,8 +1757,8 @@
                   <li><a class="" href="../observability/network_observability/network-observability-operator-monitoring.html">Monitoring the Network Observability Operator</a></li>
                   <li><a class="" href="../observability/network_observability/network-observability-scheduling-resources.html">Scheduling resources</a></li>
                   <li><a class="" href="../observability/network_observability/network-observability-secondary-networks.html">Secondary networks</a></li>
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-26-4-12"><span id="ssgSpan-26-4-12" class="fa fa-caret-right"></span>&nbsp;Network Observability CLI</a>
-                  <ul id="topicSubSubGroup-26-4-12" class="nav-tertiary list-unstyled collapse">
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-26-4-13"><span id="ssgSpan-26-4-13" class="fa fa-caret-right"></span>&nbsp;Network Observability CLI</a>
+                  <ul id="topicSubSubGroup-26-4-13" class="nav-tertiary list-unstyled collapse">
 
                     <li><a class="" href="../observability/network_observability/netobserv_cli/netobserv-cli-install.html" style="padding-left: 70px;">Installing the Network Observability CLI</a></li>
                     <li><a class="" href="../observability/network_observability/netobserv_cli/netobserv-cli-using.html" style="padding-left: 70px;">Using the Network Observability CLI</a></li>
@@ -3207,7 +3208,7 @@ worker    rendered-worker-221507009cbcdec0eec8ab3ccd789d18    False     False   
 <p>After the changes have been rolled out, you can unpause the machine config pool.</p>
 </div>
 <div class="paragraph">
-<p>In the case of a build failure, for example due to network issues or an invalid secret, the MCO retries the build three additional times before the job fails. The MCO creates a different build pod for each build attempt. You can use the build pod logs to troubleshoot any build failures. Note that the MCO automatically removes these build pods after a short period of time.</p>
+<p>In the case of a build failure, for example due to network issues or an invalid secret, the MCO retries the build three additional times before the job fails. The MCO creates a different build pod for each build attempt. Note that the MCO automatically removes these build pods after a short period of time. Also, the affected machine config pool reports a build failure through the <code>ImageBuildDegraded</code> status condition. You can use the build pod logs to troubleshoot any build failures.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example failed <code>MachineOSBuild</code> object</div>
@@ -3534,6 +3535,45 @@ build-layered-image-ad5a3cad36303c363cf458ab0524e7c0-hxrws              2/2     
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
 <td>This pod can be used for troubleshooting.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Verify the custom layered image build by running a command similar to the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfigpool &lt;mcp_name&gt; <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfigPool
+metadata:
+  labels:
+    machineconfiguration.openshift.io/mco-built-in: ""
+    pools.operator.machineconfiguration.openshift.io/layered: ""
+  name: layered
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">status:
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">  conditions
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">  - lastTransitionTime: "2025-09-09T13:43:35Z"
+    message: 'Failed to build OS image for pool worker (MachineOSBuild: worker-2d03dc921ff0c242c5892a3ef1ed1608):
+      Failed: Build Failed'
+    reason: BuildFailed
+    status: "True" <i class="conum" data-value="1"></i><b>(1)</b>
+    type: ImageBuildDegraded</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Indicates whether the custom layered image build failed. If <code>False</code>, the build succeeded. If <code>True</code>, the build failed. You can use the build pod logs to troubleshoot any build failures.</td>
 </tr>
 </table>
 </div>
@@ -4079,12 +4119,12 @@ worker    rendered-worker-e8c8bc1de69777325003e80bc0c04b82    True      False   
 <div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                         STATUS                     ROLES                  AGE   VERSION
-ip-10-0-148-79.us-west-1.compute.internal    Ready                      worker                 32m   v1.32.3
-ip-10-0-155-125.us-west-1.compute.internal   Ready,SchedulingDisabled   worker                 35m   v1.32.3
-ip-10-0-170-47.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.32.3
-ip-10-0-174-77.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.32.3
-ip-10-0-211-49.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.32.3
-ip-10-0-218-151.us-west-1.compute.internal   Ready                      worker                 31m   v1.32.3</span></code></pre>
+ip-10-0-148-79.us-west-1.compute.internal    Ready                      worker                 32m   v1.33.4
+ip-10-0-155-125.us-west-1.compute.internal   Ready,SchedulingDisabled   worker                 35m   v1.33.4
+ip-10-0-170-47.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.33.4
+ip-10-0-174-77.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.33.4
+ip-10-0-211-49.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.33.4
+ip-10-0-218-151.us-west-1.compute.internal   Ready                      worker                 31m   v1.33.4</span></code></pre>
 </div>
 </div>
 </li>
@@ -4413,12 +4453,12 @@ worker   rendered-worker-5de4837625b1cbc237de6b22bc0bc873   True      False     
 <div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                         STATUS                     ROLES                  AGE   VERSION
-ip-10-0-148-79.us-west-1.compute.internal    Ready                      worker                 32m   v1.32.3
-ip-10-0-155-125.us-west-1.compute.internal   Ready,SchedulingDisabled   worker                 35m   v1.32.3
-ip-10-0-170-47.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.32.3
-ip-10-0-174-77.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.32.3
-ip-10-0-211-49.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.32.3
-ip-10-0-218-151.us-west-1.compute.internal   Ready                      worker                 31m   v1.32.3</span></code></pre>
+ip-10-0-148-79.us-west-1.compute.internal    Ready                      worker                 32m   v1.33.4
+ip-10-0-155-125.us-west-1.compute.internal   Ready,SchedulingDisabled   worker                 35m   v1.33.4
+ip-10-0-170-47.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.33.4
+ip-10-0-174-77.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.33.4
+ip-10-0-211-49.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.33.4
+ip-10-0-218-151.us-west-1.compute.internal   Ready                      worker                 31m   v1.33.4</span></code></pre>
 </div>
 </div>
 </li>
@@ -4537,12 +4577,12 @@ worker   rendered-worker-6b000dbc31aaee63c6a2d56d04cd4c1b   False     True      
 <div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                         STATUS                     ROLES                  AGE   VERSION
-ip-10-0-148-79.us-west-1.compute.internal    Ready                      worker                 32m   v1.32.3
-ip-10-0-155-125.us-west-1.compute.internal   Ready,SchedulingDisabled   worker                 35m   v1.32.3
-ip-10-0-170-47.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.32.3
-ip-10-0-174-77.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.32.3
-ip-10-0-211-49.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.32.3
-ip-10-0-218-151.us-west-1.compute.internal   Ready                      worker                 31m   v1.32.3</span></code></pre>
+ip-10-0-148-79.us-west-1.compute.internal    Ready                      worker                 32m   v1.33.4
+ip-10-0-155-125.us-west-1.compute.internal   Ready,SchedulingDisabled   worker                 35m   v1.33.4
+ip-10-0-170-47.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.33.4
+ip-10-0-174-77.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.33.4
+ip-10-0-211-49.us-west-1.compute.internal    Ready                      control-plane,master   42m   v1.33.4
+ip-10-0-218-151.us-west-1.compute.internal   Ready                      worker                 31m   v1.33.4</span></code></pre>
 </div>
 </div>
 </li>
