@@ -2823,7 +2823,14 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#cnf-about-numa-aware-scheduling_numa-aware">About NUMA-aware scheduling</a></li>
+<li><a href="#cnf-numa-aware-scheduling-about-numa_numa-aware">About NUMA</a></li>
+<li><a href="#cnf-about-numa-aware-scheduling_numa-aware">About NUMA-aware scheduling</a>
+<ul class="sectlevel2">
+<li><a href="#integration-with-node-tuning-operator_numa-aware">Integration with Node Tuning Operator</a></li>
+<li><a href="#default-scheduling-logic_numa-aware">Default scheduling logic</a></li>
+<li><a href="#numa-aware-pod-scheduling-diagram_numa-aware">NUMA-aware pod scheduling diagram</a></li>
+</ul>
+</li>
 <li><a href="#cnf-numa-resource-scheduling-strategies_numa-aware">NUMA resource scheduling strategies</a></li>
 <li><a href="#installing-the-numa-resources-operator_numa-aware">Installing the NUMA Resources Operator</a>
 <ul class="sectlevel2">
@@ -2868,29 +2875,43 @@
 </div>
 </div>
 <div class="sect1">
+<h2 id="cnf-numa-aware-scheduling-about-numa_numa-aware"><a class="anchor" href="#cnf-numa-aware-scheduling-about-numa_numa-aware"></a>About NUMA</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Non-uniform memory access (NUMA) architecture is a multiprocessor architecture model where CPUs do not access all memory in all locations at the same speed. Instead, CPUs can gain faster access to memory that is in closer proximity to them, or <em>local</em> to them, but slower access to memory that is further away.</p>
+</div>
+<div class="paragraph">
+<p>A CPU with multiple memory controllers can use any available memory across CPU complexes, regardless of where the memory is located. However, this increased flexibility comes at the expense of performance.</p>
+</div>
+<div class="paragraph">
+<p><em>NUMA resource topology</em> refers to the physical locations of CPUs, memory, and PCI devices relative to each other in a <em>NUMA zone</em>. In a NUMA architecture, a NUMA zone is a group of CPUs that has its own processors and memory. Colocated resources are said to be in the same NUMA zone, and CPUs in a zone have faster access to the same local memory than CPUs outside of that zone.
+A CPU processing a workload using memory that is outside its NUMA zone is slower than a workload processed in a single NUMA zone. For I/O-constrained workloads, the network interface on a distant NUMA zone slows down how quickly information can reach the application.</p>
+</div>
+<div class="paragraph">
+<p>Applications can achieve better performance by containing data and processing within the same NUMA zone. For high-performance workloads and applications, such as telecommunications workloads, the cluster must process pod workloads in a single NUMA zone so that the workload can operate to specification.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="cnf-about-numa-aware-scheduling_numa-aware"><a class="anchor" href="#cnf-about-numa-aware-scheduling_numa-aware"></a>About NUMA-aware scheduling</h2>
 <div class="sectionbody">
-<h3 id="introduction-to-numa_numa-aware" class="discrete">Introduction to NUMA</h3>
-<div class="paragraph">
-<p>Non-Uniform Memory Access (NUMA) is a compute platform architecture that allows different CPUs to access different regions of memory at different speeds. NUMA resource topology refers to the locations of CPUs, memory, and PCI devices relative to each other in the compute node. Colocated resources are said to be in the same <em>NUMA zone</em>. For high-performance applications, the cluster needs to process pod workloads in a single NUMA zone.</p>
-</div>
-<h3 id="performance-considerations_numa-aware" class="discrete">Performance considerations</h3>
-<div class="paragraph">
-<p>NUMA architecture allows a CPU with multiple memory controllers to use any available memory across CPU complexes, regardless of where the memory is located. This allows for increased flexibility at the expense of performance. A CPU processing a workload using memory that is outside its NUMA zone is slower than a workload processed in a single NUMA zone. Also, for I/O-constrained workloads, the network interface on a distant NUMA zone slows down how quickly information can reach the application. High-performance workloads, such as telecommunications workloads, cannot operate to specification under these conditions.</p>
-</div>
-<h3 id="numa-aware-scheduling_numa-aware" class="discrete">NUMA-aware scheduling</h3>
 <div class="paragraph">
 <p>NUMA-aware scheduling aligns the requested cluster compute resources (CPUs, memory, devices) in the same NUMA zone to process latency-sensitive or high-performance workloads efficiently. NUMA-aware scheduling also improves pod density per compute node for greater resource efficiency.</p>
 </div>
-<h3 id="integration-with-node-tuning-operator_numa-aware" class="discrete">Integration with Node Tuning Operator</h3>
+<div class="sect2">
+<h3 id="integration-with-node-tuning-operator_numa-aware"><a class="anchor" href="#integration-with-node-tuning-operator_numa-aware"></a>Integration with Node Tuning Operator</h3>
 <div class="paragraph">
 <p>By integrating the Node Tuning Operator&#8217;s performance profile with NUMA-aware scheduling, you can further configure CPU affinity to optimize performance for latency-sensitive workloads.</p>
 </div>
-<h3 id="default-scheduling-logic_numa-aware" class="discrete">Default scheduling logic</h3>
+</div>
+<div class="sect2">
+<h3 id="default-scheduling-logic_numa-aware"><a class="anchor" href="#default-scheduling-logic_numa-aware"></a>Default scheduling logic</h3>
 <div class="paragraph">
 <p>The default OKD pod scheduler scheduling logic considers the available resources of the entire compute node, not individual NUMA zones. If the most restrictive resource alignment is requested in the kubelet topology manager, error conditions can occur when admitting the pod to a node. Conversely, if the most restrictive resource alignment is not requested, the pod can be admitted to the node without proper resource alignment, leading to worse or unpredictable performance. For example, runaway pod creation with <code>Topology Affinity Error</code> statuses can occur when the pod scheduler makes suboptimal scheduling decisions for guaranteed pod workloads without knowing if the pod&#8217;s requested resources are available. Scheduling mismatch decisions can cause indefinite pod startup delays. Also, depending on the cluster state and resource allocation, poor pod scheduling decisions can cause extra load on the cluster because of failed startup attempts.</p>
 </div>
-<h3 id="numa-aware-pod-scheduling-diagram_numa-aware" class="discrete">NUMA-aware pod scheduling diagram</h3>
+</div>
+<div class="sect2">
+<h3 id="numa-aware-pod-scheduling-diagram_numa-aware"><a class="anchor" href="#numa-aware-pod-scheduling-diagram_numa-aware"></a>NUMA-aware pod scheduling diagram</h3>
 <div class="paragraph">
 <p>The NUMA Resources Operator deploys a custom NUMA resources secondary scheduler and other resources to mitigate against the shortcomings of the default OKD pod scheduler. The following diagram provides a high-level overview of NUMA-aware pod scheduling.</p>
 </div>
@@ -2936,6 +2957,7 @@
 </div>
 </dd>
 </dl>
+</div>
 </div>
 </div>
 </div>

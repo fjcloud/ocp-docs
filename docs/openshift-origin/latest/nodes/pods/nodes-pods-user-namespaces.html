@@ -2830,113 +2830,30 @@
 <p>Linux user namespaces allow administrators to isolate the container user and group identifiers (UIDs and GIDs) so that a container can have a different set of permissions in the user namespace than on the host system where it is running. This allows containers to run processes with full privileges inside the user namespace, but the processes can be unprivileged for operations on the host machine.</p>
 </div>
 <div class="paragraph">
-<p>By default, a container runs in the host system&#8217;s root user namespace. Running a container in the host user namespace can be useful when the container needs a feature that is available only in that user namespace. However, it introduces security concerns, such as the possibility of container breakouts, in which a process inside a container breaks out onto the host where the process can access or modify files on the host or in other containers.</p>
+<p>By default, a container runs in the host user namespace. Running a container in the host user namespace can be useful when the container needs a feature that is available only in the host namespace. However, running pods in the host namespace introduces security concerns, such as the possibility of container breakouts, in which a process inside another container breaks out onto the host where the process can access or modify files on the host or in your containers.</p>
 </div>
 <div class="paragraph">
 <p>Running containers in individual user namespaces can mitigate container breakouts and several other vulnerabilities that a compromised container can pose to other pods and the node itself.</p>
-</div>
-<div class="paragraph">
-<p>You can configure Linux user namespace use by setting the <code>hostUsers</code> parameter to <code>false</code> in the pod spec, as shown in the following procedure.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Support for Linux user namespaces is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="nodes-pods-user-namespaces-configuring_nodes-pods-user-namespaces"><a class="anchor" href="#nodes-pods-user-namespaces-configuring_nodes-pods-user-namespaces"></a>Configuring Linux user namespace support</h2>
 <div class="sectionbody">
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You enabled the required Technology Preview features for your cluster by editing the <code>FeatureGate</code> CR named <code>cluster</code>:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit featuregate cluster</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example <code>FeatureGate</code> CR</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">FeatureGate</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">featureSet</span><span class="pi">:</span> <span class="s">TechPreviewNoUpgrade</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Enables the required <code>UserNamespacesSupport</code> and <code>ProcMountType</code> features.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock warning">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-warning" title="Warning"></i>
-</td>
-<td class="content">
 <div class="paragraph">
-<p>Enabling the <code>TechPreviewNoUpgrade</code> feature set on your cluster cannot be undone and prevents minor version updates. This feature set allows you to enable these Technology Preview features on test clusters, where you can fully test them. Do not enable this feature set on production clusters.</p>
-</div>
-</td>
-</tr>
-</table>
+<p>You can configure Linux user namespace by setting the <code>hostUsers</code> parameter to <code>false</code> in the pod spec, and a few other configurations, as shown in the following procedure.</p>
 </div>
 <div class="paragraph">
-<p>After you save the changes, new machine configs are created, the machine config pools are updated, and scheduling on each node is disabled while the change is being applied.</p>
+<p>Running workloads in user namespaces makes it safe to configure <code>RunAsAny</code> for Security Context Constraint (SCC) fields, such as <code>fsGroup</code>, <code>runAsGroup</code>, <code>runAsUser</code>, and <code>supplementalGroups</code>, as the UID or GID outside of the container is different from the one inside, which these fields express.</p>
 </div>
-</li>
-<li>
-<p>The crun container runtime is present on the worker nodes. crun is currently the only OCI runtime packaged with OKD that supports user namespaces. crun is active by default.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ContainerRuntimeConfig</span>
-<span class="na">metadata</span><span class="pi">:</span>
- <span class="na">name</span><span class="pi">:</span> <span class="s">enable-crun-worker</span>
-<span class="na">spec</span><span class="pi">:</span>
- <span class="na">machineConfigPoolSelector</span><span class="pi">:</span>
-   <span class="na">matchLabels</span><span class="pi">:</span>
-     <span class="s">pools.operator.machineconfiguration.openshift.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span> <i class="conum" data-value="1"></i><b>(1)</b>
- <span class="na">containerRuntimeConfig</span><span class="pi">:</span>
-   <span class="na">defaultRuntime</span><span class="pi">:</span> <span class="s">crun</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+<div class="paragraph">
+<p>For extra security, you can use the <code>restricted-v3</code> or <code>nested-container</code> SCC, which are specifically designed for workloads in Linux user namespaces. The <code>userNamespaceLevel: RequirePodLevel</code> field in the SCC requires that the workloads run in user namespaces. For more information about SCCs, see "Managing security context constraints".</p>
 </div>
+<div class="paragraph">
+<p>To require a specific SCC for a workload, you can add an SCC to a specific user or group by using the <code>oc adm policy add-scc-to-user</code> or <code>oc adm policy add-scc-to-group</code> command. For more information, see the "OpenShift CLI administrator command reference".</p>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies the machine config pool label.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies the container runtime to deploy.</td>
-</tr>
-</table>
-</div>
-</li>
-</ul>
+<div class="paragraph">
+<p>Also, you can optionally use the <code>procMount</code> parameter in a pod specification to configure the <code>/proc</code> file system in pods as <code>unmasked</code>. Setting <code>/proc</code> to <code>unmasked</code>, which is generally considered as safe, bypasses the default masking behavior of the container runtime, and should be used only with an SCC that sets <code>hostUsers</code> to <code>false</code>.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -2962,7 +2879,7 @@
     <span class="s">openshift.io/sa.scc.supplemental-groups</span><span class="pi">:</span> <span class="s">1000/10000</span> <i class="conum" data-value="1"></i><b>(1)</b>
     <span class="s">openshift.io/sa.scc.uid-range</span><span class="pi">:</span> <span class="s">1000/10000</span> <i class="conum" data-value="2"></i><b>(2)</b>
 <span class="c1"># ...</span>
-<span class="na">name</span><span class="pi">:</span> <span class="s">userns</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">userns</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -2970,11 +2887,11 @@
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Edit the default GID to match the value you specified in the pod spec. The range for a Linux user namespace must be lower than 65,535. The default is <code>1000000000/10000</code>.</td>
+<td>Specifies the default GID to require in the pod spec. The range for a Linux user namespace must be <code>65535</code> or lower. The default is <code>1000000000/10000</code>.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Edit the default UID to match the value you specified in the pod spec. The range for a Linux user namespace must be lower than 65,535. The default is <code>1000000000/10000</code>.</td>
+<td>Specifies the default UID to require in the pod spec. The range for a Linux user namespace must be <code>65535</code> or lower. The default is <code>1000000000/10000</code>.</td>
 </tr>
 </table>
 </div>
@@ -2994,7 +2911,7 @@
 </div>
 </li>
 <li>
-<p>Enable the use of Linux user namespaces by creating a pod configured to run with a <code>restricted</code> profile and with the <code>hostUsers</code> parameter set to <code>false</code>.</p>
+<p>Enable the use of Linux user namespaces by creating a workload configured to run with an appropriate SCC and the <code>hostUsers</code> parameter set to <code>false</code>.</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
@@ -3005,26 +2922,31 @@
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
 <span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">userns</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">userns-pod</span>
-
 <span class="c1"># ...</span>
-
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">containers</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">userns-container</span>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.access.redhat.com/ubi9</span>
-    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">sleep"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">1000"</span><span class="pi">]</span>
-    <span class="na">securityContext</span><span class="pi">:</span>
-      <span class="na">capabilities</span><span class="pi">:</span>
-        <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ALL"</span><span class="pi">]</span>
-      <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="1"></i><b>(1)</b>
-      <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="2"></i><b>(2)</b>
-      <span class="na">seccompProfile</span><span class="pi">:</span>
-        <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
-      <span class="na">runAsUser</span><span class="pi">:</span> <span class="s">1000</span> <i class="conum" data-value="3"></i><b>(3)</b>
-      <span class="na">runAsGroup</span><span class="pi">:</span> <span class="s">1000</span> <i class="conum" data-value="4"></i><b>(4)</b>
-  <span class="na">hostUsers</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="5"></i><b>(5)</b>
-
+<span class="c1">#...</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">name</span>
+      <span class="na">annotations</span><span class="pi">:</span>
+        <span class="s">openshift.io/required-scc</span><span class="pi">:</span> <span class="s2">"</span><span class="s">restricted-v3"</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">hostUsers</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">userns-container</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">registry.access.redhat.com/ubi9</span>
+        <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">sleep"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">1000"</span><span class="pi">]</span>
+        <span class="na">securityContext</span><span class="pi">:</span>
+          <span class="na">capabilities</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
+            <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ALL"</span><span class="pi">]</span>
+          <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="4"></i><b>(4)</b>
+          <span class="na">procMount</span><span class="pi">:</span> <span class="s">Unmasked</span> <i class="conum" data-value="5"></i><b>(5)</b>
+          <span class="na">runAsUser</span><span class="pi">:</span> <span class="s">1000</span> <i class="conum" data-value="6"></i><b>(6)</b>
+          <span class="na">runAsGroup</span><span class="pi">:</span> <span class="s">1000</span> <i class="conum" data-value="7"></i><b>(7)</b>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -3032,29 +2954,37 @@
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies that a pod cannot request privilege escalation. This is required for the <code>restricted-v2</code> security context constraints (SCC).</td>
+<td>Specifies the SCC to use with this workload.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies that the container will run with a user with any UID other than 0.</td>
+<td>Specifies whether the pod is to be run in a user namespace. If <code>false</code>, the pod runs in a new user namespace that is created for the pod. If <code>true</code>, the pod runs in the host user namespace. The default is <code>true</code>.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specifies the UID the container is run with.</td>
+<td><code>capabilities</code> permit privileged actions without giving full root access. Technically, setting capabilities inside of a user namespace is safer than setting them outside, as the scope of the capabilities are limited by being inside user namespace, and can generally be considered to be safe. However, giving pods capabilities like <code>CAP_SYS_ADMIN</code> to any untrusted workload could increase the potential kernel surface area that a containerized process has access to and could find exploits in. Thus, capabilities inside of a user namespace are allowed at <code>baseline</code> level in pod security admission.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Specifies which primary GID the containers is run with.</td>
+<td>Specifies that processes inside the container run with a user that has any UID other than 0.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Requests that the pod is to be run in a user namespace. If <code>true</code>, the pod runs in the host user namespace. If <code>false</code>, the pod runs in a new user namespace that is created for the pod. The default is <code>true</code>.</td>
+<td>Optional: Specifies the type of proc mount to use for the containers. The <code>unmasked</code> value ensures that a container&#8217;s <code>/proc</code> file system is mounted as read/write by the container process. The default is <code>Default</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Specifies the user ID for processes that run inside of the container. This must fall in the range that you set in the <code>namespace</code> object.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>Specifies the group ID for processes that run inside of the containers. This must fall in the range that you set in the <code>namespace</code> object.</td>
 </tr>
 </table>
 </div>
 </li>
 <li>
-<p>Create the pod by running the following command:</p>
+<p>Create the object by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="nowrap">$ oc create -f &lt;file_name&gt;.yaml</pre>
@@ -3070,7 +3000,7 @@
 <div class="title">Verification</div>
 <ol class="arabic">
 <li>
-<p>Check the pod user and group IDs being used in the pod container you created. The pod is inside the Linux user namespace.</p>
+<p>Check the user and group IDs being used by the container in the pod you created. The pod is inside the Linux user namespace.</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
@@ -3097,8 +3027,17 @@
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">uid=1000(1000) gid=1000(1000) groups=1000(1000)</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">uid=1000(1000) gid=1000(1000) groups=1000(1000) <i class="conum" data-value="1"></i><b>(1)</b>
+</span></code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The UID and group for the container should be the same as you set in the pod specification.</td>
+</tr>
+</table>
 </div>
 </li>
 <li>
@@ -3120,7 +3059,7 @@
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The UID for the process is <code>1000</code>, the same as you set in the pod spec.</td>
+<td>The UID for the process should be the same as you set in the pod spec.</td>
 </tr>
 </table>
 </div>
@@ -3129,7 +3068,7 @@
 </div>
 </li>
 <li>
-<p>Check the pod user ID being used on the node where the pod was created. The node is outside of the Linux user namespace. This user ID should be different from the UID being used in the container.</p>
+<p>Check the UID being used by the node. The node is outside of the Linux user namespace. This user ID should be different from the UID being used in the container.</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
@@ -3155,7 +3094,7 @@
 </div>
 </li>
 <li>
-<p>Display the user ID being used in the node user namespace:</p>
+<p>Display the UID being used by the node:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w">  </span>lsns <span class="nt">-t</span> user</code></pre>
@@ -3174,15 +3113,53 @@
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The UID for the process is <code>2908816384</code>, which is different from what you set in the pod spec.</td>
+<td>The UID should be different from what you set in the pod specification.</td>
 </tr>
 </table>
 </div>
 </li>
-</ol>
+<li>
+<p>Exit the debug session by using the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w">  </span><span class="nb">exit</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w">  </span><span class="nb">exit</span></code></pre>
+</div>
 </div>
 </li>
 </ol>
+</div>
+</li>
+<li>
+<p>Check that the <code>/proc</code> file system is mounted into container as <code>unmasked</code>, as indicated by read/write permission (<code>rw</code>) in the output of the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> &lt;pod_name&gt; <span class="nt">--</span> mount | <span class="nb">grep</span> /proc</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">proc on /proc type proc (rw,nosuid,nodev,noexec,relatime)</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../authentication/managing-security-context-constraints.html#configuring-internal-oauth">Managing security context constraints</a></p>
+</li>
+<li>
+<p><a href="../../cli_reference/openshift_cli/administrator-cli-commands.html#cli-administrator-commands">OpenShift CLI administrator command reference</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
