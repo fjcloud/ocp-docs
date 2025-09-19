@@ -1550,11 +1550,11 @@
                   <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-install.html">Installing the custom metrics autoscaler</a></li>
                   <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-trigger.html">Understanding the custom metrics autoscaler triggers</a></li>
                   <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-trigger-auth.html">Understanding custom metrics autoscaler trigger authentications</a></li>
+                  <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-adding.html">Understanding how to add custom metrics autoscalers</a></li>
                   <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-pausing.html">Pausing the custom metrics autoscaler</a></li>
                   <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-audit-log.html">Gathering audit logs</a></li>
                   <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-debugging.html">Gathering debugging data</a></li>
                   <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-metrics.html">Viewing Operator metrics</a></li>
-                  <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-adding.html">Understanding how to add custom metrics autoscalers</a></li>
                   <li><a class="" href="../../nodes/cma/nodes-cma-autoscaling-custom-removing.html">Removing the Custom Metrics Autoscaler Operator</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-24-3"><span id="sgSpan-24-3" class="fa fa-caret-right"></span>&nbsp;Controlling pod placement onto nodes (scheduling)</a>
@@ -2822,59 +2822,37 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#installation-configure-proxy_configuring-a-custom-pki">Configuring the cluster-wide proxy during installation</a></li>
-<li><a href="#nw-proxy-configure-object_configuring-a-custom-pki">Enabling the cluster-wide proxy</a></li>
+<li><a href="#adding-a-custom-CA-during-cluster-installation_configuring-a-custom-pki">Adding a custom CA during cluster installation</a></li>
+<li><a href="#adding-a-custom-CA-to-a-running-cluster_configuring-a-custom-pki">Adding a custom CA to a running cluster</a></li>
+<li><a href="#verifying-the-custom-ca-configuration_configuring-a-custom-pki">Verifying the custom CA configuration</a></li>
 <li><a href="#certificate-injection-using-operators_configuring-a-custom-pki">Certificate injection using Operators</a></li>
 </ul>
 </div>
 <div class="paragraph">
-<p>Some platform components, such as the web console, use Routes for communication and
-must trust other components' certificates to interact with them. If
-you are using a custom public key infrastructure (PKI), you must configure it so
-its privately signed CA certificates are recognized across the cluster.</p>
+<p>To ensure secure communication between internal components, your OKD cluster uses a shared set of trusted Certificate Authorities (CAs). If your organization uses its own private certificates (a custom PKI), you must add your CA to the cluster so that all components trust it.</p>
 </div>
 <div class="paragraph">
-<p>You can leverage the Proxy API to add cluster-wide trusted CA certificates. You
-must do this either during installation or at runtime.</p>
+<p>You can add your custom CA certificates to the cluster-wide truststore in one of two ways:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>During <em>installation</em>, <a href="../networking/configuring_network_settings/configuring-a-custom-pki.html#installation-configure-proxy_configuring-a-custom-pki">configure the cluster-wide proxy</a>. You must define your
-privately signed CA certificates in the <code>install-config.yaml</code> file&#8217;s
-<code>additionalTrustBundle</code> setting.</p>
-<div class="paragraph">
-<p>The installation program generates a ConfigMap that is named <code>user-ca-bundle</code>
-that contains the additional CA certificates you defined. The Cluster Network
-Operator then creates a <code>trusted-ca-bundle</code> ConfigMap that merges these CA
-certificates with the Fedora CoreOS (FCOS) trust bundle; this ConfigMap is
-referenced in the Proxy object&#8217;s <code>trustedCA</code> field.</p>
-</div>
+<p>During cluster installation, by adding your CA certificate to the <code>install-config.yaml</code> file.</p>
 </li>
 <li>
-<p>At <em>runtime</em>, <a href="../networking/configuring_network_settings/configuring-a-custom-pki.html#nw-proxy-configure-object_configuring-a-custom-pki">modify the default Proxy object to include your privately signed CA certificates</a> (part of cluster&#8217;s proxy enablement workflow). This involves
-creating a ConfigMap that contains the privately signed CA certificates that
-should be trusted by the cluster, and then modifying the proxy resource with the
-<code>trustedCA</code> referencing the privately signed certificates' ConfigMap.</p>
+<p>On a running cluster, by creating a <code>ConfigMap</code> object that contains your CA certificate and referencing it in the cluster <code>Proxy</code> object.</p>
 </li>
 </ul>
 </div>
-<div class="admonitionblock note">
+<div class="admonitionblock important">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-note" title="Note"></i>
+<i class="fa icon-important" title="Important"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The installer configuration&#8217;s <code>additionalTrustBundle</code> field and the proxy
-resource&#8217;s <code>trustedCA</code> field are used to manage the cluster-wide trust bundle;
-<code>additionalTrustBundle</code> is used at install time and the proxy&#8217;s <code>trustedCA</code> is
-used at runtime.</p>
-</div>
-<div class="paragraph">
-<p>The <code>trustedCA</code> field is a reference to a <code>ConfigMap</code> containing the custom
-certificate and key pair used by the cluster component.</p>
+<p>The cluster Proxy object is the mechanism for managing the cluster-wide truststore. This guide focuses only on the task of adding a CA. If you also need to configure an egress proxy, refer to the "Configuring the cluster-wide proxy" chapter for detailed instructions.</p>
 </div>
 </td>
 </tr>
@@ -2883,39 +2861,22 @@ certificate and key pair used by the cluster component.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="installation-configure-proxy_configuring-a-custom-pki"><a class="anchor" href="#installation-configure-proxy_configuring-a-custom-pki"></a>Configuring the cluster-wide proxy during installation</h2>
+<h2 id="adding-a-custom-CA-during-cluster-installation_configuring-a-custom-pki"><a class="anchor" href="#adding-a-custom-CA-during-cluster-installation_configuring-a-custom-pki"></a>Adding a custom CA during cluster installation</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Production environments can deny direct access to the internet and instead have
-an HTTP or HTTPS proxy available. You can configure a new OKD
-cluster to use a proxy by configuring the proxy settings in the
-<code>install-config.yaml</code> file.</p>
+<p>You can add a custom CA to the cluster-wide truststore during installation by providing the certificate in your <code>install-config.yaml</code> file.</p>
+</div>
+<div class="paragraph">
+<p>This procedure uses the <code>additionalTrustBundle</code> parameter. If you are also configuring an egress proxy, you can add this parameter to your <code>install-config.yaml</code> file along with your proxy configuration. For more information on the available proxy settings, see the "Configuring the cluster-wide proxy" chapter.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have an existing <code>install-config.yaml</code> file.</p>
+<p>You have access to the <code>install-config.yaml</code> file for your cluster installation.</p>
 </li>
 <li>
-<p>You reviewed the sites that your cluster requires access to and determined whether any of them need to bypass the proxy. By default, all cluster egress traffic is proxied, including calls to hosting cloud provider APIs. You added sites to the <code>Proxy</code> object&#8217;s <code>spec.noProxy</code> field to bypass the proxy if necessary.</p>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The <code>Proxy</code> object <code>status.noProxy</code> field is populated with the values of the <code>networking.machineNetwork[].cidr</code>, <code>networking.clusterNetwork[].cidr</code>, and <code>networking.serviceNetwork[]</code> fields from your installation configuration.</p>
-</div>
-<div class="paragraph">
-<p>For installations on Amazon Web Services (AWS), Google Cloud Platform (GCP), Microsoft Azure, and OpenStack, the <code>Proxy</code> object <code>status.noProxy</code> field is also populated with the instance metadata endpoint (<code>169.254.169.254</code>).</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
+<p>You have your custom CA certificate avalable in PEM-encoded format.</p>
 </li>
 </ul>
 </div>
@@ -2923,132 +2884,46 @@ cluster to use a proxy by configuring the proxy settings in the
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Edit your <code>install-config.yaml</code> file and add the proxy settings. For example:</p>
+<p>Open your <code>install-config.yaml</code> file.</p>
+</li>
+<li>
+<p>Add the <code>additionalTrustBundle</code> parameter with your PEM-encoded CA certificate:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">baseDomain</span><span class="pi">:</span> <span class="s">my.domain.com</span>
-<span class="na">proxy</span><span class="pi">:</span>
-  <span class="na">httpProxy</span><span class="pi">:</span> <span class="s">http://&lt;username&gt;:&lt;pswd&gt;@&lt;ip&gt;:&lt;port&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="na">httpsProxy</span><span class="pi">:</span> <span class="s">https://&lt;username&gt;:&lt;pswd&gt;@&lt;ip&gt;:&lt;port&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
-  <span class="na">noProxy</span><span class="pi">:</span> <span class="s">example.com</span> <i class="conum" data-value="3"></i><b>(3)</b>
-<span class="na">additionalTrustBundle</span><span class="pi">:</span> <span class="pi">|</span> <i class="conum" data-value="4"></i><b>(4)</b>
-    <span class="s">-----BEGIN CERTIFICATE-----</span>
-    <span class="s">&lt;MY_TRUSTED_CA_CERT&gt;</span>
-    <span class="s">-----END CERTIFICATE-----</span>
-<span class="na">additionalTrustBundlePolicy</span><span class="pi">:</span> <span class="s">&lt;policy_to_add_additionalTrustBundle&gt;</span> <i class="conum" data-value="5"></i><b>(5)</b></code></pre>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster</span>
+<span class="na">additionalTrustBundle</span><span class="pi">:</span> <span class="pi">|</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="s">-----BEGIN CERTIFICATE-----</span>
+  <span class="s">&lt;MY_PEM_ENCODED_CA_CERT&gt;</span>
+  <span class="s">-----END CERTIFICATE-----</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>A proxy URL to use for creating HTTP connections outside the cluster. The
-URL scheme must be <code>http</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>A proxy URL to use for creating HTTPS connections outside the cluster.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>A comma-separated list of destination domain names, IP addresses, or other network CIDRs to exclude from proxying. Preface a domain with <code>.</code> to match subdomains only. For example, <code>.y.com</code> matches <code>x.y.com</code>, but not <code>y.com</code>. Use <code>*</code> to bypass the proxy for all destinations.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>If provided, the installation program generates a config map that is named <code>user-ca-bundle</code> in
-the <code>openshift-config</code> namespace to hold the additional CA
-certificates. If you provide <code>additionalTrustBundle</code> and at least one proxy setting, the <code>Proxy</code> object is configured to reference the <code>user-ca-bundle</code> config map in the <code>trustedCA</code> field. The Cluster Network
-Operator then creates a <code>trusted-ca-bundle</code> config map that merges the contents specified for the <code>trustedCA</code> parameter
-with the FCOS trust bundle. The <code>additionalTrustBundle</code> field is required unless
-the proxy&#8217;s identity certificate is signed by an authority from the FCOS trust
-bundle.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Optional: The policy to determine the configuration of the <code>Proxy</code> object to reference the <code>user-ca-bundle</code> config map in the <code>trustedCA</code> field. The allowed values are <code>Proxyonly</code> and <code>Always</code>. Use <code>Proxyonly</code> to reference the <code>user-ca-bundle</code> config map only when <code>http/https</code> proxy is configured. Use <code>Always</code> to always reference the <code>user-ca-bundle</code> config map. The default value is <code>Proxyonly</code>.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The installation program does not support the proxy <code>readinessEndpoints</code> field.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If the installer times out, restart and then complete the deployment by using the <code>wait-for</code> command of the installer. For example:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>./openshift-install wait-for install-complete <span class="nt">--log-level</span> debug</code></pre>
-</div>
-</div>
-</td>
+<td>The <code>additionalTrustBundle</code> parameter contains the custom CA certificate that you want the cluster to trust. The installation program uses the certificate to generate a <code>user-ca-bundle</code> <code>ConfigMap</code> object in the <code>openshift-config</code> namespace.</td>
 </tr>
 </table>
 </div>
 </li>
 <li>
-<p>Save the file and reference it when installing OKD.</p>
+<p>Save the <code>install-config.yaml</code> file and continue with your cluster installation.</p>
 </li>
 </ol>
 </div>
 <div class="paragraph">
-<p>The installation program creates a cluster-wide proxy that is named <code>cluster</code> that uses the proxy
-settings in the provided <code>install-config.yaml</code> file. If no proxy settings are
-provided, a <code>cluster</code> <code>Proxy</code> object is still created, but it will have a nil
-<code>spec</code>.</p>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Only the <code>Proxy</code> object named <code>cluster</code> is supported, and no additional
-proxies can be created.</p>
-</div>
-</td>
-</tr>
-</table>
+<p>During installation, the Cluster Network Operator (CNO) merges the certificate you provided with the system&#8217;s default trust bundle. This process makes your custom CA trusted across the entire cluster.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="nw-proxy-configure-object_configuring-a-custom-pki"><a class="anchor" href="#nw-proxy-configure-object_configuring-a-custom-pki"></a>Enabling the cluster-wide proxy</h2>
+<h2 id="adding-a-custom-CA-to-a-running-cluster_configuring-a-custom-pki"><a class="anchor" href="#adding-a-custom-CA-to-a-running-cluster_configuring-a-custom-pki"></a>Adding a custom CA to a running cluster</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The <code>Proxy</code> object is used to manage the cluster-wide egress proxy. When a cluster is installed or upgraded without the proxy configured, a <code>Proxy</code> object is still generated but it has a nil <code>spec</code>. For example:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Proxy</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">trustedCA</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
-<span class="na">status</span><span class="pi">:</span></code></pre>
-</div>
+<p>For a running cluster, you can add a custom CA by creating a <code>ConfigMap</code> object that contains your certificate and then referencing that <code>ConfigMap</code> object in the cluster <code>Proxy</code> object.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3058,37 +2933,122 @@ proxies can be created.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Only the <code>Proxy</code> object named <code>cluster</code> is supported, and no additional proxies can be created.</p>
+<p>When you modify the cluster <code>Proxy</code> object, the Machine Config Operator (MCO) initiates a rolling reboot of all nodes to apply the change. This is expected behavior and does not require manual intervention.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
 <div class="paragraph">
-<p>A cluster administrator can configure the proxy for OKD by modifying the <code>cluster</code> <code>Proxy</code> object.</p>
-</div>
-<div class="admonitionblock warning">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-warning" title="Warning"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>After you enable the cluster-wide proxy capability for your cluster and you save the <code>Proxy</code> object file, the Machine Config Operator (MCO) reboots all nodes in your cluster so that each node can access connections that exist outside of the cluster. You do not need to manually reboot these nodes.</p>
-</div>
-</td>
-</tr>
-</table>
+<p>This procedure uses the <code>trustedCA</code> field in the <code>Proxy</code> object. If you also need to configure or modify egress proxy settings at the same time, see the "Configuring the cluster-wide proxy" chapter for detailed instructions.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Cluster administrator permissions</p>
+<p>You have cluster-admin privileges.</p>
 </li>
 <li>
-<p>OKD <code>oc</code> CLI tool installed</p>
+<p>You have the OpenShift CLI (<code>oc</code>) installed.</p>
+</li>
+<li>
+<p>You have your custom CA certificate available in PEM-encoded format.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<div class="title">Procedure</div>
+<p>The procedure involves two stages: creating a <code>ConfigMap</code> object with your certificate and then updating the cluster to trust it.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Create a <code>ConfigMap</code> object with your CA certificate.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create a YAML file named <code>custom-ca.yaml</code> to define the <code>ConfigMap</code> object.</p>
+</li>
+<li>
+<p>Add the following content to the file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">custom-ca-bundle</span>      <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-config</span>  <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="s">ca-bundle.crt</span><span class="pi">:</span> <span class="pi">|</span>         <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="s">-----BEGIN CERTIFICATE-----</span>
+    <span class="s">&lt;MY_PEM_ENCODED_CA_CERT&gt;</span>
+    <span class="s">-----END CERTIFICATE-----</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of the <code>ConfigMap</code> object that you will reference from the <code>Proxy</code> object.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The <code>ConfigMap</code> object must be created in the <code>openshift-config</code> namespace.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The data key for the certificate bundle must be <code>ca-bundle.crt</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Apply the manifest to create the <code>ConfigMap</code> object in the cluster:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> custom-ca.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Reference the <code>ConfigMap</code> object in the cluster <code>Proxy</code> object.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Run the following <code>oc patch</code> command to update the cluster <code>Proxy</code> object to reference the <code>ConfigMap</code> object you just created.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch proxy/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec":{"trustedCA":{"name":"custom-ca-bundle"}}}'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>After you run this command, the Machine Config Operator (MCO) detects the change and begins distributing the new trusted CA to all nodes in the cluster.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="verifying-the-custom-ca-configuration_configuring-a-custom-pki"><a class="anchor" href="#verifying-the-custom-ca-configuration_configuring-a-custom-pki"></a>Verifying the custom CA configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>After you add your custom CA certificate, you can verify that it has been successfully added to the cluster-wide trust bundle.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have permissions to view <code>ConfigMap</code> objects in the openshift-config namespace.</p>
+</li>
+<li>
+<p>You have the OpenShift CLI (<code>oc</code>) installed.</p>
 </li>
 </ul>
 </div>
@@ -3096,155 +3056,40 @@ proxies can be created.</p>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a config map that contains any additional CA certificates required for proxying HTTPS connections.</p>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>You can skip this step if the identity certificate of the proxy is signed by an authority from the Fedora CoreOS (FCOS) trust bundle.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Create a file called <code>user-ca-bundle.yaml</code>, and provide the values of your PEM-encoded certificates:</p>
+<p>Run the following command to view the contents of the cluster-wide CA trust bundle:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configmap trusted-ca-bundle <span class="nt">-n</span> openshift-config <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>In the YAML output, inspect the <code>data.ca-bundle.crt</code> field. This field contains all the trusted certificates for the cluster.</p>
+</li>
+<li>
+<p>Verify that the PEM-encoded certificate you added is included in the list of certificates. The output will resemble the following structure:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">trusted-ca-bundle</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-config</span>
 <span class="na">data</span><span class="pi">:</span>
-  <span class="s">ca-bundle.crt</span><span class="pi">:</span> <span class="pi">|</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="s">&lt;MY_PEM_ENCODED_CERTS&gt; </span><i class="conum" data-value="2"></i><b>(2)</b>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">user-ca-bundle</span> <i class="conum" data-value="3"></i><b>(3)</b>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-config</span> <i class="conum" data-value="4"></i><b>(4)</b></code></pre>
+  <span class="s">ca-bundle.crt</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">-----BEGIN CERTIFICATE-----</span>
+    <span class="s">&lt;A_SYSTEM_CA_CERTIFICATE&gt;</span>
+    <span class="s">-----END CERTIFICATE-----</span>
+    <span class="s">-----BEGIN CERTIFICATE-----</span>
+    <span class="s">&lt;ANOTHER_SYSTEM_CA_CERTIFICATE&gt;</span>
+    <span class="s">-----END CERTIFICATE-----</span>
+    <span class="s">-----BEGIN CERTIFICATE-----</span>
+    <span class="s">&lt;YOUR_CUSTOM_CA_CERTIFICATE_SHOULD_BE_HERE&gt;</span>
+    <span class="s">-----END CERTIFICATE-----</span></code></pre>
 </div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>This data key must be named <code>ca-bundle.crt</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>One or more PEM-encoded X.509 certificates used to sign the proxy&#8217;s
-identity certificate.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The config map name that is referenced from the <code>Proxy</code> object.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>The config map must exist in the <code>openshift-config</code> namespace.</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Create the config map from the <code>user-ca-bundle.yaml</code> file by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> user-ca-bundle.yaml</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</li>
-<li>
-<p>Use the <code>oc edit</code> command to modify the <code>Proxy</code> object:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit proxy/cluster</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Configure the necessary fields for the proxy:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Proxy</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">httpProxy</span><span class="pi">:</span> <span class="s">http://&lt;username&gt;:&lt;pswd&gt;@&lt;ip&gt;:&lt;port&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="na">httpsProxy</span><span class="pi">:</span> <span class="s">https://&lt;username&gt;:&lt;pswd&gt;@&lt;ip&gt;:&lt;port&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
-  <span class="na">noProxy</span><span class="pi">:</span> <span class="s">example.com</span> <i class="conum" data-value="3"></i><b>(3)</b>
-  <span class="na">readinessEndpoints</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">http://www.google.com</span> <i class="conum" data-value="4"></i><b>(4)</b>
-  <span class="pi">-</span> <span class="s">https://www.google.com</span>
-  <span class="na">trustedCA</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">user-ca-bundle</span> <i class="conum" data-value="5"></i><b>(5)</b></code></pre>
-</div>
-</div>
-<div class="openblock">
-<div class="content">
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>A proxy URL to use for creating HTTP connections outside the cluster. The URL scheme must be <code>http</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>A proxy URL to use for creating HTTPS connections outside the cluster. The URL scheme must be either <code>http</code> or <code>https</code>. Specify a URL for the proxy that supports the URL scheme. For example, most proxies report an error if they are configured to use <code>https</code> but they only support <code>http</code>. This failure message may not propagate to the logs and can appear to be a network connection failure instead. If using a proxy that listens for <code>https</code> connections from the cluster, you might need to configure the cluster to accept the CAs and certificates that the proxy uses.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>A comma-separated list of destination domain names, domains, IP addresses (or other network CIDRs), and port numbers to exclude proxying.
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Port numbers are only supported when configuring IPv6 addresses. Port numbers are not supported when configuring IPv4 addresses.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 <div class="paragraph">
-<p>Preface a domain with <code>.</code> to match subdomains only. For example, <code>.y.com</code> matches <code>x.y.com</code>, but not <code>y.com</code>. Use <code>*</code> to bypass proxy for all destinations.</p>
+<p>If your certificate is present in the output, the cluster now trusts your custom PKI.</p>
 </div>
-<div class="paragraph">
-<p>If your <code>noproxy</code> field needs to include a domain address, you must explicitly specify that FQDN, or prefix-matched subdomain, in the <code>noproxy</code> field. You cannot use the IP address or CIDR range that encapsulates the domain. This is because the cluster does not wait for DNS to return the IP address before assigning the route connection, and checks explicitly against the request being made.
-For example, if you have a CIDR block value, such as <code>10.0.0.0/24</code>, for the <code>noproxy</code> field and the field attempts to access <code>https://10.0.0.11</code>, the addresses successfully match. However, attempting to access <code>https://exampleserver.externaldomain.com</code>, whose A record entry is <code>10.0.0.11</code>, fails. An additional value of <code>.externaldomain.com</code> for your <code>noproxy</code> field is necessary.</p>
-</div>
-<div class="paragraph">
-<p>If you scale up compute nodes that are not included in the network defined by the <code>networking.machineNetwork[].cidr</code> field from the installation configuration, you must add them to this list to prevent connection issues.</p>
-</div>
-<div class="paragraph">
-<p>This field is ignored if neither the <code>httpProxy</code> or <code>httpsProxy</code> fields are set.</p>
-</div></td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>One or more URLs external to the cluster to use to perform a readiness check before writing the <code>httpProxy</code> and <code>httpsProxy</code> values to status.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>A reference to the config map in the <code>openshift-config</code> namespace that contains additional CA certificates required for proxying HTTPS connections. Note that the config map must already exist before referencing it here. This field is required unless the proxy&#8217;s identity certificate is signed by an authority from the FCOS trust bundle.</td>
-</tr>
-</table>
-</div>
-</div>
-</div>
-</li>
-<li>
-<p>Save the file to apply the changes.</p>
 </li>
 </ol>
 </div>
