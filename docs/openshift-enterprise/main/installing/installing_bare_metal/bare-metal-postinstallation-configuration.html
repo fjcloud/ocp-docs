@@ -1218,6 +1218,7 @@
                   <li><a class="" href="../../networking/hardware_networks/configuring-sriov-device.html">Configuring an SR-IOV network device</a></li>
                   <li><a class="" href="../../networking/hardware_networks/configuring-sriov-net-attach.html">Configuring an SR-IOV Ethernet network attachment</a></li>
                   <li><a class="" href="../../networking/hardware_networks/configuring-sriov-ib-attach.html">Configuring an SR-IOV InfiniBand network attachment</a></li>
+                  <li><a class="" href="../../networking/hardware_networks/configuring-namespaced-sriov-resources.html">Configuring SriovNetwork in application namespaces</a></li>
                   <li><a class="" href="../../networking/hardware_networks/configuring-sriov-rdma-cni.html">Configuring an RDMA subsystem for SR-IOV</a></li>
                   <li><a class="" href="../../networking/hardware_networks/configuring-interface-sysctl-sriov-device.html">Configuring interface-level network sysctl settings and all-multicast mode for SR-IOV networks</a></li>
                   <li><a class="" href="../../networking/hardware_networks/configuring-sriov-qinq-support.html">Configuring QinQ support for SR-IOV networks</a></li>
@@ -3345,6 +3346,7 @@
 <li><a href="#configuring-ntp-for-disconnected-clusters_bare-metal-postinstallation-configuration">Configuring NTP for disconnected clusters</a></li>
 <li><a href="#enabling-a-provisioning-network-after-installation_bare-metal-postinstallation-configuration">Enabling a provisioning network after installation</a></li>
 <li><a href="#creating-manifest-file-customized-br-ex-bridge_bare-metal-postinstallation-configuration">Creating a manifest object that includes a customized <code>br-ex</code> bridge</a></li>
+<li><a href="#making-disruptive-changes-br-ex-bridge.adoc_bare-metal-postinstallation-configuration">Making disruptive changes to a customized br-ex bridge</a></li>
 <li><a href="#nw-osp-services-external-load-balancer_bare-metal-postinstallation-configuration">Services for a user-managed load balancer</a>
 <ul class="sectlevel2">
 <li><a href="#nw-osp-configuring-external-load-balancer_bare-metal-postinstallation-configuration">Configuring a user-managed load balancer</a></li>
@@ -3985,6 +3987,174 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 </li>
 <li>
 <p><a href="../../installing/installing_bare_metal/bare-metal-expanding-the-cluster.html#bare-metal-expanding-the-cluster">Expanding the cluster</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="making-disruptive-changes-br-ex-bridge.adoc_bare-metal-postinstallation-configuration"><a class="anchor" href="#making-disruptive-changes-br-ex-bridge.adoc_bare-metal-postinstallation-configuration"></a>Making disruptive changes to a customized br-ex bridge</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For certain situations, you might need to make disruptive changes to a <code>br-ex</code> bridge for planned maintenance or network configuration updates. A <code>br-ex</code> bridge is a gateway for all external network traffic from your workloads, so any change to the bridge might temporarily disconnect pods and virtual machines (VMs) from an external network.</p>
+</div>
+<div class="paragraph">
+<p>The following procedure uses an example to show making disruptive changes to a <code>br-ex</code> bridge that minimizes any impact to running cluster workloads.</p>
+</div>
+<div class="paragraph">
+<p>For all the nodes in your cluster to receive the <code>br-ex</code> bridge changes, you must reboot your cluster. Editing the existing <code>MachineConfig</code> object does not force a reboot operation, so you must create an additional <code>MachineConfig</code> object to force a reboot operation for the cluster.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Red Hat does not support changing IP addresses for nodes as a postintallation task.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You created a manifest object that includes a <code>br-ex</code> bridge.</p>
+</li>
+<li>
+<p>You deployed your cluster that has the configured <code>br-ex</code> bridge.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Make changes to the NMState configuration file that you created during cluster installation for customizing your <code>br-ex</code> bridge network interface.</p>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Before you save the <code>MachineConfig</code> object, check the changed parameter values. If you enter wrong values and save the file, you cannot recover the file to its original state and this impacts networking functionality for your cluster.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Use the <code>base64</code> command to re-encode the contents of the NMState configuration by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">base64</span> <span class="nt">-w0</span> &lt;nmstate_configuration&gt;.yml <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;nmstate_configuration&gt;</code> with the name of your NMState resource YAML file.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Update the <code>MachineConfig</code> manifest file that you created during cluster installation and re-define the customized <code>br-ex</code> bridge network interface.</p>
+</li>
+<li>
+<p>Apply the updates from the <code>MachineConfig</code> object to your cluster by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;machine_config&gt;.yml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a bare <code>MachineConfig</code> object but do not make any configuration changes to the file.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">10-force-reboot-master</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">ignition</span><span class="pi">:</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">3.2.0</span>
+    <span class="na">storage</span><span class="pi">:</span>
+      <span class="na">files</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span>
+          <span class="na">source</span><span class="pi">:</span> <span class="s">data:text/plain;charset=utf-8;base64,</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="m">0644</span>
+        <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/force-reboot</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">worker</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">10-force-reboot-worker</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">ignition</span><span class="pi">:</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">3.2.0</span>
+    <span class="na">storage</span><span class="pi">:</span>
+      <span class="na">files</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span>
+          <span class="na">source</span><span class="pi">:</span> <span class="s">data:text/plain;charset=utf-8;base64,</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="m">0644</span>
+        <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/force-reboot</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Start a reboot operation by applying the bare <code>MachineConfig</code> object configuration to your cluster by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;bare_machine_config&gt;.yml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check that each node in your cluster has the <code>Ready</code> status to indicate that they have finished rebooting by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the bare <code>MachineConfig</code> object by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete machineconfig &lt;machine_config_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Use the <code>nmstatectl</code> tool to check the configuration for the <code>br-ex</code> bridge interface by running the following command. The tool checks a node that runs the <code>br-ex</code> bridge interface and not the location where you deployed the <code>MachineConfig</code> objects.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>nmstatectl show br-ex</code></pre>
+</div>
+</div>
 </li>
 </ul>
 </div>
