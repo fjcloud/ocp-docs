@@ -1399,7 +1399,8 @@
 
                   <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-resiliency.html">Control plane resiliency and recovery</a></li>
                   <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-troubleshooting.html">Troubleshooting the control plane machine set</a></li>
-                  <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-disabling.html">Disabling the control plane machine set</a></li>              </ul>
+                  <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-disabling.html">Disabling the control plane machine set</a></li>
+                  <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-manually-scaling-control-planes.html">Manually scaling control plane machines</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-21-10"><span id="sgSpan-21-10" class="fa fa-caret-right"></span>&nbsp;Managing machines with the Cluster API</a>
               <ul id="topicSubGroup-21-10" class="nav-tertiary list-unstyled collapse">
@@ -2130,6 +2131,7 @@
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-timeouts.html" style="padding-left: 70px;">OADP timeouts</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/backup-and-restore-cr-issues.html" style="padding-left: 70px;">Backup and Restore CR issues</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/restic-issues.html" style="padding-left: 70px;">Restic issues</a></li>
+                    <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-data-protection-test.html" style="padding-left: 70px;">OADP Data protection test</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/using-the-must-gather-tool.html" style="padding-left: 70px;">Using the must-gather tool</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-monitoring.html" style="padding-left: 70px;">OADP monitoring</a></li>                  </ul>
                   </li>
@@ -3201,14 +3203,35 @@ EOF</span></code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Restic and Kopia are not supported in the OADP AWS STS environment. Verify that the Restic and Kopia node agent is disabled.
-For backing up volumes, OADP on AWS STS supports only native snapshots and Container Storage Interface (CSI) snapshots.</p>
+<p>Restic is unsupported.</p>
+</div>
+<div class="paragraph">
+<p>Kopia file system backup (FSB) is supported when backing up file systems that do not support Container Storage Interface (CSI) snapshots.</p>
+</div>
+<div class="paragraph">
+<p>Example file systems include the following:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Amazon Elastic File System (EFS)</p>
+</li>
+<li>
+<p>Network File System (NFS)</p>
+</li>
+<li>
+<p><code>emptyDir</code> volumes</p>
+</li>
+<li>
+<p>Local volumes</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For backing up volumes, OADP on AWS STS recommends native snapshots and Container Storage Interface (CSI) snapshots. Data Mover backups are supported, but can be slower than native snapshots.</p>
 </div>
 <div class="paragraph">
 <p>In an AWS cluster that uses STS authentication, restoring backed-up data in a different AWS region is not supported.</p>
-</div>
-<div class="paragraph">
-<p>The Data Mover feature is not currently supported in AWS STS clusters. You can use native AWS S3 tools for moving data.</p>
 </div>
 </td>
 </tr>
@@ -3237,8 +3260,17 @@ For backing up volumes, OADP on AWS STS supports only native snapshots and Conta
 </span><span class="go">  [default]
 </span><span class="gp">  role_arn = $</span><span class="o">{</span>ROLE_ARN<span class="o">}</span>
 <span class="go">  web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token
-EOF</span></code></pre>
+</span><span class="gp">  region = &lt;aws_region&gt;</span><span class="w"> <i class="conum" data-value="1"></i><b>(1)</b>
+</span><span class="go">EOF</span></code></pre>
 </div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;aws_region&gt;</code> with the AWS region to use for the STS endpoint.</td>
+</tr>
+</table>
 </div>
 </li>
 <li>
@@ -3421,8 +3453,9 @@ gp3-csi (default)   ebs.csi.aws.com         Delete          WaitForFirstConsumer
         - openshift
         - aws
         - csi
-      restic:
+      nodeAgent: <i class="conum" data-value="2"></i><b>(2)</b>
         enable: false
+        uploaderType: kopia <i class="conum" data-value="3"></i><b>(3)</b>
 EOF</span></code></pre>
 </div>
 </div>
@@ -3432,16 +3465,17 @@ EOF</span></code></pre>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
 <td>Set this field to <code>false</code> if you do not want to use image backup.</td>
 </tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>See the important note regarding the <code>nodeAgent</code> attribute at the end of this procedure.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The type of uploader. The built-in Data Mover uses Kopia as the default uploader mechanism regardless of the value of the <code>uploaderType</code> field.</td>
+</tr>
 </table>
 </div>
 </li>
-</ol>
-</div>
-</li>
-</ol>
-</div>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
 <li>
 <p>If you are using CSI or non-CSI volumes, deploy a Data Protection Application by entering the following command:</p>
 <div class="listingblock">
@@ -3495,7 +3529,7 @@ EOF</span></code></pre>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>See the important note regarding the <code>nodeAgent</code> attribute.</td>
+<td>See the important note regarding the <code>nodeAgent</code> attribute at the end of this procedure.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
@@ -3517,6 +3551,9 @@ EOF</span></code></pre>
 </div>
 <div class="paragraph">
 <p>You are now ready to back up and restore OKD applications, as described in <em>Backing up applications</em>.</p>
+</div>
+</li>
+</ol>
 </div>
 </li>
 </ol>

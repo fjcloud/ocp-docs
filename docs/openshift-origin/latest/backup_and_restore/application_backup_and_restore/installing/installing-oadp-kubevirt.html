@@ -1399,7 +1399,8 @@
 
                   <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-resiliency.html">Control plane resiliency and recovery</a></li>
                   <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-troubleshooting.html">Troubleshooting the control plane machine set</a></li>
-                  <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-disabling.html">Disabling the control plane machine set</a></li>              </ul>
+                  <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-disabling.html">Disabling the control plane machine set</a></li>
+                  <li><a class="" href="../../../machine_management/control_plane_machine_management/cpmso-manually-scaling-control-planes.html">Manually scaling control plane machines</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-21-10"><span id="sgSpan-21-10" class="fa fa-caret-right"></span>&nbsp;Managing machines with the Cluster API</a>
               <ul id="topicSubGroup-21-10" class="nav-tertiary list-unstyled collapse">
@@ -2130,6 +2131,7 @@
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-timeouts.html" style="padding-left: 70px;">OADP timeouts</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/backup-and-restore-cr-issues.html" style="padding-left: 70px;">Backup and Restore CR issues</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/restic-issues.html" style="padding-left: 70px;">Restic issues</a></li>
+                    <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-data-protection-test.html" style="padding-left: 70px;">OADP Data protection test</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/using-the-must-gather-tool.html" style="padding-left: 70px;">Using the must-gather tool</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-monitoring.html" style="padding-left: 70px;">OADP monitoring</a></li>                  </ul>
                   </li>
@@ -2829,11 +2831,14 @@
 <li><a href="#oadp-restore-single-vm_installing-oadp-kubevirt">Restoring a single VM</a></li>
 <li><a href="#oadp-restore-single-vm-from-multiple-vm-backup_installing-oadp-kubevirt">Restoring a single VM from a backup of multiple VMs</a></li>
 <li><a href="#oadp-configuring-client-burst-qps_installing-oadp-kubevirt">Configuring the DPA with client burst and QPS settings</a></li>
-<li><a href="#oadp-configuring-imagepullpolicy_installing-oadp-kubevirt">Overriding the imagePullPolicy setting in the DPA</a>
-<ul class="sectlevel2">
+<li><a href="#oadp-configuring-node-agent-non-root_installing-oadp-kubevirt">Configuring the node agent as a non-root and non-privileged user</a></li>
 <li><a href="#oadp-configuring-node-agents_installing-oadp-kubevirt">Configuring node agents and node labels</a></li>
-</ul>
-</li>
+<li><a href="#oadp-configuring-node-agent-load-affinity_installing-oadp-kubevirt">Configuring node agent load affinity</a></li>
+<li><a href="#oadp-node-agent-load-affinity-guidelines_installing-oadp-kubevirt">Node agent load affinity guidelines</a></li>
+<li><a href="#oadp-configuring-node-agent-load-concurrency_installing-oadp-kubevirt">Configuring node agent load concurrency</a></li>
+<li><a href="#oadp-configuring-repository-maintenance_installing-oadp-kubevirt">Configuring repository maintenance</a></li>
+<li><a href="#oadp-configuring-velero-load-affinity_installing-oadp-kubevirt">Configuring Velero load affinity</a></li>
+<li><a href="#oadp-configuring-imagepullpolicy_installing-oadp-kubevirt">Overriding the imagePullPolicy setting in the DPA</a></li>
 <li><a href="#oadp-about-incremental-backup-support_installing-oadp-kubevirt">About incremental back up support</a></li>
 </ul>
 </div>
@@ -3526,6 +3531,615 @@ replicaset.apps/velero-588db7f655                              1         1      
 </div>
 </div>
 <div class="sect1">
+<h2 id="oadp-configuring-node-agent-non-root_installing-oadp-kubevirt"><a class="anchor" href="#oadp-configuring-node-agent-non-root_installing-oadp-kubevirt"></a>Configuring the node agent as a non-root and non-privileged user</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To enhance the node agent security, you can configure the OADP Operator node agent daemonset to run as a non-root and non-privileged user by using the <code>spec.configuration.velero.disableFsBackup</code> setting in the <code>DataProtectionApplication</code> (DPA) custom resource (CR).</p>
+</div>
+<div class="paragraph">
+<p>By setting the <code>spec.configuration.velero.disableFsBackup</code> setting to <code>true</code>, the node agent security context sets the root file system to read-only and sets the <code>privileged</code> flag to <code>false</code>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Setting <code>spec.configuration.velero.disableFsBackup</code> to <code>true</code> enhances the node agent security by removing the need for privileged containers and enforcing a read-only root file system.</p>
+</div>
+<div class="paragraph">
+<p>However, it also disables File System Backup (FSB) with Kopia. If your workloads rely on FSB for backing up volumes that do not support native snapshots, then you should evaluate whether the <code>disableFsBackup</code> configuration fits your use case.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OADP Operator.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Configure the <code>disableFsBackup</code> field in the DPA as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">oadp.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DataProtectionApplication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">ts-dpa</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">backupLocations</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">credential</span><span class="pi">:</span>
+        <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-credentials</span>
+      <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">objectStorage</span><span class="pi">:</span>
+        <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;bucket_name&gt;</span>
+        <span class="na">prefix</span><span class="pi">:</span> <span class="s">velero</span>
+      <span class="na">provider</span><span class="pi">:</span> <span class="s">gcp</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">defaultPlugins</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">csi</span>
+      <span class="pi">-</span> <span class="s">gcp</span>
+      <span class="pi">-</span> <span class="s">openshift</span>
+      <span class="na">disableFsBackup</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Enable the node agent in the DPA.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Set the <code>disableFsBackup</code> field to <code>true</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the node agent security context is set to run as non-root and the root file system is <code>readOnly</code> by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get daemonset node-agent <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The example output is as following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DaemonSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="s">...</span>
+  <span class="s">name</span><span class="pi">:</span> <span class="s">node-agent</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span>
+  <span class="s">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="s">...</span>
+  <span class="s">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="s">...</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="s">...</span>
+        <span class="s">securityContext</span><span class="pi">:</span>
+          <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="na">capabilities</span><span class="pi">:</span>
+            <span class="na">drop</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s">ALL</span>
+          <span class="na">privileged</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="2"></i><b>(2)</b>
+          <span class="na">readOnlyRootFilesystem</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="3"></i><b>(3)</b>
+        <span class="s">...</span>
+      <span class="na">nodeSelector</span><span class="pi">:</span>
+        <span class="s">kubernetes.io/os</span><span class="pi">:</span> <span class="s">linux</span>
+      <span class="na">os</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">linux</span>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Always</span>
+      <span class="na">schedulerName</span><span class="pi">:</span> <span class="s">default-scheduler</span>
+      <span class="na">securityContext</span><span class="pi">:</span>
+        <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="4"></i><b>(4)</b>
+        <span class="na">seccompProfile</span><span class="pi">:</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+      <span class="na">serviceAccount</span><span class="pi">:</span> <span class="s">velero</span>
+      <span class="na">serviceAccountName</span><span class="pi">:</span> <span class="s">velero</span>
+      <span class="s">....</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The <code>allowPrivilegeEscalation</code> field is false.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The <code>privileged</code> field is false.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The root file system is read-only.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>The node agent is run as a non-root user.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="oadp-configuring-node-agents_installing-oadp-kubevirt"><a class="anchor" href="#oadp-configuring-node-agents_installing-oadp-kubevirt"></a>Configuring node agents and node labels</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The Data Protection Application (DPA) uses the <code>nodeSelector</code> field to select which nodes can run the node agent. The <code>nodeSelector</code> field is the recommended form of node selection constraint.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Run the node agent on any node that you choose by adding a custom label:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label node/&lt;node_name&gt; node-role.kubernetes.io/nodeAgent<span class="o">=</span><span class="s2">""</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Any label specified must match the labels on each node.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Use the same custom label in the <code>DPA.spec.configuration.nodeAgent.podConfig.nodeSelector</code> field, which you used for labeling nodes:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">configuration:
+  nodeAgent:
+    enable: true
+    podConfig:
+      nodeSelector:
+        node-role.kubernetes.io/nodeAgent: ""</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example is an anti-pattern of <code>nodeSelector</code> and does not work unless both labels, <code>node-role.kubernetes.io/infra: ""</code> and <code>node-role.kubernetes.io/worker: ""</code>, are on the node:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">    configuration:
+      nodeAgent:
+        enable: true
+        podConfig:
+          nodeSelector:
+            node-role.kubernetes.io/infra: ""
+            node-role.kubernetes.io/worker: ""</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="oadp-configuring-node-agent-load-affinity_installing-oadp-kubevirt"><a class="anchor" href="#oadp-configuring-node-agent-load-affinity_installing-oadp-kubevirt"></a>Configuring node agent load affinity</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can schedule the node agent pods on specific nodes by using the <code>spec.podConfig.nodeSelector</code> object of the <code>DataProtectionApplication</code> (DPA) custom resource (CR).</p>
+</div>
+<div class="paragraph">
+<p>See the following example in which you can schedule the node agent pods on nodes with the label <code>label.io/role: cpu-1</code> and <code>other-label.io/other-role: cpu-2</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">nodeSelector</span><span class="pi">:</span>
+          <span class="s">label.io/role</span><span class="pi">:</span> <span class="s">cpu-1</span>
+          <span class="s">other-label.io/other-role</span><span class="pi">:</span> <span class="s">cpu-2</span>
+        <span class="s">...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can add more restrictions on the node agent pods scheduling by using the <code>nodeagent.loadAffinity</code> object in the DPA spec.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You must be logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have installed the OADP Operator.</p>
+</li>
+<li>
+<p>You have configured the DPA CR.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Configure the DPA spec <code>nodegent.loadAffinity</code> object as shown in the following example.</p>
+<div class="paragraph">
+<p>In the example, you ensure that the node agent pods are scheduled only on nodes with the label <code>label.io/role: cpu-1</code> and the label <code>label.io/hostname</code> matching with either <code>node1</code> or <code>node2</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">loadAffinity</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+        <span class="pi">-</span> <span class="na">nodeSelector</span><span class="pi">:</span>
+            <span class="na">matchLabels</span><span class="pi">:</span>
+              <span class="s">label.io/role</span><span class="pi">:</span> <span class="s">cpu-1</span>
+            <span class="na">matchExpressions</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+              <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">label.io/hostname</span>
+                <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
+                <span class="na">values</span><span class="pi">:</span>
+                  <span class="pi">-</span> <span class="s">node1</span>
+                  <span class="pi">-</span> <span class="s">node2</span>
+                  <span class="s">...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Configure the <code>loadAffinity</code> object by adding the <code>matchLabels</code> and <code>matchExpressions</code> objects.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Configure the <code>matchExpressions</code> object to add restrictions on the node agent pods scheduling.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="oadp-node-agent-load-affinity-guidelines_installing-oadp-kubevirt"><a class="anchor" href="#oadp-node-agent-load-affinity-guidelines_installing-oadp-kubevirt"></a>Node agent load affinity guidelines</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Use the following guidelines to configure the node agent <code>loadAffinity</code> object in the <code>DataProtectionApplication</code> (DPA) custom resource (CR).</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Use the <code>spec.nodeagent.podConfig.nodeSelector</code> object for simple node matching.</p>
+</li>
+<li>
+<p>Use the <code>loadAffinity.nodeSelector</code> object without the <code>podConfig.nodeSelector</code> object for more complex scenarios.</p>
+</li>
+<li>
+<p>You can use both <code>podConfig.nodeSelector</code> and <code>loadAffinity.nodeSelector</code> objects, but the <code>loadAffinity</code> object must be equal or more restrictive as compared to the <code>podConfig</code> object. In this scenario, the <code>podConfig.nodeSelector</code> labels must be a subset of the labels used in the <code>loadAffinity.nodeSelector</code> object.</p>
+</li>
+<li>
+<p>You cannot use the <code>matchExpressions</code> and <code>matchLabels</code> fields if you have configured both <code>podConfig.nodeSelector</code> and <code>loadAffinity.nodeSelector</code> objects in the DPA.</p>
+</li>
+<li>
+<p>See the following example to configure both <code>podConfig.nodeSelector</code> and <code>loadAffinity.nodeSelector</code> objects in the DPA.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+      <span class="na">loadAffinity</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">nodeSelector</span><span class="pi">:</span>
+            <span class="na">matchLabels</span><span class="pi">:</span>
+              <span class="s">label.io/location</span><span class="pi">:</span> <span class="s1">'</span><span class="s">US'</span>
+              <span class="s">label.io/gpu</span><span class="pi">:</span> <span class="s1">'</span><span class="s">no'</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">nodeSelector</span><span class="pi">:</span>
+          <span class="s">label.io/gpu</span><span class="pi">:</span> <span class="s1">'</span><span class="s">no'</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="oadp-configuring-node-agent-load-concurrency_installing-oadp-kubevirt"><a class="anchor" href="#oadp-configuring-node-agent-load-concurrency_installing-oadp-kubevirt"></a>Configuring node agent load concurrency</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can control the maximum number of node agent operations that can run simultaneously on each node within your cluster.</p>
+</div>
+<div class="paragraph">
+<p>You can configure it using one of the following fields of the Data Protection Application (DPA):</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>globalConfig</code>: Defines a default concurrency limit for the node agent across all nodes.</p>
+</li>
+<li>
+<p><code>perNodeConfig</code>: Specifies different concurrency limits for specific nodes based on <code>nodeSelector</code> labels. This provides flexibility for environments where certain nodes might have different resource capacities or roles.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You must be logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>If you want to use load concurrency for specific nodes, add labels to those nodes:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label node/&lt;node_name&gt; label.io/instance-type<span class="o">=</span><span class="s1">'large'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Configure the load concurrency fields for your DPA instance:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml">  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+      <span class="na">loadConcurrency</span><span class="pi">:</span>
+        <span class="na">globalConfig</span><span class="pi">:</span> <span class="s">1</span> <i class="conum" data-value="1"></i><b>(1)</b>
+        <span class="na">perNodeConfig</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">nodeSelector</span><span class="pi">:</span>
+              <span class="na">matchLabels</span><span class="pi">:</span>
+                 <span class="s">label.io/instance-type</span><span class="pi">:</span> <span class="s">large</span> <i class="conum" data-value="2"></i><b>(2)</b>
+          <span class="na">number</span><span class="pi">:</span> <span class="s">3</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Global concurrent number. The default value is 1, which means there is no concurrency and only one load is allowed. The <code>globalConfig</code> value does not have a limit.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Label for per-node concurrency.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Per-node concurrent number. You can specify many per-node concurrent numbers, for example, based on the instance type and size. The range of per-node concurrent number is the same as the global concurrent number. If the configuration file contains a per-node concurrent number and a global concurrent number, the per-node concurrent number takes precedence.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="oadp-configuring-repository-maintenance_installing-oadp-kubevirt"><a class="anchor" href="#oadp-configuring-repository-maintenance_installing-oadp-kubevirt"></a>Configuring repository maintenance</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>OADP repository maintenance is a background job, you can configure it independently of the node agent pods. This means that you can schedule the repository maintenance pod on a node where the node agent is or is not running.</p>
+</div>
+<div class="paragraph">
+<p>You can use the repository maintenance job affinity configurations in the <code>DataProtectionApplication</code> (DPA) custom resource (CR) only if you use Kopia as the backup repository.</p>
+</div>
+<div class="paragraph">
+<p>You have the option to configure the load affinity at the global level affecting all repositories. Or you can configure the load affinity for each repository. You can also use a combination of global and per-repository configuration.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You must be logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have installed the OADP Operator.</p>
+</li>
+<li>
+<p>You have configured the DPA CR.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Configure the <code>loadAffinity</code> object in the DPA spec by using either one or both of the following methods:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Global configuration: Configure load affinity for all repositories as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">repositoryMaintenance</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">global</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+        <span class="na">podResources</span><span class="pi">:</span>
+          <span class="na">cpuRequest</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100m"</span>
+          <span class="na">cpuLimit</span><span class="pi">:</span> <span class="s2">"</span><span class="s">200m"</span>
+          <span class="na">memoryRequest</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100Mi"</span>
+          <span class="na">memoryLimit</span><span class="pi">:</span> <span class="s2">"</span><span class="s">200Mi"</span>
+        <span class="na">loadAffinity</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">nodeSelector</span><span class="pi">:</span>
+              <span class="na">matchLabels</span><span class="pi">:</span>
+                <span class="s">label.io/gpu</span><span class="pi">:</span> <span class="s1">'</span><span class="s">no'</span>
+              <span class="na">matchExpressions</span><span class="pi">:</span>
+                <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">label.io/location</span>
+                  <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
+                  <span class="na">values</span><span class="pi">:</span>
+                    <span class="pi">-</span> <span class="s">US</span>
+                    <span class="pi">-</span> <span class="s">EU</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Configure the <code>repositoryMaintenance</code> object as shown in the example.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Use the <code>global</code> object to configure load affinity for all repositories.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Per-repository configuration: Configure load affinity per repository as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">repositoryMaintenance</span><span class="pi">:</span>
+      <span class="na">myrepositoryname</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+        <span class="na">loadAffinity</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">nodeSelector</span><span class="pi">:</span>
+              <span class="na">matchLabels</span><span class="pi">:</span>
+                <span class="s">label.io/cpu</span><span class="pi">:</span> <span class="s1">'</span><span class="s">yes'</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Configure the <code>repositoryMaintenance</code> object for each repository.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="oadp-configuring-velero-load-affinity_installing-oadp-kubevirt"><a class="anchor" href="#oadp-configuring-velero-load-affinity_installing-oadp-kubevirt"></a>Configuring Velero load affinity</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>With each OADP deployment, there is one Velero pod and its main purpose is to schedule Velero workloads. To schedule the Velero pod, you can use the <code>velero.podConfig.nodeSelector</code> and the <code>velero.loadAffinity</code> objects in the <code>DataProtectionApplication</code> (DPA) custom resource (CR) spec.</p>
+</div>
+<div class="paragraph">
+<p>Use the <code>podConfig.nodeSelector</code> object to assign the Velero pod to specific nodes. You can also configure the <code>velero.loadAffinity</code> object for pod-level affinity and anti-affinity.</p>
+</div>
+<div class="paragraph">
+<p>The OpenShift scheduler applies the rules and performs the scheduling of the Velero pod deployment.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You must be logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have installed the OADP Operator.</p>
+</li>
+<li>
+<p>You have configured the DPA CR.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Configure the <code>velero.podConfig.nodeSelector</code> and the <code>velero.loadAffinity</code> objects in the DPA spec as shown in the following examples:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>velero.podConfig.nodeSelector</code> object configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">nodeSelector</span><span class="pi">:</span>
+          <span class="s">some-label.io/custom-node-role</span><span class="pi">:</span> <span class="s">backup-core</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p><code>velero.loadAffinity</code> object configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">loadAffinity</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">nodeSelector</span><span class="pi">:</span>
+            <span class="na">matchLabels</span><span class="pi">:</span>
+              <span class="s">label.io/gpu</span><span class="pi">:</span> <span class="s1">'</span><span class="s">no'</span>
+            <span class="na">matchExpressions</span><span class="pi">:</span>
+              <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">label.io/location</span>
+                <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
+                <span class="na">values</span><span class="pi">:</span>
+                  <span class="pi">-</span> <span class="s">US</span>
+                  <span class="pi">-</span> <span class="s">EU</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="oadp-configuring-imagepullpolicy_installing-oadp-kubevirt"><a class="anchor" href="#oadp-configuring-imagepullpolicy_installing-oadp-kubevirt"></a>Overriding the imagePullPolicy setting in the DPA</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
@@ -3609,66 +4223,6 @@ replicaset.apps/velero-588db7f655                              1         1      
 </div>
 </li>
 </ul>
-</div>
-<div class="sect2">
-<h3 id="oadp-configuring-node-agents_installing-oadp-kubevirt"><a class="anchor" href="#oadp-configuring-node-agents_installing-oadp-kubevirt"></a>Configuring node agents and node labels</h3>
-<div class="paragraph _abstract">
-<p>The Data Protection Application (DPA) uses the <code>nodeSelector</code> field to select which nodes can run the node agent. The <code>nodeSelector</code> field is the recommended form of node selection constraint.</p>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Run the node agent on any node that you choose by adding a custom label:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label node/&lt;node_name&gt; node-role.kubernetes.io/nodeAgent<span class="o">=</span><span class="s2">""</span></code></pre>
-</div>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Any label specified must match the labels on each node.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Use the same custom label in the <code>DPA.spec.configuration.nodeAgent.podConfig.nodeSelector</code> field, which you used for labeling nodes:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">configuration:
-  nodeAgent:
-    enable: true
-    podConfig:
-      nodeSelector:
-        node-role.kubernetes.io/nodeAgent: ""</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The following example is an anti-pattern of <code>nodeSelector</code> and does not work unless both labels, <code>node-role.kubernetes.io/infra: ""</code> and <code>node-role.kubernetes.io/worker: ""</code>, are on the node:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">    configuration:
-      nodeAgent:
-        enable: true
-        podConfig:
-          nodeSelector:
-            node-role.kubernetes.io/infra: ""
-            node-role.kubernetes.io/worker: ""</span></code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
 </div>
 </div>
 </div>

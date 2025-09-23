@@ -1737,7 +1737,8 @@
 
                   <li><a class="" href="../machine_management/control_plane_machine_management/cpmso-resiliency.html">Control plane resiliency and recovery</a></li>
                   <li><a class="" href="../machine_management/control_plane_machine_management/cpmso-troubleshooting.html">Troubleshooting the control plane machine set</a></li>
-                  <li><a class="" href="../machine_management/control_plane_machine_management/cpmso-disabling.html">Disabling the control plane machine set</a></li>              </ul>
+                  <li><a class="" href="../machine_management/control_plane_machine_management/cpmso-disabling.html">Disabling the control plane machine set</a></li>
+                  <li><a class="" href="../machine_management/control_plane_machine_management/cpmso-manually-scaling-control-planes.html">Manually scaling control plane machines</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-23-10"><span id="sgSpan-23-10" class="fa fa-caret-right"></span>&nbsp;Managing machines with the Cluster API</a>
               <ul id="topicSubGroup-23-10" class="nav-tertiary list-unstyled collapse">
@@ -2574,6 +2575,7 @@
                     <li><a class="" href="../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-timeouts.html" style="padding-left: 70px;">OADP timeouts</a></li>
                     <li><a class="" href="../backup_and_restore/application_backup_and_restore/troubleshooting/backup-and-restore-cr-issues.html" style="padding-left: 70px;">Backup and Restore CR issues</a></li>
                     <li><a class="" href="../backup_and_restore/application_backup_and_restore/troubleshooting/restic-issues.html" style="padding-left: 70px;">Restic issues</a></li>
+                    <li><a class="" href="../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-data-protection-test.html" style="padding-left: 70px;">OADP Data protection test</a></li>
                     <li><a class="" href="../backup_and_restore/application_backup_and_restore/troubleshooting/using-the-must-gather-tool.html" style="padding-left: 70px;">Using the must-gather tool</a></li>
                     <li><a class="" href="../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-monitoring.html" style="padding-left: 70px;">OADP monitoring</a></li>                  </ul>
                   </li>
@@ -3373,7 +3375,11 @@
 <li><a href="#nodes-cluster-worker-latency-profiles-using_post-install-cluster-tasks">Using and changing worker latency profiles</a></li>
 </ul>
 </li>
-<li><a href="#post-install-cpms-setup">Managing control plane machines</a></li>
+<li><a href="#post-install-cpms-setup">Managing control plane machines</a>
+<ul class="sectlevel2">
+<li><a href="#creating-control-plane-node_post-install-cluster-tasks">Adding a control plane node to your cluster</a></li>
+</ul>
+</li>
 <li><a href="#post-install-creating-infrastructure-machinesets-production">Creating infrastructure machine sets for production environments</a>
 <ul class="sectlevel2">
 <li><a href="#machineset-creating_post-install-cluster-tasks">Creating a compute machine set</a></li>
@@ -3457,13 +3463,10 @@
 </table>
 </div>
 <div class="paragraph">
-<p>You modify the configuration resources to configure the major features of the
-cluster, such as the image registry, networking configuration, image build
-behavior, and the identity provider.</p>
+<p>You modify the configuration resources to configure the major features of the cluster, such as the image registry, networking configuration, image build behavior, and the identity provider.</p>
 </div>
 <div class="paragraph">
-<p>For current documentation of the settings that you control by using these resources, use
-the <code>oc explain</code> command, for example <code>oc explain builds --api-version=config.openshift.io/v1</code></p>
+<p>For current documentation of the settings that you control by using these resources, use the <code>oc explain</code> command, for example <code>oc explain builds --api-version=config.openshift.io/v1</code></p>
 </div>
 <div class="sect2">
 <h3 id="configuration-resources_post-install-cluster-tasks"><a class="anchor" href="#configuration-resources_post-install-cluster-tasks"></a>Cluster configuration resources</h3>
@@ -4766,6 +4769,482 @@ If the <code>kube controller</code> cannot read a node status value, it loses co
 <div class="sectionbody">
 <div class="paragraph">
 <p><a href="../machine_management/control_plane_machine_management/cpmso-about.html#cpmso-about">Control plane machine sets</a> provide management capabilities for control plane machines that are similar to what compute machine sets provide for compute machines. The availability and initial status of control plane machine sets on your cluster depend on your cloud provider and the version of OpenShift Container Platform that you installed. For more information, see <a href="../machine_management/control_plane_machine_management/cpmso-getting-started.html#cpmso-getting-started">Getting started with control plane machine sets</a>.</p>
+</div>
+<div class="sect2">
+<h3 id="creating-control-plane-node_post-install-cluster-tasks"><a class="anchor" href="#creating-control-plane-node_post-install-cluster-tasks"></a>Adding a control plane node to your cluster</h3>
+<div class="paragraph">
+<p>When installing a cluster on bare-metal infrastructure, you can manually scale up to 4 or 5 control plane nodes for your cluster. The example in the procedure uses <code>node-5</code> as the new control plane node.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed a healthy cluster with at least three control plane nodes.</p>
+</li>
+<li>
+<p>You have created a single control plane node that you intend to add to your cluster as a postinstalltion task.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Retrieve pending Certificate Signing Requests (CSRs) for the new control plane node by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get csr | <span class="nb">grep </span>Pending</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Approve all pending CSRs for the control plane node by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get csr <span class="nt">-o</span> go-template<span class="o">=</span><span class="s1">'{{range .items}}{{if not .status}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}'</span> | xargs <span class="nt">--no-run-if-empty</span> oc adm certificate approve</code></pre>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You must approve the CSRs to complete the installation.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Confirm that the control plane node is in the <code>Ready</code> status by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>On installer-provisioned infrastructure, the etcd Operator relies on the Machine API to manage the control plane and ensure etcd quorum. The Machine API then uses <code>Machine</code> CRs to represent and manage the underlying control plane nodes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create the <code>BareMetalHost</code> and <code>Machine</code> CRs and link them to the <code>Node</code> CR of the control plane node.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create the <code>BareMetalHost</code> CR with a unique <code>.metadata.name</code> value as demonstrated in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">metal3.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">BareMetalHost</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">node-5</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">automatedCleaningMode</span><span class="pi">:</span> <span class="s">metadata</span>
+  <span class="na">bootMACAddress</span><span class="pi">:</span> <span class="s">00:00:00:00:00:02</span>
+  <span class="na">bootMode</span><span class="pi">:</span> <span class="s">UEFI</span>
+  <span class="na">customDeploy</span><span class="pi">:</span>
+    <span class="na">method</span><span class="pi">:</span> <span class="s">install_coreos</span>
+  <span class="na">externallyProvisioned</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">online</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">userData</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">master-user-data-managed</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>BareMetalHost</code> CR by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;filename&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace &lt;filename&gt; with the name of the <code>BareMetalHost</code> CR.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create the <code>Machine</code> CR by using the unique <code>.metadata.name</code> value as demonstrated in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machine.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Machine</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">machine.openshift.io/instance-state</span><span class="pi">:</span> <span class="s">externally provisioned</span>
+    <span class="s">metal3.io/BareMetalHost</span><span class="pi">:</span> <span class="s">openshift-machine-api/node-5</span>
+  <span class="na">finalizers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">machine.machine.openshift.io</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machine.openshift.io/cluster-api-cluster</span><span class="pi">:</span> <span class="s">&lt;cluster_name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="s">machine.openshift.io/cluster-api-machine-role</span><span class="pi">:</span> <span class="s">master</span>
+    <span class="s">machine.openshift.io/cluster-api-machine-type</span><span class="pi">:</span> <span class="s">master</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">node-5</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">metadata</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">providerSpec</span><span class="pi">:</span>
+    <span class="na">value</span><span class="pi">:</span>
+      <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">baremetal.cluster.k8s.io/v1alpha1</span>
+      <span class="na">customDeploy</span><span class="pi">:</span>
+        <span class="na">method</span><span class="pi">:</span> <span class="s">install_coreos</span>
+      <span class="na">hostSelector</span><span class="pi">:</span> <span class="pi">{}</span>
+      <span class="na">image</span><span class="pi">:</span>
+        <span class="na">checksum</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+        <span class="na">url</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+      <span class="na">kind</span><span class="pi">:</span> <span class="s">BareMetalMachineProviderSpec</span>
+      <span class="na">metadata</span><span class="pi">:</span>
+        <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="no">null</span>
+      <span class="na">userData</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">master-user-data-managed</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;cluster_name&gt;</code> with the name of the specific cluster, for example, <code>test-day2-1-6qv96</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Get the cluster name by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get infrastructure cluster <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.infrastructureName}{"\n"}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>Machine</code> CR by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;filename&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;filename&gt;</code> with the name of the <code>Machine</code> CR.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Link <code>BareMetalHost</code>, <code>Machine</code>, and <code>Node</code> objects by running the <code>link-machine-and-node.sh</code> script:</p>
+<div class="olist lowerroman">
+<ol class="lowerroman" type="i">
+<li>
+<p>Copy the following <code>link-machine-and-node.sh</code> script to a local machine:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">#!/bin/bash
+
+# Credit goes to
+# https://bugzilla.redhat.com/show_bug.cgi?id=1801238.
+# This script will link Machine object
+# and Node object. This is needed
+# in order to have IP address of
+# the Node present in the status of the Machine.
+
+set -e
+
+machine="$1"
+node="$2"
+
+if [ -z "$machine" ] || [ -z "$node" ]; then
+    echo "Usage: $0 MACHINE NODE"
+    exit 1
+fi
+
+node_name=$(echo "${node}" | cut -f2 -d':')
+
+oc proxy &amp;
+proxy_pid=$!
+function kill_proxy {
+    kill $proxy_pid
+}
+trap kill_proxy EXIT SIGINT
+
+HOST_PROXY_API_PATH="http://localhost:8001/apis/metal3.io/v1alpha1/namespaces/openshift-machine-api/baremetalhosts"
+
+function print_nics() {
+    local ips
+    local eob
+    declare -a ips
+
+    readarray -t ips &lt; &lt;(echo "${1}" \
+                         | jq '.[] | select(. | .type == "InternalIP") | .address' \
+                         | sed 's/"//g')
+
+    eob=','
+    for (( i=0; i&lt;${#ips[@]}; i++ )); do
+        if [ $((i+1)) -eq ${#ips[@]} ]; then
+            eob=""
+        fi
+        cat &lt;&lt;- EOF
+          {
+            "ip": "${ips[$i]}",
+            "mac": "00:00:00:00:00:00",
+            "model": "unknown",
+            "speedGbps": 10,
+            "vlanId": 0,
+            "pxe": true,
+            "name": "eth1"
+          }${eob}
+EOF
+    done
+}
+
+function wait_for_json() {
+    local name
+    local url
+    local curl_opts
+    local timeout
+
+    local start_time
+    local curr_time
+    local time_diff
+
+    name="$1"
+    url="$2"
+    timeout="$3"
+    shift 3
+    curl_opts="$@"
+    echo -n "Waiting for $name to respond"
+    start_time=$(date +%s)
+    until curl -g -X GET "$url" "${curl_opts[@]}" 2&gt; /dev/null | jq '.' 2&gt; /dev/null &gt; /dev/null; do
+        echo -n "."
+        curr_time=$(date +%s)
+        time_diff=$((curr_time - start_time))
+        if [[ $time_diff -gt $timeout ]]; then
+            printf '\nTimed out waiting for %s' "${name}"
+            return 1
+        fi
+        sleep 5
+    done
+    echo " Success!"
+    return 0
+}
+wait_for_json oc_proxy "${HOST_PROXY_API_PATH}" 10 -H "Accept: application/json" -H "Content-Type: application/json"
+
+addresses=$(oc get node -n openshift-machine-api "${node_name}" -o json | jq -c '.status.addresses')
+
+machine_data=$(oc get machines.machine.openshift.io -n openshift-machine-api -o json "${machine}")
+host=$(echo "$machine_data" | jq '.metadata.annotations["metal3.io/BareMetalHost"]' | cut -f2 -d/ | sed 's/"//g')
+
+if [ -z "$host" ]; then
+    echo "Machine $machine is not linked to a host yet." 1&gt;&amp;2
+    exit 1
+fi
+
+# The address structure on the host doesn't match the node, so extract
+# the values we want into separate variables so we can build the patch
+# we need.
+hostname=$(echo "${addresses}" | jq '.[] | select(. | .type == "Hostname") | .address' | sed 's/"//g')
+
+set +e
+read -r -d '' host_patch &lt;&lt; EOF
+{
+  "status": {
+    "hardware": {
+      "hostname": "${hostname}",
+      "nics": [
+$(print_nics "${addresses}")
+      ],
+      "systemVendor": {
+        "manufacturer": "Red Hat",
+        "productName": "product name",
+        "serialNumber": ""
+      },
+      "firmware": {
+        "bios": {
+          "date": "04/01/2014",
+          "vendor": "SeaBIOS",
+          "version": "1.11.0-2.el7"
+        }
+      },
+      "ramMebibytes": 0,
+      "storage": [],
+      "cpu": {
+        "arch": "x86_64",
+        "model": "Intel(R) Xeon(R) CPU E5-2630 v4 @ 2.20GHz",
+        "clockMegahertz": 2199.998,
+        "count": 4,
+        "flags": []
+      }
+    }
+  }
+}
+EOF
+set -e
+
+echo "PATCHING HOST"
+echo "${host_patch}" | jq .
+
+curl -s \
+     -X PATCH \
+     "${HOST_PROXY_API_PATH}/${host}/status" \
+     -H "Content-type: application/merge-patch+json" \
+     -d "${host_patch}"
+
+oc get baremetalhost -n openshift-machine-api -o yaml "${host}"</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Make the script executable by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">chmod</span> +x link-machine-and-node.sh</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Run the script by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>bash link-machine-and-node.sh node-5 node-5</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The first <code>node-5</code> instance represents the machine, and the second instance represents the node.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Confirm members of etcd by executing into one of the pre-existing control plane nodes:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Open a remote shell session to the control plane node by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-n</span> openshift-etcd etcd-node-0</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>List etcd members:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>etcdctl member list <span class="nt">-w</span> table</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Check the etcd Operator configuration process until completion by entering the following command. Expected output shows <code>False</code> under the <code>PROGRESSING</code> column.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteroperator etcd</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Confirm etcd health by running the following commands:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Open a remote shell session to the control plane node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-n</span> openshift-etcd etcd-node-0</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check endpoint health. Expected output shows <code>is healthy</code> for the endpoint.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>etcdctl endpoint health</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that all nodes are ready by entering the following command. The expected output shows the <code>Ready</code> status beside each node entry.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the cluster Operators are all available by entering the following command. Expected output lists each Operator and shows the available status as <code>True</code> beside each listed Operator.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ClusterOperators</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the cluster version is correct by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ClusterVersion</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME      VERSION   AVAILABLE   PROGRESSING   SINCE   STATUS
+version   OpenShift Container Platform.5    True        False         5h57m   Cluster version is OpenShift Container Platform.5</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
 </div>
 </div>
 </div>
