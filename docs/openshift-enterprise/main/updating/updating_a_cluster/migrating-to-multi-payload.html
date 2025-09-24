@@ -749,8 +749,7 @@
 
                   <li><a class="" href="../../support/remote_health_monitoring/about-remote-health-monitoring.html">About remote health monitoring</a></li>
                   <li><a class="" href="../../support/remote_health_monitoring/showing-data-collected-by-remote-health-monitoring.html">Showing data collected by remote health monitoring</a></li>
-                  <li><a class="" href="../../support/remote_health_monitoring/opting-out-of-remote-health-reporting.html">Opting out of remote health reporting</a></li>
-                  <li><a class="" href="../../support/remote_health_monitoring/enabling-remote-health-reporting.html">Enabling remote health reporting</a></li>
+                  <li><a class="" href="../../support/remote_health_monitoring/remote-health-reporting.html">Remote health reporting</a></li>
                   <li><a class="" href="../../support/remote_health_monitoring/using-insights-to-identify-issues-with-your-cluster.html">Using Insights to identify issues with your cluster</a></li>
                   <li><a class="" href="../../support/remote_health_monitoring/using-insights-operator.html">Using the Insights Operator</a></li>
                   <li><a class="" href="../../support/remote_health_monitoring/remote-health-reporting-from-restricted-network.html">Using remote health reporting in a disconnected environment</a></li>
@@ -3346,6 +3345,7 @@
 <ul class="sectlevel1">
 <li><a href="#migrating-to-multi-arch-cli_updating-clusters-overview">Migrating to a cluster with multi-architecture compute machines using the CLI</a></li>
 <li><a href="#migrating-from-x86-to-arm64-cp_updating-clusters-overview">Migrating the x86 control plane to arm64 architecture on Amazon Web Services</a></li>
+<li><a href="#multiarch-migrating-cp-infra-gcp_updating-clusters-overview">Migrating control plane or infra machine sets between architectures on Google Cloud Platform</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -3679,6 +3679,156 @@
 </li>
 </ul>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multiarch-migrating-cp-infra-gcp_updating-clusters-overview"><a class="anchor" href="#multiarch-migrating-cp-infra-gcp_updating-clusters-overview"></a>Migrating control plane or infra machine sets between architectures on Google Cloud Platform</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can migrate the control plane or infra machine sets in your GCP cluster between <code>x86</code> and <code>arm64</code> architectures.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You logged in to <code>oc</code> as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check the architecture of the control plane or infra nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                          STATUS   ROLES                  AGE    VERSION   INTERNAL-IP EXTERNAL-IP   OS-IMAGE                                         KERNEL-VERSION                 CONTAINER-RUNTIME
+</span><span class="gp">worker-001.example.com        Ready    infra                 100d   v1.30.7   10.x.x.x    &lt;none&gt;</span><span class="w">        </span>Red Hat Enterprise Linux CoreOS 4xx.xx.xxxxx-0   5.x.x-xxx.x.x.el9_xx.x86_64    cri-o://1.30.x
+<span class="gp">master-001.example.com        Ready    control-plane,master   120d   v1.30.7   10.x.x.x    &lt;none&gt;</span><span class="w">        </span>Red Hat Enterprise Linux CoreOS 4xx.xx.xxxxx-0   5.x.x-xxx.x.x.el9_xx.x86_64    cri-o://1.30.x</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>KERNEL-VERSION</code> field in the output indicates the architecture of the nodes.</p>
+</div>
+</li>
+<li>
+<p>Check that your cluster uses the multi payload by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm release info <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s2">"{ .metadata.metadata}"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you see the following output, the cluster is multi-architecture compatible.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+ "release.openshift.io/architecture": "multi",
+</span><span class="gp"> "url": "https://access.redhat.com/errata/&lt;errata_version&gt;</span><span class="s2">"
+</span><span class="go">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the cluster is not using the multi payload, migrate the cluster to a multi-architecture cluster. For more information, see "Migrating to a cluster with multi-architecture compute machines".</p>
+</div>
+</li>
+<li>
+<p>If you use any custom image streams, update them from single-architecture to multi-architecture by running the following command for each image stream:</p>
+<div class="openblock">
+<div class="content">
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc import-image &lt;multiarch_image_stream_tag&gt;  <span class="nt">--from</span><span class="o">=</span>&lt;registry&gt;/&lt;project_name&gt;/&lt;image_name&gt; <span class="se">\</span>
+<span class="nt">--import-mode</span><span class="o">=</span><span class="s1">'PreserveOriginal'</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Select an instance type that matches the target architecture from <a href="https://cloud.google.com/compute/docs/general-purpose-machines">General-purpose machine family for Compute engine</a> (Google documentation). Check the <a href="https://cloud.google.com/compute/docs/regions-zones#available">Available regions and zones</a> table (Google documentation) to verify that the instance type is supported in your zone.</p>
+</li>
+<li>
+<p>Select a supported disk type for the instance type that you selected from the "Supported disk types" section of <a href="https://cloud.google.com/compute/docs/general-purpose-machines">General-purpose machine family for Compute engine</a> (Google documentation).</p>
+</li>
+<li>
+<p>Determine the GCP image that the machine set uses after migration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configmap/coreos-bootimages <span class="se">\</span>
+  <span class="nt">-n</span> openshift-machine-config-operator <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.stream}'</span> | jq <span class="se">\</span>
+  <span class="nt">-r</span> <span class="s1">'.architectures.aarch64.images.gcp'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">"gcp": {
+    "release": "415.92.202309142014-0",
+    "project": "rhcos-cloud",
+    "name": "rhcos-415-92-202309142014-0-gcp-aarch64"
+  }</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Use the <code>project</code> and <code>name</code> parameters from the output to form the <code>image</code> parameter in the following format: <code>projects/&lt;project&gt;/global/images/&lt;name&gt;</code>.</p>
+</div>
+</li>
+<li>
+<p>To migrate the control plane to another architecture, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit controlplanemachineset.machine.openshift.io cluster <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Replace the <code>disks.type</code> parameter with the disk type that you selected.</p>
+</li>
+<li>
+<p>Replace the <code>disks.image</code> parameter with the <code>image</code> parameter that you formed previously.</p>
+</li>
+<li>
+<p>Replace the <code>machineType</code> parameter with the instance type that you selected.</p>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>To migrate an infra machine set to another architecture, run the following command using the ID of an infra machine set:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit machineset &lt;infra-machine-set_id&gt; <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Replace the <code>disks.type</code> parameter with the disk type that you selected.</p>
+</li>
+<li>
+<p>Replace the <code>disks.image</code> parameter with the <code>image</code> parameter that you formed previously.</p>
+</li>
+<li>
+<p>Replace the <code>machineType</code> parameter with the instance type that you selected.</p>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
@@ -3687,6 +3837,9 @@
 </li>
 <li>
 <p><a href="../../installing/installing_aws/upi/upi-aws-installation-reqs.html#installation-aws-arm-tested-machine-types_upi-aws-installation-reqs">Tested instance types for AWS on 64-bit ARM infrastructures</a></p>
+</li>
+<li>
+<p><a href="../../installing/installing_gcp/installing-gcp-customizations.html#installation-gcp-tested-machine-types-arm_installing-gcp-customizations">Tested instance types for GCP on 64-bit ARM infrastructures</a></p>
 </li>
 <li>
 <p><a href="../../updating/updating_a_cluster/migrating-to-multi-payload.html#migrating-to-multi-arch-cli_updating-clusters-overview">Migrating to a cluster with multi-architecture compute machines using the CLI</a></p>
