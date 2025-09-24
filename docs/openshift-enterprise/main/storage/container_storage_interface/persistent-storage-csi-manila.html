@@ -3348,6 +3348,7 @@
 <li><a href="#csi-about_persistent-storage-csi-manila">About CSI</a></li>
 <li><a href="#persistent-storage-csi-manila-limitations_persistent-storage-csi-manila">Manila CSI Driver Operator limitations</a></li>
 <li><a href="#persistent-storage-csi-manila-dynamic-provisioning_persistent-storage-csi-manila">Dynamically provisioning Manila CSI volumes</a></li>
+<li><a href="#persistent-storage-csi-manila-share-access-rules_persistent-storage-csi-manila">Customizing Manila share access rules</a></li>
 </ul>
 </div>
 </div>
@@ -3445,7 +3446,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>By default the access-rule assigned to a volume is set to 0.0.0.0/0. To limit the clients that can mount the persistent volume (PV), create a new storage class with an IP or a subnet mask in the <code>nfs-shareClient</code> storage class parameter.</p>
+<p>By default, the access rule that is assigned to a volume is <code>0.0.0.0/0</code>, which allows access from all IPv4 clients. To limit client access, create custom storage classes that use specific client IP addresses or subnets. For more information, see Section <em>Customizing Manila share access rules</em>.</p>
 </div>
 </td>
 </tr>
@@ -3586,6 +3587,175 @@
 </div>
 <div class="paragraph">
 <p>You can now use the new PVC to configure a pod.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="persistent-storage-csi-manila-share-access-rules_persistent-storage-csi-manila"><a class="anchor" href="#persistent-storage-csi-manila-share-access-rules_persistent-storage-csi-manila"></a>Customizing Manila share access rules</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>By default, OpenShift Container Platform creates Manila storage classes that provide access to all IPv4 clients. To limit client access, you can define custom storage classes that use specific client IP addresses or subnets by using the <code>nfs-ShareClient</code> parameter.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When using custom storage classes with restricted access rules, ensure that:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The specified IP addresses or subnets include all OpenShift Container Platform nodes that need to access the storage.</p>
+</li>
+<li>
+<p>The Manila service in RHOSP supports the share type specified in the storage class.</p>
+</li>
+<li>
+<p>Network connectivity exists between the allowed clients and the Manila share servers.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Red&#160;Hat OpenStack Platform (RHOSP) is deployed with appropriate Manila share infrastructure.</p>
+</li>
+<li>
+<p>Access to a cluster with administrator privileges.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a YAML file for your custom storage class based on the following example:</p>
+<div class="listingblock">
+<div class="title">Example custom storage class file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">StorageClass</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">csi-manila-gold-restricted</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">provisioner</span><span class="pi">:</span> <span class="s">manila.csi.openstack.org</span>
+<span class="na">parameters</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">gold</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">nfs-ShareClient</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10.0.0.0/24,192.168.1.100"</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="s">csi.storage.k8s.io/provisioner-secret-name</span><span class="pi">:</span> <span class="s">manila-csi-secret</span>
+  <span class="s">csi.storage.k8s.io/provisioner-secret-namespace</span><span class="pi">:</span> <span class="s">openshift-manila-csi-driver</span>
+  <span class="s">csi.storage.k8s.io/controller-expand-secret-name</span><span class="pi">:</span> <span class="s">manila-csi-secret</span>
+  <span class="s">csi.storage.k8s.io/controller-expand-secret-namespace</span><span class="pi">:</span> <span class="s">openshift-manila-csi-driver</span>
+  <span class="s">csi.storage.k8s.io/node-stage-secret-name</span><span class="pi">:</span> <span class="s">manila-csi-secret</span>
+  <span class="s">csi.storage.k8s.io/node-stage-secret-namespace</span><span class="pi">:</span> <span class="s">openshift-manila-csi-driver</span>
+  <span class="s">csi.storage.k8s.io/node-publish-secret-name</span><span class="pi">:</span> <span class="s">manila-csi-secret</span>
+  <span class="s">csi.storage.k8s.io/node-publish-secret-namespace</span><span class="pi">:</span> <span class="s">openshift-manila-csi-driver</span>
+<span class="na">allowVolumeExpansion</span><span class="pi">:</span> <span class="no">true</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Descriptive name for your custom storage class.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The Manila share type. This type must match an existing share type in your RHOSP environment.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Comma-separated list of IP addresses or CIDR subnets allowed to access the NFS shares. The <code>nfs-ShareClient</code> parameter accepts various formats:
+<div class="ulist">
+<ul>
+<li>
+<p>Single IP address: <code>192.168.1.100</code></p>
+</li>
+<li>
+<p>CIDR subnet: <code>10.0.0.0/24</code></p>
+</li>
+<li>
+<p>Multiple entries: <code>10.0.0.0/24,192.168.1.100,172.16.0.0/16</code></p>
+<div class="paragraph">
+<p>Ensure that the specified IP addresses or subnets include the OpenShift Container Platform cluster nodes to allow proper mounting of the persistent volumes.</p>
+</div>
+<div class="paragraph">
+<p>In this example, access is restricted to the <code>10.0.0.0/24</code> subnet, and the specific IP address is <code>192.168.1.100</code>.</p>
+</div>
+</li>
+</ul>
+</div></td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Apply the storage class from the file by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> custom-manila-storageclass.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the storage class was created by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get storageclass csi-manila-gold-restricted</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                 		    PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+csi-manila-gold-restricted	manila.csi.openstack.org   Delete          Immediate           true                   43m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a persistent volume claim (PVC) that uses the custom storage class based on the following example:</p>
+<div class="listingblock">
+<div class="title">Example PVC file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolumeClaim</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">pvc-manila-restricted</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">accessModes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">ReadWriteMany</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">10Gi</span>
+  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">csi-manila-gold-restricted</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The name of your custom storage class that has restricted access. In this example, the name is <code>csi-manila-gold-restricted</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Apply the PVC from the file by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> pvc-manila-restricted.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
