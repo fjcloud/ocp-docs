@@ -3010,12 +3010,7 @@ mount it, and the pod will run after it becomes available.</p>
 <h2 id="add-service-certificate-configmap_service-serving-certificate"><a class="anchor" href="#add-service-certificate-configmap_service-serving-certificate"></a>Add the service CA bundle to a config map</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>A pod can access the service CA certificate by mounting a <code>ConfigMap</code> object that
-is annotated with <code>service.beta.openshift.io/inject-cabundle=true</code>.
-Once annotated, the cluster automatically injects the service CA
-certificate into the <code>service-ca.crt</code> key on the config map. Access to
-this CA certificate allows TLS clients to verify connections to
-services using service serving certificates.</p>
+<p>A pod can access the service Certificate Authority (CA) certificate by mounting a <code>ConfigMap</code> object that has the <code>service.beta.openshift.io/inject-cabundle=true</code> annotation. After annotating the config map, the cluster automatically injects the service CA certificate into the <code>service-ca.crt</code> key on the config map. Access to this CA certificate allows TLS clients to verify connections to services by using service serving certificates.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3025,10 +3020,7 @@ services using service serving certificates.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>After adding this annotation to a config map all existing data in it is
-deleted. It is recommended to use a separate config map to contain the
-<code>service-ca.crt</code>, instead of using the same config map that stores your
-pod configuration.</p>
+<p>After adding this annotation to a config map, the OpenShift Service CA Operator deletes all the data in the config map. Consider using a separate config map to contain the <code>service-ca.crt</code>, instead of using the same config map that stores your pod configuration.</p>
 </div>
 </td>
 </tr>
@@ -3038,7 +3030,7 @@ pod configuration.</p>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Annotate the config map with <code>service.beta.openshift.io/inject-cabundle=true</code>:</p>
+<p>Annotate the config map with the <code>service.beta.openshift.io/inject-cabundle=true</code> annotation by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate configmap &lt;config_map_name&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
@@ -3061,19 +3053,11 @@ pod configuration.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Explicitly referencing the <code>service-ca.crt</code> key in a volume mount will prevent a pod from starting until the config map has been injected with the CA bundle. This behavior can be overridden by setting the <code>optional</code> field to <code>true</code> for the volume&#8217;s serving certificate configuration.</p>
+<p>Explicitly referencing the <code>service-ca.crt</code> key in a volume mount prevents a pod from starting until the config map has been injected with the CA bundle. You can override this behavior by setting the <code>optional</code> parameter to <code>true</code> in the serving certificate configuration of the volume.</p>
 </div>
 </td>
 </tr>
 </table>
-</div>
-<div class="paragraph">
-<p>For example, use the following command to annotate the config map <code>test1</code>:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate configmap test1 service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
-</div>
 </div>
 </li>
 <li>
@@ -3094,6 +3078,53 @@ data:
     -----BEGIN CERTIFICATE-----
 </span><span class="c">...</span></code></pre>
 </div>
+</div>
+</li>
+<li>
+<p>Mount the config map as a volume to each container that exists in a pod by configuring your <code>Deployment</code> object.</p>
+<div class="listingblock">
+<div class="title">Example Deployment object that defines the volume for the mounted config map</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-example-custom-ca-deployment</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">my-example-custom-ca-ns</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="s">...</span>
+    <span class="s">spec</span><span class="pi">:</span>
+      <span class="s">...</span>
+      <span class="s">containers</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">my-container-that-needs-custom-ca</span>
+          <span class="na">volumeMounts</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">trusted-ca</span>
+            <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/etc/pki/ca-trust/extracted/pem</span>
+            <span class="na">readOnly</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">trusted-ca</span>
+        <span class="na">configMap</span><span class="pi">:</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;config_map_name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="na">items</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">ca-bundle.crt</span> <i class="conum" data-value="2"></i><b>(2)</b>
+              <span class="na">path</span><span class="pi">:</span> <span class="s">tls-ca-bundle.pem</span> <i class="conum" data-value="3"></i><b>(3)</b>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Specify the name of the config map that you annotated in an earlier step of the procedure.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td><code>ca-bundle.crt</code> is required as the ConfigMap key.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td><code>tls-ca-bundle.pem</code> is required as the ConfigMap path.</td>
+</tr>
+</table>
 </div>
 </li>
 </ol>
