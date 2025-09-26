@@ -3348,6 +3348,7 @@
 <li><a href="#enabling-a-provisioning-network-after-installation_bare-metal-postinstallation-configuration">Enabling a provisioning network after installation</a></li>
 <li><a href="#creating-manifest-file-customized-br-ex-bridge_bare-metal-postinstallation-configuration">Creating a manifest object that includes a customized <code>br-ex</code> bridge</a></li>
 <li><a href="#making-disruptive-changes-br-ex-bridge.adoc_bare-metal-postinstallation-configuration">Making disruptive changes to a customized br-ex bridge</a></li>
+<li><a href="#migrating-br-ex-bridge-nmstate.adoc_bare-metal-postinstallation-configuration">Migrating a configured br-ex bridge to NMState</a></li>
 <li><a href="#nw-osp-services-external-load-balancer_bare-metal-postinstallation-configuration">Services for a user-managed load balancer</a>
 <ul class="sectlevel2">
 <li><a href="#nw-osp-configuring-external-load-balancer_bare-metal-postinstallation-configuration">Configuring a user-managed load balancer</a></li>
@@ -4156,6 +4157,123 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>nmstatectl show br-ex</code></pre>
 </div>
 </div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="migrating-br-ex-bridge-nmstate.adoc_bare-metal-postinstallation-configuration"><a class="anchor" href="#migrating-br-ex-bridge-nmstate.adoc_bare-metal-postinstallation-configuration"></a>Migrating a configured br-ex bridge to NMState</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>If you used the <code>configure-ovs.sh</code> shell script to set a <code>br-ex</code> bridge during cluster installation, you can migrate the <code>br-ex</code> bridge to NMState as a postinstallation task. NMState provides a declarative and idempotent way to handle configuring the <code>br-ex</code> bridge.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The initial steps in the procedure do not show example configurations. For detailed example configurations that would represent objects to create during cluster installation, see the "Creating a manifest object that includes a customized br-ex bridge" link in the <em>Additional resources</em> section.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>After you migrate your configured <code>br-ex</code> bridge to NMState, you cannot reverse the operation. This means that you cannot migrate back to the shell script version of the <code>br-ex</code> bridge.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Misconfiguring any files that form part of the migration operation can cause disruptive changes to your cluster. Reverting these changes might not always be possible.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisties</div>
+<ul>
+<li>
+<p>You used the <code>configure-ovs.sh</code> shell script to set a <code>br-ex</code> bridge for your cluster.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create an NMState configuration file that has decoded base64 information for your customized <code>br-ex</code> bridge network.</p>
+</li>
+<li>
+<p>Use the <code>cat</code> command to base64-encode the contents of the NMState configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> &lt;nmstate_configuration&gt;.yaml | <span class="nb">base64</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>&lt;nmstate_configuration&gt;</code> with the name of your NMState resource YAML file.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a <code>MachineConfig</code> manifest file and define a customized <code>br-ex</code> bridge network configuration in the file.</p>
+</li>
+<li>
+<p>Create a bare <code>MachineConfig</code> object but do not make any configuration changes to the file.</p>
+</li>
+<li>
+<p>Start a reboot operation by applying the bare <code>MachineConfig</code> object configuration to your cluster by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;bare_machine_config&gt;.yml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the bare <code>MachineConfig</code> object by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete machineconfig &lt;machine_config_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Use the <code>nmstatectl</code> tool to check the configuration for the <code>br-ex</code> bridge interface by running the following command. The tool checks a node that runs the <code>br-ex</code> bridge interface and not the location where you deployed the <code>MachineConfig</code> objects.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>nmstatectl show br-ex</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../installing_bare_metal/ipi/ipi-install-installation-workflow.html#creating-manifest-file-customized-br-ex-bridge_ipi-install-installation-workflow">Installer-provisioned infrastructure: Creating a manifest object that includes a customized <code>br-ex</code> bridge</a></p>
+</li>
+<li>
+<p><a href="../../installing/installing_bare_metal/upi/installing-bare-metal.html#creating-manifest-file-customized-br-ex-bridge_installing-bare-metal">User-provisioned infrastructure: Creating a manifest object that includes a customized <code>br-ex</code> bridge</a></p>
 </li>
 </ul>
 </div>
