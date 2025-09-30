@@ -2147,9 +2147,10 @@
               <ul id="topicSubGroup-29-5" class="nav-tertiary list-unstyled collapse in">
 
                   <li><a class="" href="../../../observability/otel/otel-rn.html">Release notes for the Red Hat build of OpenTelemetry</a></li>
+                  <li><a class="" href="../../../observability/otel/otel-architecture.html">About the Red Hat build of OpenTelemetry</a></li>
                   <li><a class="" href="../../../observability/otel/otel-installing.html">Installing the Red Hat build of OpenTelemetry</a></li>
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-29-5-2"><span id="ssgSpan-29-5-2" class="fa fa-caret-down"></span>&nbsp;Configuring the Collector</a>
-                  <ul id="topicSubSubGroup-29-5-2" class="nav-tertiary list-unstyled collapse in">
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-29-5-3"><span id="ssgSpan-29-5-3" class="fa fa-caret-down"></span>&nbsp;Configuring the Collector</a>
+                  <ul id="topicSubSubGroup-29-5-3" class="nav-tertiary list-unstyled collapse in">
 
                     <li><a class=" active" href="../../../observability/otel/otel-collector/otel-collector-configuration-intro.html" style="padding-left: 70px;">Collector options</a></li>
                     <li><a class="" href="../../../observability/otel/otel-collector/otel-collector-receivers.html" style="padding-left: 70px;">Receivers</a></li>
@@ -3343,12 +3344,100 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#otel-collector-deployment-modes_otel-configuration-of-otel-collector">Deployment modes</a></li>
 <li><a href="#otel-collector-config-options_otel-configuration-of-otel-collector">OpenTelemetry Collector configuration options</a></li>
 <li><a href="#otel-creating-required-RBAC-resources-automatically_otel-configuration-of-otel-collector">Creating the required RBAC resources automatically</a></li>
 </ul>
 </div>
 <div class="paragraph">
 <p>The Red&#160;Hat build of OpenTelemetry Operator uses a custom resource definition (CRD) file that defines the architecture and configuration settings to be used when creating and deploying the Red&#160;Hat build of OpenTelemetry resources. You can install the default configuration or modify the file.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="otel-collector-deployment-modes_otel-configuration-of-otel-collector"><a class="anchor" href="#otel-collector-deployment-modes_otel-configuration-of-otel-collector"></a>Deployment modes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>OpenTelemetryCollector</code> custom resource allows you to specify one of the following deployment modes for the OpenTelemetry Collector:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Deployment</dt>
+<dd>
+<p>The default.</p>
+</dd>
+<dt class="hdlist1">StatefulSet</dt>
+<dd>
+<p>If you need to run stateful workloads, for example when using the Collector&#8217;s File Storage Extension or Tail Sampling Processor, use the StatefulSet deployment mode.</p>
+</dd>
+<dt class="hdlist1">DaemonSet</dt>
+<dd>
+<p>If you need to scrape telemetry data from every node, for example by using the Collector&#8217;s Filelog Receiver to read container logs, use the DaemonSet deployment mode.</p>
+</dd>
+<dt class="hdlist1">Sidecar</dt>
+<dd>
+<p>If you need access to log files inside a container, inject the Collector as a sidecar, and use the Collector&#8217;s Filelog Receiver and a shared volume such as <code>emptyDir</code>.</p>
+<div class="paragraph">
+<p>If you need to configure an application to send telemetry data via <code>localhost</code>, inject the Collector as a sidecar, and set up the Collector to forward the telemetry data to an external service via an encrypted and authenticated connection. The Collector runs in the same pod as the application when injected as a sidecar.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you choose the sidecar deployment mode, then in addition to setting the <code>spec.mode: sidecar</code> field in the <code>OpenTelemetryCollector</code> custom resource CR, you must also set the <code>sidecar.opentelemetry.io/inject</code> annotation as a pod annotation or namespace annotation. If you set this annotation on both the pod and namespace, the pod annotation takes precedence if it is set to either <code>false</code> or the <code>OpenTelemetryCollector</code> CR name.</p>
+</div>
+<div class="paragraph">
+<p>As a pod annotation, the <code>sidecar.opentelemetry.io/inject</code> annotation supports several values:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="s">...</span>
+  <span class="s">annotations</span><span class="pi">:</span>
+    <span class="s">sidecar.opentelemetry.io/inject</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;supported_value&gt;"</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="nn">...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Supported values:
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>false</code></dt>
+<dd>
+<p>Does not inject the Collector. This is the default if the annotation is missing.</p>
+</dd>
+<dt class="hdlist1"><code>true</code></dt>
+<dd>
+<p>Injects the Collector with the configuration of the <code>OpenTelemetryCollector</code> CR in the same namespace.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;collector_name&gt;</code></dt>
+<dd>
+<p>Injects the Collector with the configuration of the <code>&lt;collector_name&gt;</code> <code>OpenTelemetryCollector</code> CR in the same namespace.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;namespace&gt;/&lt;collector_name&gt;</code></dt>
+<dd>
+<p>Injects the Collector with the configuration of the <code>&lt;collector_name&gt;</code> <code>OpenTelemetryCollector</code> CR in the <code>&lt;namespace&gt;</code> namespace.</p>
+</dd>
+</dl>
+</div></td>
+</tr>
+</table>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</dd>
+</dl>
 </div>
 </div>
 </div>

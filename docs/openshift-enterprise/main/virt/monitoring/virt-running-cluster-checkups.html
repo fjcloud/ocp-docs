@@ -2147,9 +2147,10 @@
               <ul id="topicSubGroup-29-5" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../observability/otel/otel-rn.html">Release notes for the Red Hat build of OpenTelemetry</a></li>
+                  <li><a class="" href="../../observability/otel/otel-architecture.html">About the Red Hat build of OpenTelemetry</a></li>
                   <li><a class="" href="../../observability/otel/otel-installing.html">Installing the Red Hat build of OpenTelemetry</a></li>
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-29-5-2"><span id="ssgSpan-29-5-2" class="fa fa-caret-right"></span>&nbsp;Configuring the Collector</a>
-                  <ul id="topicSubSubGroup-29-5-2" class="nav-tertiary list-unstyled collapse">
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-29-5-3"><span id="ssgSpan-29-5-3" class="fa fa-caret-right"></span>&nbsp;Configuring the Collector</a>
+                  <ul id="topicSubSubGroup-29-5-3" class="nav-tertiary list-unstyled collapse">
 
                     <li><a class="" href="../../observability/otel/otel-collector/otel-collector-configuration-intro.html" style="padding-left: 70px;">Collector options</a></li>
                     <li><a class="" href="../../observability/otel/otel-collector/otel-collector-receivers.html" style="padding-left: 70px;">Receivers</a></li>
@@ -3333,7 +3334,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            {VirtProductName} cluster checkup framework
+            OpenShift Virtualization cluster checkup framework
           </h1>
         </div>
         
@@ -3351,14 +3352,17 @@
 </li>
 <li><a href="#virt-running-cluster-checkups-storage">Running predefined storage checkups</a>
 <ul class="sectlevel2">
+<li><a href="#virt-retain-storage-checkup-resources_virt-running-cluster-checkups">Retaining resources for troubleshooting storage checkups</a></li>
 <li><a href="#virt-storage-checkup-web-console_virt-running-cluster-checkups">Running a storage checkup by using the web console</a></li>
 <li><a href="#virt-checking-storage-configuration_virt-running-cluster-checkups">Running a storage checkup by using the CLI</a></li>
+<li><a href="#virt-troubleshoot-storage-checkup_virt-running-cluster-checkups">Troubleshooting a failed storage checkup</a></li>
+<li><a href="#virt-troubleshoot-storage-checkup-error-codes_virt-running-cluster-checkups">Storage checkup error codes</a></li>
 </ul>
 </li>
 <li><a href="#additional-resources_running-cluster-checkups">Additional resources</a></li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>A <em>checkup</em> is an automated test workload that allows you to verify if a specific cluster functionality works as expected. The cluster checkup framework uses native Kubernetes resources to configure and execute the checkup.</p>
 </div>
 <div class="admonitionblock important">
@@ -3835,6 +3839,60 @@
 </table>
 </div>
 <div class="sect2">
+<h3 id="virt-retain-storage-checkup-resources_virt-running-cluster-checkups"><a class="anchor" href="#virt-retain-storage-checkup-resources_virt-running-cluster-checkups"></a>Retaining resources for troubleshooting storage checkups</h3>
+<div class="paragraph _abstract">
+<p>The predefined storage checkup includes <code>skipTeardown</code> configuration options, which control resource clean up after a storage checkup runs.
+By default, the <code>skipTeardown</code> field value is <code>Never</code>, which means that the checkup always performs teardown steps and deletes all resources after the checkup runs.</p>
+</div>
+<div class="paragraph">
+<p>You can retain resources for further inspection in case a failure occurs by setting the <code>skipTeardown</code> field to <code>onfailure</code>.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Run the following command to edit the <code>storage-checkup-config</code> config map:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit configmap storage-checkup-config <span class="nt">-n</span> &lt;checkup_namespace&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Configure the <code>skipTeardown</code> field to use the <code>onfailure</code> value. You can do this by modifying the <code>storage-checkup-config</code> config map, stored in the <code>storage_checkup.yaml</code> file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">storage-checkup-config</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;checkup_namespace&gt;</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="s">spec.param.skipTeardown</span><span class="pi">:</span> <span class="s">onfailure</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Reapply the <code>storage-checkup-config</code> config map by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> storage_checkup.yaml <span class="nt">-n</span> &lt;checkup_namespace&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
 <h3 id="virt-storage-checkup-web-console_virt-running-cluster-checkups"><a class="anchor" href="#virt-storage-checkup-web-console_virt-running-cluster-checkups"></a>Running a storage checkup by using the web console</h3>
 <div class="paragraph">
 <p>Run a storage checkup to validate that storage is working correctly for virtual machines.</p>
@@ -4173,6 +4231,130 @@
 </li>
 </ol>
 </div>
+</div>
+<div class="sect2">
+<h3 id="virt-troubleshoot-storage-checkup_virt-running-cluster-checkups"><a class="anchor" href="#virt-troubleshoot-storage-checkup_virt-running-cluster-checkups"></a>Troubleshooting a failed storage checkup</h3>
+<div class="paragraph _abstract">
+<p>If a storage checkup fails, there are steps that you can take to identify the reason for failure.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have downloaded the directory provided by the <code>must-gather</code> tool.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Review the <code>status.failureReason</code> field in the <code>storage-checkup-config</code> config map by running the following command and observing the output:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configmap storage-checkup-config <span class="nt">-n</span> &lt;namespace&gt; <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output config map</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">storage-checkup-config</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">kiagnose/checkup-type</span><span class="pi">:</span> <span class="s">kubevirt-storage</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="s">spec.timeout</span><span class="pi">:</span> <span class="s">10m</span>
+  <span class="s">status.succeeded</span><span class="pi">:</span> <span class="s2">"</span><span class="s">false"</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="s">status.failureReason</span><span class="pi">:</span> <span class="s2">"</span><span class="s">ErrNoDefaultStorageClass"</span> <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>If the checkup has failed, the <code>status.succeeded</code> value is <code>false</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>If the checkup has failed, the <code>status.failureReason</code> field contains an error message. In this example output, the <code>ErrNoDefaultStorageClass</code> error message means that no default storage class is configured.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Search the directory provided by the <code>must-gather</code> tool for logs, events, or terms related to the error in the <code>data.status.failureReason</code> field value.</p>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../virt/support/virt-collecting-virt-data.html#virt-collecting-virt-data">Collecting data for Red&#160;Hat Support</a></p>
+</li>
+<li>
+<p><a href="../../virt/support/virt-collecting-virt-data.html#virt-using-virt-must-gather_virt-collecting-virt-data">Using the <code>must-gather</code> tool for OpenShift Virtualization</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="virt-troubleshoot-storage-checkup-error-codes_virt-running-cluster-checkups"><a class="anchor" href="#virt-troubleshoot-storage-checkup-error-codes_virt-running-cluster-checkups"></a>Storage checkup error codes</h3>
+<div class="paragraph _abstract">
+<p>The following error codes might appear in the <code>storage-checkup-config</code> config map after a storage checkup fails.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Error code</th>
+<th class="tableblock halign-left valign-top">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ErrNoDefaultStorageClass</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No default storage class is configured.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ErrPvcNotBound</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">One or more persistent volume claims (PVCs) failed to bind.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ErrMultipleDefaultStorageClasses</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multiple default storage classes are configured.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ErrEmptyClaimPropertySets</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">There are <code>StorageProfile</code> objects containing empty <code>ClaimPropertySets</code> specs.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ErrVMsWithUnsetEfsStorageClass</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">There are VMs using elastic file system (EFS) storage classes, where the GID and UID are not set in the <code>StorageClass</code> object.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ErrGoldenImagesNotUpToDate</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">One or more golden images has a <code>DataImportCron</code> object that is either not up to date or has a <code>DataSource</code> object which is not ready.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ErrGoldenImageNoDataSource</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <code>DataSource</code> object of the golden image has either no PVC or no snapshot source configured.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ErrBootFailedOnSomeVMs</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Some VMs failed to boot within the expected time.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 </div>

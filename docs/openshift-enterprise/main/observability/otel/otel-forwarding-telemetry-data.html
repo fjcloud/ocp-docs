@@ -2147,9 +2147,10 @@
               <ul id="topicSubGroup-29-5" class="nav-tertiary list-unstyled collapse in">
 
                   <li><a class="" href="../../observability/otel/otel-rn.html">Release notes for the Red Hat build of OpenTelemetry</a></li>
+                  <li><a class="" href="../../observability/otel/otel-architecture.html">About the Red Hat build of OpenTelemetry</a></li>
                   <li><a class="" href="../../observability/otel/otel-installing.html">Installing the Red Hat build of OpenTelemetry</a></li>
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-29-5-2"><span id="ssgSpan-29-5-2" class="fa fa-caret-right"></span>&nbsp;Configuring the Collector</a>
-                  <ul id="topicSubSubGroup-29-5-2" class="nav-tertiary list-unstyled collapse">
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-29-5-3"><span id="ssgSpan-29-5-3" class="fa fa-caret-right"></span>&nbsp;Configuring the Collector</a>
+                  <ul id="topicSubSubGroup-29-5-3" class="nav-tertiary list-unstyled collapse">
 
                     <li><a class="" href="../../observability/otel/otel-collector/otel-collector-configuration-intro.html" style="padding-left: 70px;">Collector options</a></li>
                     <li><a class="" href="../../observability/otel/otel-collector/otel-collector-receivers.html" style="padding-left: 70px;">Receivers</a></li>
@@ -3345,6 +3346,8 @@
 <ul class="sectlevel1">
 <li><a href="#otel-forwarding-traces_otel-forwarding-telemetry-data">Forwarding traces to a TempoStack instance</a></li>
 <li><a href="#otel-forwarding-logs-to-tempostack_otel-forwarding-telemetry-data">Forwarding logs to a LokiStack instance</a></li>
+<li><a href="#otel-forwarding-data-to-third-party-systems_otel-forwarding-telemetry-data">Forwarding telemetry data to third-party systems</a></li>
+<li><a href="#additional-resources_otel-forwarding-telemetry-data">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -3760,6 +3763,153 @@
 </td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="otel-forwarding-data-to-third-party-systems_otel-forwarding-telemetry-data"><a class="anchor" href="#otel-forwarding-data-to-third-party-systems_otel-forwarding-telemetry-data"></a>Forwarding telemetry data to third-party systems</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The OpenTelemetry Collector exports telemetry data by using the OTLP exporter via the OpenTelemetry Protocol (OTLP) that is implemented over the gRPC or HTTP transports. If you need to forward telemetry data to your third-party system and it does not support the OTLP or other supported protocol in the Red&#160;Hat build of OpenTelemetry, then you can deploy an unsupported custom OpenTelemetry Collector that can receive telemetry data via the OTLP and export it to your third-party system by using a custom exporter.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Red&#160;Hat does not support custom deployments.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have developed your own unsupported custom exporter that can export telemetry data via the OTLP to your third-party system.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Deploy a custom Collector either through the OperatorHub or manually:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If your third-party system supports it, deploy the custom Collector by using the OperatorHub.</p>
+</li>
+<li>
+<p>Deploy the custom Collector manually by using a config map, deployment, and service.</p>
+<div class="listingblock">
+<div class="title">Example of a custom Collector deployment</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">custom-otel-collector-config</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="s">otel-collector-config.yaml</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">receivers:</span>
+      <span class="s">otlp:</span>
+        <span class="s">protocols:</span>
+          <span class="s">grpc:</span>
+    <span class="s">exporters:</span>
+      <span class="s">debug: {}</span>
+      <span class="s">prometheus:</span>
+    <span class="s">service:</span>
+      <span class="s">pipelines:</span>
+        <span class="s">traces:</span>
+          <span class="s">receivers: [otlp]</span>
+          <span class="s">exporters: [debug] </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="s">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">custom-otel-collector-deployment</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">component</span><span class="pi">:</span> <span class="s">otel-collector</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">component</span><span class="pi">:</span> <span class="s">otel-collector</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">opentelemetry-collector</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:latest</span> <i class="conum" data-value="2"></i><b>(2)</b>
+        <span class="na">command</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">/otelcol-contrib"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">--config=/conf/otel-collector-config.yaml"</span>
+        <span class="na">ports</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">otlp</span>
+          <span class="na">containerPort</span><span class="pi">:</span> <span class="m">4317</span>
+          <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+        <span class="na">volumeMounts</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">otel-collector-config-vol</span>
+          <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/conf</span>
+          <span class="na">readOnly</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">otel-collector-config-vol</span>
+        <span class="na">configMap</span><span class="pi">:</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">custom-otel-collector-config</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">custom-otel-collector-service</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">component</span><span class="pi">:</span> <span class="s">otel-collector</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterIP</span>
+  <span class="na">ports</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">otlp-grpc</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">4317</span>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="m">4317</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">component</span><span class="pi">:</span> <span class="s">otel-collector</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Replace <code>debug</code> with the required exporter for your third-party system.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Replace the image with the required version of the OpenTelemetry Collector that has the required exporter for your third-party system.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The service name is used in the Red Hat build of OpenTelemetry Collector CR to configure the OTLP exporter.</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources_otel-forwarding-telemetry-data"><a class="anchor" href="#additional-resources_otel-forwarding-telemetry-data"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://opentelemetry.io/docs/specs/otlp/">OpenTelemetry Protocol (OTLP)</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
