@@ -16,7 +16,7 @@
   
   
 
-  <title>Configuring gateway mode - OVN-Kubernetes network plugin | Networking | OKD 4</title>
+  <title>Configuring a gateway - OVN-Kubernetes network plugin | Networking | OKD 4</title>
   <link href="https://assets.openshift.net/content/subdomain.css" rel="stylesheet" type="text/css"/>
   <link href="https://docs.okd.io/latest/_stylesheets/search.css" rel="stylesheet" media="screen"/>
   <link href="https://docs.okd.io/latest/_stylesheets/autumn.css" rel="stylesheet"  media="screen"/>
@@ -122,7 +122,7 @@
       <li class="hidden-xs active"><a href="../../networking/ovn_kubernetes_network_provider/about-ovn-kubernetes.html">OVN-Kubernetes network plugin</a></li>
       
       <li class="hidden-xs active">
-        Configuring gateway mode
+        Configuring a gateway
       </li>
       
     </ol>
@@ -931,7 +931,7 @@
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/ovn-kubernetes-tracing-using-ovntrace.html">OVN-Kubernetes traffic tracing</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/converting-to-dual-stack.html">Converting to IPv4/IPv6 dual stack networking</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/configure-ovn-kubernetes-subnets.html">Configuring internal subnets</a></li>
-                  <li><a class=" active" href="../../networking/ovn_kubernetes_network_provider/configuring-gateway-mode.html">Configuring gateway mode</a></li>
+                  <li><a class=" active" href="../../networking/ovn_kubernetes_network_provider/configuring-gateway.html">Configuring a gateway</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/configuring-secondary-external-gateway.html">Configure an external gateway on the default network</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/configuring-egress-ips-ovn.html">Configuring an egress IP address</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/assigning-egress-ips-ovn.html">Assigning an egress IP address</a></li>
@@ -2815,7 +2815,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            Configuring gateway mode
+            Configuring a gateway
           </h1>
         </div>
         
@@ -2825,25 +2825,32 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#nwt-gateway-mode_configuring-gateway-mode">Setting local and shared gateway modes</a></li>
+<li><a href="#nwt-configure-egress-routing-policies_configuring-gateway-mode">Configuring egress routing policies</a></li>
 </ul>
 </div>
 <div class="paragraph">
-<p>As a cluster administrator you can configure the <code>gatewayConfig</code> object to manage how external traffic leaves the cluster. You do so by setting the <code>routingViaHost</code> spec to <code>true</code> for local mode or <code>false</code> for shared mode.</p>
+<p>As a cluster administrator you can configure the <code>gatewayConfig</code> object to manage how external traffic leaves the cluster. You do so by setting the <code>routingViaHost</code> parameter to one of the following values:</p>
 </div>
-<div class="paragraph">
-<p>In local gateway mode, traffic is routed through the host and is consequently applied to the routing table of the host. In shared gateway mode, traffic is not routed through the host. Instead, traffic the Open vSwitch (OVS) outputs traffic directly to the node IP interface.</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>true</code> means that egress traffic routes through a specific local gateway on the node that hosts the pod. Egress traffic routes through the host and this traffic applies to the routing table of the host.</p>
+</li>
+<li>
+<p><code>false</code> means that egress traffic routes through a dedicated node but a group of nodes share the same gateway. Egress traffic does not route through the host. The Open vSwitch (OVS) outputs traffic directly to the node IP interface.</p>
+</li>
+</ul>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="nwt-gateway-mode_configuring-gateway-mode"><a class="anchor" href="#nwt-gateway-mode_configuring-gateway-mode"></a>Setting local and shared gateway modes</h2>
+<h2 id="nwt-configure-egress-routing-policies_configuring-gateway-mode"><a class="anchor" href="#nwt-configure-egress-routing-policies_configuring-gateway-mode"></a>Configuring egress routing policies</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>As a cluster administrator you can configure the gateway mode using the <code>gatewayConfig</code> spec in the Cluster Network Operator. The following procedure can be used to set the <code>routingViaHost</code> field to <code>true</code> for local mode or  <code>false</code> for shared mode.</p>
+<p>As a cluster administrator you can configure egress routing policies by using the <code>gatewayConfig</code> specification in the Cluster Network Operator (CNO). You can use the following procedure to set the <code>routingViaHost</code> field to <code>true</code> or  <code>false</code>.</p>
 </div>
 <div class="paragraph">
-<p>You can follow the optional step 4 to enable IP forwarding alongside local gateway mode if you need the host network of the node to act as a router for traffic not related to OVN-Kubernetes. For example, possible use cases for combining local gateway mode with IP forwarding include:</p>
+<p>You can follow the optional step in the procedure to enable IP forwarding alongside the <code>routingViaHost=true</code> configuration if you need the host network of the node to act as a router for traffic not related to OVN-Kubernetes. For example, possible use cases for combining local gateway with IP forwarding include:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -2878,7 +2885,7 @@
 </div>
 </li>
 <li>
-<p>Set the <code>routingViaHost</code> parameter to <code>true</code> for local gateway mode by running the following command:</p>
+<p>Set the <code>routingViaHost</code> parameter to <code>true</code> by entering the following command. Egress traffic then gets routed through a specific gateway according to the routes that you configured on the node.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch networks.operator.openshift.io cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec":{"defaultNetwork":{"ovnKubernetesConfig":{"gatewayConfig":{"routingViaHost": true}}}}}'</span></code></pre>
@@ -2886,7 +2893,7 @@
 </div>
 </li>
 <li>
-<p>Verify that local gateway mode has been set by running the following command:</p>
+<p>Verify the correct application of the <code>routingViaHost=true</code> configuration by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get networks.operator.openshift.io cluster <span class="nt">-o</span> yaml | <span class="nb">grep</span> <span class="nt">-A</span> 5 <span class="s2">"gatewayConfig"</span></code></pre>
@@ -2913,7 +2920,7 @@ metadata:
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>A value of <code>true</code> sets local gateway mode and a value of <code>false</code> sets shared gateway mode. In local gateway mode, traffic is routed through the host. In shared gateway mode, traffic is not routed through the host.</td>
+<td>A value of <code>true</code> means that egress traffic gets routed through a specific local gateway on the node that hosts the pod. A value of <code>false</code> for the parameter means that a group of nodes share a single gateway so traffic does not get routed through a single host.</td>
 </tr>
 </table>
 </div>

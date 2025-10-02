@@ -931,7 +931,7 @@
                   <li><a class="" href="../../../networking/ovn_kubernetes_network_provider/ovn-kubernetes-tracing-using-ovntrace.html">OVN-Kubernetes traffic tracing</a></li>
                   <li><a class="" href="../../../networking/ovn_kubernetes_network_provider/converting-to-dual-stack.html">Converting to IPv4/IPv6 dual stack networking</a></li>
                   <li><a class="" href="../../../networking/ovn_kubernetes_network_provider/configure-ovn-kubernetes-subnets.html">Configuring internal subnets</a></li>
-                  <li><a class="" href="../../../networking/ovn_kubernetes_network_provider/configuring-gateway-mode.html">Configuring gateway mode</a></li>
+                  <li><a class="" href="../../../networking/ovn_kubernetes_network_provider/configuring-gateway.html">Configuring a gateway</a></li>
                   <li><a class="" href="../../../networking/ovn_kubernetes_network_provider/configuring-secondary-external-gateway.html">Configure an external gateway on the default network</a></li>
                   <li><a class="" href="../../../networking/ovn_kubernetes_network_provider/configuring-egress-ips-ovn.html">Configuring an egress IP address</a></li>
                   <li><a class="" href="../../../networking/ovn_kubernetes_network_provider/assigning-egress-ips-ovn.html">Assigning an egress IP address</a></li>
@@ -2829,7 +2829,7 @@
 <ul class="sectlevel2">
 <li><a href="#limitations-of-an-egress-firewall_configuring-egress-firewall-ovn">Limitations of an egress firewall</a></li>
 <li><a href="#policy-rule-order_configuring-egress-firewall-ovn">Matching order for egress firewall policy rules</a></li>
-<li><a href="#domain-name-server-resolution_configuring-egress-firewall-ovn">How Domain Name Server (DNS) resolution works</a></li>
+<li><a href="#domain-name-server-resolution_configuring-egress-firewall-ovn">Domain Name Server (DNS) resolution</a></li>
 </ul>
 </li>
 <li><a href="#nw-egressnetworkpolicy-object_configuring-egress-firewall-ovn">EgressFirewall custom resource (CR) object</a>
@@ -2851,18 +2851,16 @@
 <h2 id="nw-egressnetworkpolicy-about_configuring-egress-firewall-ovn"><a class="anchor" href="#nw-egressnetworkpolicy-about_configuring-egress-firewall-ovn"></a>How an egress firewall works in a project</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>As a cluster administrator, you can use an <em>egress firewall</em> to
-limit the external hosts that some or all pods can access from within the
-cluster. An egress firewall supports the following scenarios:</p>
+<p>As a cluster administrator, you can use an <em>egress firewall</em> to limit the external hosts that some or all pods can access from within the cluster. An egress firewall supports the following scenarios:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>A pod can only connect to internal hosts and cannot initiate connections to
+<p>A pod can only connect to internal hosts and cannot start connections to
 the public internet.</p>
 </li>
 <li>
-<p>A pod can only connect to the public internet and cannot initiate connections
+<p>A pod can only connect to the public internet and cannot start connections
 to internal hosts that are outside the OKD cluster.</p>
 </li>
 <li>
@@ -2884,7 +2882,7 @@ to internal hosts that are outside the OKD cluster.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Egress firewall does not apply to the host network namespace. Pods with host networking enabled are unaffected by egress firewall rules.</p>
+<p>Egress firewall does not apply to the host network namespace. Egress firewall rules do not impact any pods that have host networking enabled.</p>
 </div>
 </td>
 </tr>
@@ -2917,7 +2915,7 @@ to internal hosts that are outside the OKD cluster.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If your egress firewall includes a deny rule for <code>0.0.0.0/0</code>, access to your OKD API servers is blocked. You must either add allow rules for each IP address or use the <code>nodeSelector</code> type allow rule in your egress policy rules to connect to API servers.</p>
+<p>If your egress firewall includes a deny rule for <code>0.0.0.0/0</code>, the rule blocks access to your OKD API servers. You must either add allow rules for each IP address or use the <code>nodeSelector</code> type allow rule in your egress policy rules to connect to API servers.</p>
 </div>
 <div class="paragraph">
 <p>The following example illustrates the order of the egress firewall rules necessary to ensure API server access:</p>
@@ -2994,25 +2992,25 @@ to internal hosts that are outside the OKD cluster.</p>
 <p>A maximum of one EgressFirewall object with a maximum of 8,000 rules can be defined per project.</p>
 </li>
 <li>
-<p>If you are using the OVN-Kubernetes network plugin with shared gateway mode in Red Hat OpenShift Networking, return ingress replies are affected by egress firewall rules. If the egress firewall rules drop the ingress reply destination IP, the traffic is dropped.</p>
+<p>If you use the OVN-Kubernetes network plugin and you configured <code>false</code> for the <code>routingViaHost</code> parameter in the <code>Network</code> custom resource for your cluster, egress firewall rules impact the return ingress replies. If the egress firewall rules drop the ingress reply destination IP, the traffic is dropped.</p>
 </li>
 </ul>
 </div>
 <div class="paragraph">
-<p>Violating any of these restrictions results in a broken egress firewall for the project. Consequently, all external network traffic is dropped, which can cause security risks for your organization.</p>
+<p>Violating any of these restrictions results in a broken egress firewall for the project. As a result, all external network traffic drops, which can cause security risks for your organization.</p>
 </div>
 <div class="paragraph">
-<p>An Egress Firewall resource can be created in the <code>kube-node-lease</code>, <code>kube-public</code>, <code>kube-system</code>, <code>openshift</code> and <code>openshift-</code> projects.</p>
+<p>You can create an Egress Firewall resource in the <code>kube-node-lease</code>, <code>kube-public</code>, <code>kube-system</code>, <code>openshift</code> and <code>openshift-</code> projects.</p>
 </div>
 </div>
 <div class="sect2">
 <h3 id="policy-rule-order_configuring-egress-firewall-ovn"><a class="anchor" href="#policy-rule-order_configuring-egress-firewall-ovn"></a>Matching order for egress firewall policy rules</h3>
 <div class="paragraph">
-<p>The egress firewall policy rules are evaluated in the order that they are defined, from first to last. The first rule that matches an egress connection from a pod applies. Any subsequent rules are ignored for that connection.</p>
+<p>The OVN-Kubernetes network plugin evaluates egress firewall policy rules based on the first-to-last order of how you defined the rules. The first rule that matches an egress connection from a pod applies. The plugin ignores any subsequent rules for that connection.</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="domain-name-server-resolution_configuring-egress-firewall-ovn"><a class="anchor" href="#domain-name-server-resolution_configuring-egress-firewall-ovn"></a>How Domain Name Server (DNS) resolution works</h3>
+<h3 id="domain-name-server-resolution_configuring-egress-firewall-ovn"><a class="anchor" href="#domain-name-server-resolution_configuring-egress-firewall-ovn"></a>Domain Name Server (DNS) resolution</h3>
 <div class="paragraph">
 <p>If you use DNS names in any of your egress firewall policy rules, proper resolution of the domain names is subject to the following restrictions:</p>
 </div>
@@ -3022,7 +3020,7 @@ to internal hosts that are outside the OKD cluster.</p>
 <p>Domain name updates are polled based on a time-to-live (TTL) duration. By default, the duration is 30 minutes. When the egress firewall controller queries the local name servers for a domain name, if the response includes a TTL and the TTL is less than 30 minutes, the controller sets the duration for that DNS name to the returned value. Each DNS name is queried after the TTL for the DNS record expires.</p>
 </li>
 <li>
-<p>The pod must resolve the domain from the same local name servers when necessary. Otherwise the IP addresses for the domain known by the egress firewall controller and the pod can be different. If the IP addresses for a hostname differ, the egress firewall might not be enforced consistently.</p>
+<p>The pod must resolve the domain from the same local name servers when necessary. Otherwise the IP addresses for the domain known by the egress firewall controller and the pod can be different. If the IP addresses for a hostname differ, consistent enforcement of the egress firewall does not apply.</p>
 </li>
 <li>
 <p>Because the egress firewall controller and pods asynchronously poll the same local name server, the pod might obtain the updated IP address before the egress controller does, which causes a race condition. Due to this current limitation, domain name usage in EgressFirewall objects is only recommended for domains with infrequent IP address changes.</p>
@@ -3040,7 +3038,7 @@ to internal hosts that are outside the OKD cluster.</p>
 <p>Using DNS names in your egress firewall policy does not affect local DNS resolution through CoreDNS.</p>
 </div>
 <div class="paragraph">
-<p>However, if your egress firewall policy uses domain names, and an external DNS server handles DNS resolution for an affected pod, you must include egress firewall rules that permit access to the IP addresses of your DNS server.</p>
+<p>If your egress firewall policy uses domain names, and an external DNS server handles DNS resolution for an affected pod, you must include egress firewall rules that allow access to the IP addresses of your DNS server.</p>
 </div>
 </td>
 </tr>
