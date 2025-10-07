@@ -1866,6 +1866,7 @@
                   <li><a class="" href="../../nodes/pods/nodes-pods-configuring.html">Configuring a cluster for pods</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-autoscaling.html">Automatically scaling pods with the horizontal pod autoscaler</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-vertical-autoscaler.html">Automatically adjust pod resource levels with the vertical pod autoscaler</a></li>
+                  <li><a class="" href="../../nodes/pods/nodes-pods-adjust-resources-in-place.html">Manually adjust pod resource levels</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-secrets.html">Providing sensitive data to pods by using secrets</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-secrets-store.html">Providing sensitive data to pods by using an external secrets store</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-short-term-auth.html">Authenticating pods with short-term credentials</a></li>
@@ -1873,8 +1874,8 @@
                   <li><a class="" href="../../nodes/pods/nodes-pods-plugins.html">Using Device Manager to make devices available to nodes</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-priority.html">Including pod priority in pod scheduling decisions</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-node-selectors.html">Placing pods on specific nodes using node selectors</a></li>
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-26-1-12"><span id="ssgSpan-26-1-12" class="fa fa-caret-right"></span>&nbsp;Run Once Duration Override Operator</a>
-                  <ul id="topicSubSubGroup-26-1-12" class="nav-tertiary list-unstyled collapse">
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-26-1-13"><span id="ssgSpan-26-1-13" class="fa fa-caret-right"></span>&nbsp;Run Once Duration Override Operator</a>
+                  <ul id="topicSubSubGroup-26-1-13" class="nav-tertiary list-unstyled collapse">
 
                     <li><a class="" href="../../nodes/pods/run_once_duration_override/index.html" style="padding-left: 70px;">Run Once Duration Override Operator overview</a></li>
                     <li><a class="" href="../../nodes/pods/run_once_duration_override/run-once-duration-override-release-notes.html" style="padding-left: 70px;">Run Once Duration Override Operator release notes</a></li>
@@ -3369,6 +3370,8 @@
 <li><a href="#virt-must-gather-options_virt-collecting-virt-data">must-gather tool options</a></li>
 </ul>
 </li>
+<li><a href="#virt-generating-a-vm-memory-dump_virt-collecting-virt-data">Generating a VM memory dump</a></li>
+<li><a href="#additional-resources_virt-collecting-virt-data">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -3475,7 +3478,7 @@ For information about the OpenShift Container Platform monitoring stack, see <a 
 <p>Collect screenshots of VMs that have crashed <em>before</em> you restart them.</p>
 </li>
 <li>
-<p><a href="../../virt/getting_started/virt-using-the-cli-tools.html#vm-memory-dump-commands_virt-using-the-cli-tools">Collect memory dumps from VMs</a> <em>before</em> remediation attempts.</p>
+<p><a href="../../virt/support/virt-collecting-virt-data.html#virt-generating-a-vm-memory-dump_virt-collecting-virt-data">Collect memory dumps from VMs</a> <em>before</em> remediation attempts.</p>
 </li>
 <li>
 <p>Record factors that the malfunctioning VMs have in common. For example, the VMs have the same host or network.</p>
@@ -3731,6 +3734,110 @@ For information about the OpenShift Container Platform monitoring stack, see <a 
 </div>
 </div>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-generating-a-vm-memory-dump_virt-collecting-virt-data"><a class="anchor" href="#virt-generating-a-vm-memory-dump_virt-collecting-virt-data"></a>Generating a VM memory dump</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When a virtual machine (VM) terminates unexpectedly, you can use the <code>virtctl memory-dump</code> to generate a memory dump command to output a VM memory dump and save it on a persistent volume claim (PVC). Afterwards, you can analyze the memory dump to diagnose and troubleshoot issues on the VM.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The hot plug feature gate is enabled in the <code>HyperConverged</code> custom resource. To do so, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hyperconverged kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv <span class="se">\</span>
+  <span class="nt">--type</span> json <span class="nt">-p</span> <span class="s1">'[{"op": "add", "path": "/spec/featureGates", \
+  "value": "HotplugVolumes"}]'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: You have an existing PVC on which you want to save the memory dump.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>The PVC volume mode must be <code>FileSystem</code>.</p>
+</li>
+<li>
+<p>The PVC must be large enough to contain the memory dump.</p>
+<div class="paragraph">
+<p>The formula for calculating the PVC size is <code>(VMMemorySize + 100Mi) * FileSystemOverhead</code>, where <code>100Mi</code> is the memory dump overhead, and <code>FileSystemOverhead</code> is defined in the <code>HCO</code> object.</p>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a memory dump of the required VM:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If you have an existing PVC selected on which you want to save the memory dump:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>virtctl memory-dump get &lt;vm_name&gt; <span class="nt">--claim-name</span><span class="o">=</span>&lt;pvc_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If you want to create a new PVC for the memory dump:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>virtctl memory-dump get &lt;vm_name&gt; <span class="nt">--claim-name</span><span class="o">=</span>&lt;new_pvc_name&gt; <span class="nt">--create-claim</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Download the memory dump:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>virtctl memory-dump download &lt;vm_name&gt; <span class="nt">--output</span><span class="o">=</span>&lt;output_file&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Attach the memory dump to a Red Hat Support case.</p>
+<div class="paragraph">
+<p>Alternatively, you can inspect the memory dump, for example by using <a href="https://github.com/volatilityfoundation/volatility3">the volatility3 tool</a>.</p>
+</div>
+</li>
+<li>
+<p>Optional: Remove the memory dump:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>virtctl memory-dump remove &lt;vm_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources_virt-collecting-virt-data"><a class="anchor" href="#additional-resources_virt-collecting-virt-data"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="../../virt/support/virt-support-overview.html#virt-support-overview">VM support overview</a></p>
+</li>
+<li>
+<p><a href="https://access.redhat.com/solutions/2112">How to provide log files to Red Hat Support (Red Hat Knowledgebase)</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
