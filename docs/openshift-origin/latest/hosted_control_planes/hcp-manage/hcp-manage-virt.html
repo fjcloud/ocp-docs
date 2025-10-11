@@ -934,7 +934,6 @@
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/configuring-gateway.html">Configuring a gateway</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/configuring-secondary-external-gateway.html">Configure an external gateway on the default network</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/configuring-egress-ips-ovn.html">Configuring an egress IP address</a></li>
-                  <li><a class="" href="../../networking/ovn_kubernetes_network_provider/assigning-egress-ips-ovn.html">Assigning an egress IP address</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/configuring-egress-traffic-for-vrf-loadbalancer-services.html">Configuring an egress service</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/using-an-egress-router-ovn.html">Considerations for the use of an egress router pod</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/deploying-egress-router-ovn-redirection.html">Deploying an egress router pod in redirect mode</a></li>
@@ -1428,7 +1427,7 @@
       <ul id="topicGroup22" class="collapse  list-unstyled">
             <li><a class="" href="../../etcd/etcd-overview.html">Overview of etcd</a></li>
             <li><a class="" href="../../etcd/etcd-practices.html">Recommended etcd practices</a></li>
-            <li><a class="" href="../../etcd/etcd-performance.html">Performance considerations for etcd</a></li>
+            <li><a class="" href="../../etcd/etcd-performance.html">Ensuring reliable etcd performance and scalability</a></li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-22-3"><span id="sgSpan-22-3" class="fa fa-caret-right"></span>&nbsp;Backing up and restoring etcd data</a>
               <ul id="topicSubGroup-22-3" class="nav-tertiary list-unstyled collapse">
 
@@ -1536,6 +1535,7 @@
                   <li><a class="" href="../../nodes/pods/nodes-pods-plugins.html">Using Device Manager to make devices available to nodes</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-priority.html">Including pod priority in pod scheduling decisions</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-node-selectors.html">Placing pods on specific nodes using node selectors</a></li>
+                  <li><a class="" href="../../nodes/pods/nodes-pods-allocate-dra.html">Allocating GPUs to pods</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-user-namespaces.html">Running pods in Linux user namespaces</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-24-2"><span id="sgSpan-24-2" class="fa fa-caret-right"></span>&nbsp;Automatically scaling pods with the Custom Metrics Autoscaler Operator</a>
@@ -2842,6 +2842,7 @@
 </li>
 <li><a href="#hcp-virt-attach-nvidia-gpus_hcp-manage-virt">Attaching NVIDIA GPU devices by using the hcp CLI</a></li>
 <li><a href="#hcp-virt-attach-nvidia-gpus-np-api_hcp-manage-virt">Attaching NVIDIA GPU devices by using the NodePool resource</a></li>
+<li><a href="#hcp-virt-evict-vms_hcp-manage-virt">Evicting KubeVirt virtual machines</a></li>
 <li><a href="#hcp-topology-spread-constraint_hcp-manage-virt">Spreading node pool VMs by using topologySpreadConstraint</a></li>
 </ul>
 </div>
@@ -3828,6 +3829,69 @@
 </div>
 </li>
 </ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-virt-evict-vms_hcp-manage-virt"><a class="anchor" href="#hcp-virt-evict-vms_hcp-manage-virt"></a>Evicting KubeVirt virtual machines</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In cases where KubeVirt virtual machines (VMs) cannot be live migrated, such as when you use GPU passthrough, the VMs must be evicted at the same time as the <code>NodePool</code> resource of the hosted cluster. Otherwise, the compute nodes might be shut down without being drained from the workload. This might also happen when you are upgrading the OKD Virtualization Operator. To achieve a synchronized restart, you can set the <code>evictionStrategy</code> parameter on the <code>hyperconverged</code> resource to ensure that only VMs that are drained from workloads are rebooted.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>To learn more about the <code>hyperconverged</code> resource and the allowed values for the <code>evictionStrategy</code> parameter, enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc explain hyperconverged.spec.evictionStrategy</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Patch the <code>hyperconverged</code> resource by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-cnv patch hyperconverged kubevirt-hyperconverged <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec": {"evictionStrategy": "External"}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Patch the workload update strategy and the workload update methods by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-cnv patch hyperconverged kubevirt-hyperconverged <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec": {"workloadUpdateStrategy": {"workloadUpdateMethods": ["LiveMigrate","Evict"]}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>By applying this patch, you specify that VMs should be live-migrated if possible, and that only the VMs that cannot be live-migrated should be evicted.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Check whether the patch command was applied properly by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-cnv get hyperconverged kubevirt-hyperconverged <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.spec.evictionStrategy}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">External</span></code></pre>
+</div>
 </div>
 </li>
 </ul>

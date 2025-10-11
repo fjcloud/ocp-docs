@@ -16,7 +16,7 @@
   
   
 
-  <title>Performance considerations for etcd | etcd | OKD 4</title>
+  <title>Ensuring reliable etcd performance and scalability | etcd | OKD 4</title>
   <link href="https://assets.openshift.net/content/subdomain.css" rel="stylesheet" type="text/css"/>
   <link href="https://docs.okd.io/latest/_stylesheets/search.css" rel="stylesheet" media="screen"/>
   <link href="https://docs.okd.io/latest/_stylesheets/autumn.css" rel="stylesheet"  media="screen"/>
@@ -122,7 +122,7 @@
       
       
       <li class="hidden-xs active">
-        Performance considerations for etcd
+        Ensuring reliable etcd performance and scalability
       </li>
       
     </ol>
@@ -934,7 +934,6 @@
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/configuring-gateway.html">Configuring a gateway</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/configuring-secondary-external-gateway.html">Configure an external gateway on the default network</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/configuring-egress-ips-ovn.html">Configuring an egress IP address</a></li>
-                  <li><a class="" href="../networking/ovn_kubernetes_network_provider/assigning-egress-ips-ovn.html">Assigning an egress IP address</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/configuring-egress-traffic-for-vrf-loadbalancer-services.html">Configuring an egress service</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/using-an-egress-router-ovn.html">Considerations for the use of an egress router pod</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/deploying-egress-router-ovn-redirection.html">Deploying an egress router pod in redirect mode</a></li>
@@ -1428,7 +1427,7 @@
       <ul id="topicGroup22" class="collapse in list-unstyled">
             <li><a class="" href="../etcd/etcd-overview.html">Overview of etcd</a></li>
             <li><a class="" href="../etcd/etcd-practices.html">Recommended etcd practices</a></li>
-            <li><a class=" active" href="../etcd/etcd-performance.html">Performance considerations for etcd</a></li>
+            <li><a class=" active" href="../etcd/etcd-performance.html">Ensuring reliable etcd performance and scalability</a></li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-22-3"><span id="sgSpan-22-3" class="fa fa-caret-right"></span>&nbsp;Backing up and restoring etcd data</a>
               <ul id="topicSubGroup-22-3" class="nav-tertiary list-unstyled collapse">
 
@@ -1536,6 +1535,7 @@
                   <li><a class="" href="../nodes/pods/nodes-pods-plugins.html">Using Device Manager to make devices available to nodes</a></li>
                   <li><a class="" href="../nodes/pods/nodes-pods-priority.html">Including pod priority in pod scheduling decisions</a></li>
                   <li><a class="" href="../nodes/pods/nodes-pods-node-selectors.html">Placing pods on specific nodes using node selectors</a></li>
+                  <li><a class="" href="../nodes/pods/nodes-pods-allocate-dra.html">Allocating GPUs to pods</a></li>
                   <li><a class="" href="../nodes/pods/nodes-pods-user-namespaces.html">Running pods in Linux user namespaces</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-24-2"><span id="sgSpan-24-2" class="fa fa-caret-right"></span>&nbsp;Automatically scaling pods with the Custom Metrics Autoscaler Operator</a>
@@ -2817,7 +2817,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            Performance considerations for etcd
+            Ensuring reliable etcd performance and scalability
           </h1>
         </div>
         
@@ -2827,7 +2827,10 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#etcd-leader-election-log-replication_etcd-performance">Leader election and log replication of etcd</a></li>
 <li><a href="#etcd-node-scaling_etcd-performance">Node scaling for etcd</a></li>
+<li><a href="#etcd-disk-latency_etcd-performance">Effects of disk latency on etcd</a></li>
+<li><a href="#etcd-consensus-latency_etcd-performance">Monitoring consensus latency for etcd</a></li>
 <li><a href="#move-etcd-different-disk_etcd-performance">Moving etcd to a different disk</a></li>
 <li><a href="#etcd-defrag_etcd-performance">Defragmenting etcd data</a>
 <ul class="sectlevel2">
@@ -2840,16 +2843,49 @@
 <li><a href="#etcd-changing-hardware-speed-tolerance_etcd-performance">Changing hardware speed tolerance</a></li>
 </ul>
 </li>
+<li><a href="#etcd-timer-tunables_etcd-performance">OKD timer tunables for etcd</a></li>
+<li><a href="#etcd-database-size_etcd-performance">Determining the size of the etcd database and understanding its effects</a></li>
 <li><a href="#etcd-increase-db_etcd-performance">Increasing the database size for etcd</a>
 <ul class="sectlevel2">
 <li><a href="#etcd-change-db-size_etcd-performance">Changing the etcd database size</a></li>
 <li><a href="#etcd-change-db-size-troubleshooting_etcd-performance">Troubleshooting</a></li>
 </ul>
 </li>
+<li><a href="#etcd-network-latency-jitter_etcd-performance">Measuring network jitter between control plane nodes</a></li>
+<li><a href="#etcd-peer-round-trip_etcd-performance">How etcd peer round trip time affects performance</a></li>
+<li><a href="#etcd-determine-kube-api-transaction-rate_etcd-performance">Determining Kubernetes API transaction rate for your environment</a></li>
 </ul>
 </div>
 <div class="paragraph">
-<p>To ensure optimal performance and scalability for etcd in OKD, you can complete the following practices.</p>
+<p>To ensure optimal performance with etcd, it&#8217;s important to understand the conditions that affect performance, including node scaling, leader election, log replication, tuning, latency, network jitter, peer round trip time, database size, and Kubernetes API transaction rates.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-leader-election-log-replication_etcd-performance"><a class="anchor" href="#etcd-leader-election-log-replication_etcd-performance"></a>Leader election and log replication of etcd</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>etcd is a consistent, distributed key-value store that operates as a cluster of replicated nodes. Following the Raft algorithm, etcd operates by electing one node as the leader and the others as followers. The leader maintains the system&#8217;s current state and ensures that the followers are up-to-date.</p>
+</div>
+<div class="paragraph">
+<p>The leader node is responsible for log replication. It handles incoming write transactions from the client and writes a Raft log entry that it then broadcasts to the followers.</p>
+</div>
+<div class="paragraph">
+<p>When an etcd client such as <code>kube-apiserver</code> connects to an etcd member that is requesting an action that requires a quorum, such as writing a value, if the etcd member is a follower, it returns a message indicating the transaction should be sent to the leader.</p>
+</div>
+<div class="paragraph">
+<p>When the etcd client requests an action that requires a quorum from the leader, the leader keeps the client connection open while it writes the local Raft log, broadcasts the log to the followers, and waits for the majority of the followers to acknowledge to have committed the log without failures. Only then does the leader send the acknowledgment to the etcd client and close the session. If failure notifications are received from the followers and the majority fails to reach a consensus, the leader returns the error message to the client and closes the session.</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://etcd.io/docs/v3.5/learning/design-learner/">The etcd learner design</a></p>
+</li>
+<li>
+<p><a href="https://etcd.io/docs/v3.5/op-guide/failures/">Failure modes</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -2867,6 +2903,20 @@
 </div>
 <div class="paragraph">
 <p>For more information about how to scale control plane nodes by using the Assisted Installer, see "Adding hosts with the API" and "Replacing a control plane node in a healthy cluster".</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>While adding control plane nodes can increase reliability and availability, it can decrease throughput and increase latency, affecting performance.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
 <p>The following table shows failure tolerance for clusters of different sizes:</p>
@@ -2927,6 +2977,118 @@
 <p><a href="../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/scenario-2-restoring-cluster-state.html#dr-restoring-cluster-state">Restoring to a previous cluster state</a></p>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-disk-latency_etcd-performance"><a class="anchor" href="#etcd-disk-latency_etcd-performance"></a>Effects of disk latency on etcd</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>An etcd cluster is sensitive to disk latencies. To understand the disk latency that is experienced by etcd in your control plane environment, run the <code>fio</code> tests or suite.</p>
+</div>
+<div class="paragraph">
+<p>Make sure that the final report classifies the disk as appropriate for etcd, as shown in the following example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="c">...
+</span><span class="go">99th percentile of fsync is 5865472 ns
+99th percentile of the fsync is within the recommended threshold: - 20 ms, the disk can be used to host etcd</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>When a high latency disk is used, a message states that the disk is not recommended for etcd, as shown in the following example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="c">...
+</span><span class="go">99th percentile of fsync is 15865472 ns
+99th percentile of the fsync is greater than the recommended value which is 20 ms, faster disks are recommended to host etcd for better performance</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>When you use cluster deployments that span multiple data centers that are using disks for etcd that do not meet the recommended latency, it increases the chances of service-affecting failures and dramatically reduces the network latency that the control plane can sustain.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-consensus-latency_etcd-performance"><a class="anchor" href="#etcd-consensus-latency_etcd-performance"></a>Monitoring consensus latency for etcd</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>By using the <code>etcdctl</code> CLI, you can monitor the latency for reaching consensus as experienced by etcd. You must identify one of the etcd pods and then retrieve the endpoint health.</p>
+</div>
+<div class="paragraph">
+<p>This procedure, which validates and monitors cluster health, can be run only on an active cluster.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>During planning for cluster deployment, you completed the disk and network tests.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-etcd <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>etcd</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME      READY   STATUS    RESTARTS   AGE
+etcd-m0   4/4     Running   4          8h
+etcd-m1   4/4     Running   4          8h
+etcd-m2   4/4     Running   4          8h</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the following command. To better understand the etcd latency for consensus, you can run this command on a precise watch cycle for a few minutes to observe that the numbers remain below the ~66 ms threshold. The closer the consensus time is to 100 ms, the more likely the cluster will experience service-affecting events and instability.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-ti</span> etcd-m0 <span class="nt">--</span> etcdctl endpoint health <span class="nt">-w</span> table</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">+----------------------------+--------+-------------+-------+
+|          ENDPOINT          | HEALTH |    TOOK     | ERROR |
++----------------------------+--------+-------------+-------+
+| https://198.18.111.12:2379 |   true |  3.798349ms |       |
+| https://198.18.111.14:2379 |   true |  7.389608ms |       |
+| https://198.18.111.13:2379 |   true |  6.263117ms |       |
++----------------------------+--------+-------------+-------+</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-ti</span> etcd-m0 <span class="nt">--</span> watch <span class="nt">-dp</span> <span class="nt">-c</span> etcdctl endpoint health <span class="nt">-w</span> table</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">+----------------------------+--------+-------------+-------+
+|          ENDPOINT          | HEALTH |    TOOK     | ERROR |
++----------------------------+--------+-------------+-------+
+| https://198.18.111.12:2379 |   true |  9.533405ms |       |
+| https://198.18.111.13:2379 |   true |  4.628054ms |       |
+| https://198.18.111.14:2379 |   true |  5.803378ms |       |
++----------------------------+--------+-------------+-------+</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -3711,6 +3873,124 @@ etcd-ci-ln-qkgs94t-72292-9clnd-master-0                  4/4     Running        
 </div>
 </div>
 <div class="sect1">
+<h2 id="etcd-timer-tunables_etcd-performance"><a class="anchor" href="#etcd-timer-tunables_etcd-performance"></a>OKD timer tunables for etcd</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>OKD maintains etcd timers that are optimized for each platform. OKD has prescribed validated values that are optimized for each platform provider. The default etcd timers with <code>platform=none</code> or <code>platform=metal</code> are as follows:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">- name: ETCD_ELECTION_TIMEOUT
+  value: "1000"
+</span><span class="c">  ...
+</span><span class="go">- name: ETCD_HEARTBEAT_INTERVAL
+  value: "100"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>From an etcd perspective, the two key values are election timeout and heartbeat interval:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Heartbeat interval</dt>
+<dd>
+<p>The frequency with which the leader notifies followers that it is still the leader.</p>
+</dd>
+<dt class="hdlist1">Election timeout</dt>
+<dd>
+<p>This timeout is how long a follower node will go without hearing a heartbeat before it attempts to become leader itself.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>These values do not provide the whole story for the control plane or even etcd. An etcd cluster is sensitive to disk latencies. Because etcd must persist proposals to its log, disk activity from other processes might cause long fsync latencies. The consequence is that etcd might miss heartbeats, causing request timeouts and temporary leader loss. During a leader loss and reelection, the Kubernetes API cannot process any request that causes a service-affecting event and instability of the cluster.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-database-size_etcd-performance"><a class="anchor" href="#etcd-database-size_etcd-performance"></a>Determining the size of the etcd database and understanding its effects</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The size of the etcd database has a direct impact on the time to complete the etcd defragmentation process. OKD automatically runs the etcd defragmentation on one etcd member at a time when it detects at least 45% fragmentation. During the defragmentation process, the etcd member cannot process any requests. On small etcd databases, the defragmentation process happens in less than a second. With larger etcd databases, the disk latency directly impacts the fragmentation time, causing additional latency, as operations are blocked while defragmentation happens.</p>
+</div>
+<div class="paragraph">
+<p>The size of the etcd database is a factor to consider when network partitions isolate a control plane node for a period and the control plane needs to resync after communication is re-established.</p>
+</div>
+<div class="paragraph">
+<p>Minimal options exist for controlling the size of the etcd database, as it depends on the operators and applications in the system. When you consider the latency range under which the system will operate, account for the effects of synchronization or defragmentation per size of the etcd database.</p>
+</div>
+<div class="paragraph">
+<p>The magnitude of the effects is specific to the deployment. The time to complete a defragmentation will cause degradation in the transaction rate, as the etcd member cannot accept updates during the defragmentation process. Similarly, the time for the etcd re-synchronization for large databases with high change rate affects the transaction rate and transaction latency on the system.</p>
+</div>
+<div class="paragraph">
+<p>Consider the following two examples for the type of impacts to plan for.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Example of the effect of etcd defragementation based on database size</dt>
+<dd>
+<p>Writing an etcd database of 1 GB to a slow 7200 RPMs disk at 80 Mbit/s takes about 1 minute and 40 seconds. In such a scenario, the defragmentation process takes at least this long, if not longer, to complete the defragmentation.</p>
+</dd>
+<dt class="hdlist1">Example of the effect of database size on etcd synchronization</dt>
+<dd>
+<p>If there is a change of 10% of the etcd database during the disconnection of one of the control plane nodes, the resync needs to transfer at least 100 MB. Transferring 100 MB over a 1 Gbps link takes 800 ms. On clusters with regular transactions with the Kubernetes API, the larger the etcd database size, the more network instabilities will cause control plane instabilities.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>You can determine the size of an etcd database by using the OKD console or by running commands in the <code>etcdctl</code> tool.</p>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>To find the database size in the OKD console, go to the <strong>etcd</strong> dashboard to view a plot that reports the size of the etcd database.</p>
+</li>
+<li>
+<p>To find the database size by using the etcdctl tool, you can enter two commands:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Enter the following command to list the pods:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-etcd <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>etcd</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME      READY   STATUS    RESTARTS   AGE
+etcd-m0   4/4     Running   4          22h
+etcd-m1   4/4     Running   4          22h
+etcd-m2   4/4     Running   4          22h</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the following command and view the database size in the output:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-t</span> etcd-m0 <span class="nt">--</span> etcdctl endpoint status <span class="nt">-w</span> simple | <span class="nb">cut</span> <span class="nt">-d</span>, <span class="nt">-f</span> 1,3,4</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">https://198.18.111.12:2379, 3.5.6, 1.1 GB
+https://198.18.111.13:2379, 3.5.6, 1.1 GB
+https://198.18.111.14:2379, 3.5.6, 1.1 GB</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="etcd-increase-db_etcd-performance"><a class="anchor" href="#etcd-increase-db_etcd-performance"></a>Increasing the database size for etcd</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -3955,6 +4235,342 @@ revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0    
 </ol>
 </div>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-network-latency-jitter_etcd-performance"><a class="anchor" href="#etcd-network-latency-jitter_etcd-performance"></a>Measuring network jitter between control plane nodes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The value of the heartbeat interval should be around the maximum of the average round-trip time (RTT) between members, normally around 1.5 times the round-trip time. With the OKD default heartbeat interval of 100 ms, the recommended RTT between control plane nodes is less than approximately 33 ms with a maximum of less than 66 ms (66 ms multiplied by 1.5 equals 99 ms). For more information, see "Setting tuning parameters for etcd". Any network latency that is higher might cause service-affecting events and cluster instability.</p>
+</div>
+<div class="paragraph">
+<p>The network latency is influenced by many factors, including but not limited to the following factors:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The technology of the transport networks, such as copper, fiber, wireless, or satellite</p>
+</li>
+<li>
+<p>The number and quality of the network devices in the transport network</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>A good evaluation reference is the comparison of the network latency in the organization with the commercial latencies that are published by telecommunications providers, such as monthly IP latency statistics.</p>
+</div>
+<div class="paragraph">
+<p>Consider network latency with network jitter for more accurate calculations. <em>Network jitter</em> is the variance in network latency or, more specifically, the variation in the delay of received packets. On ideal network conditions, the jitter is as close to zero as possible. Network jitter affects the network latency calculations for etcd because the actual network latency over time will be the RTT plus or minus jitter. For example, a network with a maximum latency of 80 ms and jitter of 30 ms will experience latencies of 110 ms, which means etcd is missing heartbeats, causing request timeouts and temporary leader loss. During a leader loss and reelection, the Kubernetes API cannot process any request that causes a service-affecting event and instability of the cluster.</p>
+</div>
+<div class="paragraph">
+<p>It&#8217;s important to measure the network jitter among all control plane nodes. To do so, you can use the <code>iPerf3</code> tool in UDP mode.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisite</div>
+<ul>
+<li>
+<p>You built your own iPerf image. For more information, see the following Red&#160;Hat Knowledgebase articles</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://access.redhat.com/articles/5233541">Testing Network Bandwidth in OpenShift using iPerf Container</a></p>
+</li>
+<li>
+<p><a href="https://access.redhat.com/solutions/6129701">How to run iPerf network performance test in OpenShift 4</a></p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Connect to one of the control plane nodes and run the iPerf container as iPerf server in host network mode. When you are running in server mode, the tool accepts TCP and UDP tests. Enter the following command, being careful to replace <code>&lt;iperf_image&gt;</code> with your iPerf image:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>podman run <span class="nt">-ti</span> <span class="nt">--rm</span> <span class="nt">--net</span> host &lt;iperf_image&gt; iperf3 <span class="nt">-s</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Connect to another control plane node and run the iPerf in UDP client mode by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>podman run <span class="nt">-ti</span> <span class="nt">--rm</span> <span class="nt">--net</span> host &lt;iperf_image&gt; iperf3 <span class="nt">-u</span> <span class="nt">-c</span> &lt;node_iperf_server&gt; <span class="nt">-t</span> 300</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The default test runs for 10 seconds, and at the end, the client output shows the average jitter from the client perspective.</p>
+</div>
+</li>
+<li>
+<p>Run the debug node mode by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>oc debug node/m1</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Starting pod/m1-debug ...
+To use host binaries, run `chroot /host`
+Pod IP: 198.18.111.13
+If you don't see a command prompt, try pressing enter.</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>podman run <span class="nt">-ti</span> <span class="nt">--rm</span> <span class="nt">--net</span> host &lt;iperf_image&gt; iperf3 <span class="nt">-u</span> <span class="nt">-c</span> m0</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Connecting to host m0, port 5201
+[  5] local 198.18.111.13 port 60878 connected to 198.18.111.12 port 5201
+[ ID] Interval           Transfer     Bitrate         Total Datagrams
+[  5]   0.00-1.00   sec   129 KBytes  1.05 Mbits/sec  91
+[  5]   1.00-2.00   sec   127 KBytes  1.04 Mbits/sec  90
+[  5]   2.00-3.00   sec   129 KBytes  1.05 Mbits/sec  91
+[  5]   3.00-4.00   sec   129 KBytes  1.05 Mbits/sec  91
+[  5]   4.00-5.00   sec   127 KBytes  1.04 Mbits/sec  90
+[  5]   5.00-6.00   sec   129 KBytes  1.05 Mbits/sec  91
+[  5]   6.00-7.00   sec   127 KBytes  1.04 Mbits/sec  90
+[  5]   7.00-8.00   sec   129 KBytes  1.05 Mbits/sec  91
+[  5]   8.00-9.00   sec   127 KBytes  1.04 Mbits/sec  90
+[  5]   9.00-10.00  sec   129 KBytes  1.05 Mbits/sec  91
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-10.00  sec  1.25 MBytes  1.05 Mbits/sec  0.000 ms  0/906 (0%)  sender
+[  5]   0.00-10.04  sec  1.25 MBytes  1.05 Mbits/sec  1.074 ms  0/906 (0%)  receiver
+
+iperf Done.</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>On the iPerf server, the output shows the jitter on every second interval. The average is shown at the end. For the purpose of this test, you want to identify the maximum jitter that is experienced during the test, ignoring the output of the first second as it might contain an invalid measurement. Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>oc debug node/m0</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Starting pod/m0-debug ...
+To use host binaries, run `chroot /host`
+Pod IP: 198.18.111.12
+If you don't see a command prompt, try pressing enter.</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>podman run <span class="nt">-ti</span> <span class="nt">--rm</span> <span class="nt">--net</span> host &lt;iperf_image&gt; iperf3 <span class="nt">-s</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">-----------------------------------------------------------
+Server listening on 5201
+-----------------------------------------------------------
+Accepted connection from 198.18.111.13, port 44136
+[  5] local 198.18.111.12 port 5201 connected to 198.18.111.13 port 60878
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-1.00   sec   124 KBytes  1.02 Mbits/sec  4.763 ms  0/88 (0%)
+[  5]   1.00-2.00   sec   127 KBytes  1.04 Mbits/sec  4.735 ms  0/90 (0%)
+[  5]   2.00-3.00   sec   129 KBytes  1.05 Mbits/sec  0.568 ms  0/91 (0%)
+[  5]   3.00-4.00   sec   127 KBytes  1.04 Mbits/sec  2.443 ms  0/90 (0%)
+[  5]   4.00-5.00   sec   129 KBytes  1.05 Mbits/sec  1.372 ms  0/91 (0%)
+[  5]   5.00-6.00   sec   127 KBytes  1.04 Mbits/sec  2.769 ms  0/90 (0%)
+[  5]   6.00-7.00   sec   129 KBytes  1.05 Mbits/sec  2.393 ms  0/91 (0%)
+[  5]   7.00-8.00   sec   127 KBytes  1.04 Mbits/sec  0.883 ms  0/90 (0%)
+[  5]   8.00-9.00   sec   129 KBytes  1.05 Mbits/sec  0.594 ms  0/91 (0%)
+[  5]   9.00-10.00  sec   127 KBytes  1.04 Mbits/sec  0.953 ms  0/90 (0%)
+[  5]  10.00-10.04  sec  5.66 KBytes  1.30 Mbits/sec  1.074 ms  0/4 (0%)
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams
+[  5]   0.00-10.04  sec  1.25 MBytes  1.05 Mbits/sec  1.074 ms  0/906 (0%)  receiver
+-----------------------------------------------------------
+Server listening on 5201
+-----------------------------------------------------------</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add the calculated jitter as a penalty to the network latency. For example, if the network latency is 80 ms and the jitter is 30 ms, consider an effective network latency of 110 ms for the purposes of the control plane. In this example, that value goes above the 100 ms threshold, and the system will miss heartbeats.</p>
+</li>
+<li>
+<p>When you calculate the network latency for etcd, use the effective network latency, which is the sum of the following equation:</p>
+<div class="paragraph">
+<p>RTT + jitter</p>
+</div>
+<div class="paragraph">
+<p>You might be able to use the average jitter value to calculate the penalty, but the cluster can sporadically miss heartbeats if the etcd heartbeat timer is lower than the sum of the following equation:</p>
+</div>
+<div class="paragraph">
+<p>RTT + max(jitter)</p>
+</div>
+<div class="paragraph">
+<p>Instead, consider using the 99th percentile or max jitter value for a more resilient deployment:</p>
+</div>
+<div class="paragraph">
+<p>Effective Network Latency = RTT + max(jitter)</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-peer-round-trip_etcd-performance"><a class="anchor" href="#etcd-peer-round-trip_etcd-performance"></a>How etcd peer round trip time affects performance</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The etcd peer round trip time is an end-to-end test metric on how quickly something can be replicated among members. It shows the latency of etcd to finish replicating a client request among all the etcd members. The etcd peer round trip time is not the same thing as the network round trip time.</p>
+</div>
+<div class="paragraph">
+<p>You can monitor various etcd metrics on dashboards in the OKD console. In the console, click <strong>Observe</strong> &#8594; <strong>Dashboards</strong> and from the dropdown list, select <strong>etcd</strong>.</p>
+</div>
+<div class="paragraph">
+<p>Near the end of the <strong>etcd</strong> dashboard, you can find a plot that summarizes the etcd peer round trip time.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>These etcd metrics are collected by the OpenShift metrics system in Prometheus. You can access them from the CLI by following the Red&#160;Hat Knowledgebase solution, <a href="https://access.redhat.com/solutions/5151831">How to query from the command line Prometheus statistics</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>Get token to connect to Prometheus
+<span class="gp">SECRET=$</span><span class="o">(</span>oc get secret <span class="nt">-n</span> openshift-user-workload-monitoring | <span class="nb">grep  </span>prometheus-user-workload-token | <span class="nb">head</span> <span class="nt">-n</span> 1 | <span class="nb">awk</span> <span class="s1">'{print $1 }'</span><span class="o">)</span>
+<span class="gp">export TOKEN=$</span><span class="o">(</span>oc get secret <span class="nv">$SECRET</span> <span class="nt">-n</span> openshift-user-workload-monitoring <span class="nt">-o</span> json | jq <span class="nt">-r</span> <span class="s1">'.data.token'</span> | <span class="nb">base64</span> <span class="nt">-d</span><span class="o">)</span>
+<span class="gp">export THANOS_QUERIER_HOST=$</span><span class="o">(</span>oc get route thanos-querier <span class="nt">-n</span> openshift-monitoring <span class="nt">-o</span> json | jq <span class="nt">-r</span> <span class="s1">'.spec.host'</span><span class="o">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Queries must be URL-encoded. The following example shows how to retrieve the metrics that are reporting the round trip time (in seconds) for etcd to finish replicating the client requests among the members:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>prometheus query
+<span class="go">query="histogram_quantile(0.99, rate(etcd_network_peer_round_trip_time_seconds_bucket[5m]))"
+
+</span><span class="gp">#</span><span class="w"> </span>urlencoded query
+<span class="gp">encoded_query=$</span><span class="o">(</span><span class="nb">printf</span> <span class="s2">"%s"</span> <span class="nv">$query</span> |jq <span class="nt">-sRr</span> @uri<span class="o">)</span>
+<span class="go">
+</span><span class="gp">#</span><span class="w"> </span>querying the OpenShift metrics service
+<span class="gp">curl -s -X GET -k -H "Authorization: Bearer $</span>TOKEN<span class="s2">" "</span>https://<span class="nv">$THANOS_QUERIER_HOST</span>/api/v1/query?query<span class="o">=</span><span class="nv">$encoded_query</span><span class="s2">" | jq '.data.result[] | .metric.pod,.value[1]'
+</span><span class="go">
+"etcd-m2"
+</span><span class="gp">"0.09318400000000004"   #</span><span class="w"> </span>example ~93ms
+<span class="go">"etcd-m0"
+</span><span class="gp">"0.050688"              #</span><span class="w"> </span>example ~51ms
+<span class="go">"etcd-m1"
+</span><span class="gp">"0.050688"              #</span><span class="w"> </span>example ~51ms</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following metrics are also relevant to understanding etcd performance:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">etcd_disk_wal_fsync_duration_seconds_bucket</dt>
+<dd>
+<p>Reports the etcd WAL fsync duration.</p>
+</dd>
+<dt class="hdlist1">etcd_disk_backend_commit_duration_seconds_bucket</dt>
+<dd>
+<p>Reports the etcd backend commit latency duration.</p>
+</dd>
+<dt class="hdlist1">etcd_server_leader_changes_seen_total</dt>
+<dd>
+<p>Reports the leader changes.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-determine-kube-api-transaction-rate_etcd-performance"><a class="anchor" href="#etcd-determine-kube-api-transaction-rate_etcd-performance"></a>Determining Kubernetes API transaction rate for your environment</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When you are using stretched control planes, the Kubernetes API transaction rate depends on the characteristics of the particular deployment. Specifically, it depends on the following combined factors:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The etcd disk latency</p>
+</li>
+<li>
+<p>The etcd round trip time</p>
+</li>
+<li>
+<p>The size of objects that are being written to the API</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>As a result, when you use stretched control planes, cluster administrators must test the environment to determine the sustained transaction rate that is possible for the environment. The <code>kube-burner</code> tool is useful for that purpose. The binary includes a wrapper for testing OpenShift clusters: <code>kube-burner-ocp</code>. You can use <code>kube-burner-ocp</code> to test cluster or node density. To test the control plane, <code>kube-burner-ocp</code> has three workload profiles: cluster-density, cluster-density-v2, and cluster-density-ms. Each workload profile creates a series of resources that are designed to load the control plane. For more information about each profile, see the <code>kube-burner-ocp</code> workload documentation.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Enter a command to create and delete resources. The following example shows a command that creates and deletes resources within 20 minutes:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>kube-burner ocp cluster-density-ms <span class="nt">--churn-duration</span> 20m <span class="nt">--churn-delay</span> 0s <span class="nt">--iterations</span> 10 <span class="nt">--timeout</span> 30m</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The OKD console provides a dashboard with all the relevant API performance information. To access API performance information, click <strong>Observe</strong> &#8594; <strong>Dashboards</strong>, and from the <strong>Dashboards</strong> menu, click <strong>API Performance</strong>.</p>
+</li>
+<li>
+<p>During the run, observe the API performance dashboard in the OKD console by clicking <strong>Observe</strong> &#8594; <strong>Dashboards</strong>, and from the <strong>Dashboards</strong> menu, click <strong>API Performance</strong>.</p>
+<div class="paragraph">
+<p>On the dashboard, notice how the control plane responds during load and the 99th percentile transaction rate it can achieve for the execution of various verbs and request rates by read and write. Use this information and the knowledge of your organization&#8217;s workload to determine the load that the organization can put in the clusters for the specific stretched control plane deployment.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://kube-burner.github.io/kube-burner-ocp/latest/">kube-burner-ocp documentation</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
