@@ -2863,7 +2863,18 @@
 <li><a href="#block-volume-examples_understanding-persistent-storage">Block volume examples</a></li>
 </ul>
 </li>
-<li><a href="#using_fsGroup_understanding-persistent-storage">Using fsGroup to reduce pod timeouts</a></li>
+<li><a href="#using_fsGroup_overview_understanding-persistent-storage">Reducing pod timeouts using fsGroup</a>
+<ul class="sectlevel2">
+<li><a href="#using_fsGroup_namespace_understanding-persistent-storage">Changing fsGroup at the namespace level</a></li>
+<li><a href="#using_fsGroup_pod_understanding-persistent-storage">Changing fsGroup at the pod level</a></li>
+</ul>
+</li>
+<li><a href="#using_selinuxChangePolicy_overview_understanding-persistent-storage">Reducing pod timeouts using seLinuxChangePolicy</a>
+<ul class="sectlevel2">
+<li><a href="#using_selinuxChangePolicy_testing-mountoption-rwo-rwx_understanding-persistent-storage">Testing the RWO and RWX and SELinux mount option feature</a></li>
+<li><a href="#using_selinuxChangePolicy_pod-opt-out_understanding-persistent-storage">Opting out of the SELinux mount option default</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </div>
@@ -3345,7 +3356,7 @@ infrastructure, such as Amazon Elastic Block Store (Amazon EBS) or VMware vSpher
 <td class="tableblock halign-left valign-top"><p class="tableblock">The volume can be mounted as read-write by a single node.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">ReadWriteOncePod <sup>[1]</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ReadWriteOncePod</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>RWOP</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">The volume can be mounted as read-write by a single pod on a single node.</p></td>
 </tr>
@@ -3361,19 +3372,6 @@ infrastructure, such as Amazon Elastic Block Store (Amazon EBS) or VMware vSpher
 </tr>
 </tbody>
 </table>
-<div class="openblock">
-<div class="content">
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>RWOP uses the SELinux mount feature. This feature is driver dependent, and enabled by default in AWS EBS
-, Azure Disk, GCP PD, IBM Cloud Block Storage volume, Cinder, vSphere,
-and Red Hat OpenShift Data Foundation. For third-party drivers, contact your storage vendor.</p>
-</li>
-</ol>
-</div>
-</div>
-</div>
 <table class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 2. Supported access modes for persistent volumes</caption>
 <colgroup>
@@ -4699,13 +4697,13 @@ match the name of the PVC as expected.</td>
 </div>
 </div>
 <div class="sect1">
-<h2 id="using_fsGroup_understanding-persistent-storage"><a class="anchor" href="#using_fsGroup_understanding-persistent-storage"></a>Using fsGroup to reduce pod timeouts</h2>
+<h2 id="using_fsGroup_overview_understanding-persistent-storage"><a class="anchor" href="#using_fsGroup_overview_understanding-persistent-storage"></a>Reducing pod timeouts using fsGroup</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>If a storage volume contains many files (~1,000,000 or greater), you may experience pod timeouts.</p>
+<p>If a storage volume contains many files (for example, a million or more), you might experience pod timeouts.</p>
 </div>
 <div class="paragraph">
-<p>This can occur because, by default, OKD recursively changes ownership and permissions for the contents of each volume to match the <code>fsGroup</code> specified in a pod&#8217;s <code>securityContext</code> when that volume is mounted. For large volumes, checking and changing ownership and permissions can be time consuming, slowing pod startup. You can use the <code>fsGroupChangePolicy</code> field inside a <code>securityContext</code> to control the way that OKD checks and manages ownership and permissions for a volume.</p>
+<p>This can occur because, by default, OKD recursively changes ownership and permissions for the contents of each volume to match the <code>fsGroup</code> specified in a pod&#8217;s <code>securityContext</code> when that volume is mounted. For volumes with many files, checking and changing ownership and permissions can be time consuming, slowing pod startup. You can use the <code>fsGroupChangePolicy</code> field inside a <code>securityContext</code> to control the way that OKD checks and manages ownership and permissions for a volume.</p>
 </div>
 <div class="paragraph">
 <p><code>fsGroupChangePolicy</code> defines behavior for changing ownership and permission of the volume before being exposed inside a pod. This field only applies to volume types that support <code>fsGroup</code>-controlled ownership and permissions. This field has two possible values:</p>
@@ -4716,28 +4714,9 @@ match the name of the PVC as expected.</td>
 <p><code>OnRootMismatch</code>: Only change permissions and ownership if permission and ownership of root directory does not match with expected permissions of the volume. This can help shorten the time it takes to change ownership and permission of a volume to reduce pod timeouts.</p>
 </li>
 <li>
-<p><code>Always</code>: Always change permission and ownership of the volume when a volume is mounted.</p>
+<p><code>Always</code>: (Default) Always change permission and ownership of the volume when a volume is mounted.</p>
 </li>
 </ul>
-</div>
-<div class="listingblock">
-<div class="title"><code>fsGroupChangePolicy</code> example</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">securityContext</span><span class="pi">:</span>
-  <span class="na">runAsUser</span><span class="pi">:</span> <span class="m">1000</span>
-  <span class="na">runAsGroup</span><span class="pi">:</span> <span class="m">3000</span>
-  <span class="na">fsGroup</span><span class="pi">:</span> <span class="m">2000</span>
-  <span class="na">fsGroupChangePolicy</span><span class="pi">:</span> <span class="s2">"</span><span class="s">OnRootMismatch"</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="s">...</span></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>OnRootMismatch</code> specifies skipping recursive permission change, thus helping to avoid pod timeout problems.</td>
-</tr>
-</table>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -4747,11 +4726,415 @@ match the name of the PVC as expected.</td>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The fsGroupChangePolicyfield has no effect on ephemeral volume types, such as secret, configMap, and emptydir.</p>
+<p>The <code>fsGroupChangePolicy</code> field has no effect on ephemeral volume types, such as secret, configMap, and emptydir.</p>
 </div>
 </td>
 </tr>
 </table>
+</div>
+<div class="paragraph">
+<p>You can set <code>fsGroupChangePolicy</code> at either the namespace or pod level.</p>
+</div>
+<div class="sect2">
+<h3 id="using_fsGroup_namespace_understanding-persistent-storage"><a class="anchor" href="#using_fsGroup_namespace_understanding-persistent-storage"></a>Changing fsGroup at the namespace level</h3>
+<div class="paragraph">
+<p>After applying the desired setting for <code>fsGroupChangePolicy</code> at the namespace level, all subsequently created pods in that namespace inherit the setting. However, if desired, you can override the inherited <code>fsGroupChangePolicy</code> setting for individual pods. Setting <code>fsGroupChangePolicy</code> at the pod level overrides inheritance from the namespace level setting for that pod.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Logged in to a running OKD cluster with administrator privileges.</p>
+</li>
+<li>
+<p>Access to the OKD console.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<div class="title">Procedure</div>
+<p>To set <code>fsGroupChangePolicy</code> per namespace:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Select the desired namespace:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Click <strong>Administration</strong> &gt; <strong>Namespaces</strong>.</p>
+</li>
+<li>
+<p>On the <strong>Namespaces</strong> page, click the desired namespace. The <strong>Namespace details</strong> page appears.</p>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Add the <code>fsGroupChangePolicy</code> label to the namespace:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>On the <strong>Namespace details</strong> page, next to <strong>Labels</strong>, click <strong>Edit</strong>.</p>
+</li>
+<li>
+<p>In the <strong>Edit labels</strong> dialog, add the label <code>storage.openshift.io/fsgroup-change-policy</code> and set it equal to either:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>OnRootMismatch</code>: Specifies only changing permissions and ownership if the permission and the ownership of root directory does not match with expected permissions of the volume, thus helping to avoid pod timeout problems.</p>
+</li>
+<li>
+<p><code>Always</code>: (Default) Specifies always changing permission and ownership of the volume when a volume is mounted.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Click <strong>Save</strong>.</p>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<div class="title">Verification</div>
+<p>Start up a pod in the previously edited namespace and observe that the parameter <code>spec.securityContext.fsGroupChangePolicy</code> contains the value that you set for the namespace.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example pod YAML file showing <code>fsGroupChangePolicy</code> setting</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">securityContext</span><span class="pi">:</span>
+  <span class="na">seLinuxOptions</span><span class="pi">:</span>
+    <span class="na">level</span><span class="pi">:</span> <span class="s1">'</span><span class="s">s0:c27,c24'</span>
+  <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">fsGroup</span><span class="pi">:</span> <span class="m">1000750000</span>
+  <span class="na">fsGroupChangePolicy</span><span class="pi">:</span> <span class="s">OnRootMismatch</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="s">...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>This value is inherited from the namespace.</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="using_fsGroup_pod_understanding-persistent-storage"><a class="anchor" href="#using_fsGroup_pod_understanding-persistent-storage"></a>Changing fsGroup at the pod level</h3>
+<div class="paragraph">
+<p>You can set the set the <code>fsGroupChangePolicy</code> parameter in a new or existing deployment, and then the pods that it manages will have this parameter value. You can similarly do this for a statefulset. You cannot edit an existing pod to set <code>fsGroupChangePolicy</code>; however, you can set this parameter when creating a new pod.</p>
+</div>
+<div class="paragraph">
+<p>This procedure describes how to set the <code>fsGroupChangePolicy</code> parameter in an existing deployment.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Access to the OKD console.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<div class="title">Procedure</div>
+<p>To set the <code>fsGroupChangePolicy</code> parameter in an existing deployment:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Click <strong>Workloads</strong> &gt; <strong>Deployments</strong>.</p>
+</li>
+<li>
+<p>On the <strong>Deployment</strong> page, click the desired deployment.</p>
+</li>
+<li>
+<p>On the <strong>Deployment details</strong> page, click the <strong>YAML</strong> tab.</p>
+</li>
+<li>
+<p>Edit the deployment&#8217;s YAML file under <code>spec.template.spec.securityContext</code> using the following example file:</p>
+<div class="listingblock">
+<div class="title">Example deployment YAML file setting <code>fsGroupChangePolicy</code></div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">...</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
+<span class="na">selector</span><span class="pi">:</span>
+<span class="na">matchLabels</span><span class="pi">:</span>
+<span class="na">app</span><span class="pi">:</span> <span class="s">my-app</span>
+<span class="na">template</span><span class="pi">:</span>
+<span class="na">metadata</span><span class="pi">:</span>
+<span class="na">creationTimestamp</span><span class="pi">:</span> <span class="no">null</span>
+<span class="na">labels</span><span class="pi">:</span>
+<span class="na">app</span><span class="pi">:</span> <span class="s">my-app</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="na">containers</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">container</span>
+<span class="na">image</span><span class="pi">:</span> <span class="s1">'</span><span class="s">image-registry.openshift-image-registry.svc:5000/openshift/httpd:latest'</span>
+<span class="na">ports</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">8080</span>
+<span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+<span class="na">resources</span><span class="pi">:</span> <span class="pi">{}</span>
+<span class="na">terminationMessagePath</span><span class="pi">:</span> <span class="s">/dev/termination-log</span>
+<span class="na">terminationMessagePolicy</span><span class="pi">:</span> <span class="s">File</span>
+<span class="na">imagePullPolicy</span><span class="pi">:</span> <span class="s">Always</span>
+<span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Always</span>
+<span class="na">terminationGracePeriodSeconds</span><span class="pi">:</span> <span class="m">30</span>
+<span class="na">dnsPolicy</span><span class="pi">:</span> <span class="s">ClusterFirst</span>
+<span class="na">securityContext</span><span class="pi">:</span>
+  <span class="na">fsGroupChangePolicy</span><span class="pi">:</span> <span class="s">OnRootMismatch</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="nn">...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td><code>OnRootMismatch</code> specifies skipping recursive permission change, thus helping to avoid pod timeout problems. The default value is <code>Always</code>, which always changes permission and ownership of the volume when a volume is mounted.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Click <strong>Save</strong>.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="using_selinuxChangePolicy_overview_understanding-persistent-storage"><a class="anchor" href="#using_selinuxChangePolicy_overview_understanding-persistent-storage"></a>Reducing pod timeouts using seLinuxChangePolicy</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>SELinux (Security-Enhanced Linux) is a security mechanism that assigns security labels (contexts) to all objects (files, processes, network ports, etc.) on a system. These labels determine what a process can access. In OKD, SELinux helps prevent containers from escaping and accessing the host system or other containers.</p>
+</div>
+<div class="paragraph">
+<p>When a pod starts, the container runtime recursively relabels all files on a volume to match the pod&#8217;s SELinux context. For volumes with many files, this can significantly increase pod startup times.</p>
+</div>
+<div class="paragraph">
+<p>Mount option specifies avoiding recursive relabeling of all files by attempting to mount the volume with the correct SELinux label directly using the -o context mount option, thus helping to avoid pod timeout problems.</p>
+</div>
+<div class="paragraph">
+<div class="title">RWOP and SELinux mount option</div>
+<p>ReadWriteOncePod (RWOP) persistent volumes use the SELinux mount feature by default.</p>
+</div>
+<div class="paragraph">
+<p>The mount option feature is driver dependent, and enabled by default in AWS EBS
+, Azure Disk, GCP PD, IBM Cloud Block Storage volume, Cinder, vSphere,
+and Red Hat OpenShift Data Foundation. For third-party drivers, contact your storage vendor.</p>
+</div>
+<div class="paragraph">
+<div class="title">RWO and RWX and SELinux mount option</div>
+<p>ReadWriteOnce (RWO) and ReadWriteMany (RWX) volumes use recursive relabeling by default.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In a future OKD version, RWO and RWX volumes will use <strong>mount option by default</strong>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>To assist you with the upcoming move to the mount option default, OKD 4.20 reports SELinux-related conflicts when creating pods, and on running pods, to make you aware of potential conflicts, and to help you resolve them. For more information about this reporting, see this <a href="https://access.redhat.com/solutions/7131398">Kowledge Base article</a>.</p>
+</div>
+<div class="paragraph">
+<p>If you are unable to resolve the SELinux-related conflicts, you can proactively opt-out of the future move to mount option as default for selected pods or namespaces. To opt out, see <em>Opting out of the SELinux mount option default</em>.</p>
+</div>
+<div class="sect2">
+<h3 id="using_selinuxChangePolicy_testing-mountoption-rwo-rwx_understanding-persistent-storage"><a class="anchor" href="#using_selinuxChangePolicy_testing-mountoption-rwo-rwx_understanding-persistent-storage"></a>Testing the RWO and RWX and SELinux mount option feature</h3>
+<div class="paragraph">
+<p>In OKD 4.20, you can evaluate the mount option feature for RWO and RWX volumes as a Technology Preview feature.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>RWO/RWX SELinux mount is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>To evaluate the mount option feature:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Enable Feature Gates. For information about enabling Feature Gates, see <em>Section Enabling features using feature gates</em>.</p>
+<div class="paragraph">
+<p>RWO and RWX volumes now have mount option as the default behavior.</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Carefully test your applications and observe how they are using storage. Consult this <a href="https://access.redhat.com/solutions/7131398">Knowledge Base article</a> and consider opting out from using mount option if you are experiencing issues. See Section <em>Opting out of the SELinux mount option default</em>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="using_selinuxChangePolicy_pod-opt-out_understanding-persistent-storage"><a class="anchor" href="#using_selinuxChangePolicy_pod-opt-out_understanding-persistent-storage"></a>Opting out of the SELinux mount option default</h3>
+<div class="paragraph">
+<p>If you want to opt out of the future move to mount option as default, you can affirmatively set the  <code>seLinuxChangePolicy</code> parameter to <code>Recursive</code> at either the individual pod or namespace level.</p>
+</div>
+<div class="sect3">
+<h4 id="using_selinuxChangePolicy_namespace_understanding-persistent-storage"><a class="anchor" href="#using_selinuxChangePolicy_namespace_understanding-persistent-storage"></a>Changing seLinuxChangePolicy at the namespace level</h4>
+<div class="paragraph">
+<p>After applying the desired setting for <code>seLinuxChangePolicy</code> at the namespace level, all subsequently created pods in that namespace inherit the setting. However, if desired, you can override the inherited <code>seLinuxChangePolicy</code> setting for individual pods. Setting <code>seLinuxChangePolicy</code> at the pod level overrides inheritance from the namespace level setting for that pod.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Logged in to a running OKD cluster with administrator privileges.</p>
+</li>
+<li>
+<p>Access to the OKD console.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<div class="title">Procedure</div>
+<p>To set <code>SELinuxChangePolicy</code> per namespace:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Select the desired namespace:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Click <strong>Administration</strong> &gt; <strong>Namespaces</strong>.</p>
+</li>
+<li>
+<p>On the <strong>Namespaces</strong> page, click the desired namespace. The <strong>Namespace details</strong> page appears.</p>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Add the <code>seLinuxChangePolicy</code> label to the namespace:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>On the <strong>Namespace details</strong> page, next to <strong>Labels</strong>, click <strong>Edit</strong>.</p>
+</li>
+<li>
+<p>In the <strong>Edit labels</strong> dialog, add the label <code>storage.openshift.io/selinux-change-policy=Recursive</code>.</p>
+<div class="paragraph">
+<p>This specifies recursively relabeling all files on pod volumes to the appropriate SELinux context.</p>
+</div>
+</li>
+<li>
+<p>Click <strong>Save</strong>.</p>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<div class="title">Verification</div>
+<p>Start up a pod in the previously edited namespace and observe that the parameter <code>spec.securityContext.seLinuxChangePolicy</code> is set to <code>Recursive</code>.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example pod YAML file showing <code>seLinuxChangePolicy</code> setting</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">securityContext</span><span class="pi">:</span>
+    <span class="na">seLinuxOptions</span><span class="pi">:</span>
+      <span class="na">level</span><span class="pi">:</span> <span class="s1">'</span><span class="s">s0:c27,c19'</span>
+    <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">fsGroup</span><span class="pi">:</span> <span class="m">1000740000</span>
+    <span class="na">seccompProfile</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+    <span class="na">seLinuxChangePolicy</span><span class="pi">:</span> <span class="s">Recursive</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="s">...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>This value is inherited from the namespace.</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect3">
+<h4 id="using_selinuxChangePolicy_pod_understanding-persistent-storage"><a class="anchor" href="#using_selinuxChangePolicy_pod_understanding-persistent-storage"></a>Changing seLinuxChangePolicy at the pod level</h4>
+<div class="paragraph">
+<p>You can set the set the <code>seLinuxChangePolicy</code> parameter in a new or existing Deployment, and then the pods that it manages will have this parameter value. You can similarly do this for a StatefulSet. You cannot edit an existing pod to set <code>seLinuxChangePolicy</code>; however, you can set this parameter when creating a new pod.</p>
+</div>
+<div class="paragraph">
+<p>This procedure describes how to set the <code>seLinuxChangePolicy</code> parameter in an existing deployment.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Access to the OKD console.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<div class="title">Procedure</div>
+<p>To set the <code>seLinuxChangePolicy</code> parameter in an existing deployment:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Click <strong>Workloads</strong> &gt; <strong>Deployments</strong>.</p>
+</li>
+<li>
+<p>On the <strong>Deployment</strong> page, click the desired deployment.</p>
+</li>
+<li>
+<p>On the <strong>Deployment details</strong> page, click the <strong>YAML</strong> tab.</p>
+</li>
+<li>
+<p>Edit the deployment&#8217;s YAML file under <code>spec.template.spec.securityContext</code> as per the following example file:</p>
+<div class="listingblock">
+<div class="title">Example deployment YAML file setting <code>seLinuxChangePolicy</code></div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml">  <span class="s">...</span>
+<span class="na">securityContext</span><span class="pi">:</span>
+  <span class="na">seLinuxChangePolicy</span><span class="pi">:</span> <span class="s">Recursive</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="s">...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Specifies recursively relabeling all files on all pod volumes to the appropriate SELinux context.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Click <strong>Save</strong>.</p>
+</li>
+</ol>
+</div>
+</div>
 </div>
 </div>
 </div>
