@@ -456,7 +456,6 @@
                   <li><a class="" href="../installing/installing_gcp/installing-gcp-account.html">Configuring a GCP project</a></li>
                   <li><a class="" href="../installing/installing_gcp/installing-gcp-default.html">Installing a cluster quickly on GCP</a></li>
                   <li><a class="" href="../installing/installing_gcp/installing-gcp-customizations.html">Installing a cluster on GCP with customizations</a></li>
-                  <li><a class="" href="../installing/installing_gcp/installing-gcp-network-customizations.html">Installing a cluster on GCP with network customizations</a></li>
                   <li><a class="" href="../installing/installing_gcp/installing-restricted-networks-gcp-installer-provisioned.html">Installing a cluster on GCP in a disconnected environment</a></li>
                   <li><a class="" href="../installing/installing_gcp/installing-gcp-vpc.html">Installing a cluster on GCP into an existing VPC</a></li>
                   <li><a class="" href="../installing/installing_gcp/installing-gcp-shared-vpc.html">Installing a cluster on GCP into a shared VPC</a></li>
@@ -1002,6 +1001,7 @@
                   <li><a class="" href="../security/external_secrets_operator/index.html">External Secrets Operator overview</a></li>
                   <li><a class="" href="../security/external_secrets_operator/external-secrets-operator-release-notes.html">External Secrets Operator release notes</a></li>
                   <li><a class="" href="../security/external_secrets_operator/external-secrets-operator-install.html">Installing the External Secrets Operator</a></li>
+                  <li><a class="" href="../security/external_secrets_operator/external-secrets-operator-proxy.html">Configuring the egress proxy</a></li>
                   <li><a class="" href="../security/external_secrets_operator/external-secrets-operator-uninstall.html">Uninstalling the External Secrets Operator</a></li>
                   <li><a class="" href="../security/external_secrets_operator/external-secrets-operator-api.html">External Secrets Operator APIs</a></li>              </ul>
             </li>
@@ -1870,12 +1870,13 @@
                   <li><a class="" href="../nodes/pods/nodes-pods-secrets-store.html">Providing sensitive data to pods by using an external secrets store</a></li>
                   <li><a class="" href="../nodes/pods/nodes-pods-short-term-auth.html">Authenticating pods with short-term credentials</a></li>
                   <li><a class="" href="../nodes/pods/nodes-pods-configmaps.html">Creating and using config maps</a></li>
+                  <li><a class="" href="../nodes/pods/nodes-pods-image-volume.html">Mounting an OCI image into a pod</a></li>
                   <li><a class="" href="../nodes/pods/nodes-pods-plugins.html">Using Device Manager to make devices available to nodes</a></li>
                   <li><a class="" href="../nodes/pods/nodes-pods-priority.html">Including pod priority in pod scheduling decisions</a></li>
                   <li><a class="" href="../nodes/pods/nodes-pods-node-selectors.html">Placing pods on specific nodes using node selectors</a></li>
                   <li><a class="" href="../nodes/pods/nodes-pods-allocate-dra.html">Allocating GPUs to pods</a></li>
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-26-1-14"><span id="ssgSpan-26-1-14" class="fa fa-caret-right"></span>&nbsp;Run Once Duration Override Operator</a>
-                  <ul id="topicSubSubGroup-26-1-14" class="nav-tertiary list-unstyled collapse">
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-26-1-15"><span id="ssgSpan-26-1-15" class="fa fa-caret-right"></span>&nbsp;Run Once Duration Override Operator</a>
+                  <ul id="topicSubSubGroup-26-1-15" class="nav-tertiary list-unstyled collapse">
 
                     <li><a class="" href="../nodes/pods/run_once_duration_override/index.html" style="padding-left: 70px;">Run Once Duration Override Operator overview</a></li>
                     <li><a class="" href="../nodes/pods/run_once_duration_override/run-once-duration-override-release-notes.html" style="padding-left: 70px;">Run Once Duration Override Operator release notes</a></li>
@@ -3391,6 +3392,11 @@
 <li><a href="#cnf-creating-nrop-cr-hosted-control-plane_numa-aware">Creating the NUMAResourcesOperator custom resource for hosted control planes</a></li>
 <li><a href="#cnf-deploying-the-numa-aware-scheduler_numa-aware">Deploying the NUMA-aware secondary pod scheduler</a></li>
 <li><a href="#cnf-scheduling-numa-aware-workloads_numa-aware">Scheduling workloads with the NUMA-aware scheduler</a></li>
+</ul>
+</li>
+<li><a href="#cnf-numa-resource-operator-support-scheduling-cp_numa-aware">NUMA Resources Operator support for schedulable control-plane nodes</a>
+<ul class="sectlevel2">
+<li><a href="#cnf-configuring-nrop-on-schedulable-cp-nodes_numa-aware">Configuring NUMA Resources Operator on schedulable control plane nodes</a></li>
 </ul>
 </li>
 <li><a href="#cnf-configuring-node-groups-for-the-numaresourcesoperator_numa-aware">Optional: Configuring polling operations for NUMA resources updates</a></li>
@@ -4968,6 +4974,323 @@ Zones:
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Guaranteed</span></code></pre>
 </div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="cnf-numa-resource-operator-support-scheduling-cp_numa-aware"><a class="anchor" href="#cnf-numa-resource-operator-support-scheduling-cp_numa-aware"></a>NUMA Resources Operator support for schedulable control-plane nodes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can enable schedulable control plane nodes to run user-defined pods, effectively turning the nodes into hybrid Control Plane and Worker nodes. This configuration is especially beneficial in resource-constrained environments, such as compact clusters. When enabled, the NUMA Resources Operator can apply its topology-aware scheduling to the nodes for guaranteed workloads, ensuring Pods are placed according to the best NUMA affinity.</p>
+</div>
+<div class="paragraph">
+<p>Traditionally, control plane nodes in OpenShift Container Platform are dedicated to running critical cluster services. Enabling schedulable control plane nodes allows user-defined Pods to be scheduled on the nodes.</p>
+</div>
+<div class="paragraph">
+<p>You can make control plane nodes schedulable by setting the <code>mastersSchedulable</code> field to true in the <code>schedulers.config.openshift.io</code> resource.</p>
+</div>
+<div class="paragraph">
+<p>The NUMA Resources Operator provides topology-aware scheduling for workloads that need a specific NUMA affinity. When control plane nodes are made schedulable, the operator&#8217;s management capabilities can be applied to them, just as they are to worker nodes. This ensures that NUMA-aware pods are placed on a node with the best NUMA topology, whether it&#8217;s a control plane or worker node.</p>
+</div>
+<div class="paragraph">
+<p>When configuring the NUMA Resources Operator, its management scope is determined by the <code>nodeGroups</code> field in its custom resource (CR). This principle applies to both compact and multi-node clusters.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Compact clusters</dt>
+<dd>
+<p>In a compact cluster, all nodes are configured as schedulable control plane nodes. The NUMA Resources Operator can be configured to manage all nodes in the cluster. Follow the deployment instructions for more details on the process.</p>
+</dd>
+<dt class="hdlist1">Multi-Node OpenShift (MNO) clusters</dt>
+<dd>
+<p>In a Multi-Node OpenShift Container Platform cluster, control plane nodes are made schedulable in addition to existing worker nodes. To manage these nodes, you can configure the NUMA Resources Operator by defining separate <code>nodeGroups</code> in the <code>NUMAResourcesOperator</code> CR for the control plane and worker nodes. This ensures that the NUMA Resources Operator correctly schedules pods on both sets of nodes based on resource availability and NUMA topology.</p>
+</dd>
+</dl>
+</div>
+<div class="sect2">
+<h3 id="cnf-configuring-nrop-on-schedulable-cp-nodes_numa-aware"><a class="anchor" href="#cnf-configuring-nrop-on-schedulable-cp-nodes_numa-aware"></a>Configuring NUMA Resources Operator on schedulable control plane nodes</h3>
+<div class="paragraph _abstract">
+<p>This procedure describes how to configure the NUMA Resources Operator (NROP) to manage control plane nodes that a user configures to be schedulable. This is particularly useful in compact clusters where control plane nodes also serve as worker nodes, or in multi-node OpenShift (MNO) clusters where control plane nodes are configured as schedulable to run workloads.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Install the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>Log in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>Install the NUMA Resources Operator.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>To enable Topology Aware Scheduling (TAS) on control plane nodes, configure the nodes to be schedulable first. This allows the NUMA Resources Operator to deploy and manage pods on them. Without this action, the operator cannot deploy the pods required to gather NUMA topology information from these nodes. Follow these steps to make the control plane nodes schedulable:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Edit the <code>schedulers.config.openshift.io</code> resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit schedulers.config.openshift.io cluster</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>In the editor, set the <code>mastersSchedulable</code> field to <code>true</code>, then save and exit the editor.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Scheduler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2019-09-10T03:04:05Z"</span>
+  <span class="na">generation</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+  <span class="na">resourceVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">433"</span>
+  <span class="na">selfLink</span><span class="pi">:</span> <span class="s">/apis/config.openshift.io/v1/schedulers/cluster</span>
+  <span class="na">uid</span><span class="pi">:</span> <span class="s">a636d30a-d377-11e9-88d4-0a60097bee62</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">mastersSchedulable</span><span class="pi">:</span> <span class="no">true</span>
+<span class="na">status</span><span class="pi">:</span> <span class="pi">{}</span>
+<span class="c1">#...</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>To configure the NUMA Resources Operator, you must create a single NUMAResourcesOperator custom resource (CR) on the cluster. The <code>nodeGroups</code> configuration within this CR specifies the node pools the Operator must manage.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Before configuring <code>nodeGroups</code>, ensure the specified node pool meets all prerequisites detailed in Section 12.5, "Configuring a single NUMA node policy." The NUMA Resources Operator requires all nodes within a group to be identical. Non-compliant nodes prevent the NUMA Resources Operator from performing the expected topology-aware scheduling for the entire pool.</p>
+</div>
+<div class="paragraph">
+<p>You can specify multiple non-overlapping node sets for the NUMA Resources Operator to manage. Each of these sets should correspond to a different machine config pool (MCP). The NUMA Resources Operator then manages the schedulable control plane nodes within these specified node groups.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>For a compact cluster, the compact cluster&#8217;s master nodes are also the schedulable nodes, so specify only the master pool. Create the following <code>nodeGroups</code> configuration in the <code>NUMAResourcesOperator</code> CR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nodetopology.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NUMAResourcesOperator</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">numaresourcesoperator</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">nodeGroups</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">poolName</span><span class="pi">:</span> <span class="s">master</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Configuring a compact cluster with a worker pool in addition to the <code>master</code> pool should be avoided. While this setup does not break the cluster or affect operator functionality, it can lead to redundant or duplicate pods and create unnecessary noise in the system. The worker pool is essentially a pointless, empty MCP in this context and serves no purpose.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>For an MNO cluster where both control plane and worker nodes are schedulable, you have the option to configure the NUMA Resources Operator to manage multiple <code>nodeGroups</code>. You can specify which nodes to include by adding their corresponding MCPs to the <code>nodeGroups</code> list in the <code>NUMAResourcesOperator</code> CR. The configuration depends entirely on your specific requirements. For example, to manage both the <code>master</code> and <code>worker-cnf</code> pools, create the following <code>nodeGroups</code> configuration in the NUMAResourcesOperator CR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nodetopology.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NUMAResourcesOperator</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">numaresourcesoperator</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">nodeGroups</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">poolName</span><span class="pi">:</span> <span class="s">master</span>
+    <span class="pi">-</span> <span class="na">poolName</span><span class="pi">:</span> <span class="s">worker-cnf</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can customize this list to include any combination of nodeGroups for management with Topology-Aware Scheduling. To prevent duplicate, pending pods, you must ensure that each <code>poolName</code> in the configuration corresponds to a MachineConfigPool (MCP) with a unique node selector label. The label must be applied only to the nodes within that specific pool and must not overlap with labels on any other nodes in the cluster. The <code>worker-cnf</code> MCP designates a set of nodes that run telecommunications workloads.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>After you update the <code>nodeGroups</code> field in the <code>NUMAResourcesOperator</code> CR to reflect your cluster&#8217;s configuration, apply the changes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;filename&gt;.yaml</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Replace <code>&lt;filename&gt;.yaml</code> with the name of your configuration file.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<div class="title">Verification</div>
+<p>After applying the configuration, verify that the NUMA Resources Operator is correctly managing the schedulable control plane nodes by performing the following checks:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Confirm that the control plane nodes have the worker role and are schedulable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output:</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                STATUS   ROLES                         AGE     VERSION
+worker-0            Ready    worker,worker-cnf             100m    v1.33.3
+worker-1            Ready    worker                        93m     v1.33.3
+master-0            Ready    control-plane,master,worker   108m    v1.33.3
+master-1            Ready    control-plane,master,worker   107m    v1.33.3
+master-2            Ready    control-plane,master,worker   107m    v1.33.3
+worker-2            Ready    worker                        100m    v1.33.3</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the NUMA Resources Operator’s pods are running on the intended nodes by running the following command. You should see a numaresourcesoperator pod for each node group you specified in the CR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-numaresources <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output:</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                               READY   STATUS    RESTARTS   AGE     IP            NODE       NOMINATED NODE   READINESS GATES
+</span><span class="gp">numaresources-controller-manager-bdbdd574-xx6bw    1/1     Running   0          49m     10.130.0.17   master-0   &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;
+<span class="gp">numaresourcesoperator-master-lprrh                 2/2     Running   0          20m     10.130.0.20   master-0   &lt;none&gt;</span><span class="w">           </span>2/2
+<span class="gp">numaresourcesoperator-master-qk6k4                 2/2     Running   0          20m     10.129.0.50   master-2   &lt;none&gt;</span><span class="w">           </span>2/2
+<span class="gp">numaresourcesoperator-master-zm79n                 2/2     Running   0          20m     10.128.0.44   master-1   &lt;none&gt;</span><span class="w">           </span>2/2
+<span class="gp">numaresourcesoperator-worker-cnf-gqlmd             2/2     Running   0          4m27s   10.128.2.21   worker-0   &lt;none&gt;</span><span class="w">           </span>2/2</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Confirm that the NUMA Resources Operator has collected and reported the NUMA topology data for all nodes in the specified groups by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get noderesourcetopologies.topology.node.k8s.io</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output:</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME          AGE
+worker-0      6m11s
+master-0      22m
+master-1      21m
+master-2      21m</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The presence of a <code>NodeResourceTopology</code> resource for a node confirms that the NUMA Resources Operator was able to schedule a pod on it to collect the data, enabling topology-aware scheduling.</p>
+</div>
+</li>
+<li>
+<p>Inspect a single Node Resource Topology by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get noderesourcetopologies &lt;master_node_name&gt; <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output:</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">topology.node.k8s.io/v1alpha2</span>
+<span class="na">attributes</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">nodeTopologyPodsFingerprint</span>
+  <span class="na">value</span><span class="pi">:</span> <span class="s">pfp0v001ef46db3751d8e999</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">nodeTopologyPodsFingerprintMethod</span>
+  <span class="na">value</span><span class="pi">:</span> <span class="s">with-exclusive-resources</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">topologyManagerScope</span>
+  <span class="na">value</span><span class="pi">:</span> <span class="s">container</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">topologyManagerPolicy</span>
+  <span class="na">value</span><span class="pi">:</span> <span class="s">single-numa-node</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NodeResourceTopology</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">k8stopoawareschedwg/rte-update</span><span class="pi">:</span> <span class="s">periodic</span>
+    <span class="s">topology.node.k8s.io/fingerprint</span><span class="pi">:</span> <span class="s">pfp0v001ef46db3751d8e999</span>
+  <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-09-23T10:18:34Z"</span>
+  <span class="na">generation</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">master-0</span>
+  <span class="na">resourceVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">58173"</span>
+  <span class="na">uid</span><span class="pi">:</span> <span class="s">35c0d27e-7d9f-43d3-bab9-2ebc0d385861</span>
+<span class="na">zones</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">costs</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">node-0</span>
+    <span class="na">value</span><span class="pi">:</span> <span class="m">10</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">node-0</span>
+  <span class="na">resources</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">allocatable</span><span class="pi">:</span> <span class="s2">"</span><span class="s">3"</span>
+    <span class="na">available</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span>
+    <span class="na">capacity</span><span class="pi">:</span> <span class="s2">"</span><span class="s">4"</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
+  <span class="pi">-</span> <span class="na">allocatable</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1476189952"</span>
+    <span class="na">available</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1378189952"</span>
+    <span class="na">capacity</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1576189952"</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">memory</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">Node</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The presence of this resource for a node with a master role proves that the NUMA Resources Operator was able to deploy its discovery pods onto that node. These pods are what gather the NUMA topology data, and they can only be scheduled on nodes that are considered schedulable.</p>
+</div>
+<div class="paragraph">
+<p>The output confirms that the procedure to make the master nodes schedulable was successful, as the NUMA Resources Operator has now collected and reported the NUMA-related information for that specific control plane node.</p>
 </div>
 </li>
 </ol>

@@ -951,7 +951,7 @@
 <li><a href="#storage-create-storage-class-cli_persistent-storage-csi-aws-efs">Creating the AWS EFS storage class using the CLI</a></li>
 </ul>
 </li>
-<li><a href="#efs-create-volume_persistent-storage-csi-aws-efs">Creating and configuring access to EFS volumes in AWS</a></li>
+<li><a href="#persistent-storage-csi-efs-cross-account_persistent-storage-csi-aws-efs">AWS EFS CSI cross account support</a></li>
 <li><a href="#csi-dynamic-provisioning-aws-efs_persistent-storage-csi-aws-efs">Dynamic provisioning for Amazon Elastic File Storage</a></li>
 <li><a href="#efs-create-static-pv_persistent-storage-csi-aws-efs">Creating static PVs with Amazon Elastic File Storage</a></li>
 <li><a href="#efs-security_persistent-storage-csi-aws-efs">Amazon Elastic File Storage security</a></li>
@@ -1504,89 +1504,664 @@ persistent volumes.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="efs-create-volume_persistent-storage-csi-aws-efs"><a class="anchor" href="#efs-create-volume_persistent-storage-csi-aws-efs"></a>Creating and configuring access to EFS volumes in AWS</h2>
+<h2 id="persistent-storage-csi-efs-cross-account_persistent-storage-csi-aws-efs"><a class="anchor" href="#persistent-storage-csi-efs-cross-account_persistent-storage-csi-aws-efs"></a>AWS EFS CSI cross account support</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>This procedure explains how to create and configure EFS volumes in AWS so that you can use them in OpenShift Dedicated.</p>
+<p>Cross account support allows you to have
+ an OpenShift Dedicated cluster
+in one AWS account and mount your file system in another AWS account by using the AWS Elastic File System (EFS) Container Storage Interface (CSI) driver.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>AWS account credentials</p>
+<p>Access to
+ an OpenShift Dedicated cluster
+with administrator rights</p>
+</li>
+<li>
+<p>Two valid AWS accounts</p>
+</li>
+<li>
+<p>The EFS CSI Operator has been installed. For information about installing the EFS CSI Operator, see the <em>Installing the AWS EFS CSI Driver Operator</em> section.</p>
+</li>
+<li>
+<p>Both the OpenShift Dedicated cluster and EFS file system must be located in the same AWS region.</p>
+</li>
+<li>
+<p>Ensure that the two virtual private clouds (VPCs) used in the following procedure use different network Classless Inter-Domain Routing (CIDR) ranges.</p>
+</li>
+<li>
+<p>Access to OpenShift Dedicated CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>Access to AWS CLI.</p>
+</li>
+<li>
+<p>Access to <code>jq</code> command-line JSON processor.</p>
 </li>
 </ul>
 </div>
 <div class="paragraph">
 <div class="title">Procedure</div>
-<p>To create and configure access to an EFS volume in AWS:</p>
+<p>The following procedure explains how to set up:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>OpenShift Dedicated AWS Account A: Contains a Red Hat OpenShift Dedicated cluster v4.16, or later, deployed within a VPC</p>
+</li>
+<li>
+<p>AWS Account B: Contains a VPC (including subnets, route tables, and network connectivity). The EFS filesystem will be created in this VPC.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To use AWS EFS across accounts:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>On the AWS console, open <a href="https://console.aws.amazon.com/efs" class="bare">https://console.aws.amazon.com/efs</a>.</p>
-</li>
-<li>
-<p>Click <strong>Create file system</strong>:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Enter a name for the file system.</p>
-</li>
-<li>
-<p>For <strong>Virtual Private Cloud (VPC)</strong>, select the virtual private cloud (VPC) for your OpenShift Dedicated cluster.</p>
-</li>
-<li>
-<p>Accept default settings for all other selections.</p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Wait for the volume and mount targets to finish being fully created:</p>
+<p>Set up the environment:</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Go to <a href="https://console.aws.amazon.com/efs#/file-systems" class="bare">https://console.aws.amazon.com/efs#/file-systems</a>.</p>
-</li>
-<li>
-<p>Click your volume, and on the <strong>Network</strong> tab wait for all mount targets to become available (~1-2 minutes).</p>
-</li>
-</ol>
+<p>Configure environment variables by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export CLUSTER_NAME="&lt;CLUSTER_NAME&gt;</span><span class="s2">" <i class="conum" data-value="1"></i><b>(1)</b>
+</span><span class="gp">export AWS_REGION="&lt;AWS_REGION&gt;</span><span class="s2">"</span> <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="gp">export AWS_ACCOUNT_A_ID="&lt;ACCOUNT_A_ID&gt;</span><span class="s2">" <i class="conum" data-value="3"></i><b>(3)</b>
+</span><span class="gp">export AWS_ACCOUNT_B_ID="&lt;ACCOUNT_B_ID&gt;</span><span class="s2">"</span> <i class="conum" data-value="4"></i><b>(4)</b>
+<span class="gp">export AWS_ACCOUNT_A_VPC_CIDR="&lt;VPC_A_CIDR&gt;</span><span class="s2">" <i class="conum" data-value="5"></i><b>(5)</b>
+</span><span class="gp">export AWS_ACCOUNT_B_VPC_CIDR="&lt;VPC_B_CIDR&gt;</span><span class="s2">"</span> <i class="conum" data-value="6"></i><b>(6)</b>
+<span class="gp">export AWS_ACCOUNT_A_VPC_ID="&lt;VPC_A_ID&gt;</span><span class="s2">" <i class="conum" data-value="7"></i><b>(7)</b>
+</span><span class="gp">export AWS_ACCOUNT_B_VPC_ID="&lt;VPC_B_ID&gt;</span><span class="s2">"</span> <i class="conum" data-value="8"></i><b>(8)</b>
+<span class="gp">export SCRATCH_DIR="&lt;WORKING_DIRECTORY&gt;</span><span class="s2">" <i class="conum" data-value="9"></i><b>(9)</b>
+</span><span class="go">export CSI_DRIVER_NAMESPACE="openshift-cluster-csi-drivers" <i class="conum" data-value="10"></i><b>(10)</b>
+export AWS_PAGER="" <i class="conum" data-value="11"></i><b>(11)</b>
+</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Cluster name of choice.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>AWS region of choice.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>AWS Account A ID.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>AWS Account B ID.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>CIDR range of VPC in Account A.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>CIDR range of VPC in Account B.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>VPC ID in Account A (cluster)</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="8"></i><b>8</b></td>
+<td>VPC ID in Account B (EFS cross account)</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="9"></i><b>9</b></td>
+<td>Any writeable directory of choice to use to store temporary files.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="10"></i><b>10</b></td>
+<td>If your driver is installed in a non-default namespace, change this value.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="11"></i><b>11</b></td>
+<td>Makes AWS CLI output everything directly to stdout.</td>
+</tr>
+</table>
 </div>
 </li>
 <li>
-<p>On the <strong>Network</strong> tab, copy the Security Group ID (you will need this in the next step).</p>
+<p>Create the working directory by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">mkdir -p $</span>SCRATCH_DIR</code></pre>
+</div>
+</div>
 </li>
 <li>
-<p>Go to <a href="https://console.aws.amazon.com/ec2/v2/home#SecurityGroups" class="bare">https://console.aws.amazon.com/ec2/v2/home#SecurityGroups</a>, and find the Security Group used by the EFS volume.</p>
+<p>Verify cluster connectivity by running the following command in the OpenShift Dedicated CLI:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">whoami</span></code></pre>
+</div>
+</div>
 </li>
 <li>
-<p>On the <strong>Inbound rules</strong> tab, click <strong>Edit inbound rules</strong>, and then add a new rule with the following settings to allow OpenShift Dedicated nodes to access EFS volumes :</p>
+<p>Determine the OpenShift Dedicated cluster type and set node selector:</p>
+<div class="paragraph">
+<p>The EFS cross account feature requires assigning AWS IAM policies to nodes running EFS CSI controller pods. However, this is
+not consistent for every OpenShift Dedicated type.</p>
+</div>
 <div class="ulist">
 <ul>
 <li>
-<p><strong>Type</strong>: NFS</p>
+<p>If your cluster is deployed as a Hosted Control Plane (HyperShift), set the <code>NODE_SELECTOR</code> environment variable to hold the worker node label by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">export NODE_SELECTOR=node-role.kubernetes.io/worker</span></code></pre>
+</div>
+</div>
 </li>
 <li>
-<p><strong>Protocol</strong>: TCP</p>
-</li>
-<li>
-<p><strong>Port range</strong>: 2049</p>
-</li>
-<li>
-<p><strong>Source</strong>: Custom/IP address range of your nodes (for example: “10.0.0.0/16”)</p>
-<div class="paragraph">
-<p>This step allows OpenShift Dedicated to use NFS ports from the cluster.</p>
+<p>For all other OpenShift Dedicated types, set the <code>NODE_SELECTOR</code> environment variable to hold the master node label by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">export NODE_SELECTOR=node-role.kubernetes.io/master</span></code></pre>
+</div>
 </div>
 </li>
 </ul>
 </div>
 </li>
 <li>
-<p>Save the rule.</p>
+<p>Configure AWS CLI profiles as environment variables for account switching by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_ACCOUNT_A="&lt;ACCOUNT_A_NAME&gt;</span><span class="s2">"
+</span><span class="gp">export AWS_ACCOUNT_B="&lt;ACCOUNT_B_NAME&gt;</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Ensure that your AWS CLI is configured with JSON output format as the default for both accounts by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_A<span class="o">}</span>
+<span class="go">aws configure get output
+</span><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_B<span class="o">}</span>
+<span class="go">aws configure get output</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the preceding commands return:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>No value</strong>: The default output format is already set to JSON and no changes are required.</p>
+</li>
+<li>
+<p><strong>Any value</strong>: Reconfigure your AWS CLI to use JSON format. For information about changing output formats, see <em>Setting the output format in the AWS CLI</em> in the AWS documentation.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Unset <code>AWS_PROFILE</code> in your shell to prevent conflicts with <code>AWS_DEFAULT_PROFILE</code> by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">unset AWS_PROFILE</span></code></pre>
+</div>
+</div>
 </li>
 </ol>
+</div>
+</li>
+<li>
+<p>Configure the AWS Account B IAM roles and policies:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Switch to your Account B profile by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_B<span class="o">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Define the IAM role name for the EFS CSI Driver Operator by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export ACCOUNT_B_ROLE_NAME=$</span><span class="o">{</span>CLUSTER_NAME<span class="o">}</span><span class="nt">-cross-account-aws-efs-csi-operator</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the IAM trust policy file by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">cat &lt;&lt;EOF &gt;</span><span class="w"> </span><span class="nv">$SCRATCH_DIR</span>/AssumeRolePolicyInAccountB.json
+<span class="go">{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+</span><span class="gp">                "AWS": "arn:aws:iam::$</span><span class="o">{</span>AWS_ACCOUNT_A_ID<span class="o">}</span>:root<span class="s2">"
+</span><span class="go">            },
+            "Action": "sts:AssumeRole",
+            "Condition": {}
+        }
+    ]
+}
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the IAM role for the EFS CSI Driver Operator by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">ACCOUNT_B_ROLE_ARN=$</span><span class="o">(</span>aws iam create-role <span class="se">\</span>
+  <span class="nt">--role-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">ACCOUNT_B_ROLE_NAME</span><span class="k">}</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--assume-role-policy-document</span> file://<span class="nv">$SCRATCH_DIR</span>/AssumeRolePolicyInAccountB.json <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s2">"Role.Arn"</span> <span class="nt">--output</span> text<span class="o">)</span> <span class="se">\</span>
+<span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="nv">$ACCOUNT_B_ROLE_ARN</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the IAM policy file by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">cat &lt;&lt; EOF &gt;</span><span class="w"> </span><span class="nv">$SCRATCH_DIR</span>/EfsPolicyInAccountB.json
+<span class="go">{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeNetworkInterfaces",
+                "ec2:DescribeSubnets"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "elasticfilesystem:DescribeMountTargets",
+                "elasticfilesystem:DeleteAccessPoint",
+                "elasticfilesystem:ClientMount",
+                "elasticfilesystem:DescribeAccessPoints",
+                "elasticfilesystem:ClientWrite",
+                "elasticfilesystem:ClientRootAccess",
+                "elasticfilesystem:DescribeFileSystems",
+                "elasticfilesystem:CreateAccessPoint",
+                "elasticfilesystem:TagResource"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the IAM policy by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">ACCOUNT_B_POLICY_ARN=$</span><span class="o">(</span>aws iam create-policy <span class="nt">--policy-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span><span class="s2">-efs-csi-policy"</span> <span class="se">\</span>
+   <span class="nt">--policy-document</span> file://<span class="nv">$SCRATCH_DIR</span>/EfsPolicyInAccountB.json <span class="se">\</span>
+   <span class="nt">--query</span> <span class="s1">'Policy.Arn'</span> <span class="nt">--output</span> text<span class="o">)</span> <span class="se">\</span>
+<span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="k">${</span><span class="nv">ACCOUNT_B_POLICY_ARN</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Attach the policy to the role by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">aws iam attach-role-policy \
+   --role-name "$</span><span class="o">{</span>ACCOUNT_B_ROLE_NAME<span class="o">}</span><span class="s2">" </span><span class="se">\</span><span class="s2">
+   --policy-arn "</span><span class="k">${</span><span class="nv">ACCOUNT_B_POLICY_ARN</span><span class="k">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Configure the AWS Account A IAM roles and policies:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Switch to your Account A profile by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_A<span class="o">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the IAM policy document by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">cat &lt;&lt; EOF &gt;</span><span class="w"> </span><span class="nv">$SCRATCH_DIR</span>/AssumeRoleInlinePolicyPolicyInAccountA.json
+<span class="go">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+</span><span class="gp">      "Resource": "$</span><span class="o">{</span>ACCOUNT_B_ROLE_ARN<span class="o">}</span><span class="s2">"
+</span><span class="go">    }
+  ]
+}
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>In AWS Account A, attach the AWS-managed policy "AmazonElasticFileSystemClientFullAccess" to the OpenShift Dedicated cluster master role by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">EFS_CLIENT_FULL_ACCESS_BUILTIN_POLICY_ARN=arn:aws:iam::aws:policy/AmazonElasticFileSystemClientFullAccess
+declare -A ROLE_SEEN
+</span><span class="gp">for NODE in $</span><span class="o">(</span>oc get nodes <span class="nt">--selector</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">NODE_SELECTOR</span><span class="k">}</span><span class="s2">"</span> <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[*].metadata.name}'</span><span class="o">)</span><span class="p">;</span> <span class="k">do</span>
+<span class="gp">    INSTANCE_PROFILE=$</span><span class="o">(</span>aws ec2 describe-instances <span class="se">\</span>
+        <span class="nt">--filters</span> <span class="s2">"Name=private-dns-name,Values=</span><span class="k">${</span><span class="nv">NODE</span><span class="k">}</span><span class="s2">"</span> <span class="se">\</span>
+        <span class="nt">--query</span> <span class="s1">'Reservations[].Instances[].IamInstanceProfile.Arn'</span> <span class="se">\</span>
+        <span class="nt">--output</span> text | <span class="nb">awk</span> <span class="nt">-F</span><span class="s1">'/'</span> <span class="s1">'{print $NF}'</span> | xargs<span class="o">)</span>
+<span class="gp">    MASTER_ROLE_ARN=$</span><span class="o">(</span>aws iam get-instance-profile <span class="se">\</span>
+        <span class="nt">--instance-profile-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">INSTANCE_PROFILE</span><span class="k">}</span><span class="s2">"</span> <span class="se">\</span>
+        <span class="nt">--query</span> <span class="s1">'InstanceProfile.Roles[0].Arn'</span> <span class="se">\</span>
+        <span class="nt">--output</span> text | xargs<span class="o">)</span>
+<span class="gp">    MASTER_ROLE_NAME=$</span><span class="o">(</span><span class="nb">echo</span> <span class="s2">"</span><span class="k">${</span><span class="nv">MASTER_ROLE_ARN</span><span class="k">}</span><span class="s2">"</span> | <span class="nb">awk</span> <span class="nt">-F</span><span class="s1">'/'</span> <span class="s1">'{print $NF}'</span> | xargs<span class="o">)</span>
+<span class="gp">    echo "Checking role: '$</span><span class="o">{</span>MASTER_ROLE_NAME<span class="o">}</span><span class="s1">'"
+</span><span class="gp">    if [[ -n "$</span><span class="s1">{ROLE_SEEN[$MASTER_ROLE_NAME]:-}" ]]; then
+</span><span class="gp">        echo "Already processed role: '$</span><span class="s1">{MASTER_ROLE_NAME}'</span>, skipping.<span class="s2">"
+</span><span class="go">        continue
+    fi
+</span><span class="gp">    ROLE_SEEN["$</span>MASTER_ROLE_NAME<span class="s2">"]=1
+</span><span class="gp">    echo "Assigning policy $</span><span class="s2">{EFS_CLIENT_FULL_ACCESS_BUILTIN_POLICY_ARN} to role </span><span class="k">${</span><span class="nv">MASTER_ROLE_NAME</span><span class="k">}</span><span class="s2">"</span>
+<span class="gp">    aws iam attach-role-policy --role-name "$</span><span class="o">{</span>MASTER_ROLE_NAME<span class="o">}</span><span class="s2">" --policy-arn "</span><span class="k">${</span><span class="nv">EEFS_CLIENT_FULL_ACCESS_BUILTIN_POLICY_ARN</span><span class="k">}</span><span class="s2">"
+</span><span class="go">done</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Attach the policy to the IAM entity to allow role assumption:</p>
+<div class="paragraph">
+<p>This step depends on your cluster configuration. In both of the following scenarios, the EFS CSI Driver Operator uses an entity to authenticate to AWS, and this entity must be granted permission to assume roles in Account B.</p>
+</div>
+<div class="paragraph">
+<p>If your cluster:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Does not have STS enabled</strong>: The EFS CSI Driver Operator uses an IAM User entity for AWS authentication. Continue with the step "Attach policy to IAM User to allow role assumption".</p>
+</li>
+<li>
+<p><strong>Has STS enabled</strong>: The EFS CSI Driver Operator uses an IAM role entity for AWS authentication. Continue with the step "Attach policy to IAM Role to allow role assumption".</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Attach policy to IAM User to allow role assumption</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Identify the IAM User used by the EFS CSI Driver Operator by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">EFS_CSI_DRIVER_OPERATOR_USER=$</span><span class="o">(</span>oc <span class="nt">-n</span> openshift-cloud-credential-operator get credentialsrequest/openshift-aws-efs-csi-driver <span class="nt">-o</span> json | jq <span class="nt">-r</span> <span class="s1">'.status.providerStatus.user'</span><span class="o">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Attach the policy to the IAM user by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">aws iam put-user-policy \
+    --user-name "$</span><span class="o">{</span>EFS_CSI_DRIVER_OPERATOR_USER<span class="o">}</span><span class="s2">"  </span><span class="se">\</span><span class="s2">
+    --policy-name efs-cross-account-inline-policy </span><span class="se">\</span><span class="s2">
+    --policy-document file://</span><span class="nv">$SCRATCH_DIR</span><span class="s2">/AssumeRoleInlinePolicyPolicyInAccountA.json</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Attach the policy to the IAM role to allow role assumption:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Identify the IAM role name currently used by the EFS CSI Driver Operator by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">EFS_CSI_DRIVER_OPERATOR_ROLE=$</span><span class="o">(</span>oc <span class="nt">-n</span> <span class="k">${</span><span class="nv">CSI_DRIVER_NAMESPACE</span><span class="k">}</span> get secret/aws-efs-cloud-credentials <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.credentials}'</span> | <span class="nb">base64</span> <span class="nt">-d</span> | <span class="nb">grep </span>role_arn | <span class="nb">cut</span> <span class="nt">-d</span><span class="s1">'/'</span> <span class="nt">-f2</span><span class="o">)</span> <span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="k">${</span><span class="nv">EFS_CSI_DRIVER_OPERATOR_ROLE</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Attach the policy to the IAM role used by the EFS CSI Driver Operator by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp"> aws iam put-role-policy \
+    --role-name "$</span><span class="o">{</span>EFS_CSI_DRIVER_OPERATOR_ROLE<span class="o">}</span><span class="s2">"  </span><span class="se">\</span><span class="s2">
+    --policy-name efs-cross-account-inline-policy </span><span class="se">\</span><span class="s2">
+    --policy-document file://</span><span class="nv">$SCRATCH_DIR</span><span class="s2">/AssumeRoleInlinePolicyPolicyInAccountA.json</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Configure VPC peering:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Initiate a peering request from Account A to Account B by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_A<span class="o">}</span>
+<span class="gp">PEER_REQUEST_ID=$</span><span class="o">(</span>aws ec2 create-vpc-peering-connection <span class="nt">--vpc-id</span> <span class="s2">"</span><span class="k">${</span><span class="nv">AWS_ACCOUNT_A_VPC_ID</span><span class="k">}</span><span class="s2">"</span> <span class="nt">--peer-vpc-id</span> <span class="s2">"</span><span class="k">${</span><span class="nv">AWS_ACCOUNT_B_VPC_ID</span><span class="k">}</span><span class="s2">"</span> <span class="nt">--peer-owner-id</span> <span class="s2">"</span><span class="k">${</span><span class="nv">AWS_ACCOUNT_B_ID</span><span class="k">}</span><span class="s2">"</span> <span class="nt">--query</span> VpcPeeringConnection.VpcPeeringConnectionId <span class="nt">--output</span> text<span class="o">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Accept the peering request from Account B by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_B<span class="o">}</span>
+<span class="gp">aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id "$</span><span class="o">{</span>PEER_REQUEST_ID<span class="o">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Retrieve the route table IDs for Account A and add routes to the Account B VPC by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_A<span class="o">}</span>
+<span class="gp">for NODE in $</span><span class="o">(</span>oc get nodes <span class="nt">--selector</span><span class="o">=</span>node-role.kubernetes.io/worker | <span class="nb">tail</span> <span class="nt">-n</span> +2 | <span class="nb">awk</span> <span class="s1">'{print $1}'</span><span class="o">)</span>
+<span class="go">do
+</span><span class="gp">    SUBNET=$</span><span class="o">(</span>aws ec2 describe-instances <span class="nt">--filters</span> <span class="s2">"Name=private-dns-name,Values=</span><span class="nv">$NODE</span><span class="s2">"</span> <span class="nt">--query</span> <span class="s1">'Reservations[*].Instances[*].NetworkInterfaces[*].SubnetId'</span> | jq <span class="nt">-r</span> <span class="s1">'.[0][0][0]'</span><span class="o">)</span>
+<span class="gp">    echo SUBNET is $</span><span class="o">{</span>SUBNET<span class="o">}</span>
+<span class="gp">    ROUTE_TABLE_ID=$</span><span class="o">(</span>aws ec2 describe-route-tables <span class="nt">--filters</span> <span class="s2">"Name=association.subnet-id,Values=</span><span class="k">${</span><span class="nv">SUBNET</span><span class="k">}</span><span class="s2">"</span> <span class="nt">--query</span> <span class="s1">'RouteTables[*].RouteTableId'</span> | jq <span class="nt">-r</span> <span class="s1">'.[0]'</span><span class="o">)</span>
+<span class="gp">    echo Route table ID is $</span>ROUTE_TABLE_ID
+<span class="gp">    aws ec2 create-route --route-table-id $</span><span class="o">{</span>ROUTE_TABLE_ID<span class="o">}</span> <span class="nt">--destination-cidr-block</span> <span class="k">${</span><span class="nv">AWS_ACCOUNT_B_VPC_CIDR</span><span class="k">}</span> <span class="nt">--vpc-peering-connection-id</span> <span class="k">${</span><span class="nv">PEER_REQUEST_ID</span><span class="k">}</span>
+<span class="go">done</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Retrieve the route table IDs for Account B and add routes to the Account A VPC by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_B<span class="o">}</span>
+<span class="gp">for ROUTE_TABLE_ID in $</span><span class="o">(</span>aws ec2 describe-route-tables   <span class="nt">--filters</span> <span class="s2">"Name=vpc-id,Values=</span><span class="k">${</span><span class="nv">AWS_ACCOUNT_B_VPC_ID</span><span class="k">}</span><span class="s2">"</span>   <span class="nt">--query</span> <span class="s2">"RouteTables[].RouteTableId"</span> | jq <span class="nt">-r</span> <span class="s1">'.[]'</span><span class="o">)</span>
+<span class="go">do
+</span><span class="gp">    echo Route table ID is $</span>ROUTE_TABLE_ID
+<span class="gp">    aws ec2 create-route --route-table-id $</span><span class="o">{</span>ROUTE_TABLE_ID<span class="o">}</span> <span class="nt">--destination-cidr-block</span> <span class="k">${</span><span class="nv">AWS_ACCOUNT_A_VPC_CIDR</span><span class="k">}</span> <span class="nt">--vpc-peering-connection-id</span> <span class="k">${</span><span class="nv">PEER_REQUEST_ID</span><span class="k">}</span>
+<span class="go">done</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Configure security groups in Account B to allow NFS traffic from Account A to EFS:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Switch to your Account B profile by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_B<span class="o">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Configure the VPC security groups for EFS access by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">SECURITY_GROUP_ID=$</span><span class="o">(</span>aws ec2 describe-security-groups <span class="nt">--filters</span> <span class="nv">Name</span><span class="o">=</span>vpc-id,Values<span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">AWS_ACCOUNT_B_VPC_ID</span><span class="k">}</span><span class="s2">"</span> | jq <span class="nt">-r</span> <span class="s1">'.SecurityGroups[].GroupId'</span><span class="o">)</span>
+<span class="gp">aws ec2 authorize-security-group-ingress \
+ --group-id "$</span><span class="o">{</span>SECURITY_GROUP_ID<span class="o">}</span><span class="s2">" </span><span class="se">\</span><span class="s2">
+ --protocol tcp </span><span class="se">\</span><span class="s2">
+ --port 2049 </span><span class="se">\</span><span class="s2">
+ --cidr "</span><span class="k">${</span><span class="nv">AWS_ACCOUNT_A_VPC_CIDR</span><span class="k">}</span><span class="s2">" | jq .</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Create a region-wide EFS filesystem in Account B:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Switch to your Account B profile by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">export AWS_DEFAULT_PROFILE=$</span><span class="o">{</span>AWS_ACCOUNT_B<span class="o">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a region-wide EFS file system by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">CROSS_ACCOUNT_FS_ID=$</span><span class="o">(</span>aws efs create-file-system <span class="nt">--creation-token</span> efs-token-1 <span class="se">\</span>
+<span class="nt">--region</span> <span class="k">${</span><span class="nv">AWS_REGION</span><span class="k">}</span> <span class="se">\</span>
+<span class="nt">--encrypted</span> | jq <span class="nt">-r</span> <span class="s1">'.FileSystemId'</span><span class="o">)</span> <span class="se">\</span>
+<span class="o">&amp;&amp;</span> <span class="nb">echo</span> <span class="nv">$CROSS_ACCOUNT_FS_ID</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Configure region-wide mount targets for EFS by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">for SUBNET in $</span><span class="o">(</span>aws ec2 describe-subnets <span class="se">\</span>
+  <span class="nt">--filters</span> <span class="s2">"Name=vpc-id,Values=</span><span class="k">${</span><span class="nv">AWS_ACCOUNT_B_VPC_ID</span><span class="k">}</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--region</span> <span class="k">${</span><span class="nv">AWS_REGION</span><span class="k">}</span> <span class="se">\</span>
+  | jq <span class="nt">-r</span> <span class="s1">'.Subnets.[].SubnetId'</span><span class="o">)</span><span class="p">;</span> <span class="k">do</span> <span class="se">\</span>
+    <span class="nv">MOUNT_TARGET</span><span class="o">=</span><span class="si">$(</span>aws efs create-mount-target <span class="nt">--file-system-id</span> <span class="k">${</span><span class="nv">CROSS_ACCOUNT_FS_ID</span><span class="k">}</span> <span class="se">\</span>
+    <span class="nt">--subnet-id</span> <span class="k">${</span><span class="nv">SUBNET</span><span class="k">}</span> <span class="se">\</span>
+    <span class="nt">--region</span> <span class="k">${</span><span class="nv">AWS_REGION</span><span class="k">}</span> <span class="se">\</span>
+    | jq <span class="nt">-r</span> <span class="s1">'.MountTargetId'</span><span class="si">)</span><span class="p">;</span> <span class="se">\</span>
+    <span class="nb">echo</span> <span class="k">${</span><span class="nv">MOUNT_TARGET</span><span class="k">}</span><span class="p">;</span> <span class="se">\</span>
+<span class="k">done</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This creates a mount point in each subnet of your VPC.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Configure the EFS Operator for cross-account access:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Define custom names for the secret and storage class that you will create in subsequent steps by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">export SECRET_NAME=my-efs-cross-account
+export STORAGE_CLASS_NAME=efs-sc-cross</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a secret that references the role ARN in Account B by running the following command in the OpenShift Dedicated CLI:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">oc create secret generic $</span><span class="o">{</span>SECRET_NAME<span class="o">}</span> <span class="nt">-n</span> <span class="k">${</span><span class="nv">CSI_DRIVER_NAMESPACE</span><span class="k">}</span> <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">awsRoleArn</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">ACCOUNT_B_ROLE_ARN</span><span class="k">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Grant the CSI driver controller access to the newly created secret by running the following commands in the OpenShift Dedicated CLI:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">oc -n $</span><span class="o">{</span>CSI_DRIVER_NAMESPACE<span class="o">}</span> create role access-secrets <span class="nt">--verb</span><span class="o">=</span>get,list,watch <span class="nt">--resource</span><span class="o">=</span>secrets
+<span class="gp">oc -n $</span><span class="o">{</span>CSI_DRIVER_NAMESPACE<span class="o">}</span> create rolebinding <span class="nt">--role</span><span class="o">=</span>access-secrets default-to-secrets <span class="nt">--serviceaccount</span><span class="o">=</span><span class="k">${</span><span class="nv">CSI_DRIVER_NAMESPACE</span><span class="k">}</span>:aws-efs-csi-driver-controller-sa</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a new storage class that references the EFS ID from Account B and the secret created previously by running the following command in the OpenShift Dedicated CLI:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">cat &lt;&lt; EOF | oc apply -f -
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+</span><span class="gp">  name: $</span><span class="o">{</span>STORAGE_CLASS_NAME<span class="o">}</span>
+<span class="go">provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+</span><span class="gp">  fileSystemId: $</span><span class="o">{</span>CROSS_ACCOUNT_FS_ID<span class="o">}</span>
+<span class="go">  directoryPerms: "700"
+  gidRangeStart: "1000"
+  gidRangeEnd: "2000"
+  basePath: "/dynamic_provisioning"
+</span><span class="gp">  csi.storage.k8s.io/provisioner-secret-name: $</span><span class="o">{</span>SECRET_NAME<span class="o">}</span>
+<span class="gp">  csi.storage.k8s.io/provisioner-secret-namespace: $</span><span class="o">{</span>CSI_DRIVER_NAMESPACE<span class="o">}</span>
+<span class="go">EOF</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-usage-output-format.html">Setting the output format in the AWS CLI</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -1660,9 +2235,6 @@ The EFS CSI driver creates an AWS Access Point for each such subdirectory. Due t
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
-<li>
-<p><a href="../../storage/container_storage_interface/persistent-storage-csi-aws-efs.html#efs-create-volume_persistent-storage-csi-aws-efs">Creating and configuring access to AWS EFS volume(s)</a></p>
-</li>
 <li>
 <p><a href="../../storage/container_storage_interface/persistent-storage-csi-aws-efs.html#storage-create-storage-class_persistent-storage-csi-aws-efs">Creating the AWS EFS storage class</a></p>
 </li>
