@@ -1001,7 +1001,6 @@
                   <li><a class="" href="../../security/external_secrets_operator/index.html">External Secrets Operator overview</a></li>
                   <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-release-notes.html">External Secrets Operator release notes</a></li>
                   <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-install.html">Installing the External Secrets Operator</a></li>
-                  <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-proxy.html">Configuring the egress proxy</a></li>
                   <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-uninstall.html">Uninstalling the External Secrets Operator</a></li>
                   <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-api.html">External Secrets Operator APIs</a></li>              </ul>
             </li>
@@ -3811,7 +3810,20 @@ As a cluster administrator, you must manually approve the update request to upda
 <h2 id="multi-architecture-creating-podplacement-config_multiarch-tuning-operator"><a class="anchor" href="#multi-architecture-creating-podplacement-config_multiarch-tuning-operator"></a>Creating the ClusterPodPlacementConfig object</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>After installing the Multiarch Tuning Operator, you must create the <code>ClusterPodPlacementConfig</code> object. When you create this object, the Multiarch Tuning Operator deploys an operand that enables architecture-aware workload scheduling.</p>
+<p>After installing the Multiarch Tuning Operator, you must create a <code>ClusterPodPlacementConfig</code> object. This object instructs the operator to deploy its operand, which enables architecture-aware workload scheduling across your cluster.</p>
+</div>
+<div class="paragraph">
+<p>The <code>ClusterPodPlacementConfig</code> object supports two optional plugins:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <strong>node affinity scoring</strong> plugin patches pods to set soft preferences, using weighted affinities, for the architectures specified by the user. Pods are more likely to be scheduled on nodes running architectures with higher weights.</p>
+</li>
+<li>
+<p>The <strong>exec format error monitor</strong> plugin detects <code>ENOEXEC</code> errors, which occur when a pod attempts to execute a binary incompatible with the node&#8217;s architecture. When enabled, this plugin generates events in the affected pod&#8217;s event stream. It triggers a <code>ExecFormatErrorsDetected</code> Prometheus alert if one or more <code>ENOEXEC</code> errors are detected within the last six hours. These errors can result from incorrect architecture node selectors, invalid image metadata that affects architecture-aware workload scheduling, an incorrect binary in an image, or an incompatible binary injected at runtime.</p>
+</li>
+</ul>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3847,7 +3859,9 @@ As a cluster administrator, you must manually approve the update request to upda
         <span class="pi">-</span> <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span> <i class="conum" data-value="8"></i><b>(8)</b>
           <span class="na">weight</span><span class="pi">:</span> <span class="s">100</span> <i class="conum" data-value="9"></i><b>(9)</b>
         <span class="pi">-</span> <span class="na">architecture</span><span class="pi">:</span> <span class="s">arm64</span>
-          <span class="na">weight</span><span class="pi">:</span> <span class="s">50</span></code></pre>
+          <span class="na">weight</span><span class="pi">:</span> <span class="m">50</span>
+    <span class="na">execFormatErrorMonitor</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="10"></i><b>(10)</b></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -3870,7 +3884,7 @@ As a cluster administrator, you must manually approve the update request to upda
 </tr>
 <tr>
 <td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Optional: You can use this plugin to set architecture preferences for pod placement. When enabled, the scheduler first filters out nodes that do not meet the pod’s requirements. Then, it prioritizes the remaining nodes based on the architecture scores defined in the <code>nodeAffinityScoring.platforms</code> field.</td>
+<td>Optional: You can use this plugin to set architecture preferences for pod placement. When enabled, the scheduler first filters out nodes that do not meet the pod&#8217;s requirements. Then, it prioritizes the remaining nodes based on the architecture scores defined in the <code>nodeAffinityScoring.platforms</code> field.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="6"></i><b>6</b></td>
@@ -3887,6 +3901,10 @@ As a cluster administrator, you must manually approve the update request to upda
 <tr>
 <td><i class="conum" data-value="9"></i><b>9</b></td>
 <td>Assign a score to the architecture. The value for this field must be configured in the range of <code>1</code> (lowest priority) to <code>100</code> (highest priority). The scheduler uses this score to prioritize nodes for pod placement, favoring nodes with architectures that have higher scores.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="10"></i><b>10</b></td>
+<td>Optional: Set this field to <code>true</code> to enable the <code>execFormatErrorMonitor</code> plugin. When enabled, the plugin detects <code>ENOEXEC</code> errors, caused when a pod executes a binary incompatible with the node&#8217;s architecture. The plugin generates events in the affected pods, and triggers the <code>ExecFormatErrorsDetected</code> Prometheus alert if one or more errors are found in the last six hours.</td>
 </tr>
 </table>
 </div>

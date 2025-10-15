@@ -1001,7 +1001,6 @@
                   <li><a class="" href="../../security/external_secrets_operator/index.html">External Secrets Operator overview</a></li>
                   <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-release-notes.html">External Secrets Operator release notes</a></li>
                   <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-install.html">Installing the External Secrets Operator</a></li>
-                  <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-proxy.html">Configuring the egress proxy</a></li>
                   <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-uninstall.html">Uninstalling the External Secrets Operator</a></li>
                   <li><a class="" href="../../security/external_secrets_operator/external-secrets-operator-api.html">External Secrets Operator APIs</a></li>              </ul>
             </li>
@@ -3368,9 +3367,7 @@
 <li><a href="#machine-health-checks-pausing_updating-cluster-cli">Pausing a MachineHealthCheck resource</a></li>
 <li><a href="#update-single-node-openshift_updating-cluster-cli">About updating single node OpenShift Container Platform</a></li>
 <li><a href="#update-upgrading-cli_updating-cluster-cli">Updating a cluster by using the CLI</a></li>
-<li><a href="#update-upgrading-oc-adm-upgrade-recommend_updating-cluster-cli">Finding recommended update paths with oc adm upgrade recommend (Technology Preview)</a></li>
-<li><a href="#update-upgrading-oc-adm-upgrade-status_updating-cluster-cli">Gathering cluster update status using oc adm upgrade status (Technology Preview)</a></li>
-<li><a href="#update-conditional-upgrade-path_updating-cluster-cli">Updating along a conditional update path</a></li>
+<li><a href="#update-upgrading-oc-adm-upgrade-status_updating-cluster-cli">Cluster update status using oc adm upgrade status</a></li>
 <li><a href="#update-changing-update-server-cli_updating-cluster-cli">Changing the update server by using the CLI</a></li>
 </ul>
 </div>
@@ -3636,21 +3633,25 @@ of the Customer Portal.</p>
 you want to apply:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade recommend</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Cluster version is 4.13.10
-Upstream is unset, so the cluster will use an appropriate default.
-Channel: stable-4.13 (available channels: candidate-4.13, candidate-4.14, fast-4.13, stable-4.13)
-Recommended updates:
-  VERSION     IMAGE
-  4.13.14     quay.io/openshift-release-dev/ocp-release@sha256:406fcc160c097f61080412afcfa7fd65284ac8741ac7ad5b480e304aba73674b
-  4.13.13     quay.io/openshift-release-dev/ocp-release@sha256:d62495768e335c79a215ba56771ff5ae97e3cbb2bf49ed8fb3f6cefabcdc0f17
-  4.13.12     quay.io/openshift-release-dev/ocp-release@sha256:73946971c03b43a0dc6f7b0946b26a177c2f3c9d37105441315b4e3359373a55
-  4.13.11     quay.io/openshift-release-dev/ocp-release@sha256:e1c2377fdae1d063aaddc753b99acf25972b6997ab9a0b7e80cfef627b9ef3dd</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Failing=True:
+
+  Reason: ClusterOperatorNotAvailable
+  Message: Cluster operator monitoring is not available
+</span><span class="c">...
+</span><span class="go">Upstream update service: https://api.integration.openshift.com/api/upgrades_info/graph
+Channel: candidate-4.16 (available channels: candidate-4.16, candidate-4.17, candidate-4.18, eus-4.16, fast-4.16, fast-4.17, stable-4.16, stable-4.17)
+
+Updates to 4.16:
+  VERSION     ISSUES
+  4.16.32     no known issues relevant to this cluster
+  4.16.30     no known issues relevant to this cluster
+And 2 older 4.16 updates you can see with '--show-outdated-releases' or '--version VERSION'.</span></code></pre>
 </div>
 </div>
 <div class="admonitionblock note">
@@ -3663,8 +3664,7 @@ Recommended updates:
 <div class="ulist">
 <ul>
 <li>
-<p>If there are no recommended updates, updates that have known issues might still be available.
-See <em>Updating along a conditional update path</em> for more information.</p>
+<p>You can use the <code>--version</code> flag to determine whether a specific version is recommended for your update. If there are no recommended updates, updates that have known issues might still be available.</p>
 </li>
 <li>
 <p>For details and information on how to perform a <code>Control Plane Only</code> update, please refer to the <em>Preparing to perform a Control Plane Only update</em> page, listed in the Additional resources section.</p>
@@ -3750,9 +3750,15 @@ Update recommendations can change over time, as they are based on what update op
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
 <td><code>&lt;version&gt;</code> is the update version that you obtained from the output of the
-<code>oc adm upgrade</code> command.</td>
-</tr>
-</table>
+<code>oc adm upgrade recommend</code> command.
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>If the cluster administrator evaluates the potential known risks and decides it is acceptable for the current cluster, then the administrator can waive the safety guards and proceed with the update by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade <span class="nt">--allow-not-recommended</span> <span class="nt">--to</span> &lt;version&gt;</code></pre>
+</div>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3769,15 +3775,35 @@ Update recommendations can change over time, as they are based on what update op
 </table>
 </div>
 </li>
+</ol>
+</div></td>
+</tr>
+</table>
+</div>
+</li>
 </ul>
 </div>
 </li>
 <li>
-<p>Review the status of the Cluster Version Operator:</p>
+<p>Optional: Review the status of the Cluster Version Operator by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade status</code></pre>
 </div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>To monitor the update in real time, run <code>oc adm upgrade status</code> in a <code>watch</code> utility.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </li>
 <li>
@@ -3825,151 +3851,35 @@ ip-10-0-250-100.ec2.internal   Ready    worker   69m   v1.33.4</span></code></pr
 </div>
 </div>
 <div class="sect1">
-<h2 id="update-upgrading-oc-adm-upgrade-recommend_updating-cluster-cli"><a class="anchor" href="#update-upgrading-oc-adm-upgrade-recommend_updating-cluster-cli"></a>Finding recommended update paths with oc adm upgrade recommend (Technology Preview)</h2>
+<h2 id="update-upgrading-oc-adm-upgrade-status_updating-cluster-cli"><a class="anchor" href="#update-upgrading-oc-adm-upgrade-status_updating-cluster-cli"></a>Cluster update status using oc adm upgrade status</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>When updating your cluster, the <code>oc adm upgrade</code> command returns a list of the next available versions. You can use the <code>oc adm upgrade recommend</code> command to narrow down your suggestions and recommend a new target release before you launch your update.</p>
-</div>
-<div class="paragraph">
-<p>The <code>oc adm upgrade recommend</code> command is read-only and cannot alter the state of your cluster.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The <code>oc adm upgrade recommend</code> command is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Your cluster does not need to be a Technology Preview-enabled cluster in order for you to use the <code>oc adm upgrade recommend</code> command.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Set the <code>OC_ENABLE_CMD_UPGRADE_RECOMMEND</code> environment variable to <code>true</code> by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">OC_ENABLE_CMD_UPGRADE_RECOMMEND</span><span class="o">=</span><span class="nb">true</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Run one of the following commands:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>To list the recommended versions for your update, run the <code>oc adm upgrade recommend</code> command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade recommend</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Upstream is unset, so the cluster will use an appropriate default.
-Channel: stable-4.13 (available channels: candidate-4.12, candidate-4.13, eus-4.12, eus-4.14, fast-4.12, fast-4.13, stable-4.12, stable-4.13)
-
-Updates to 4.13:
-
-Version: 4.13.50
-Image: quay.io/openshift-release-dev/ocp-release@sha256:6afb11e1cac46fd26476ca134072937115256b9c6360f7a1cd1812992c065f02
-Reason: AdminAckRequired
-Message: Kubernetes 1.26 and therefore OpenShift 4.13 remove several APIs which require admin consideration. Please see the knowledge article https://access.redhat.com/articles/6958394 for details and instructions.
-
-Version: 4.13.49
-Image: quay.io/openshift-release-dev/ocp-release@sha256:ab6f574665395d809511db9dc57764358278538eaae248c6d199208b3c30ab7d
-Reason: AdminAckRequired
-Message: Kubernetes 1.26 and therefore OpenShift 4.13 remove several APIs which require admin consideration. Please see the knowledge article https://access.redhat.com/articles/6958394 for details and instructions.
-
-Updates to 4.12:
-VERSION     ISSUES
-4.12.64     no known issues
-4.12.63     no known issues
-And 43 older 4.12 updates you can see with '--show-outdated-releases' or '--version VERSION'.</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>To determine whether a specific version is recommended for your update, run the <code>oc adm upgrade recommend --version</code> command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade recommend <span class="nt">--version</span> 4.12.51</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Upstream is unset, so the cluster will use an appropriate default.
-Channel: stable-4.13 (available channels: candidate-4.12, candidate-4.13, eus-4.12, eus-4.14, fast-4.12, fast-4.13, stable-4.12, stable-4.13)
-
-Update to 4.12.51 Recommended=False:
-Image: quay.io/openshift-release-dev/ocp-release@sha256:158ced797e49f6caf7862acccef58484be63b642fdd2f66e6416295fa7958ab0
-Release URL: https://access.redhat.com/errata/RHSA-2024:1052
-Reason: MultipleReasons
-Message: An unintended reversion to the default kubelet nodeStatusReportFrequency can cause significant load on the control plane. https://issues.redhat.com/browse/MCO-1094
-
-After rebooting into kernel-4.18.0-372.88.1.el8_6 or later, kernel nodes experience high load average and io_wait times. The nodes might fail to start or stop pods and probes may fail. Workload and host processes may become unresponsive and workload may be disrupted. https://issues.redhat.com/browse/COS-2705</span></code></pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
-</li>
-</ol>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="update-upgrading-oc-adm-upgrade-status_updating-cluster-cli"><a class="anchor" href="#update-upgrading-oc-adm-upgrade-status_updating-cluster-cli"></a>Gathering cluster update status using oc adm upgrade status (Technology Preview)</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>When updating your cluster, the <code>oc adm upgrade</code> command returns returns limited information about the status of your update. You can use the <code>oc adm upgrade status</code> command to decouple status information from the <code>oc adm upgrade</code> command and return specific information regarding a cluster update, including the status of the control plane and worker node updates.</p>
+<p>When updating your cluster, the <code>oc adm upgrade</code> command returns limited information about the status of your update. The cluster administrator can use the <code>oc adm upgrade status</code> command to decouple status information from the <code>oc adm upgrade</code> command and return specific information regarding a cluster update, including the status of the control plane and worker node updates. Worker is also known as compute.</p>
 </div>
 <div class="paragraph">
 <p>The <code>oc adm upgrade status</code> command is read-only and does not alter any state in your cluster.</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The <code>oc adm upgrade status</code> command is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
 <div class="paragraph">
 <p>The <code>oc adm upgrade status</code> command can be used for clusters from version 4.12 up to the latest supported release.</p>
+</div>
+<div class="paragraph">
+<p>The <code>oc adm upgrade status</code> command will output three sections, control plane update, worker nodes update, and health insights.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Control Plane Update</strong>: Displays details about the updating cluster control plane, contains a high-level assessment, completion status, duration estimate, or cluster operator health. The section also shows a table with control plane node update information.</p>
+<div class="paragraph">
+<p>The control plane update section can also show an additional table that lists cluster operators being updated if the <code>--details=operators</code> or <code>--details-all</code> flags are used. Please note that due the asynchronous distributed nature of OpenShift Container Platform, an operator may appear in this section more than once during the update, or not at all. The section is only shown when a Cluster Operator is observed to be updating. It is normal during an update to observe no updating Cluster Operator at certain periods; not every performed action can be assigned to an observable updating Cluster Operator.</p>
+</div>
+</li>
+<li>
+<p><strong>Worker Notes Update</strong>: Displays the worker node update information. The worker nodes section starts with a table that displays a summary of information about each worker pool configured in the cluster. Each non-empty worker pool output will show a dedicated table listing update information about nodes that belong to that pool. If a cluster does not have any worker nodes the output will not contain the worker node section. You can make the node tables show all lines by using <code>--details=nodes</code> or <code>--details=all</code>.</p>
+</li>
+<li>
+<p><strong>Health Insights</strong>: displays insights about states and events present in the cluster that may be relevant for the ongoing update. You can use <code>--details=health</code> to expand the items in this section into a more verbose form with more content such as documentation links, longer form descriptions, or cluster resources involved in the insight.</p>
+</li>
+</ul>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3979,32 +3889,16 @@ After rebooting into kernel-4.18.0-372.88.1.el8_6 or later, kernel nodes experie
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Your cluster does not need to be a Technology Preview-enabled cluster in order for you to use the <code>oc adm upgrade status</code> command.</p>
+<p>The <code>oc adm upgrade status</code> command is currently not supported on hosted control planes clusters.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Set the <code>OC_ENABLE_CMD_UPGRADE_STATUS</code> environment variable to <code>true</code> by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">OC_ENABLE_CMD_UPGRADE_STATUS</span><span class="o">=</span><span class="nb">true</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Run the <code>oc adm upgrade status</code> command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade status</code></pre>
-</div>
+<div class="paragraph">
+<p>The following is an example of the output you will see for an update progressing successfully:</p>
 </div>
 <div class="listingblock">
-<div class="title">Example output for an update progressing successfully</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">= Control Plane =
 Assessment:      Progressing
@@ -4041,9 +3935,6 @@ SINCE   LEVEL   IMPACT   MESSAGE
 54m4s   Info    None     Update is proceeding well</span></code></pre>
 </div>
 </div>
-</li>
-</ol>
-</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
@@ -4051,50 +3942,9 @@ SINCE   LEVEL   IMPACT   MESSAGE
 <p><a href="../../updating/updating_a_cluster/control-plane-only-update.html#control-plane-only-update">Performing a Control Plane Only update</a></p>
 </li>
 <li>
-<p><a href="../../updating/updating_a_cluster/updating-cluster-cli.html#update-conditional-upgrade-path_updating-cluster-cli">Updating along a conditional update path</a></p>
-</li>
-<li>
 <p><a href="../../updating/understanding_updates/understanding-update-channels-release.html#understanding-update-channels-releases">Understanding update channels and releases</a></p>
 </li>
 </ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="update-conditional-upgrade-path_updating-cluster-cli"><a class="anchor" href="#update-conditional-upgrade-path_updating-cluster-cli"></a>Updating along a conditional update path</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>You can update along a recommended conditional update path using the web console or the OpenShift CLI (<code>oc</code>).
-When a conditional update is not recommended for your cluster, you can update along a conditional update path using the OpenShift CLI (<code>oc</code>) 4.10 or later.</p>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>To view the description of the update when it is not recommended because a risk might apply, run the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade <span class="nt">--include-not-recommended</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>If the cluster administrator evaluates the potential known risks and decides it is acceptable for the current cluster, then the administrator can waive the safety guards and proceed the update by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade <span class="nt">--allow-not-recommended</span> <span class="nt">--to</span> &lt;version&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>&lt;version&gt;</code> is the update version that you obtained from the output of the previous command, which is supported but also has known issues or risks.</td>
-</tr>
-</table>
-</div>
-</li>
-</ol>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
