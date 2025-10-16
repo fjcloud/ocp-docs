@@ -952,6 +952,12 @@
 </ul>
 </li>
 <li><a href="#persistent-storage-csi-efs-cross-account_persistent-storage-csi-aws-efs">AWS EFS CSI cross account support</a></li>
+<li><a href="#one-zone-file-systems">One Zone file systems</a>
+<ul class="sectlevel2">
+<li><a href="#efs-one-zone-overview_persistent-storage-csi-aws-efs">One Zone file systems overview</a></li>
+<li><a href="#efs-one-zone-procedure_persistent-storage-csi-aws-efs">Setting up One Zone file systems with STS</a></li>
+</ul>
+</li>
 <li><a href="#csi-dynamic-provisioning-aws-efs_persistent-storage-csi-aws-efs">Dynamic provisioning for Amazon Elastic File Storage</a></li>
 <li><a href="#efs-create-static-pv_persistent-storage-csi-aws-efs">Creating static PVs with Amazon Elastic File Storage</a></li>
 <li><a href="#efs-security_persistent-storage-csi-aws-efs">Amazon Elastic File Storage security</a></li>
@@ -1006,20 +1012,6 @@ This eliminates the need for cluster administrators to pre-provision storage.</p
 <p>The <em>AWS EFS CSI driver</em> enables you to create and mount AWS EFS PVs.</p>
 </li>
 </ul>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>AWS EFS only supports regional volumes, not zonal volumes.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 </div>
 </div>
@@ -2162,6 +2154,167 @@ parameters:
 <p><a href="https://docs.aws.amazon.com/cli/latest/userguide/cli-usage-output-format.html">Setting the output format in the AWS CLI</a></p>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="one-zone-file-systems"><a class="anchor" href="#one-zone-file-systems"></a>One Zone file systems</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="efs-one-zone-overview_persistent-storage-csi-aws-efs"><a class="anchor" href="#efs-one-zone-overview_persistent-storage-csi-aws-efs"></a>One Zone file systems overview</h3>
+<div class="paragraph">
+<p>OpenShift Dedicated supports AWS Elastic File System (EFS) One Zone file system, which is an EFS storage option that stores data redundantly within a single Availability Zone (AZ). This contrasts with the default EFS storage option, which stores data redundantly across multiple AZs within a region.</p>
+</div>
+<div class="paragraph">
+<p>Clusters upgraded from OpenShift Dedicated 4.19 are compatible with the regional EFS volumes.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Dynamic provisioning of One Zone volumes is supported only in single-zone clusters. All nodes in the cluster must be in the same AZ as the EFS volume that is used for the dynamic provisioning.</p>
+</div>
+<div class="paragraph">
+<p>Manually provisioned One Zone volumes in regional clusters is supported, assuming that the persistent volumes (PVs) have correct <code>spec.nodeAffinity</code> that indicates the zone that the volume is in.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>For Cloud Credential Operator (CCO) Mint mode or Passthrough, no extra configuration is required. However, for Security Token Service (STS), use the procedure in Section <em>Setting up One Zone file systems with STS</em>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="efs-one-zone-procedure_persistent-storage-csi-aws-efs"><a class="anchor" href="#efs-one-zone-procedure_persistent-storage-csi-aws-efs"></a>Setting up One Zone file systems with STS</h3>
+<div class="paragraph">
+<p>The following procedure explains how to set up AWS One Zone file systems with Security Token Service (STS):</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Access to the cluster as a user with the cluster-admin role.</p>
+</li>
+<li>
+<p>AWS account credentials</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<div class="title">Procedure</div>
+<p>To configure One Zone file systems with STS:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Create <strong>two</strong> <code>CredentialsRequests</code> in the <code>credrequests</code> directory following the procedure under Section <em>Obtaining a role Amazon Resource Name for Security Token Service</em>.:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>For the <strong>controller</strong> <code>CredentialsRequest</code>, follow the procedure without any changes.</p>
+</li>
+<li>
+<p>For the <strong>driver node</strong> <code>CredentialsRequest</code> use the following example file:</p>
+<div class="listingblock">
+<div class="title">Example CredentialsRequest YAML file for driver node</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">cloudcredential.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">CredentialsRequest</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">credentials.openshift.io/role-arns-vars</span><span class="pi">:</span> <span class="s">NODE_ROLEARN</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-aws-efs-csi-driver-node</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-cloud-credential-operator</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">providerSpec</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">cloudcredential.openshift.io/v1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">AWSProviderSpec</span>
+    <span class="na">statementEntries</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">action</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">elasticfilesystem:DescribeMountTargets</span>
+      <span class="pi">-</span> <span class="s">ec2:DescribeAvailabilityZones</span>
+      <span class="na">effect</span><span class="pi">:</span> <span class="s">Allow</span>
+      <span class="na">resource</span><span class="pi">:</span> <span class="s1">'</span><span class="s">*'</span>
+  <span class="na">secretRef</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">node-aws-efs-cloud-credentials</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-cluster-csi-drivers</span>
+  <span class="na">serviceAccountNames</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">aws-efs-csi-driver-node-sa</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Set <code>metadata.annotations.credentials.openshift.io/role-arns-vars</code> to <code>NODE_ROLEARN</code>.</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>ccoctl</code> output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">2025/08/26 14:05:24 Role arn:aws:iam::269733383066:role/my-arn-1-blll6-openshift-cluster-csi-drivers-aws-efs-cloud-cre created <i class="conum" data-value="1"></i><b>(1)</b>
+2025/08/26 14:05:24 Saved credentials configuration to: /home/my-arn/project/go/src/github.com/openshift/myinst/aws-sts-compact-1/manifests/openshift-cluster-csi-drivers-aws-efs-cloud-credentials-credentials.yaml
+2025/08/26 14:05:24 Updated Role policy for Role my-arn-1-blll6-openshift-cluster-csi-drivers-aws-efs-cloud-cre
+2025/08/26 14:05:24 Role arn:aws:iam::269733383066:role/my-arn-1-blll6-openshift-cluster-csi-drivers-node-aws-efs-clou created <i class="conum" data-value="2"></i><b>(2)</b>
+2025/08/26 14:05:24 Saved credentials configuration to: manifests/openshift-cluster-csi-drivers-node-aws-efs-cloud-credentials-credentials.yaml
+2025/08/26 14:05:24 Updated Role policy for Role my-arn-1-blll6-openshift-cluster-csi-drivers-node-aws-efs-clou</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Controller Amazon Resource Name (ARN)</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Driver node ARN</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Install the AWS EFS CSI driver using the controller ARN created earlier in this procedure.</p>
+</li>
+<li>
+<p>Edit the operator&#8217;s subscription and add <code>NODE_ROLEARN</code> with the driver node&#8217;s ARN by running a command similar to the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-cluster-csi-drivers edit subscription aws-efs-csi-driver-operator
+<span class="c">...
+</span><span class="go">  config:
+    env:
+    - name: ROLEARN
+      value: arn:aws:iam::269733383066:role/my-arn-1-blll6-openshift-cluster-csi-drivers-aws-efs-cloud-cre <i class="conum" data-value="1"></i><b>(1)</b>
+    - name: NODE_ROLEARN
+      value: arn:aws:iam::269733383066:role/my-arn-1-blll6-openshift-cluster-csi-drivers-node-aws-efs-clou <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="c">...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Controller ARN. Already exists.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Driver node ARN</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
 </div>
 </div>
 </div>

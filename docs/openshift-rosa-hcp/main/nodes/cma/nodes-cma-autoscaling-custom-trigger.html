@@ -1207,6 +1207,7 @@
 <ul class="sectlevel1">
 <li><a href="#nodes-cma-autoscaling-custom-trigger-prom_nodes-cma-autoscaling-custom-trigger">Understanding the Prometheus trigger</a>
 <ul class="sectlevel2">
+<li><a href="#nodes-cma-autoscaling-custom-trigger-prom-gpu_nodes-cma-autoscaling-custom-trigger">Configuring GPU-based autoscaling with Prometheus and DCGM metrics</a></li>
 <li><a href="#nodes-cma-autoscaling-custom-prometheus-config_nodes-cma-autoscaling-custom-trigger">Configuring the custom metrics autoscaler to use Red Hat OpenShift Service on AWS monitoring</a></li>
 </ul>
 </li>
@@ -1361,6 +1362,59 @@
 <td>Optional: Specifies an HTTP request timeout in milliseconds for the HTTP client used by this Prometheus trigger. This value overrides any global timeout setting.</td>
 </tr>
 </table>
+</div>
+<div class="sect2">
+<h3 id="nodes-cma-autoscaling-custom-trigger-prom-gpu_nodes-cma-autoscaling-custom-trigger"><a class="anchor" href="#nodes-cma-autoscaling-custom-trigger-prom-gpu_nodes-cma-autoscaling-custom-trigger"></a>Configuring GPU-based autoscaling with Prometheus and DCGM metrics</h3>
+<div class="paragraph">
+<p>You can use the Custom Metrics Autoscaler with NVIDIA Data Center GPU Manager (DCGM) metrics to scale workloads based on GPU utilization. This is particularly useful for AI and machine learning workloads that require GPU resources.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example scaled object with a Prometheus target for GPU-based autoscaling</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">keda.sh/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ScaledObject</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">gpu-scaledobject</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">my-namespace</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">scaleTargetRef</span><span class="pi">:</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">gpu-deployment</span>
+  <span class="na">minReplicaCount</span><span class="pi">:</span> <span class="s">1</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">maxReplicaCount</span><span class="pi">:</span> <span class="s">5</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">triggers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">prometheus</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">serverAddress</span><span class="pi">:</span> <span class="s">https://thanos-querier.openshift-monitoring.svc.cluster.local:9092</span>
+      <span class="na">namespace</span><span class="pi">:</span> <span class="s">my-namespace</span>
+      <span class="na">metricName</span><span class="pi">:</span> <span class="s">gpu_utilization</span>
+      <span class="na">threshold</span><span class="pi">:</span> <span class="s1">'</span><span class="s">90'</span> <i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="na">query</span><span class="pi">:</span> <span class="s">SUM(DCGM_FI_DEV_GPU_UTIL{instance=~".+", gpu=~".+"})</span> <i class="conum" data-value="4"></i><b>(4)</b>
+      <span class="na">authModes</span><span class="pi">:</span> <span class="s">bearer</span>
+    <span class="na">authenticationRef</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">keda-trigger-auth-prometheus</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Specifies the minimum number of replicas to maintain. For GPU workloads, this should not be set to <code>0</code> to ensure that metrics continue to be collected.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Specifies the maximum number of replicas allowed during scale-up operations.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specifies the GPU utilization percentage threshold that triggers scaling. When the average GPU utilization exceeds 90%, the autoscaler scales up the deployment.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Specifies a Prometheus query using NVIDIA DCGM metrics to monitor GPU utilization across all GPU devices. The <code>DCGM_FI_DEV_GPU_UTIL</code> metric provides GPU utilization percentages.</td>
+</tr>
+</table>
+</div>
 </div>
 <div class="sect2">
 <h3 id="nodes-cma-autoscaling-custom-prometheus-config_nodes-cma-autoscaling-custom-trigger"><a class="anchor" href="#nodes-cma-autoscaling-custom-prometheus-config_nodes-cma-autoscaling-custom-trigger"></a>Configuring the custom metrics autoscaler to use Red Hat OpenShift Service on AWS monitoring</h3>
