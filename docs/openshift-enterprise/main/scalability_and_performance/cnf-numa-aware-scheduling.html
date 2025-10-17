@@ -1771,6 +1771,7 @@
                   <li><a class="" href="../etcd/etcd-backup-restore/etcd-disaster-recovery.html">Disaster recovery</a></li>              </ul>
             </li>
             <li><a class="" href="../etcd/etcd-encrypt.html">Enabling etcd encryption</a></li>
+            <li><a class="" href="../etcd/etcd-guidance-span.html">Guidance for clusters that span data centers</a></li>
       </ul>
     </li>
     <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup25"><span id="tgSpan25" class="fa fa-angle-right"></span>Hosted control planes</a>
@@ -2042,21 +2043,7 @@
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-29-1"><span id="sgSpan-29-1" class="fa fa-caret-right"></span>&nbsp;Cluster Observability Operator</a>
               <ul id="topicSubGroup-29-1" class="nav-tertiary list-unstyled collapse">
 
-                  <li><a class="" href="../observability/cluster_observability_operator/cluster-observability-operator-release-notes.html">Cluster Observability Operator release notes</a></li>
-                  <li><a class="" href="../observability/cluster_observability_operator/cluster-observability-operator-overview.html">Cluster Observability Operator overview</a></li>
-                  <li><a class="" href="../observability/cluster_observability_operator/installing-the-cluster-observability-operator.html">Installing the Cluster Observability Operator</a></li>
-                  <li><a class="" href="../observability/cluster_observability_operator/configuring-the-cluster-observability-operator-to-monitor-a-service.html">Configuring the Cluster Observability Operator to monitor a service</a></li>
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-29-1-4"><span id="ssgSpan-29-1-4" class="fa fa-caret-right"></span>&nbsp;Observability UI plugins</a>
-                  <ul id="topicSubSubGroup-29-1-4" class="nav-tertiary list-unstyled collapse">
-
-                    <li><a class="" href="../observability/cluster_observability_operator/ui_plugins/observability-ui-plugins-overview.html" style="padding-left: 70px;">Observability UI plugins overview</a></li>
-                    <li><a class="" href="../observability/cluster_observability_operator/ui_plugins/monitoring-ui-plugin.html" style="padding-left: 70px;">Monitoring UI plugin</a></li>
-                    <li><a class="" href="../observability/cluster_observability_operator/ui_plugins/logging-ui-plugin.html" style="padding-left: 70px;">Logging UI plugin</a></li>
-                    <li><a class="" href="../observability/cluster_observability_operator/ui_plugins/distributed-tracing-ui-plugin.html" style="padding-left: 70px;">Distributed tracing UI plugin</a></li>
-                    <li><a class="" href="../observability/cluster_observability_operator/ui_plugins/troubleshooting-ui-plugin.html" style="padding-left: 70px;">Troubleshooting UI plugin</a></li>                  </ul>
-                  </li>
-
-                  <li><a class="" href="../observability/cluster_observability_operator/api-monitoring-package.html">Monitoring API reference</a></li>              </ul>
+                  <li><a class="" href="../observability/cluster_observability_operator/cluster-observability-operator-overview.html">Cluster Observability Operator overview</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-29-2"><span id="sgSpan-29-2" class="fa fa-caret-right"></span>&nbsp;Monitoring</a>
               <ul id="topicSubGroup-29-2" class="nav-tertiary list-unstyled collapse">
@@ -4993,6 +4980,20 @@ Zones:
 <div class="paragraph">
 <p>You can make control plane nodes schedulable by setting the <code>mastersSchedulable</code> field to true in the <code>schedulers.config.openshift.io</code> resource.</p>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When you enable schedulable control plane nodes, enabling workload partitioning is strongly recommended to safeguard critical infrastructure pods from resource starvation. This process restricts infrastructure components, like the <code>ovnkube-node</code> process, to dedicated, reserved CPUs. However, the OVS dynamic pinning feature relies on <code>ovnkube-node</code> having access to the CPUs designated for bustable/best-effort pods to correctly identify and use non-pinned CPUs. When workload partitioning configures the <code>ovnkube-node</code> process with CPU affinity for reserved CPUs, this dynamic pinning mechanism breaks.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>The NUMA Resources Operator provides topology-aware scheduling for workloads that need a specific NUMA affinity. When control plane nodes are made schedulable, the operator&#8217;s management capabilities can be applied to them, just as they are to worker nodes. This ensures that NUMA-aware pods are placed on a node with the best NUMA topology, whether it&#8217;s a control plane or worker node.</p>
 </div>
@@ -5010,6 +5011,36 @@ Zones:
 <p>In a Multi-Node OpenShift Container Platform cluster, control plane nodes are made schedulable in addition to existing worker nodes. To manage these nodes, you can configure the NUMA Resources Operator by defining separate <code>nodeGroups</code> in the <code>NUMAResourcesOperator</code> CR for the control plane and worker nodes. This ensures that the NUMA Resources Operator correctly schedules pods on both sets of nodes based on resource availability and NUMA topology.</p>
 </dd>
 </dl>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Modifying a performance profile often triggers control plane node reboots. Due to stricter Pod Disruption Budgets (PDBs) on control plane nodes, the cluster&#8217;s resilience mechanisms are activated. These mechanisms prevent the forced eviction of protected but unhealthy pods such as those in <code>CrashLoopBackOff</code>, which causes the Machine Config Pool (MCP) to stall during the reboot process.</p>
+</div>
+<div class="paragraph">
+<p>If the MCP becomes stuck due to this behavior, intervention is required to resolve the issue and allow the control plane upgrade to complete.</p>
+</div>
+<div class="paragraph">
+<p>To resolve this, administrators have two options:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Temporarily relax the PDB restrictions to allow the required eviction.</p>
+</li>
+<li>
+<p>Manually delete the unhealthy pods to force the MCP to reconcile and continue the drain process.</p>
+</li>
+</ol>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="sect2">
 <h3 id="cnf-configuring-nrop-on-schedulable-cp-nodes_numa-aware"><a class="anchor" href="#cnf-configuring-nrop-on-schedulable-cp-nodes_numa-aware"></a>Configuring NUMA Resources Operator on schedulable control plane nodes</h3>
