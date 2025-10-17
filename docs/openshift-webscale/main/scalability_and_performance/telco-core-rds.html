@@ -303,6 +303,7 @@
 <li><a href="#telco-deviations-from-the-ref-design_telco-core">Deviations from the reference design</a></li>
 <li><a href="#telco-core-common-baseline-model_telco-core">Telco core common baseline model</a></li>
 <li><a href="#telco-core-deployment-planning_telco-core">Deployment planning</a></li>
+<li><a href="#telco-core-zones_telco-core">Zones</a></li>
 <li><a href="#telco-core-cluster-common-use-model-engineering-considerations_telco-core">Telco core cluster common use model engineering considerations</a>
 <ul class="sectlevel2">
 <li><a href="#telco-core-application-workloads_telco-core">Application workloads</a></li>
@@ -312,7 +313,8 @@
 <li><a href="#telco-core-rds-components">Telco core RDS components</a>
 <ul class="sectlevel2">
 <li><a href="#telco-core-cpu-partitioning-and-performance-tuning_telco-core">CPU partitioning and performance tuning</a></li>
-<li><a href="#telco-core-service-mesh_telco-core">Service mesh</a></li>
+<li><a href="#telco-core-workloads-on-schedulable-control-planes_telco-core">Workloads on schedulable control planes</a></li>
+<li><a href="#telco-core-service-mesh_telco-core">Service Mesh</a></li>
 <li><a href="#telco-core-networking_telco-core">Networking</a></li>
 <li><a href="#telco-core-logging_telco-core">Logging</a></li>
 <li><a href="#telco-core-power-management_telco-core">Power Management</a></li>
@@ -321,6 +323,7 @@
 <li><a href="#telco-core-scheduling_telco-core">Scheduling</a></li>
 <li><a href="#telco-core-node-configuration_telco-core">Node Configuration</a></li>
 <li><a href="#telco-core-host-firmware-and-boot-loader-configuration_telco-core">Host firmware and boot loader configuration</a></li>
+<li><a href="#telco-core-kubelet-settings_telco-core">Kubelet Settings</a></li>
 <li><a href="#telco-core-disconnected-environment_telco-core">Disconnected environment</a></li>
 <li><a href="#telco-core-agent-based-installer_telco-core">Agent-based Installer</a></li>
 <li><a href="#telco-core-security_telco-core">Security</a></li>
@@ -361,7 +364,7 @@ These functions generally require scalability, complex networking support, resil
 <h2 id="telco-core-about-the-telco-core-cluster-use-model_telco-core"><a class="anchor" href="#telco-core-about-the-telco-core-cluster-use-model_telco-core"></a>About the telco core cluster use model</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The telco core cluster use model is designed for clusters that run on commodity hardware.
+<p>The telco core cluster use model is designed for clusters running on commodity hardware.
 Telco core clusters support large scale telco applications including control plane functions like signaling, aggregation, session border controller (SBC), and centralized data plane functions such as 5G user plane functions (UPF).
 Telco core cluster functions require scalability, complex networking support, resilient software-defined storage, and support performance requirements that are less stringent and constrained than far-edge RAN deployments.</p>
 </div>
@@ -369,7 +372,7 @@ Telco core cluster functions require scalability, complex networking support, re
 <p>Networking requirements for telco core functions vary widely across a range of networking features and performance points.
 IPv6 is a requirement and dual-stack is common.
 Some functions need maximum throughput and transaction rate and require support for user-plane DPDK networking.
-Other functions use more typical cloud-native patterns and can rely on OVN-Kubernetes, kernel networking, and load balancing.</p>
+Other functions use typical cloud-native patterns and can rely on OVN-Kubernetes, kernel networking, and load balancing.</p>
 </div>
 <div class="paragraph">
 <p>Telco core clusters are configured as standard with three control plane and one or more worker nodes configured with the stock (non-RT) kernel.
@@ -480,24 +483,31 @@ The telco core use cases build on this common baseline of features.</p>
 <dl>
 <dt class="hdlist1">Cluster topology</dt>
 <dd>
-<p>Telco core clusters conform to the following requirements:</p>
+<p>The telco core reference design supports two distinct cluster configuration variants:</p>
 <div class="ulist">
 <ul>
 <li>
-<p>High availability control plane (three or more control plane nodes)</p>
+<p>A non-schedulable control plane variant, where user workloads are strictly prohibited from running on master nodes.</p>
 </li>
 <li>
-<p>Non-schedulable control plane nodes</p>
+<p>A schedulable control plane variant, which allows for user workloads to run on master nodes to optimize resource utilization. This variant is only applicable to bare-metal control plane nodes and must be configured at installation time.</p>
+<div class="paragraph">
+<p>All clusters, regardless of the variant, must conform to the following requirements:</p>
+</div>
 </li>
 <li>
-<p>Multiple machine config pools</p>
+<p>A highly available control plane consisting of three or more nodes.</p>
+</li>
+<li>
+<p>The use of multiple machine config pools.</p>
 </li>
 </ul>
 </div>
 </dd>
 <dt class="hdlist1">Storage</dt>
 <dd>
-<p>Telco core use cases require persistent storage as provided by OpenShift Data Foundation.</p>
+<p>Telco core use cases require highly available persistent storage as provided by an external storage solution.
+OpenShift Data Foundation might be used to manage access to the external storage.</p>
 </dd>
 <dt class="hdlist1">Networking</dt>
 <dd>
@@ -508,7 +518,7 @@ The telco core use cases build on this common baseline of features.</p>
 <p>Dual stack IPv4/IPv6 (IPv4 primary).</p>
 </li>
 <li>
-<p>Fully disconnected – clusters do not have access to public networking at any point in their lifecycle.</p>
+<p>Fully disconnected - clusters do not have access to public networking at any point in their lifecycle.</p>
 </li>
 <li>
 <p>Supports multiple networks.
@@ -556,7 +566,7 @@ User plane networking runs in cloud-native network functions (CNFs).</p>
 <dt class="hdlist1">Service Mesh</dt>
 <dd>
 <p>Telco CNFs can use Service Mesh.
-All telco core clusters require a Service Mesh implementation.
+Telco core clusters typically include a Service Mesh implementation.
 The choice of implementation and configuration is outside the scope of this specification.</p>
 </dd>
 </dl>
@@ -567,9 +577,6 @@ The choice of implementation and configuration is outside the scope of this spec
 <h2 id="telco-core-deployment-planning_telco-core"><a class="anchor" href="#telco-core-deployment-planning_telco-core"></a>Deployment planning</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p><strong>Worker nodes and machine config pools</strong></p>
-</div>
-<div class="paragraph">
 <p><code>MachineConfigPools</code> (MCPs) custom resource (CR) enable the subdivision of worker nodes in telco core clusters into different node groups based on customer planning parameters.
 Careful deployment planning using MCPs is crucial to minimize deployment and upgrade time and, more importantly, to minimize interruption of telco-grade services during cluster upgrades.</p>
 </div>
@@ -577,7 +584,10 @@ Careful deployment planning using MCPs is crucial to minimize deployment and upg
 <p><strong>Description</strong></p>
 </div>
 <div class="paragraph">
-<p>Telco core clusters can use MCPs to split worker nodes into additional separate roles, for example, due to different hardware profiles. This allows custom tuning for each role and also plays a critical function in speeding up a telco core cluster deployment or upgrade. More importantly, multiple MCPs allow you to properly plan cluster upgrades across one or many maintenance windows. This is crucial because telco-grade services may otherwise be affected if careful planning is not considered.</p>
+<p>Telco core clusters can use MachineConfigPools (MCPs) to split worker nodes into additional separate roles, for example, due to different hardware profiles.
+This allows custom tuning for each role and also plays a critical function in speeding up a telco core cluster deployment or upgrade.
+Multiple MCPs can be used to properly plan cluster upgrades across one or multiple maintenance windows.
+This is crucial because telco-grade services might otherwise be affected if careful planning is not considered.</p>
 </div>
 <div class="paragraph">
 <p>During cluster upgrades, you can pause MCPs while you upgrade the control plane. See "Performing a canary rollout update" for more information. This ensures that worker nodes are not rebooted and running workloads remain unaffected until the MCP is unpaused.</p>
@@ -589,16 +599,23 @@ Careful deployment planning using MCPs is crucial to minimize deployment and upg
 <p>Before beginning the initial deployment, keep the following engineering considerations in mind regarding MCPs:</p>
 </div>
 <div class="paragraph">
-<p>When using <code>PerformanceProfile</code> definitions, remember that each MCP must be linked to exactly one <code>PerformanceProfile</code> definition or tuned profile definition.
-Consequently, even if the desired configuration is identical for multiple MCPs, each MCP still requires its own dedicated <code>PerformanceProfile</code> definition.</p>
+<p><strong>PerformanceProfile and Tuned profile association:</strong></p>
 </div>
 <div class="paragraph">
-<p>Plan your MCP labeling with an appropriate strategy to split your worker nodes depending on considerations such as:</p>
+<p>When using PerformanceProfiles, remember that each Machine Config Pool (MCP) must be linked to exactly one PerformanceProfile or Tuned profile definition.
+Consequently, even if the desired configuration is identical for multiple MCPs, each MCP still requires its own dedicated PerformanceProfile definition.</p>
+</div>
+<div class="paragraph">
+<p><strong>Planning your MCP labeling strategy:</strong></p>
+</div>
+<div class="paragraph">
+<p>Plan your MCP labeling with an appropriate strategy to split your worker nodes depending on parameters
+such as:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>The worker node type: identifying a group of nodes with equivalent hardware profile, for example, workers for control plane Network Functions (NFs) and workers for user data plane NFs.</p>
+<p>The worker node type: identifying a group of nodes with equivalent hardware profile, for example workers for control plane Network Functions (NFs) and workers for user data plane NFs.</p>
 </li>
 <li>
 <p>The number of worker nodes per worker node type.</p>
@@ -608,7 +625,7 @@ Consequently, even if the desired configuration is identical for multiple MCPs, 
 For example, you may design for more MCPs per hardware profile to support a more granular upgrade where a smaller percentage of the cluster capacity is affected with each step.</p>
 </li>
 <li>
-<p>The strategy for performing updates on nodes within an MCP is shaped by upgrade requirements and the chosen <code>maxUnavailable</code> value:</p>
+<p>The update strategy for nodes within an MCP is by upgrade requirements and the chosen <code>maxUnavailable</code> value:</p>
 <div class="ulist">
 <ul>
 <li>
@@ -643,9 +660,88 @@ For example, you may design for more MCPs per hardware profile to support a more
 </div>
 </li>
 <li>
-<p>Duration and frequency of upgrade maintenance windows during which telco-grade services may be affected.</p>
+<p>Duration and number of upgrade maintenance windows during which telco-grade services might be affected.</p>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="telco-core-zones_telco-core"><a class="anchor" href="#telco-core-zones_telco-core"></a>Zones</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Designing the cluster to support disruption of multiple nodes simultaneously is critical for high availability (HA) and reduced upgrade times.
+OpenShift Container Platform and Kubernetes use the well known label <code>topology.kubernetes.io/zone</code> to create pools of nodes that are subject to a common failure domain.
+Annotating nodes for topology (availability) zones allows high-availability workloads to spread such that each zone holds only one replica from a set of HA replicated pods.
+With this spread the loss of a single zone will not violate HA constraints and minimum service availability will be maintained.
+OpenShift Container Platform and Kubernetes applies a default <code>TopologySpreadConstraint</code> to all replica constructs (<code>Service</code>, <code>ReplicaSet</code>, <code>StatefulSet</code> or <code>ReplicationController</code>) that spreads the replicas based on the <code>topology.kubernetes.io/zone</code> label.
+This default allows zone based spread to apply without any change to your workload pod specs.</p>
+</div>
+<div class="paragraph">
+<p>Cluster upgrades typically result in node disruption as the underlying OS is updated.
+In large clusters it is necessary to update multiple nodes concurrently to complete upgrades quickly and in as few maintenance windows as possible.
+By using zones to ensure pod spread, an upgrade can be applied to all nodes in a zone simultaneously (assuming sufficient spare capacity) while maintaining high availability and service availability.
+The recommended cluster design is to partition nodes into multiple MCPs based on the considerations earlier and label all nodes in a single MCP as a single zone which is distinct from zones attached to other MCPs.
+Using this strategy all nodes in an MCP can be updated simultaneously.</p>
+</div>
+<div class="paragraph">
+<p>Lifecycle hooks (readiness, liveness, startup and pre-stop) play an important role in ensuring application availability. For upgrades in particular the pre-stop hook allows applications to take necessary steps to prepare for disruption before being evicted from the node.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Limits and requirements</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>The default TopologySpreadConstraints (TSC) only apply when an explicit TSC is not given. If your pods have explicit TSC ensure that spread based on zones is included.</p>
+</li>
+<li>
+<p>The cluster must have sufficient spare capacity to tolerate simultaneous update of an MCP. Otherwise the <code>maxUnavailable</code> of the MCP must be set to less than 100%.</p>
+</li>
+<li>
+<p>The ability to update all nodes in an MCP simultaneously further depends on workload design and ability to maintain required service levels with that level of disruption.</p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Engineering Considerations</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Pod drain times can significantly impact node update times. Ensure the workload design allows pods to be drained quickly.</p>
+</li>
+<li>
+<p>PodDisruptionBudgets (PDB) are used to enforce high availability requirements.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>To guarantee continuous application availability, a cluster design must use enough separate zones to spread the workload&#8217;s pods.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If pods are spread across sufficient zones, the loss of one zone won&#8217;t take down more pods than permitted by the Pod Disruption Budget (PDB).</p>
+</li>
+<li>
+<p>If pods are not adequately distributed—either due to too few zones or restrictive scheduling constraints—a zone failure will violate the PDB, causing an outage.</p>
+</li>
+<li>
+<p>Furthermore, this poor distribution can force upgrades that typically run in parallel to execute slowly and sequentially (partial serialization) to avoid violating the PDB, significantly extending maintenance time.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>PDB with 0 disruptable pods will block node drain and require administrator intervention. This pattern should be avoided for fast and automated upgrades.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
@@ -679,11 +775,14 @@ For example, you may design for more MCPs per hardware profile to support a more
 <div class="ulist">
 <ul>
 <li>
-<p>Intel 3rd Generation Xeon (IceLake) CPUs or newer when supported by OpenShift Container Platform, or CPUs with the silicon security bug (Spectre and similar) mitigations turned off.
-Skylake and older CPUs can experience 40% transaction performance drops when Spectre and similar mitigations are enabled. When Skylake and older CPUs change power states, this can cause latency.</p>
+<p>Intel 3rd Generation Xeon (IceLake) CPUs or better when supported by OpenShift Container Platform, or CPUs with the silicon security bug (Spectre and similar) mitigations turned off.
+Skylake and older CPUs can experience 40% transaction performance drops when Spectre and similar mitigations are enabled.</p>
 </li>
 <li>
-<p>AMD EPYC Zen 4 CPUs (Genoa, Bergamo).</p>
+<p>AMD EPYC Zen 4 CPUs (Genoa, Bergamo) or AMD EPYC Zen 5 CPUs (Turin) when supported by OpenShift Container Platform.</p>
+</li>
+<li>
+<p>Intel Sierra Forest CPUs when supported by the OpenShift Container Platform.</p>
 </li>
 <li>
 <p>IRQ balancing is enabled on worker nodes.
@@ -745,9 +844,6 @@ For a cluster configured according to the reference configuration running a simu
 <li>
 <p>Nodes with large numbers of pods or other resources might require additional reserved CPUs.
 The remaining CPUs are available for user workloads.</p>
-</li>
-</ul>
-</div>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -761,6 +857,9 @@ The remaining CPUs are available for user workloads.</p>
 </td>
 </tr>
 </table>
+</div>
+</li>
+</ul>
 </div>
 </li>
 </ul>
@@ -783,15 +882,13 @@ Pods should request multiples of 2 CPUs when the entire core (2 hyper-threads) m
 <dl>
 <dt class="hdlist1">Engineering considerations</dt>
 <dd>
-<div class="openblock">
-<div class="content">
-<div class="paragraph">
-<p>Use the following information to plan telco core workloads and cluster resources:</p>
-</div>
+<p>Plan telco core workloads and cluster resources by using the following information:</p>
 <div class="ulist">
 <ul>
 <li>
-<p>As of OpenShift Container Platform 4.19, cgroup v1 is no longer supported and has been removed. All workloads must now be compatible with cgroup v2. For more information, see <a href="https://www.redhat.com/en/blog/rhel-9-changes-context-red-hat-openshift-workloads">Red Hat Enterprise Linux 9 changes in the context of Red Hat OpenShift workloads</a>.</p>
+<p>As of OpenShift Container Platform 4.19, <code>cgroup v1</code> is no longer supported and has been removed.
+All workloads must now be compatible with <code>cgroup v2</code>.
+For more information, see <a href="https://www.redhat.com/en/blog/rhel-9-changes-context-red-hat-openshift-workloads">Red Hat Enterprise Linux 9 changes in the context of Red Hat OpenShift workloads</a>.</p>
 </li>
 <li>
 <p>CNF applications should conform to the latest version of <a href="https://redhat-best-practices-for-k8s.github.io/guide/">Red Hat Best Practices for Kubernetes</a>.</p>
@@ -818,24 +915,21 @@ Workloads can be preempted by other workloads, operating system daemons, or kern
 <div class="ulist">
 <ul>
 <li>
-<p>Do not use exec probes if a CNF uses CPU pinning.
-Use other probe implementations, for example, <code>httpGet</code> or <code>tcpSocket</code>.</p>
+<p>Do not use exec probes if a CNF uses CPU pinning. Use other probe implementations, for example, <code>httpGet</code> or <code>tcpSocket</code>.</p>
 </li>
 <li>
-<p>When you need to use exec probes, limit the exec probe frequency and quantity.
-The maximum number of exec probes must be kept below 10, and the frequency must not be set to less than 10 seconds.</p>
+<p>When you need to use exec probes, limit the exec probe frequency and quantity. The maximum number of exec probes must be kept below 10, and the frequency must not be set to less than 10 seconds.</p>
 </li>
 <li>
-<p>You can use startup probes, because they do not use significant resources at steady-state operation.
-The limitation on exec probes applies primarily to liveness and readiness probes.
-Exec probes cause much higher CPU usage on management cores compared to other probe types because they require process forking.</p>
+<p>You can use startup probes, because they do not use significant resources at steady-state operation. The limitation on exec probes applies primarily to liveness and readiness probes. Exec probes cause much higher CPU usage on management cores compared to other probe types because they require process forking.</p>
 </li>
 </ul>
 </div>
 </li>
+<li>
+<p>Use pre-stop hooks to allow the application workload to perform required actions before pod disruption, such as during an upgrade or node maintenance. The hooks enable a pod to save state to persistent storage, offload traffic from a Service, or signal other Pods.</p>
+</li>
 </ul>
-</div>
-</div>
 </div>
 </dd>
 </dl>
@@ -844,7 +938,7 @@ Exec probes cause much higher CPU usage on management cores compared to other pr
 <div class="sect2">
 <h3 id="telco-core-signaling-workloads_telco-core"><a class="anchor" href="#telco-core-signaling-workloads_telco-core"></a>Signaling workloads</h3>
 <div class="paragraph">
-<p>Signaling workloads typically use SCTP, REST, gRPC or similar TCP or UDP protocols.
+<p>Signaling workloads typically use SCTP, REST, gRPC, or similar TCP or UDP protocols.
 Signaling workloads support hundreds of thousands of transactions per second (TPS) by using a secondary multus CNI configured as MACVLAN or SR-IOV interface.
 These workloads can run in pods with either guaranteed or burstable QoS.</p>
 </div>
@@ -866,7 +960,16 @@ These workloads can run in pods with either guaranteed or burstable QoS.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>No reference design updates in this release.</p>
+<p>Disable RPS - resource use for pod networking should be accounted for on application CPUs</p>
+</li>
+<li>
+<p>Better isolation of control plane on schedulable control-plane nodes</p>
+</li>
+<li>
+<p>Support for schedulable control-plane in the NUMA Resources Operator</p>
+</li>
+<li>
+<p>Additional guidance on upgrade for Telco Core clusters</p>
 </li>
 </ul>
 </div>
@@ -901,21 +1004,32 @@ In a system with Hyper-Threading enabled, a CPU is one hyper-thread.</p>
 <p>Core 0 of each NUMA node must be included in the reserved CPU set.</p>
 </li>
 <li>
-<p>Low latency workloads require special configuration to avoid being affected by interrupts, kernel scheduler, or other parts of the platform.
-For more information, see "Creating a performance profile".</p>
+<p>Low latency workloads require special configuration to avoid being affected by interrupts, kernel scheduler, or other parts of the platform.</p>
 </li>
 </ul>
 </div>
 </dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>For more information, see "Creating a performance profile".</p>
+</div>
+<div class="dlist">
+<dl>
 <dt class="hdlist1">Engineering considerations</dt>
 <dd>
 <div class="ulist">
 <ul>
 <li>
-<p>As of OpenShift Container Platform 4.19, <code>cgroup v1</code> is no longer supported and has been removed. All workloads must now be compatible with <code>cgroup v2</code>. For more information, see <a href="https://www.redhat.com/en/blog/rhel-9-changes-context-red-hat-openshift-workloads">Red Hat Enterprise Linux 9 changes in the context of Red Hat OpenShift workloads</a>(Red Hat Knowledgebase).</p>
+<p>As of OpenShift 4.19, <code>cgroup v1</code> is no longer supported and has been removed.
+All workloads must now be compatible with <code>cgroup v2</code>.
+For more information, see <a href="https://www.redhat.com/en/blog/rhel-9-changes-context-red-hat-openshift-workloads">Red Hat Enterprise Linux 9 changes in the context of Red Hat OpenShift workloads</a>.</p>
 </li>
 <li>
-<p>The minimum reserved capacity (<code>systemReserved</code>) required can be found by following the guidance in the Red Hat Knowledgebase solution <a href="https://access.redhat.com/solutions/5843241">Which amount of CPU and memory are recommended to reserve for the system in OCP 4 nodes?</a></p>
+<p>The minimum reserved capacity (<code>systemReserved</code>) required can be found by following the guidance in <a href="https://access.redhat.com/solutions/5843241">Which amount of CPU and memory are recommended to reserve for the system in OCP 4 nodes?</a>.</p>
+</li>
+<li>
+<p>For schedulable control planes, the minimum recommended reserved capacity is at least 16 CPUs.</p>
 </li>
 <li>
 <p>The actual required reserved CPU capacity depends on the cluster configuration and workload attributes.</p>
@@ -934,7 +1048,7 @@ For more information, see "Creating a performance profile".</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Applying the real time <code>workloadHint</code> setting results in the <code>nohz_full</code> kernel command line parameter being applied to improve performance of high performance applications.
+<p>Applying the real-time <code>workloadHint</code> setting results in the <code>nohz_full</code> kernel command line parameter being applied to improve performance of high performance applications.
 When you apply the <code>workloadHint</code> setting, any isolated or burstable pods that do not have the <code>cpu-quota.crio.io: "disable"</code> annotation and a proper <code>runtimeClassName</code> value, are subject to CRI-O rate limiting.
 When you set the <code>workloadHint</code> parameter, be aware of the tradeoff between increased performance and the potential impact of CRI-O rate limiting.
 Ensure that required pods are correctly annotated.</p>
@@ -956,7 +1070,9 @@ Be aware of the default queue count.
 With no configuration, the default queue count is one RX/TX queue per online CPU; which can result in too many interrupts being allocated.</p>
 </li>
 <li>
-<p>The irdma kernel module may result in the allocation of too many interrupt vectors on systems with high core counts. To prevent this condition the reference configuration excludes this kernel module from loading through a kernel commandline argument in the <code>PerformanceProfile</code>. Typically core workloads do not require this kernel module.</p>
+<p>The irdma kernel module might result in the allocation of too many interrupt vectors on systems with high core counts.
+To prevent this condition the reference configuration excludes this kernel module from loading through a kernel commandline argument in the <code>PerformanceProfile</code> resource.
+Typically Core workloads do not require this kernel module.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -977,6 +1093,64 @@ With no configuration, the default queue count is one RX/TX queue per online CPU
 </dd>
 </dl>
 </div>
+</div>
+<div class="sect2">
+<h3 id="telco-core-workloads-on-schedulable-control-planes_telco-core"><a class="anchor" href="#telco-core-workloads-on-schedulable-control-planes_telco-core"></a>Workloads on schedulable control planes</h3>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Enabling workloads on control plane nodes</dt>
+<dd>
+<p>You can enable schedulable control planes to run workloads on control plane nodes, utilizing idle CPU capacity on bare-metal machines for potential cost savings. This feature is only applicable to clusters with bare-metal control plane nodes.</p>
+<div class="paragraph">
+<p>There are two distinct parts to this functionality:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Allowing workloads on control plane nodes: This feature can be configured after initial cluster installation, allowing you to enable it when you need to run workloads on those nodes.</p>
+</li>
+<li>
+<p>Enabling workload partitioning: This is a critical isolation measure that protects the control plane from interference by regular workloads, ensuring cluster stability and reliability. Workload partitioning must be configured during the initial "day zero" cluster installation and cannot be enabled later.</p>
+</li>
+</ol>
+</div>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>If you plan to run workloads on your control plane nodes, you must first enable workload partitioning during the initial setup. You can then enable the schedulable control plane feature at a later time.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Workload characterization and limitations</dt>
+<dd>
+<p>You must test and verify workloads to ensure that applications do not interfere with core cluster functions. It is recommended that you start with lightweight containers that do not heavily load the CPU or networking.</p>
+<div class="paragraph">
+<p>Certain workloads are not permitted on control plane nodes due to the risk to cluster stability. This includes any workload that reconfigures kernel arguments or system global sysctls, as this can lead to unpredictable outcomes for the cluster.</p>
+</div>
+<div class="paragraph">
+<p>To ensure stability, you must adhere to the following:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Make sure all non-trivial workloads have memory limits defined. This protects the control plane in case of a memory leak.</p>
+</li>
+<li>
+<p>Avoid excessively loading reserved CPUs, for example, by heavy use of exec probes.</p>
+</li>
+<li>
+<p>Avoid heavy kernel-based networking usage, as it can increase reserved CPU load through software networking components such as OVS.</p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">NUMA Resources Operator support</dt>
+<dd>
+<p>The NUMA Resources Operator is supported for use on control plane nodes. Functional behavior of the Operator remains unchanged.</p>
+</dd>
+</dl>
+</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
@@ -990,15 +1164,15 @@ With no configuration, the default queue count is one RX/TX queue per online CPU
 </div>
 </div>
 <div class="sect2">
-<h3 id="telco-core-service-mesh_telco-core"><a class="anchor" href="#telco-core-service-mesh_telco-core"></a>Service mesh</h3>
+<h3 id="telco-core-service-mesh_telco-core"><a class="anchor" href="#telco-core-service-mesh_telco-core"></a>Service Mesh</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Description</dt>
 <dd>
-<p>Telco core cloud-native functions (CNFs) typically require a service mesh implementation.
-Specific service mesh features and performance requirements are dependent on the application.
-The selection of service mesh implementation and configuration is outside the scope of this documentation.
-You must account for the impact of service mesh on cluster resource usage and performance, including additional latency introduced in pod networking, in your implementation.</p>
+<p>Telco core cloud-native functions (CNFs) typically require a Service Mesh implementation.
+Specific Service Mesh features and performance requirements are dependent on the application.
+The selection of Service Mesh implementation and configuration is outside the scope of this documentation.
+The implementation must account for the impact of Service Mesh on cluster resource usage and performance, including additional latency introduced in pod networking.</p>
 </dd>
 </dl>
 </div>
@@ -1029,10 +1203,7 @@ You must account for the impact of service mesh on cluster resource usage and pe
 <div class="ulist">
 <ul>
 <li>
-<p>Extend telco core validation with pod-level bonding.</p>
-</li>
-<li>
-<p>Support moving failed policy in resource injector to failed for SR-IOV operator.</p>
+<p>No reference design updates in this release</p>
 </li>
 </ul>
 </div>
@@ -1057,8 +1228,6 @@ You must account for the impact of service mesh on cluster resource usage and pe
 <dl>
 <dt class="hdlist1">Description</dt>
 <dd>
-<div class="openblock">
-<div class="content">
 <div class="ulist">
 <ul>
 <li>
@@ -1088,7 +1257,8 @@ For more information, see "Cluster Network Operator".</p>
 <p>SR-IOV VFs are managed by the SR-IOV Network Operator.</p>
 </li>
 <li>
-<p>To ensure consistent source IP addresses for pods behind a LoadBalancer Service, configure an <code>EgressIP</code> CR and specify the <code>podSelector</code> parameter.</p>
+<p>To ensure consistent source IP addresses for pods behind a LoadBalancer Service, configure an <code>EgressIP</code> CR and specify the <code>podSelector</code> parameter.
+EgressIP is further discussed in the "Cluster Network Operator" section.</p>
 </li>
 <li>
 <p>You can implement service traffic separation by doing the following:</p>
@@ -1101,16 +1271,12 @@ For more information, see "Cluster Network Operator".</p>
 <p>Create a MetalLB <code>BGPPeer</code> CR for each VLAN to establish peering with the remote BGP router.</p>
 </li>
 <li>
-<p>Define a MetalLB <code>BGPAdvertisement</code> CR to specify which IP address pools should be advertised to a selected list of <code>BGPPeer</code> resources.
-The following diagram illustrates how specific service IP addresses are advertised to the outside via specific VLAN interfaces.
-Services routes are defined in <code>BGPAdvertisement</code> CRs and configured with values for <code>IPAddressPool1</code> and <code>BGPPeer1</code> fields.</p>
+<p>Define a MetalLB <code>BGPAdvertisement</code> CR to specify which IP address pools should be advertised to a selected list of <code>BGPPeer</code> resources. The following diagram illustrates how specific service IP addresses are advertised externally through specific VLAN interfaces. Services routes are defined in <code>BGPAdvertisement</code> CRs and configured with values for <code>IPAddressPool1</code> and <code>BGPPeer1</code> fields.</p>
 </li>
 </ol>
 </div>
 </li>
 </ul>
-</div>
-</div>
 </div>
 </dd>
 </dl>
@@ -1145,19 +1311,16 @@ Services routes are defined in <code>BGPAdvertisement</code> CRs and configured 
 </dd>
 <dt class="hdlist1">Description</dt>
 <dd>
-<div class="openblock">
-<div class="content">
-<div class="paragraph">
-<p>The Cluster Network Operator (CNO) deploys and manages the cluster network components including the default OVN-Kubernetes network plugin during cluster installation. The CNO allows for configuring primary interface MTU settings, OVN gateway configurations to use node routing tables for pod egress, and additional secondary networks such as MACVLAN.</p>
-</div>
+<p>The Cluster Network Operator (CNO) deploys and manages the cluster network components including the default OVN-Kubernetes network plugin during cluster installation.
+The CNO allows configuration of primary interface MTU settings, OVN gateway modes to use node routing tables for pod egress, and additional secondary networks such as MACVLAN.</p>
 <div class="paragraph">
 <p>In support of network traffic separation, multiple network interfaces are configured through the CNO.
-Traffic steering to these interfaces is configured through static routes applied by using the NMState Operator. To ensure that pod traffic is properly routed, OVN-K is configured with the <code>routingViaHost</code> option enabled. This setting uses the kernel routing table and the applied static routes rather than OVN for pod egress traffic.</p>
+Traffic steering to these interfaces is configured through static routes applied by using the NMState Operator.
+To ensure that pod traffic is properly routed, OVN-K is configured with the <code>routingViaHost</code> option enabled.
+This setting uses the kernel routing table and the applied static routes rather than OVN for pod egress traffic.</p>
 </div>
 <div class="paragraph">
 <p>The Whereabouts CNI plugin is used to provide dynamic IPv4 and IPv6 addressing for additional pod network interfaces without the use of a DHCP server.</p>
-</div>
-</div>
 </div>
 </dd>
 <dt class="hdlist1">Limits and requirements</dt>
@@ -1194,8 +1357,23 @@ Review the source code for more details:</p>
 <p>Clusters with single-stack IP configuration are not validated.</p>
 </li>
 <li>
-<p>The <code>reachabilityTotalTimeoutSeconds</code> parameter in the <code>Network</code> CR configures the <code>EgressIP</code> node reachability check total timeout in seconds.
-The recommended value is <code>1</code> second.</p>
+<p>EgressIP</p>
+<div class="ulist">
+<ul>
+<li>
+<p>EgressIP failover time depends on the <code>reachabilityTotalTimeoutSeconds</code> parameter in the <code>Network</code> CR.
+This parameter determines the frequency of probes used to detect when the selected egress node is unreachable.
+The recommended value of this parameter is <code>1</code> second.</p>
+</li>
+<li>
+<p>When EgressIP is configured with multiple egress nodes, the failover time is expected to be on the order of seconds or longer.</p>
+</li>
+<li>
+<p>On nodes with additional network interfaces EgressIP traffic will egress through the interface on which the EgressIP address has been assigned.
+See the "Configuring an egress IP address".</p>
+</li>
+</ul>
+</div>
 </li>
 <li>
 <p>Pod-level SR-IOV bonding mode must be set to <code>active-backup</code> and a value in <code>miimon</code> must be set (<code>100</code> is recommended).</p>
@@ -1208,7 +1386,7 @@ The recommended value is <code>1</code> second.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Pod egress traffic is handled by kernel routing table using the <code>routingViaHost</code> option.
+<p>Pod egress traffic is managed by kernel routing table using the <code>routingViaHost</code> option.
 Appropriate static routes must be configured in the host.</p>
 </li>
 </ul>
@@ -1221,6 +1399,9 @@ Appropriate static routes must be configured in the host.</p>
 <ul>
 <li>
 <p><a href="../networking/networking_operators/cluster-network-operator.html#nw-cluster-network-operator_cluster-network-operator">Cluster Network Operator</a></p>
+</li>
+<li>
+<p><a href="../networking/ovn_kubernetes_network_provider/configuring-egress-ips-ovn.html#configuring-egress-ips-ovn">Configuring an egress IP address</a></p>
 </li>
 </ul>
 </div>
@@ -1272,8 +1453,7 @@ When an external third-party load balancer is used, the integration effort must 
 <div class="ulist">
 <ul>
 <li>
-<p>Stateful load balancing is not supported by MetalLB.
-An alternate load balancer implementation must be used if this is a requirement for workload CNFs.</p>
+<p>Stateful load balancing is not supported by MetalLB. An alternate load balancer implementation must be used if this is a requirement for workload CNFs.</p>
 </li>
 <li>
 <p>You must ensure that the external IP address is routable from clients to the host network for the cluster.</p>
@@ -1289,7 +1469,7 @@ An alternate load balancer implementation must be used if this is a requirement 
 <p>MetalLB is used in BGP mode only for telco core use models.</p>
 </li>
 <li>
-<p>For telco core use models, MetalLB is supported only when you set <code>routingViaHost=true</code> in the <code>ovnKubernetesConfig.gatewayConfig</code> specification of the OVN-Kubernetes network plugin.
+<p>For telco core use models, MetalLB is supported only with the OVN-Kubernetes network provider used in local gateway mode.
 See <code>routingViaHost</code> in "Cluster Network Operator".</p>
 </li>
 <li>
@@ -1330,7 +1510,7 @@ Other parameters in the BFD profile should remain close to the defaults as short
 <div class="ulist">
 <ul>
 <li>
-<p>Support moving failed policy in resource injector to failed for SR-IOV operator</p>
+<p>No reference design updates in this release.</p>
 </li>
 </ul>
 </div>
@@ -1622,21 +1802,28 @@ Only nodes directly attached to the storage network should be allowed to gain ac
 <div class="ulist">
 <ul>
 <li>
-<p>Clarification on internal compared to external mode and RDS recommendations.</p>
+<p>No reference design updates in this release.</p>
 </li>
 </ul>
 </div>
 </dd>
 <dt class="hdlist1">Description</dt>
 <dd>
-<div class="openblock">
-<div class="content">
-<div class="paragraph">
 <p>OpenShift Data Foundation is a software-defined storage service for containers.
-OpenShift Data Foundation can be deployed in one of two modes:
-* Internal mode, where OpenShift Data Foundation software components are deployed as software containers directly on the OpenShift Container Platform cluster nodes, together with other containerized applications.
-* External mode, where OpenShift Data Foundation is deployed on a dedicated storage cluster, which is usually a separate Red Hat Ceph Storage cluster running on Red&#160;Hat Enterprise Linux (RHEL).
+OpenShift Data Foundation can be deployed in one of two modes:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Internal mode, where OpenShift Data Foundation software components are deployed as software containers directly on the OpenShift Container Platform cluster nodes, together with other containerized applications.</p>
+</li>
+<li>
+<p>External mode, where OpenShift Data Foundation is deployed on a dedicated storage cluster, which is usually a separate Red Hat Ceph Storage cluster running on Red&#160;Hat Enterprise Linux (RHEL).
 These storage services are running externally to the application workload cluster.</p>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
 </div>
 <div class="paragraph">
 <p>For telco core clusters, storage support is provided by OpenShift Data Foundation storage services running in external mode, for several reasons:</p>
@@ -1657,9 +1844,8 @@ These storage services are running externally to the application workload cluste
 <div class="paragraph">
 <p>OpenShift Data Foundation supports separation of storage traffic using secondary CNI networks.</p>
 </div>
-</div>
-</div>
-</dd>
+<div class="dlist">
+<dl>
 <dt class="hdlist1">Limits and requirements</dt>
 <dd>
 <div class="ulist">
@@ -1679,7 +1865,7 @@ For more information, see <a href="https://docs.redhat.com/en/documentation/red_
 <p>OpenShift Data Foundation network traffic should be isolated from other traffic on a dedicated network, for example, by using VLAN isolation.</p>
 </li>
 <li>
-<p>Workload requirements must be scoped before attaching multiple OpenShift Container Platform clusters to an external OpenShift Data Foundation cluster to ensure sufficient throughput, bandwidth, and performance KPIs.</p>
+<p>Workload requirements must be scoped before attaching multiple OpenShift Container Platform clusters to an external OpenShift Data Foundation cluster to ensure enough throughput, bandwidth, and performance KPIs.</p>
 </li>
 </ul>
 </div>
@@ -1791,7 +1977,7 @@ RHACM hub templating allows you to apply a consistent set of policies to cluster
 </dd>
 <dt class="hdlist1">Description</dt>
 <dd>
-<p>TALM is an Operator which runs only on the hub cluster.
+<p>TALM is an Operator that runs only on the hub cluster.
 TALM manages how changes including cluster and Operator upgrades, configurations, and so on, are rolled out to managed clusters in the network.
 TALM has the following core features:</p>
 <div class="ulist">
@@ -1830,6 +2016,38 @@ TALM has the following core features:</p>
 </li>
 <li>
 <p>Any policy can be remediated by TALM under control of a user created <code>ClusterGroupUpgrade</code> CR.</p>
+</li>
+<li>
+<p>Set the <code>MachineConfigPool</code> (<code>mcp</code>) CR <code>paused</code> field to true during a cluster upgrade maintenance window and set the <code>maxUnavailable</code> field to the maximum tolerable value.
+This prevents multiple cluster node reboots during upgrade, which results in a shorter overall upgrade.
+When you unpause the <code>mcp</code> CR, all the configuration changes are applied with a single reboot.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>During installation, custom <code>mcp</code> CRs can be paused along with setting <code>maxUnavailable</code> to 100% to improve installation times.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Orchestration of an upgrade, including OpenShift Container Platform, day-2 OLM operators and custom configuration can be done using a <code>ClusterGroupUpgrade</code> (CGU) CR containing policies describing these updates.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>An EUS to EUS upgrade can be orchestrated using chained CGU CRs</p>
+</li>
+<li>
+<p>Control of MCP pause can be managed through policy in the CGU CRs for a full control plane and worker node rollout of upgrades.</p>
+</li>
+</ul>
+</div>
 </li>
 </ul>
 </div>
@@ -1990,41 +2208,27 @@ When file names overlap in multiple directory paths, the last file found in the 
 </dd>
 <dt class="hdlist1">Description</dt>
 <dd>
-<div class="openblock">
-<div class="content">
+<p>The Cluster Monitoring Operator (CMO) is included by default in OpenShift Container Platform and provides monitoring (metrics, dashboards, and alerting) for the platform components and optionally user projects.
+You can customize the default log retention period, custom alert rules, and so on.</p>
 <div class="paragraph">
-<p>The Cluster Monitoring Operator (CMO) is included by default in OpenShift Container Platform and provides monitoring (metrics, dashboards, and alerting) for the platform components and optionally user projects.</p>
+<p>Configuration of the monitoring stack is done through a single string value in the cluster-monitoring-config ConfigMap. The reference tuning tuning merges content from two requirements:</p>
 </div>
-<div class="paragraph">
-<p>You can customize the default log retention period, custom alert rules, and so on.</p>
-</div>
-<div class="paragraph">
-<p>The default handling of pod CPU and memory metrics, based on upstream Kubernetes and cAdvisor, makes a tradeoff favoring stale data over metric accuracy.
-This leads to spikes in reporting, which can create false alerts, depending on the user-specified thresholds.</p>
-</div>
-<div class="paragraph">
-<p>OpenShift Container Platform supports an opt-in Dedicated Service Monitor feature that creates an additional set of pod CPU and memory metrics which do not suffer from this behavior.
-For more information, see the Red Hat Knowledgebase solution <a href="https://access.redhat.com/solutions/7012719">Dedicated Service Monitors - Questions and Answers</a>.</p>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Prometheus configuration is extended to forward alerts to the ACM hub cluster for alert aggregation.
+If desired this configuration can be extended to forward to additional locations.</p>
+</li>
+<li>
+<p>Prometheus retention period is reduced from the default.
+The primary metrics storage is expected to be external to the cluster.
+Metrics storage on the Core cluster is expected to be a backup to that central store and available for local troubleshooting purposes.</p>
 <div class="paragraph">
 <p>In addition to the default configuration, the following metrics are expected to be configured for telco core clusters:</p>
 </div>
-<div class="ulist">
-<ul>
+</li>
 <li>
 <p>Pod CPU and memory metrics and alerts for user workloads</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-</dd>
-<dt class="hdlist1">Limits and requirements</dt>
-<dd>
-<div class="ulist">
-<ul>
-<li>
-<p>You must enable the Dedicated Service Monitor feature for accurate representation of pod metrics.</p>
 </li>
 </ul>
 </div>
@@ -2069,18 +2273,12 @@ Longer retention periods increase the need for storage and require additional CP
 </dd>
 <dt class="hdlist1">Description</dt>
 <dd>
-<div class="openblock">
-<div class="content">
-<div class="paragraph">
 <p>The scheduler is a cluster-wide component responsible for selecting the right node for a given workload.
 It is a core part of the platform and does not require any specific configuration in the common deployment scenarios.
 However, there are few specific use cases described in the following section.</p>
-</div>
 <div class="paragraph">
 <p>NUMA-aware scheduling can be enabled through the NUMA Resources Operator.
 For more information, see "Scheduling NUMA-aware workloads".</p>
-</div>
-</div>
 </div>
 </dd>
 <dt class="hdlist1">Limits and requirements</dt>
@@ -2090,15 +2288,21 @@ For more information, see "Scheduling NUMA-aware workloads".</p>
 <li>
 <p>The default scheduler does not understand the NUMA locality of workloads.
 It only knows about the sum of all free resources on a worker node.
-This might cause workloads to be rejected when scheduled to a node with the topology manager policy set to single-numa-node or restricted. For more information, see "Topology Manager policies".</p>
-<div class="paragraph">
+This might cause workloads to be rejected when scheduled to a node with the topology manager policy set to single-numa-node or restricted.
+For more information, see "Topology Manager policies"..</p>
+<div class="ulist">
+<ul>
+<li>
 <p>For example, consider a pod requesting 6 CPUs and being scheduled to an empty node that has 4 CPUs per NUMA node.
 The total allocatable capacity of the node is 8 CPUs. The scheduler places the pod on the empty node.
 The node local admission fails, as there are only 4 CPUs available in each of the NUMA nodes.</p>
+</li>
+</ul>
 </div>
 </li>
 <li>
-<p>All clusters with multi-NUMA nodes are required to use the NUMA Resources Operator. See "Installing the NUMA Resources Operator" for more information.
+<p>All clusters with multi-NUMA nodes are required to use the NUMA Resources Operator.
+See "Installing the NUMA Resources Operator" for more information.
 Use the <code>machineConfigPoolSelector</code> field in the <code>KubeletConfig</code> CR to select all nodes where NUMA aligned scheduling is required.</p>
 </li>
 <li>
@@ -2159,6 +2363,8 @@ For more information about annotations, see "CPU partitioning and performance tu
 <ul>
 <li>
 <p>Analyze additional kernel modules to determine impact on CPU load, system performance, and ability to meet KPIs.</p>
+<div class="openblock">
+<div class="content">
 <table class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 1. Additional kernel modules</caption>
 <colgroup>
@@ -2186,40 +2392,34 @@ For more information about annotations, see "CPU partitioning and performance tu
 <p>ip_gre</p>
 </li>
 <li>
-<p>ip6_tables</p>
+<p>nf_tables</p>
 </li>
 <li>
-<p>ip6t_REJECT</p>
+<p>nf_conntrack</p>
 </li>
 <li>
-<p>ip6table_filter</p>
+<p>nft_ct</p>
 </li>
 <li>
-<p>ip6table_mangle</p>
+<p>nft_limit</p>
 </li>
 <li>
-<p>iptable_filter</p>
+<p>nft_log</p>
 </li>
 <li>
-<p>iptable_mangle</p>
+<p>nft_nat</p>
 </li>
 <li>
-<p>iptable_nat</p>
+<p>nft_chain_nat</p>
 </li>
 <li>
-<p>xt_multiport</p>
+<p>nf_reject_ipv4</p>
 </li>
 <li>
-<p>xt_owner</p>
+<p>nf_reject_ipv6</p>
 </li>
 <li>
-<p>xt_REDIRECT</p>
-</li>
-<li>
-<p>xt_statistic</p>
-</li>
-<li>
-<p>xt_TCPMSS</p>
+<p>nfnetlink_log</p>
 </li>
 </ul>
 </div></div></td>
@@ -2235,6 +2435,8 @@ Creates a container mount namespace, visible to kubelet/CRI-O, to reduce system 
 </tr>
 </tbody>
 </table>
+</div>
+</div>
 </li>
 </ul>
 </div>
@@ -2296,6 +2498,38 @@ Out-of-tree drivers are not supported.</p>
 </div>
 </div>
 <div class="sect2">
+<h3 id="telco-core-kubelet-settings_telco-core"><a class="anchor" href="#telco-core-kubelet-settings_telco-core"></a>Kubelet Settings</h3>
+<div class="paragraph">
+<p>Some CNF workloads make use of sysctls which are not in the list of system-wide safe sysctls. Generally network sysctls are namespaced and can be enabled by using the <code>kubeletconfig.experimental</code> annotation in the PerformanceProfile as a string of JSON in the form <code>allowedUnsafeSysctls</code>.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example snippet showing allowedUnsafeSysctls</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">performance.openshift.io/v2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PerformanceProfile</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="pi">{{</span> <span class="nv">.metadata.name</span> <span class="pi">}}</span>
+  <span class="s">annotations:kubeletconfig.experimental: |</span>
+      <span class="s">{"allowedUnsafeSysctls":["net.ipv6.conf.all.accept_ra"]}</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Although these are namespaced they may allow a pod to consume memory or other resources beyond any limits specified in the pod description. You must ensure that these sysctls do not exhaust platform resources.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
 <h3 id="telco-core-disconnected-environment_telco-core"><a class="anchor" href="#telco-core-disconnected-environment_telco-core"></a>Disconnected environment</h3>
 <div class="dlist">
 <dl>
@@ -2309,7 +2543,7 @@ Out-of-tree drivers are not supported.</p>
 </ul>
 </div>
 </dd>
-<dt class="hdlist1">Descrption</dt>
+<dt class="hdlist1">Description</dt>
 <dd>
 <p>Telco core clusters are expected to be installed in networks without direct access to the internet.
 All container images needed to install, configure, and operate the cluster must be available in a disconnected registry.
@@ -2321,7 +2555,7 @@ The use of a disconnected environment provides multiple benefits, including:</p>
 <p>Security - limiting access to the cluster</p>
 </li>
 <li>
-<p>Curated content – the registry is populated based on curated and approved updates for clusters</p>
+<p>Curated content - the registry is populated based on curated and approved updates for clusters</p>
 </li>
 </ul>
 </div>
@@ -2355,6 +2589,9 @@ Do not reuse the default catalog names.</p>
 <li>
 <p><a href="../disconnected/updating/index.html#about-disconnected-updates">About cluster updates in a disconnected environment</a></p>
 </li>
+<li>
+<p><a href="../nodes/containers/nodes-containers-sysctls.html#nodes-containers-sysctls">Using sysctl in containers</a></p>
+</li>
 </ul>
 </div>
 </div>
@@ -2374,32 +2611,27 @@ Do not reuse the default catalog names.</p>
 </dd>
 <dt class="hdlist1">Description</dt>
 <dd>
-<div class="openblock">
-<div class="content">
+<p>The recommended method for Telco Core cluster installation is using Red Hat Advanced Cluster Management.
+The Agent Based Installer (ABI) is a separate installation flow for Openshift in environments without existing infrastructure for running cluster deployments.
+Use the ABI to install OpenShift Container Platform on bare-metal servers without requiring additional servers or VMs for managing the installation, but does not provide ongoing lifecycle management, monitoring or automations.
+The ABI can be run on any system for example, from a laptop to generate an ISO installation image.
+The ISO is used as the installation media for the cluster control plane nodes.
+You can monitor the progress by using the ABI from any system with network connectivity to the control plane node&#8217;s API interfaces.</p>
 <div class="paragraph">
-<p>Telco core clusters can be installed using the Agent-based Installer.
-This method allows you to install OpenShift Container Platform on bare-metal servers without requiring additional servers or VMs for managing the installation.
-The Agent-based Installer can be run on any system (for example, from a laptop) to generate an ISO installation image.
-The ISO is used as the installation media for the cluster supervisor nodes.
-Progress can be monitored using the Agent-based Installer from any system with network connectivity to the supervisor node&#8217;s API interfaces.</p>
-</div>
-<div class="paragraph">
-<p>Agent-based Installer supports the following:</p>
+<p>ABI supports the following:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Installation from declarative CRs.</p>
+<p>Installation from declarative CRs</p>
 </li>
 <li>
-<p>Installation in disconnected environments.</p>
+<p>Installation in disconnected environments</p>
 </li>
 <li>
-<p>Installation without the use of additional servers to support installation, for example, the bastion node.</p>
+<p>No additional servers required to support installation, for example, the bastion node is no longer needed</p>
 </li>
 </ul>
-</div>
-</div>
 </div>
 </dd>
 <dt class="hdlist1">Limits and requirements</dt>
@@ -2417,7 +2649,7 @@ Progress can be monitored using the Agent-based Installer from any system with n
 <div class="ulist">
 <ul>
 <li>
-<p>Networking configuration should be applied as NMState configuration during installation. Day 2 networking configuration using the NMState Operator is not supported.</p>
+<p>Networking configuration should be applied as NMState configuration during installation as opposed to Day 2 configuration using the NMState Operator.</p>
 </li>
 </ul>
 </div>
@@ -2459,24 +2691,24 @@ Described below are various security oriented features and configurations for th
 <div class="ulist">
 <ul>
 <li>
-<p><strong>SecurityContextConstraints (SCC)</strong>: All workload pods should be run with <code>restricted-v2</code> or <code>restricted</code> SCC.</p>
+<p>SecurityContextConstraints (SCC): All workload pods should be run with <code>restricted-v2</code> or <code>restricted</code> SCC.</p>
 </li>
 <li>
-<p><strong>Seccomp</strong>: All pods should run with the <code>RuntimeDefault</code> (or stronger) seccomp profile.</p>
+<p>Seccomp: All pods should run with the <code>RuntimeDefault</code> (or stronger) seccomp profile.</p>
 </li>
 <li>
-<p><strong>Rootless DPDK pods</strong>: Many user-plane networking (DPDK) CNFs require pods to run with root privileges.
+<p>Rootless DPDK pods: Many user-plane networking (DPDK) CNFs require pods to run with root privileges.
 With this feature, a conformant DPDK pod can be run without requiring root privileges.
 Rootless DPDK pods create a tap device in a rootless pod that injects traffic from a DPDK application to the kernel.</p>
 </li>
 <li>
-<p><strong>Storage</strong>: The storage network should be isolated and non-routable to other cluster networks.
+<p>Storage: The storage network should be isolated and non-routable to other cluster networks.
 See the "Storage" section for additional details.</p>
 </li>
 </ul>
 </div>
 <div class="paragraph">
-<p>See the Red Hat Knowledgebase solution article <a href="https://access.redhat.com/articles/7090422">Custom nftable firewall rules in OpenShift</a> for a supported method for implementing custom nftables firewall rules in OpenShift Container Platform cluster nodes. This article is intended for cluster administrators who are responsible for managing network security policies in OpenShift Container Platform environments.</p>
+<p>See the Red Hat Knowledgebase solution article <a href="https://access.redhat.com/articles/7090422">Custom nftable firewall rules in OpenShift Container Platform</a> for a supported method for implementing custom nftables firewall rules in OpenShift Container Platform cluster nodes. This article is intended for cluster administrators who are responsible for managing network security policies in OpenShift Container Platform environments.</p>
 </div>
 <div class="paragraph">
 <p>It is crucial to carefully consider the operational implications before deploying this method, including:</p>
@@ -2484,19 +2716,19 @@ See the "Storage" section for additional details.</p>
 <div class="ulist">
 <ul>
 <li>
-<p><strong>Early application</strong>: The rules are applied at boot time, before the network is fully operational.
+<p>Early application: The rules are applied at boot time, before the network is fully operational.
 Ensure the rules don&#8217;t inadvertently block essential services required during the boot process.</p>
 </li>
 <li>
-<p><strong>Risk of misconfiguration</strong>: Errors in your custom rules can lead to unintended consequences, potentially leading to performance impact or blocking legitimate traffic or isolating nodes.
+<p>Risk of misconfiguration: Errors in your custom rules can lead to unintended consequences, potentially leading to performance impact or blocking legitimate traffic or isolating nodes.
 Thoroughly test your rules in a non-production environment before deploying them to your main cluster.</p>
 </li>
 <li>
-<p><strong>External endpoints</strong>: OpenShift Container Platform requires access to external endpoints to function.
-For more information about the firewall allowlist, see "Configuring your firewall for OpenShift Container Platform". Ensure that cluster nodes are permitted access to those endpoints.</p>
+<p>External endpoints: OpenShift Container Platform requires access to external endpoints to function.
+For more information about the firewall allowlist, see "Configuring your firewall for OpenShift Container Platform". Ensure that cluster nodes are permitted access to those endpoints. Ensure that cluster nodes are permitted access to those endpoints.</p>
 </li>
 <li>
-<p><strong>Node reboot</strong>: Unless node disruption policies are configured, applying the <code>MachineConfig</code> CR with the required firewall settings causes a node reboot.
+<p>Node reboot: Unless node disruption policies are configured, applying the <code>MachineConfig</code> CR with the required firewall settings causes a node reboot.
 Be aware of this impact and schedule a maintenance window accordingly. For more information, see "Using node disruption policies to minimize disruption from machine config changes".</p>
 <div class="admonitionblock note">
 <table>
@@ -2514,12 +2746,12 @@ Be aware of this impact and schedule a maintenance window accordingly. For more 
 </div>
 </li>
 <li>
-<p><strong>Network flow matrix</strong>: For more information about managing ingress traffic, see OpenShift Container Platform network flow matrix.
+<p>Network flow matrix: For more information about managing ingress traffic, see OpenShift Container Platform network flow matrix.
 You can restrict ingress traffic to essential flows to improve network security.
 The matrix provides insights into base cluster services but excludes traffic generated by Day-2 Operators.</p>
 </li>
 <li>
-<p><strong>Cluster version updates and upgrades</strong>: Exercise caution when updating or upgrading OpenShift Container Platform clusters.
+<p>Cluster version updates and upgrades: Exercise caution when updating or upgrading OpenShift Container Platform clusters.
 Recent changes to the platform&#8217;s firewall requirements might require adjustments to network port permissions.
 While the documentation provides guidelines, note that these requirements can evolve over time.
 To minimize disruptions, you should test any updates or upgrades in a staging environment before applying them in production.
@@ -2542,7 +2774,7 @@ This helps you to identify and address potential compatibility issues related to
 <p>Configure the <code>container_t</code> SELinux context for the tap plugin.</p>
 </li>
 <li>
-<p>Enable the <code>container_use_devices</code> SELinux boolean for the cluster host</p>
+<p>Enable the <code>container_use_devices</code> SELinux boolean for the cluster host.</p>
 </li>
 </ul>
 </div>
@@ -3230,7 +3462,7 @@ No patched CRs <i class="conum" data-value="10"></i><b>(10)</b>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Load Balancer</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>community.yaml</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Defines a MetalLB community, which groups one or more BGP communities under a named resource. Communities can be applied to BGP advertisements to control routing policies and change traffic routing.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Load Balancer</p></td>
@@ -3405,7 +3637,7 @@ No patched CRs <i class="conum" data-value="10"></i><b>(10)</b>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">External ODF configuration</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>01-rook-ceph-external-cluster-details.secret.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Defines a Secret resource containing base64-encoded configuration data for an external Ceph cluster in the openshift-storage namespace.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Defines a Secret resource containing base64-encoded configuration data for an external Ceph cluster in the <code>openshift-storage</code> namespace.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 <tr>
@@ -3417,13 +3649,13 @@ No patched CRs <i class="conum" data-value="10"></i><b>(10)</b>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">External ODF configuration</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>odfNS.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Creates the monitored openshift-storage namespace for the OpenShift Data Foundation Operator.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Creates the monitored <code>openshift-storage</code> namespace for the OpenShift Data Foundation Operator.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">External ODF configuration</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>odfOperGroup.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Creates the Operator group in the openshift-storage namespace, allowing the OpenShift Data Foundation Operator to watch and manage resources.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Creates the Operator group in the <code>openshift-storage</code> namespace, allowing the OpenShift Data Foundation Operator to watch and manage resources.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 </tbody>
@@ -3452,11 +3684,11 @@ No patched CRs <i class="conum" data-value="10"></i><b>(10)</b>
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Red&#160;Hat Advanced Cluster Management (RHACM)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">2.13</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.14</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Red&#160;Hat OpenShift GitOps</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">1.16</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.18</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Cluster Logging Operator</p></td>
@@ -3468,22 +3700,32 @@ No patched CRs <i class="conum" data-value="10"></i><b>(10)</b>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">SR-IOV Network Operator</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.19</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.20</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">MetalLB</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.19</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.20</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">NMState Operator</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.19</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.20</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">NUMA-aware scheduler</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.19</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.20</p></td>
 </tr>
 </tbody>
 </table>
+<div class="ulist">
+<ul>
+<li>
+<p>Red&#160;Hat Advanced Cluster Management (RHACM) will be updated to 2.15 when the aligned Red&#160;Hat Advanced Cluster Management (RHACM) version is released.</p>
+</li>
+<li>
+<p>OpenShift Data Foundation will be updated to 4.20 when the aligned OpenShift Data Foundation version (4.20) is released.</p>
+</li>
+</ul>
+</div>
 </div>
 </div>
       </div>
