@@ -2845,9 +2845,14 @@
 <li><a href="#nw-egress-ips-object_configuring-egress-ips-ovn">EgressIP object</a></li>
 <li><a href="#nw-egress-ips-considerations_configuring-egress-ips-ovn">Assignment of egress IPs to a namespace, nodes, and pods</a></li>
 <li><a href="#nw-egress-ips-assign_configuring-egress-ips-ovn">Assigning an egress IP address to a namespace</a></li>
+<li><a href="#egressip_failover_concept_configuring-egress-ips-ovn">Understanding EgressIP failover control</a>
+<ul class="sectlevel2">
+<li><a href="#egressip_configure_failover_task_configuring-egress-ips-ovn">Configuring the EgressIP failover time limit</a></li>
+<li><a href="#egressip_failover_reference_configuring-egress-ips-ovn">EgressIP failover settings</a></li>
+</ul>
+</li>
 <li><a href="#nw-egress-ips-node_configuring-egress-ips-ovn">Labeling a node to host egress IP addresses</a></li>
 <li><a href="#nw-egress-ips-object-dual-stack_configuring-egress-ips-ovn">Configuring dual-stack networking for an EgressIP object</a></li>
-<li><a href="#nw-egress-ips-config-object_configuring-egress-ips-ovn">The egressIPConfig object</a></li>
 <li><a href="#configuring-egress-ips-additional-resources">Additional resources</a></li>
 </ul>
 </div>
@@ -3605,6 +3610,160 @@ not supported on a cluster provisioned on Amazon Web Services (AWS). (<a href="h
 </div>
 </div>
 <div class="sect1">
+<h2 id="egressip_failover_concept_configuring-egress-ips-ovn"><a class="anchor" href="#egressip_failover_concept_configuring-egress-ips-ovn"></a>Understanding EgressIP failover control</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>reachabilityTotalTimeoutSeconds</code> parameter controls how quickly the system detects a failing <code>egressIP</code> node and initiates a failover. This parameter directly determines the maximum time the platform waits before declaring a node unreachable.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When you configure <code>egressIP</code> with multiple egress nodes, the complete failover time from node failure to recovery on a new node is expected to be on the order of seconds or longer. This is because the new IP assignment can only begin after the <code>reachabilityTotalTimeoutSeconds</code> period has fully elapsed without a successful check.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>To ensure traffic uses the correct external path, <code>egressIP</code> traffic on a node will always egress through the network interface on which the <code>egressIP</code> address has been assigned.</p>
+</div>
+<div class="sect2">
+<h3 id="egressip_configure_failover_task_configuring-egress-ips-ovn"><a class="anchor" href="#egressip_configure_failover_task_configuring-egress-ips-ovn"></a>Configuring the EgressIP failover time limit</h3>
+<div class="paragraph">
+<p>Follow this procedure to configure the <code>reachabilityTotalTimeoutSeconds</code> parameter and control how quickly the system detects a failing <code>egressIP</code> node and initiates a failover.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Install the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>Log in to the cluster as a cluster administrator.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the <code>Network</code> custom resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="bash"><span class="nv">$ </span>oc edit network.operator cluster</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Navigate to the <code>egressIPConfig: {}</code> section under <code>spec:defaultNetwork:ovnKubernetesConfig:</code></p>
+</li>
+<li>
+<p>Modify the block to include the <code>reachabilityTotalTimeoutSeconds</code> parameter with your chosen value, 5 seconds for example. Make sure to use the correct indentation:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml">  <span class="na">defaultNetwork</span><span class="pi">:</span>
+    <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+      <span class="na">egressIPConfig</span><span class="pi">:</span>
+        <span class="na">reachabilityTotalTimeoutSeconds</span><span class="pi">:</span> <span class="s">5</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The value must be an integer between 0 and 60. For details on possible values, see the "EgressIP failover settings" section.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Save and exit the editor. The operator automatically applies the changes.</p>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the system correctly accepted the <code>reachabilityTotalTimeoutSeconds</code> parameter by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get network.operator cluster <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Inspect the output and confirm that the <code>reachabilityTotalTimeoutSeconds</code> parameter is correctly nested under <code>spec:defaultNetwork:ovnKubernetesConfig:egressIPConfig:</code> with your intended value:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"> <span class="c1"># ...</span>
+  <span class="na">spec</span><span class="pi">:</span>
+    <span class="c1"># ...</span>
+    <span class="na">defaultNetwork</span><span class="pi">:</span>
+      <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+        <span class="na">egressIPConfig</span><span class="pi">:</span>
+          <span class="na">reachabilityTotalTimeoutSeconds</span><span class="pi">:</span> <span class="m">5</span>
+        <span class="na">gatewayConfig</span><span class="pi">:</span>
+  <span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="egressip_failover_reference_configuring-egress-ips-ovn"><a class="anchor" href="#egressip_failover_reference_configuring-egress-ips-ovn"></a>EgressIP failover settings</h3>
+<div class="paragraph">
+<p>The <code>reachabilityTotalTimeoutSeconds</code> parameter defines the total time limit in seconds for the platform health check process before a node is declared down.</p>
+</div>
+<div class="paragraph">
+<p>The following table summarizes the acceptable values and their implications:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter Value (Seconds)</th>
+<th class="tableblock halign-left valign-top">Effect on reachability check</th>
+<th class="tableblock halign-left valign-top">Failover impact and use case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Disables the reachability check.</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>No automatic failover: Use only if an external system handles node health monitoring and failover. The platform will not automatically react to node failures.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1 - 60</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets the total time limit for reachability probing.</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Directly controls detection time: This value defines the lower limit for your overall failover time. A smaller value leads to faster failover but might increase network traffic. Default: 1 second. The maximum accepted integer value is 60.</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="nw-egress-ips-node_configuring-egress-ips-ovn"><a class="anchor" href="#nw-egress-ips-node_configuring-egress-ips-ovn"></a>Labeling a node to host egress IP addresses</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -3784,61 +3943,6 @@ not supported on a cluster provisioned on Amazon Web Services (AWS). (<a href="h
 </div>
 </li>
 </ol>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="nw-egress-ips-config-object_configuring-egress-ips-ovn"><a class="anchor" href="#nw-egress-ips-config-object_configuring-egress-ips-ovn"></a>The egressIPConfig object</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>As a feature of egress IP, the <code>reachabilityTotalTimeoutSeconds</code> parameter configures the EgressIP node reachability check total timeout in seconds. If the EgressIP node cannot be reached within this timeout, the node is declared down.</p>
-</div>
-<div class="paragraph">
-<p>You can set a value for the <code>reachabilityTotalTimeoutSeconds</code> in the configuration file for the <code>egressIPConfig</code> object. Setting a large value might cause the EgressIP implementation to react slowly to node changes. The implementation reacts slowly for EgressIP nodes that have an issue and are unreachable.</p>
-</div>
-<div class="paragraph">
-<p>If you omit the <code>reachabilityTotalTimeoutSeconds</code> parameter from the <code>egressIPConfig</code> object, the platform chooses a reasonable default value, which is subject to change over time. The current default is <code>1</code> second. A value of <code>0</code> disables the reachability check for the EgressIP node.</p>
-</div>
-<div class="paragraph">
-<p>The following <code>egressIPConfig</code> object describes changing the <code>reachabilityTotalTimeoutSeconds</code> from the default <code>1</code> second probes to <code>5</code> second probes:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Network</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">clusterNetwork</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">cidr</span><span class="pi">:</span> <span class="s">10.128.0.0/14</span>
-    <span class="na">hostPrefix</span><span class="pi">:</span> <span class="m">23</span>
-  <span class="na">defaultNetwork</span><span class="pi">:</span>
-    <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
-      <span class="na">egressIPConfig</span><span class="pi">:</span>
-        <span class="na">reachabilityTotalTimeoutSeconds</span><span class="pi">:</span> <span class="m">5</span>
-      <span class="na">gatewayConfig</span><span class="pi">:</span>
-        <span class="na">routingViaHost</span><span class="pi">:</span> <span class="no">false</span>
-      <span class="na">genevePort</span><span class="pi">:</span> <span class="s">6081</span></code></pre>
-</div>
-</div>
-<div class="openblock">
-<div class="content">
-<div class="paragraph">
-<p>where:</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>&lt;egressIPConfig&gt;</code></dt>
-<dd>
-<p>The <code>egressIPConfig</code> holds the configurations for the options of the <code>EgressIP</code> object. By changing these configurations, you can extend the <code>EgressIP</code> object.</p>
-</dd>
-<dt class="hdlist1"><code>&lt;reachabilityTotalTimeoutSeconds&gt;</code></dt>
-<dd>
-<p>The value for <code>reachabilityTotalTimeoutSeconds</code> accepts integer values from <code>0</code> to <code>60</code>. A value of <code>0</code> disables the reachability check of the egressIP node. Setting a value from <code>1</code> to <code>60</code> corresponds to the timeout in seconds for a probe to send the reachability check to the node.</p>
-</dd>
-</dl>
-</div>
-</div>
 </div>
 </div>
 </div>
