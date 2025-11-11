@@ -1275,6 +1275,7 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#virt-configure-rbac-console-subresources-api_virt-controlling-vm-states">Configuring RBAC permissions for managing VM states by using the web console</a></li>
 <li><a href="#virt-enable-vm-action-confirmation-web_virt-controlling-vm-states">Enabling confirmations of virtual machine actions</a></li>
 <li><a href="#virt-starting-vm-web_virt-controlling-vm-states">Starting a virtual machine</a></li>
 <li><a href="#virt-stopping-vm-web_virt-controlling-vm-states">Stopping a virtual machine</a></li>
@@ -1289,6 +1290,182 @@
 </div>
 <div class="paragraph">
 <p>You can stop, start, restart, pause, and unpause virtual machines from the web console.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-configure-rbac-console-subresources-api_virt-controlling-vm-states"><a class="anchor" href="#virt-configure-rbac-console-subresources-api_virt-controlling-vm-states"></a>Configuring RBAC permissions for managing VM states by using the web console</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To allow users to manage virtual machine (VM) states by using the Red Hat OpenShift Service on AWS (classic architecture) web console, you must create an RBAC cluster role and cluster role binding.
+The cluster role uses the <code>subresources.kubevirt.io</code> API to define which resources can be controlled by certain users or groups.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have cluster administrator access to an Red Hat OpenShift Service on AWS (classic architecture) cluster where OpenShift Virtualization is installed.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a <code>ClusterRole</code> object that allows the target user or group to manage VM states:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">vm-manager-access</span>
+<span class="na">rules</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">subresources.kubevirt.io</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">virtualmachines/start</span>
+      <span class="pi">-</span> <span class="s">virtualmachines/stop</span>
+    <span class="na">verbs</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">put</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Run the following command to apply the cluster role:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;filename&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Confirm that the cluster role was created by running the following command and observing the output:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusterrole &lt;name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                AGE
+vm-manager-access   15s</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Inspect the details of the cluster role, and ensure the intended rules for <code>subresources.kubevirt.io</code> are present, specifically the <code>virtualmachines/start</code> and <code>virtualmachines/stop</code> subresources.</p>
+<div class="paragraph">
+<p>Run the following command and observe the output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe clusterrole &lt;name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Name:         vm-manager-access
+</span><span class="gp">Labels:       &lt;none&gt;</span><span class="w">
+</span><span class="gp">Annotations:  &lt;none&gt;</span><span class="w">
+</span><span class="go">PolicyRule:
+  Resources  Non-Resource URLs  Resource Names  Verbs
+  ---------  -----------------  --------------  -----
+  virtualmachines/start, virtualmachines/stop with subresources.kubevirt.io group  []  []  [put]</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a <code>ClusterRoleBinding</code> object to bind the cluster role you have created to the target user or group:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRoleBinding</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">vm-manager-access-binding</span>
+<span class="na">subjects</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">User</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">test-user</span>
+    <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+<span class="na">roleRef</span><span class="pi">:</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">vm-manager-access</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Run the following command to apply the cluster role binding:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;filename&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Confirm that the cluster role binding was created by running the following command and observing the output:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusterrolebinding &lt;name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                        AGE
+vm-manager-access-binding   15s</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Check if the user can start a VM by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc auth can-i update virtualmachines/start <span class="nt">--namespace</span><span class="o">=</span>&lt;namespace&gt; <span class="nt">--as</span><span class="o">=</span>&lt;user_name&gt; <span class="nt">--subresource</span><span class="o">=</span>subresources.kubevirt.io</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">yes</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check if the user can stop a VM by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc auth can-i update virtualmachines/stop <span class="nt">--namespace</span><span class="o">=</span>&lt;namespace&gt; <span class="nt">--as</span><span class="o">=</span>&lt;user_name&gt; <span class="nt">--group</span><span class="o">=</span>subresources.kubevirt.io</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">yes</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
