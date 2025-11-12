@@ -2152,8 +2152,7 @@
                     <li><a class="" href="../../../observability/otel/otel-collector/otel-collector-processors.html" style="padding-left: 70px;">Processors</a></li>
                     <li><a class="" href="../../../observability/otel/otel-collector/otel-collector-exporters.html" style="padding-left: 70px;">Exporters</a></li>
                     <li><a class="" href="../../../observability/otel/otel-collector/otel-collector-connectors.html" style="padding-left: 70px;">Connectors</a></li>
-                    <li><a class="" href="../../../observability/otel/otel-collector/otel-collector-extensions.html" style="padding-left: 70px;">Extensions</a></li>
-                    <li><a class="" href="../../../observability/otel/otel-collector/otel-collector-target-allocator.html" style="padding-left: 70px;">Target Allocator</a></li>                  </ul>
+                    <li><a class="" href="../../../observability/otel/otel-collector/otel-collector-extensions.html" style="padding-left: 70px;">Extensions</a></li>                  </ul>
                   </li>
 
                   <li><a class="" href="../../../observability/otel/otel-configuration-of-instrumentation.html">Configuring the instrumentation</a></li>
@@ -3682,7 +3681,7 @@
 <h2 id="configuring-networking_ipi-install-installation-workflow"><a class="anchor" href="#configuring-networking_ipi-install-installation-workflow"></a>Configuring networking</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Before installation, you must configure the networking on the provisioner node. Installer-provisioned clusters deploy with a bare-metal bridge and network, and an optional provisioning bridge and network.</p>
+<p>Before installation, you must configure networking settings for the provisioner node. Installer-provisioned clusters deploy with a bare-metal bridge and network resources, and an optional provisioning bridge and network resources.</p>
 </div>
 <div class="imageblock">
 <div class="content">
@@ -3697,23 +3696,23 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>You can also configure networking from the web console.</p>
+<p>You can also configure networking settings from the OpenShift Container Platform web console.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the <code>nmstate</code> package with the <code>sudo dnf install -y &lt;package_name&gt;</code> command. The package includes the <code>nmstatectl</code> CLI.</p>
+</li>
+</ul>
+</div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
-<li>
-<p>Export the bare-metal network NIC name by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">PUB_CONN</span><span class="o">=</span>&lt;baremetal_nic_name&gt;</code></pre>
-</div>
-</div>
-</li>
 <li>
 <p>Configure the bare-metal network:</p>
 <div class="admonitionblock note">
@@ -3724,7 +3723,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The SSH connection might disconnect after executing these steps.</p>
+<p>When configuring the bare-metal network and the secure shell (SSH) connection disconnects, NMState has a rollback mechanism that automatically reverts any configurations. You can also use the <code>nmstatectl gc</code> tool to generate configuration files for specified network state files.</p>
 </div>
 </td>
 </tr>
@@ -3733,81 +3732,144 @@
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>For a network using DHCP, run the following command:</p>
+<p>For a network using DHCP, run the following command to delete the <code>/etc/sysconfig/network-scripts/ifcfg-eth0</code> legacy style:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo nohup </span>bash <span class="nt">-c</span> <span class="s2">"
-</span><span class="gp">    nmcli con down \"$</span><span class="s2">PUB_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="gp">    nmcli con delete \"$</span><span class="s2">PUB_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="gp">    #</span><span class="w"> </span><span class="s2">RHEL 8.1 appends the word </span><span class="se">\"</span><span class="s2">System</span><span class="se">\"</span><span class="s2"> in front of the connection, delete in case it exists
-</span><span class="gp">    nmcli con down \"System $</span><span class="s2">PUB_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="gp">    nmcli con delete \"System $</span><span class="s2">PUB_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="gp">    nmcli connection add ifname baremetal type bridge &lt;con_name&gt;</span><span class="w"> </span><span class="s2">baremetal bridge.stp no <i class="conum" data-value="1"></i><b>(1)</b>
-</span><span class="gp">    nmcli con add type bridge-slave ifname \"$</span><span class="s2">PUB_CONN</span><span class="se">\"</span><span class="s2"> master baremetal
-</span><span class="gp">    pkill dhclient;</span><span class="s2">dhclient baremetal
-</span><span class="go">"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="s">$ nmcli con delete "System &lt;baremetal_nic_name&gt;"</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;con_name&gt;</code> with the connection name.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;baremetal_nic_name&gt;</code></dt>
+<dd>
+<p>Replace <code>&lt;baremetal_nic_name&gt;</code> with the name of your network interface controller (NIC).</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
-<p>For a network using static IP addressing and no DHCP network, run the following command:</p>
+<p>For a network that uses Dynamic Host Configuration Protocol (DHCP), create an NMState YAML file and specify the bare-metal bridge interface and any physical interfaces in the file:</p>
 <div class="listingblock">
+<div class="title">Example bare-metal bridge interface configuration that uses DHCP</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo nohup </span>bash <span class="nt">-c</span> <span class="s2">"
-</span><span class="gp">    nmcli con down \"$</span><span class="s2">PUB_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="gp">    nmcli con delete \"$</span><span class="s2">PUB_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="gp">    #</span><span class="w"> </span><span class="s2">RHEL 8.1 appends the word </span><span class="se">\"</span><span class="s2">System</span><span class="se">\"</span><span class="s2"> in front of the connection, delete in case it exists
-</span><span class="gp">    nmcli con down \"System $</span><span class="s2">PUB_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="gp">    nmcli con delete \"System $</span><span class="s2">PUB_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="go">    nmcli connection add ifname baremetal type bridge con-name baremetal bridge.stp no ipv4.method manual ipv4.addr "x.x.x.x/yy" ipv4.gateway "a.a.a.a" ipv4.dns "b.b.b.b" <i class="conum" data-value="1"></i><b>(1)</b>
-</span><span class="gp">    nmcli con add type bridge-slave ifname \"$</span>PUB_CONN<span class="se">\"</span> master baremetal
-<span class="go">    nmcli con up baremetal
-"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">interfaces</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span>  <span class="s">&lt;physical_interface_name&gt;</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+    <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+    <span class="na">ipv4</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+    <span class="na">ipv6</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">baremetal</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">linux-bridge</span>
+    <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+    <span class="na">ipv4</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">dhcp</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">bridge</span><span class="pi">:</span>
+      <span class="na">options</span><span class="pi">:</span>
+        <span class="na">stp</span><span class="pi">:</span>
+          <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">port</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span>  <span class="s">&lt;physical_interface_name&gt;</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;con_name&gt;</code> with the connection name. Replace <code>x.x.x.x/yy</code> with the IP address and CIDR for the network. Replace <code>a.a.a.a</code> with the network gateway. Replace <code>b.b.b.b</code> with the IP address of the DNS server.</td>
-</tr>
-</table>
+</li>
+<li>
+<p>For a network using static IP addressing and no DHCP network, create an NMState YAML file and specify the bare-metal bridge interface details in the file:</p>
+<div class="listingblock">
+<div class="title">Example bare-metal bridge interface configuration that uses static IP addressing and no DHCP network</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">dns-resolver</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">server</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">&lt;dns_ip_address&gt;</span>
+<span class="na">routes</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">destination</span><span class="pi">:</span> <span class="s">0.0.0.0/0</span>
+      <span class="na">next-hop-interface</span><span class="pi">:</span> <span class="s">baremetal</span>
+      <span class="na">next-hop-address</span><span class="pi">:</span> <span class="s">&lt;gateway_ip&gt;</span>
+<span class="na">interfaces</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;physical_interface_name&gt;</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+    <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+    <span class="na">ipv4</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+    <span class="na">ipv6</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">baremetal</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">linux-bridge</span>
+    <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+    <span class="na">ipv4</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">address</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s">&lt;static_ip_address&gt;</span>
+          <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">24</span>
+    <span class="na">bridge</span><span class="pi">:</span>
+      <span class="na">options</span><span class="pi">:</span>
+        <span class="na">stp</span><span class="pi">:</span>
+          <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">port</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;physical_interface_name&gt;</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;dns-resolver&gt;</code></dt>
+<dd>
+<p>Defines the DNS server for your bare-metal system.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;server&gt;</code></dt>
+<dd>
+<p>Replace <code>&lt;dns_ip_address&gt;</code> with the IP address for the DNS server.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;type&gt;</code></dt>
+<dd>
+<p>Defines the bridge interface and its static IP configuration.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;gateway&gt;</code></dt>
+<dd>
+<p>Replace <code>&lt;gateway_ip&gt;</code> with the IP address of the gateway.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;name&gt;</code></dt>
+<dd>
+<p>Details the physical interface that you set as the bridge port.</p>
+</dd>
+</dl>
 </div>
 </li>
 </ol>
 </div>
 </li>
 <li>
-<p>Optional: If you are deploying with a provisioning network, export the provisioning network NIC name by running the following command:</p>
+<p>Apply the network configuration from the YAML file to the network interfaces for the host by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">PROV_CONN</span><span class="o">=</span>&lt;prov_nic_name&gt;</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>nmstatectl apply &lt;path_to_network_yaml&gt;</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Optional: If you are deploying with a provisioning network, configure the provisioning network by running the following command:</p>
+<p>Back up the network configuration YAML file by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo nohup </span>bash <span class="nt">-c</span> <span class="s2">"
-</span><span class="gp">    nmcli con down \"$</span><span class="s2">PROV_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="gp">    nmcli con delete \"$</span><span class="s2">PROV_CONN</span><span class="se">\"</span><span class="s2">
-</span><span class="go">    nmcli connection add ifname provisioning type bridge con-name provisioning
-</span><span class="gp">    nmcli con add type bridge-slave ifname \"$</span>PROV_CONN<span class="se">\"</span> master provisioning
-<span class="go">    nmcli connection modify provisioning ipv6.addresses fd00:1101::1/64 ipv6.method manual
-    nmcli con down provisioning
-    nmcli con up provisioning
-"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>nmstatectl show <span class="o">&gt;</span> backup-nmstate.yml</code></pre>
 </div>
 </div>
+</li>
+<li>
+<p>Optional: If you are deploying your cluster in a provisioning network, create or edit an NMState YAML file and specify the details in the file.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3816,33 +3878,69 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The SSH connection might disconnect after executing these steps.</p>
+<p>The IPv6 address can be any address that does not route through the bare-metal network.</p>
 </div>
 <div class="paragraph">
-<p>The IPv6 address can be any address that is not routable through the bare-metal network.</p>
-</div>
-<div class="paragraph">
-<p>Ensure that UEFI is enabled and UEFI PXE settings are set to the IPv6 protocol when using IPv6 addressing.</p>
+<p>Ensure that you enabled Unified Extensible Firmware Interface (UEFI) and set UEFI PXE settings for the IPv6 protocol when using IPv6 addressing.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
+<div class="listingblock">
+<div class="title">Example NMState YAML file for a provisioning network</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">interfaces</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eth1</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+    <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+    <span class="na">ipv4</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+    <span class="na">ipv6</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">provisioning</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">linux-bridge</span>
+    <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+    <span class="na">ipv4</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">address</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s">172.22.0.254</span>
+          <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">24</span>
+    <span class="na">ipv6</span><span class="pi">:</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">address</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s">fd00:1101::1</span>
+          <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">64</span>
+    <span class="na">bridge</span><span class="pi">:</span>
+      <span class="na">options</span><span class="pi">:</span>
+        <span class="na">stp</span><span class="pi">:</span>
+          <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">port</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eth1</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
 </li>
 <li>
-<p>Optional: If you are deploying with a provisioning network, configure the IPv4 address on the provisioning network connection by running the following command:</p>
+<p>Optional: Establish an SSH connection into the <code>provisioner</code> node by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>nmcli connection modify provisioning ipv4.addresses 172.22.0.254/24 ipv4.method manual</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>ssh kni@provisioner.&lt;cluster_name&gt;.&lt;domain&gt;</code></pre>
 </div>
 </div>
-</li>
-<li>
-<p>SSH back into the <code>provisioner</code> node (if required) by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>ssh kni@provisioner.&lt;cluster-name&gt;.&lt;domain&gt;</code></pre>
+<div class="paragraph">
+<p>where</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;cluster_name&gt;.&lt;domain&gt;</code></dt>
+<dd>
+<p>Replace <code>&lt;cluster_name&gt;</code> with the name of your cluster and <code>&lt;domain&gt;</code> with the fully qualified domain name (FQDN) of your cluster.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3855,12 +3953,12 @@
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME               UUID                                  TYPE      DEVICE
-baremetal          4d5133a5-8351-4bb9-bfd4-3af264801530  bridge    baremetal
-provisioning       43942805-017f-4d7d-a2c2-7cb3324482ed  bridge    provisioning
-virbr0             d9bca40f-eee1-410b-8879-a2d4bb0465e7  bridge    virbr0
-bridge-slave-eno1  76a8ed50-c7e5-4999-b4f6-6d9014dd0812  ethernet  eno1
-bridge-slave-eno2  f31c3353-54b7-48de-893a-02d2b34c4736  ethernet  eno2</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                UUID                                  TYPE      DEVICE
+baremetal           832f645a-9337-4afc-b48e-4a55c5779eab  bridge    baremetal
+provisioning        e7756e01-d026-4a38-b460-129afaac0ec2  bridge    provisioning
+Wired connection 1  49ff4c9c-db76-3139-8c18-c49fa7deb39a  ethernet  eth0
+Wired connection 2  c1fb12b1-88a6-3c07-93b9-187c99204c43  ethernet  eth1
+lo                  aa030e0f-21ca-498f-b6ce-bac7d4d793f0  loopback  lo</span></code></pre>
 </div>
 </div>
 </li>
