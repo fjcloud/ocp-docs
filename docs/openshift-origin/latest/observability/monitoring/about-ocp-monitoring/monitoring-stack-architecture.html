@@ -1531,7 +1531,7 @@
                   <li><a class="" href="../../../nodes/pods/nodes-pods-configuring.html">Configuring a cluster for pods</a></li>
                   <li><a class="" href="../../../nodes/pods/nodes-pods-autoscaling.html">Automatically scaling pods with the horizontal pod autoscaler</a></li>
                   <li><a class="" href="../../../nodes/pods/nodes-pods-vertical-autoscaler.html">Automatically adjust pod resource levels with the vertical pod autoscaler</a></li>
-                  <li><a class="" href="../../../nodes/pods/nodes-pods-adjust-resources-in-place.html">Manually adjust pod resource levels</a></li>
+                  <li><a class="" href="../../../nodes/pods/nodes-pods-adjust-resources-in-place.html">Adjust pod resource levels without pod disruption</a></li>
                   <li><a class="" href="../../../nodes/pods/nodes-pods-secrets.html">Providing sensitive data to pods by using secrets</a></li>
                   <li><a class="" href="../../../nodes/pods/nodes-pods-secrets-store.html">Providing sensitive data to pods by using an external secrets store</a></li>
                   <li><a class="" href="../../../nodes/pods/nodes-pods-short-term-auth.html">Authenticating pods with short-term credentials</a></li>
@@ -2842,6 +2842,7 @@
 </ul>
 </li>
 <li><a href="#monitoring-stack-in-ha-clusters_monitoring-stack-architecture">The monitoring stack in high-availability clusters</a></li>
+<li><a href="#tls-security-and-rotation_monitoring-stack-architecture">TLS security and rotation in the monitoring stack</a></li>
 <li><a href="#monitoring-common-terms_monitoring-stack-architecture">Glossary of common terms for OKD monitoring</a></li>
 <li><a href="#additional-resources_monitoring-stack-architecture">Additional resources</a></li>
 </ul>
@@ -2949,21 +2950,6 @@ You can use Cluster Monitoring Operator config map settings to manage monitoring
 </table>
 <div class="paragraph">
 <p>The monitoring stack monitors all components within the stack. The components are automatically updated when OKD is updated.</p>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>All components of the monitoring stack use the TLS security profile settings that are centrally configured by a cluster administrator.
-If you configure a monitoring stack component that uses TLS security settings, the component uses the TLS security profile settings that already exist in the <code>tlsSecurityProfile</code> field in the global OKD <code>apiservers.config.openshift.io/cluster</code> resource.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 <div class="sect2">
 <h3 id="default-monitoring-targets_monitoring-stack-architecture"><a class="anchor" href="#default-monitoring-targets_monitoring-stack-architecture"></a>Default monitoring targets</h3>
@@ -3211,6 +3197,58 @@ includes an optional enhancement to the monitoring stack that helps you monitor 
 </div>
 </div>
 <div class="sect1">
+<h2 id="tls-security-and-rotation_monitoring-stack-architecture"><a class="anchor" href="#tls-security-and-rotation_monitoring-stack-architecture"></a>TLS security and rotation in the monitoring stack</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Learn how TLS profiles and certificate rotation work in the OKD monitoring stack to keep communication secure.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">TLS security profiles for monitoring components</dt>
+<dd>
+<p>All components of the monitoring stack use the TLS security profile settings that are centrally configured by a cluster administrator.
+The monitoring stack component uses the TLS security profile settings that already exist in the <code>tlsSecurityProfile</code> field in the global OKD <code>apiservers.config.openshift.io/cluster</code> resource.</p>
+</dd>
+<dt class="hdlist1">TLS certificate rotation and automatic restarts</dt>
+<dd>
+<p>The Cluster Monitoring Operator manages the internal TLS certificate lifecycle for the monitoring components. These certificates secure the internal communication between the monitoring components.</p>
+<div class="paragraph">
+<p>During certificate rotation, the CMO updates secrets and config maps, which triggers automatic restarts of affected pods. This is an expected behavior, and the pods recover automatically.</p>
+</div>
+<div class="paragraph">
+<p>The following example shows events that occur during certificate rotation:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get events <span class="nt">-n</span> openshift-monitoring
+<span class="go">
+LAST SEEN   TYPE      REASON              OBJECT                                   MESSAGE
+2h39m       Normal    SecretUpdated       deployment/cluster-monitoring-operator   Updated Secret/grpc-tls -n openshift-monitoring because it changed
+2h39m       Normal    SecretCreated       deployment/cluster-monitoring-operator   Created Secret/prometheus-user-workload-grpc-tls -n openshift-user-workload-monitoring because it was missing
+2h39m       Normal    SecretCreated       deployment/cluster-monitoring-operator   Created Secret/thanos-querier-grpc-tls -n openshift-monitoring because it was missing
+2h39m       Normal    SecretCreated       deployment/cluster-monitoring-operator   Created Secret/thanos-ruler-grpc-tls -n openshift-user-workload-monitoring because it was missing
+2h39m       Normal    SecretCreated       deployment/cluster-monitoring-operator   Created Secret/prometheus-k8s-grpc-tls -n openshift-monitoring because it was missing
+2h38m       Warning   FailedMount         pod/prometheus-k8s-0                     MountVolume.SetUp failed for volume "secret-grpc-tls" : secret "prometheus-k8s-grpc-tls" not found
+2h39m       Normal    Created             pod/prometheus-k8s-0                     Created container kube-rbac-proxy-thanos
+2h39m       Normal    Started             pod/prometheus-k8s-0                     Started container kube-rbac-proxy-thanos
+2h39m       Normal    SuccessfulDelete    statefulset/prometheus-k8s               delete Pod prometheus-k8s-0 in StatefulSet prometheus-k8s successful
+2h39m       Normal    SuccessfulCreate    statefulset/prometheus-k8s               create Pod prometheus-k8s-0 in StatefulSet prometheus-k8s successful</span></code></pre>
+</div>
+</div>
+</dd>
+</dl>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../security/tls-security-profiles.html#tls-security-profiles">Configuring TLS security profiles</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="monitoring-common-terms_monitoring-stack-architecture"><a class="anchor" href="#monitoring-common-terms_monitoring-stack-architecture"></a>Glossary of common terms for OKD monitoring</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -3341,9 +3379,6 @@ You can manage container storage for persistent and non-persistent data in your 
 </li>
 <li>
 <p><a href="../../../observability/monitoring/configuring-user-workload-monitoring/preparing-to-configure-the-monitoring-stack-uwm.html#granting-users-permission-to-monitor-user-defined-projects_preparing-to-configure-the-monitoring-stack-uwm">Granting users permissions for monitoring for user-defined projects</a></p>
-</li>
-<li>
-<p><a href="../../../security/tls-security-profiles.html#tls-security-profiles">Configuring TLS security profiles</a></p>
 </li>
 </ul>
 </div>
