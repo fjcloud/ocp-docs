@@ -3388,6 +3388,7 @@
 <li><a href="#shared-gateway-example_ingress-gateway-api">Shared gateway example</a></li>
 </ul>
 </li>
+<li><a href="#nw-ingress-gateway-api-troubleshooting-degraded_ingress-gateway-api">Ingress Operator is Degraded due to Gateway API and OSSM conflict</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -4028,6 +4029,72 @@ object restricts routes to a particular application namespace. This is the defau
 <div class="paragraph">
 <p>With a shared gateway topology, the routes must specify the namespace of the <code>Gateway</code> object it wants to attach to. Multiple <code>Gateway</code> objects can be deployed and shared across namespaces. When there are multiple shared gateways, this topology becomes conceptually similar to Ingress Controller sharding.</p>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-ingress-gateway-api-troubleshooting-degraded_ingress-gateway-api"><a class="anchor" href="#nw-ingress-gateway-api-troubleshooting-degraded_ingress-gateway-api"></a>Ingress Operator is Degraded due to Gateway API and OSSM conflict</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In OpenShift Container Platform 4.20 and later, if you create a <code>GatewayClass</code> resource while a conflicting OpenShift Service Mesh (OSSM) v2.x subscription exists, the <code>ingress</code> Cluster Operator (CIO) reports a <code>Degraded</code> status. This procedure details how to verify and resolve this conflict.</p>
+</div>
+<div class="paragraph">
+<p>The conflict occurs because the Gateway API implementation requires OSSM v3.x, which cannot coexist with OSSM v2.x. The CIO detects this conflict, stops the Gateway API provisioning, and reports the <code>Degraded</code> status to alert administrators.</p>
+</div>
+<div class="paragraph">
+<div class="title">Prerequisites</div>
+<p>Your Cluster Operator reports a status of <code>True</code> and a type of <code>Degraded</code> with a reason of <code>GatewayAPIOSSMConflict</code>. Verify by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteroperator ingress <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the <code>status</code> section of the output, look for a <code>Degraded</code> condition with <code>status: "True"</code> and <code>reason: GatewayAPIOSSMConflict</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">status</span><span class="pi">:</span>
+  <span class="na">conditions</span><span class="pi">:</span>
+
+    <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-10-22T17:00:00Z"</span>
+
+    <span class="na">message</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Failed</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">install</span><span class="nv"> </span><span class="s">OpenShift</span><span class="nv"> </span><span class="s">Service</span><span class="nv"> </span><span class="s">Mesh</span><span class="nv"> </span><span class="s">3.x</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">Gateway</span><span class="nv"> </span><span class="s">API:</span><span class="nv"> </span><span class="s">A</span>
+      <span class="s">conflicting</span><span class="nv"> </span><span class="s">OpenShift</span><span class="nv"> </span><span class="s">Service</span><span class="nv"> </span><span class="s">Mesh</span><span class="nv"> </span><span class="s">2.x</span><span class="nv"> </span><span class="s">subscription</span><span class="nv"> </span><span class="s">was</span><span class="nv"> </span><span class="s">found.</span><span class="nv"> </span><span class="s">Remove</span><span class="nv"> </span><span class="s">the</span>
+      <span class="s">GatewayClass</span><span class="nv"> </span><span class="s">resource</span><span class="nv"> </span><span class="s">or</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">conflicting</span><span class="nv"> </span><span class="s">OSSM</span><span class="nv"> </span><span class="s">2.x</span><span class="nv"> </span><span class="s">subscription</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">resolve.'</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">GatewayAPIOSSMConflict</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">Degraded</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can resolve this issue and clear the <code>Degraded</code> status either by removing the <code>GatewayClass</code> resource or by using Openshift Gateway API to remove the conflicting OpenShift Service Mesh v2.x subscription from the cluster.</p>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>If you do not intend to use the OpenShift Gateway API, remove the <code>GatewayClass</code> resource. This signals to the Ingress Operator to stop attempting to provision Gateway API.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete gatewayclass &lt;gatewayclass-name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If you do intend to use the OpenShift Gateway API, you must remove the conflicting OpenShift Service Mesh v2.x subscription from the cluster.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-operators delete subscription &lt;OSSM v2.x subscription name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>After the v2.x subscription is removed, the Ingress Operator automatically retries the installation of OSSM v3.x and completes the Gateway API provisioning.</p>
+</div>
+</li>
+</ul>
+</div>
 <div class="ulist">
 <div class="title">Additional resources</div>
 <ul>
@@ -4035,7 +4102,6 @@ object restricts routes to a particular application namespace. This is the defau
 <p><a href="configuring-ingress-cluster-traffic-ingress-controller.html#nw-ingress-sharding-concept_configuring-ingress-cluster-traffic-ingress-controller">Ingress Controller sharding</a>.</p>
 </li>
 </ul>
-</div>
 </div>
 </div>
 </div>
