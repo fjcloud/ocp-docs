@@ -314,7 +314,6 @@
                   <li><a class="" href="../../installing/installing_ibm_cloud/configuring-iam-ibm-cloud.html">Configuring IAM for IBM Cloud</a></li>
                   <li><a class="" href="../../installing/installing_ibm_cloud/user-managed-encryption-ibm-cloud.html">User-managed encryption</a></li>
                   <li><a class=" active" href="../../installing/installing_ibm_cloud/installing-ibm-cloud-customizations.html">Installing a cluster on IBM Cloud with customizations</a></li>
-                  <li><a class="" href="../../installing/installing_ibm_cloud/installing-ibm-cloud-network-customizations.html">Installing a cluster on IBM Cloud with network customizations</a></li>
                   <li><a class="" href="../../installing/installing_ibm_cloud/installing-ibm-cloud-vpc.html">Installing a cluster on IBM Cloud into an existing VPC</a></li>
                   <li><a class="" href="../../installing/installing_ibm_cloud/installing-ibm-cloud-private.html">Installing a private cluster on IBM Cloud</a></li>
                   <li><a class="" href="../../installing/installing_ibm_cloud/installing-ibm-cloud-restricted.html">Installing a cluster on IBM Cloud in a disconnected environment</a></li>
@@ -2843,6 +2842,13 @@
 </ul>
 </li>
 <li><a href="#manually-create-iam-ibm-cloud_installing-ibm-cloud-customizations">Manually creating IAM</a></li>
+<li><a href="#nw-network-config_installing-ibm-cloud-customizations">Network configuration phases</a></li>
+<li><a href="#modifying-nwoperator-config-startup_installing-ibm-cloud-customizations">Specifying advanced network configuration</a></li>
+<li><a href="#nw-operator-cr_installing-ibm-cloud-customizations">Cluster Network Operator configuration</a>
+<ul class="sectlevel2">
+<li><a href="#nw-operator-cr-cno-object_installing-ibm-cloud-customizations">Cluster Network Operator configuration object</a></li>
+</ul>
+</li>
 <li><a href="#installation-launching-installer_installing-ibm-cloud-customizations">Deploying the cluster</a></li>
 <li><a href="#cli-installing-cli_installing-ibm-cloud-customizations">Installing the OpenShift CLI</a>
 <ul class="sectlevel2">
@@ -2856,7 +2862,14 @@
 </ul>
 </div>
 <div class="paragraph">
-<p>In OKD version 4, you can install a customized cluster on infrastructure that the installation program provisions on IBM Cloud&#174;. To customize the installation, you modify parameters in the <code>install-config.yaml</code> file before you install the cluster.</p>
+<p>In OKD version 4, you can install a customized cluster
+on IBM Cloud&#174; by using installer-provisioned infrastructure with customizations, including network configuration options. In each, you modify parameters in the <code>install-config.yaml</code> file before you install the cluster.</p>
+</div>
+<div class="paragraph">
+<p>By customizing your network configuration, your cluster can coexist with existing IP address allocations in your environment and integrate with existing MTU and VXLAN configurations.</p>
+</div>
+<div class="paragraph">
+<p>You must set most of the network configuration parameters during installation, and you can modify only <code>kubeProxy</code> configuration parameters in a running cluster.</p>
 </div>
 </div>
 </div>
@@ -3520,6 +3533,7 @@ you want to reuse the file, you must back it up now.</p>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">test-cluster</span> <i class="conum" data-value="1"></i><b>(1)</b>
 <span class="na">networking</span><span class="pi">:</span>
+<span class="na">networking</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
   <span class="na">clusterNetwork</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">cidr</span><span class="pi">:</span> <span class="s">10.128.0.0/14</span>
     <span class="na">hostPrefix</span><span class="pi">:</span> <span class="m">23</span>
@@ -3930,6 +3944,837 @@ proxies can be created.</p>
 <p>Check that the appropriate secrets exist in the <code>manifests</code> directory of your cluster.</p>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-network-config_installing-ibm-cloud-customizations"><a class="anchor" href="#nw-network-config_installing-ibm-cloud-customizations"></a>Network configuration phases</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>There are two phases prior to OKD installation where you can customize the network configuration.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Phase 1</dt>
+<dd>
+<p>You can customize the following network-related fields in the <code>install-config.yaml</code> file before you create the manifest files:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>networking.networkType</code></p>
+</li>
+<li>
+<p><code>networking.clusterNetwork</code></p>
+</li>
+<li>
+<p><code>networking.serviceNetwork</code></p>
+</li>
+<li>
+<p><code>networking.machineNetwork</code></p>
+</li>
+<li>
+<p><code>nodeNetworking</code></p>
+<div class="paragraph">
+<p>For more information, see "Installation configuration parameters".</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Set the <code>networking.machineNetwork</code> to match the Classless Inter-Domain Routing (CIDR) where the preferred subnet is located.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The CIDR range <code>172.17.0.0/16</code> is reserved by <code>libVirt</code>. You cannot use any other CIDR range that overlaps with the <code>172.17.0.0/16</code> CIDR range for networks in your cluster.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Phase 2</dt>
+<dd>
+<p>After creating the manifest files by running <code>openshift-install create manifests</code>, you can define a customized Cluster Network Operator manifest with only the fields you want to modify. You can use the manifest to specify an advanced network configuration.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>During phase 2, you cannot override the values that you specified in phase 1 in the <code>install-config.yaml</code> file. However, you can customize the network plugin during phase 2.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="modifying-nwoperator-config-startup_installing-ibm-cloud-customizations"><a class="anchor" href="#modifying-nwoperator-config-startup_installing-ibm-cloud-customizations"></a>Specifying advanced network configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can use advanced network configuration for your network plugin to integrate your cluster into your existing network environment.</p>
+</div>
+<div class="paragraph">
+<p>You can specify advanced network configuration only before you install the cluster.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Customizing your network configuration by modifying the OKD manifest files created by the installation program is not supported. Applying a manifest file that you create, as in the following procedure, is supported.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have created the <code>install-config.yaml</code> file and completed any modifications to it.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Change to the directory that contains the installation program and create the manifests:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>./openshift-install create manifests <span class="nt">--dir</span> &lt;installation_directory&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td><code>&lt;installation_directory&gt;</code> specifies the name of the directory that contains the <code>install-config.yaml</code> file for your cluster.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a stub manifest file for the advanced network configuration that is named <code>cluster-network-03-config.yml</code> in the <code>&lt;installation_directory&gt;/manifests/</code> directory:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Network</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Specify the advanced network configuration for your cluster in the <code>cluster-network-03-config.yml</code> file, such as in the following example:</p>
+<div class="openblock">
+<div class="content">
+<div class="listingblock">
+<div class="title">Enable IPsec for the OVN-Kubernetes network provider</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Network</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">defaultNetwork</span><span class="pi">:</span>
+    <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+      <span class="na">ipsecConfig</span><span class="pi">:</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">Full</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: Back up the <code>manifests/cluster-network-03-config.yml</code> file. The
+installation program consumes the <code>manifests/</code> directory when you create the
+Ignition config files.</p>
+</li>
+<li>
+<p>Remove the Kubernetes manifest files that define the control plane machines and compute <code>MachineSets</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">rm</span> <span class="nt">-f</span> openshift/99_openshift-cluster-api_master-machines-<span class="k">*</span>.yaml openshift/99_openshift-cluster-api_worker-machineset-<span class="k">*</span>.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Because you create and manage these resources yourself, you do not have
+to initialize them.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>You can preserve the <code>MachineSet</code> files to create compute machines by using the machine API, but you must update references to them to match your environment.</p>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-operator-cr_installing-ibm-cloud-customizations"><a class="anchor" href="#nw-operator-cr_installing-ibm-cloud-customizations"></a>Cluster Network Operator configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The configuration for the cluster network is specified as part of the Cluster Network Operator (CNO) configuration and stored in a custom resource (CR) object that is named <code>cluster</code>. The CR specifies the fields for the <code>Network</code> API in the <code>operator.openshift.io</code> API group.</p>
+</div>
+<div class="paragraph">
+<p>The CNO configuration inherits the following fields during cluster installation from the <code>Network</code> API in the <code>Network.config.openshift.io</code> API group:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>clusterNetwork</code></dt>
+<dd>
+<p>IP address pools from which pod IP addresses are allocated.</p>
+</dd>
+<dt class="hdlist1"><code>serviceNetwork</code></dt>
+<dd>
+<p>IP address pool for services.</p>
+</dd>
+<dt class="hdlist1"><code>defaultNetwork.type</code></dt>
+<dd>
+<p>Cluster network plugin. <code>OVNKubernetes</code> is the only supported plugin during installation.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>You can specify the cluster network plugin configuration for your cluster by setting the fields for the <code>defaultNetwork</code> object in the CNO object named <code>cluster</code>.</p>
+</div>
+<div class="sect2">
+<h3 id="nw-operator-cr-cno-object_installing-ibm-cloud-customizations"><a class="anchor" href="#nw-operator-cr-cno-object_installing-ibm-cloud-customizations"></a>Cluster Network Operator configuration object</h3>
+<div class="paragraph">
+<p>The fields for the Cluster Network Operator (CNO) are described in the following table:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. Cluster Network Operator configuration object</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>metadata.name</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>The name of the CNO object. This name is always <code>cluster</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>spec.clusterNetwork</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>array</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>A list specifying the blocks of IP addresses from which pod IP addresses are
+allocated and the subnet prefix length assigned to each individual node in the cluster. For example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterNetwork</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">cidr</span><span class="pi">:</span> <span class="s">10.128.0.0/19</span>
+    <span class="na">hostPrefix</span><span class="pi">:</span> <span class="m">23</span>
+  <span class="pi">-</span> <span class="na">cidr</span><span class="pi">:</span> <span class="s">10.128.32.0/19</span>
+    <span class="na">hostPrefix</span><span class="pi">:</span> <span class="s">23</span></code></pre>
+</div>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>spec.serviceNetwork</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>array</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>A block of IP addresses for services. The OVN-Kubernetes network plugin supports only a single IP address block for the service network. For example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">serviceNetwork</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">172.30.0.0/14</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can customize this field only in the <code>install-config.yaml</code> file before you create the manifests. The value is read-only in the manifest file.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>spec.defaultNetwork</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Configures the network plugin for the cluster network.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>spec.additionalRoutingCapabilities.providers</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>array</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>This setting enables a dynamic routing provider. The FRR routing capability provider is required for the route advertisement feature. The only supported value is <code>FRR</code>.</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p><code>FRR</code>: The FRR routing provider</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">additionalRoutingCapabilities</span><span class="pi">:</span>
+    <span class="na">providers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">FRR</span></code></pre>
+</div>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For a cluster that needs to deploy objects across multiple networks, ensure that you specify the same value for the <code>clusterNetwork.hostPrefix</code> parameter for each network type that is defined in the <code>install-config.yaml</code> file. Setting a different value for each <code>clusterNetwork.hostPrefix</code> parameter can impact the OVN-Kubernetes network plugin, where the plugin cannot effectively route object traffic among different nodes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="sect3">
+<h4 id="nw-operator-cr-defaultnetwork_installing-ibm-cloud-customizations"><a class="anchor" href="#nw-operator-cr-defaultnetwork_installing-ibm-cloud-customizations"></a>defaultNetwork object configuration</h4>
+<div class="paragraph">
+<p>The values for the <code>defaultNetwork</code> object are defined in the following table:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 3. <code>defaultNetwork</code> object</caption>
+<colgroup>
+<col style="width: 30%;">
+<col style="width: 20%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>type</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p><code>OVNKubernetes</code>. The Red Hat OpenShift Networking network plugin is selected during installation. This value cannot be changed after cluster installation.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>OKD uses the OVN-Kubernetes network plugin by default.</p>
+</div>
+</td>
+</tr>
+</table>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>ovnKubernetesConfig</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>This object is only valid for the OVN-Kubernetes network plugin.</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<div class="sect4">
+<h5 id="nw-operator-configuration-parameters-for-ovn-sdn_installing-ibm-cloud-customizations"><a class="anchor" href="#nw-operator-configuration-parameters-for-ovn-sdn_installing-ibm-cloud-customizations"></a>Configuration for the OVN-Kubernetes network plugin</h5>
+<div class="paragraph">
+<p>The following table describes the configuration fields for the OVN-Kubernetes network plugin:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 4. <code>ovnKubernetesConfig</code> object</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>mtu</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>integer</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>The maximum transmission unit (MTU) for the Geneve (Generic Network Virtualization Encapsulation) overlay network. This is detected automatically based on the MTU of the primary network interface. You do not normally need to override the detected MTU.</p>
+</div>
+<div class="paragraph">
+<p>If the auto-detected value is not what you expect it to be, confirm that the MTU on the primary network interface on your nodes is correct. You cannot use this option to change the MTU value of the primary network interface on the nodes.</p>
+</div>
+<div class="paragraph">
+<p>If your cluster requires different MTU values for different nodes, you must set this value to <code>100</code> less than the lowest MTU value in your cluster. For example, if some nodes in your cluster have an MTU of <code>9001</code>, and some have an MTU of <code>1500</code>, you must set this value to <code>1400</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>genevePort</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>integer</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>The port to use for all Geneve packets. The default value is <code>6081</code>. This value cannot be changed after cluster installation.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>ipsecConfig</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Specify a configuration object for customizing the IPsec configuration.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>ipv4</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Specifies a configuration object for IPv4 settings.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>ipv6</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Specifies a configuration object for IPv6 settings.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>policyAuditConfig</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Specify a configuration object for customizing network policy audit logging. If unset, the defaults audit log settings are used.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>routeAdvertisements</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Specifies whether to advertise cluster network routes. The default value is <code>Disabled</code>.</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p><code>Enabled</code>: Import routes to the cluster network and advertise cluster network routes as configured in <code>RouteAdvertisements</code> objects.</p>
+</li>
+<li>
+<p><code>Disabled</code>: Do not import routes to the cluster network or advertise cluster network routes.</p>
+</li>
+</ul>
+</div>
+</div>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>gatewayConfig</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Optional: Specify a configuration object for customizing how egress traffic is sent to the node gateway. Valid values are <code>Shared</code> and <code>Local</code>. The default value is <code>Shared</code>. In the default setting, the Open vSwitch (OVS) outputs traffic directly to the node IP interface. In the <code>Local</code> setting, it traverses the host network; consequently, it gets applied to the routing table of the host.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>While migrating egress traffic, you can expect some disruption to workloads and service traffic until the Cluster Network Operator (CNO) successfully rolls out the changes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 5. <code>ovnKubernetesConfig.ipv4</code> object</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>internalTransitSwitchSubnet</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>If your existing network infrastructure overlaps with the <code>100.88.0.0/16</code> IPv4 subnet, you can specify a different IP address range for internal use by OVN-Kubernetes. The subnet for the distributed transit switch that enables east-west traffic. This subnet cannot overlap with any other subnets used by OVN-Kubernetes or on the host itself. It must be large enough to accommodate one IP address per node in your cluster.</p>
+</div>
+<div class="paragraph">
+<p>The default value is <code>100.88.0.0/16</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>internalJoinSubnet</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>If your existing network infrastructure overlaps with the <code>100.64.0.0/16</code> IPv4 subnet, you can specify a different IP address range for internal use by OVN-Kubernetes. You must ensure that the IP address range does not overlap with any other subnet used by your OKD installation. The IP address range must be larger than the maximum number of nodes that can be added to the cluster. For example, if the <code>clusterNetwork.cidr</code> value is <code>10.128.0.0/14</code> and the <code>clusterNetwork.hostPrefix</code> value is <code>/23</code>, then the maximum number of nodes is <code>2^(23-14)=512</code>.</p>
+</div>
+<div class="paragraph">
+<p>The default value is <code>100.64.0.0/16</code>.</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 6. <code>ovnKubernetesConfig.ipv6</code> object</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>internalTransitSwitchSubnet</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>If your existing network infrastructure overlaps with the <code>fd97::/64</code> IPv6 subnet, you can specify a different IP address range for internal use by OVN-Kubernetes. The subnet for the distributed transit switch that enables east-west traffic. This subnet cannot overlap with any other subnets used by OVN-Kubernetes or on the host itself. It must be large enough to accommodate one IP address per node in your cluster.</p>
+</div>
+<div class="paragraph">
+<p>The default value is <code>fd97::/64</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>internalJoinSubnet</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>If your existing network infrastructure overlaps with the <code>fd98::/64</code> IPv6 subnet, you can specify a different IP address range for internal use by OVN-Kubernetes. You must ensure that the IP address range does not overlap with any other subnet used by your OKD installation. The IP address range must be larger than the maximum number of nodes that can be added to the cluster.</p>
+</div>
+<div class="paragraph">
+<p>The default value is <code>fd98::/64</code>.</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 7. <code>policyAuditConfig</code> object</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>rateLimit</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>The maximum number of messages to generate every second per node. The default value is <code>20</code> messages per second.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>maxFileSize</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>The maximum size for the audit log in bytes. The default value is <code>50000000</code> or 50 MB.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>maxLogFiles</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>The maximum number of log files that are retained.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>destination</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>One of the following additional audit log targets:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>libc</code></dt>
+<dd>
+<p>The libc <code>syslog()</code> function of the journald process on the host.</p>
+</dd>
+<dt class="hdlist1"><code>udp:&lt;host&gt;:&lt;port&gt;</code></dt>
+<dd>
+<p>A syslog server. Replace <code>&lt;host&gt;:&lt;port&gt;</code> with the host and port of the syslog server.</p>
+</dd>
+<dt class="hdlist1"><code>unix:&lt;file&gt;</code></dt>
+<dd>
+<p>A Unix Domain Socket file specified by <code>&lt;file&gt;</code>.</p>
+</dd>
+<dt class="hdlist1"><code>null</code></dt>
+<dd>
+<p>Do not send the audit logs to any additional target.</p>
+</dd>
+</dl>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>syslogFacility</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>The syslog facility, such as <code>kern</code>, as defined by RFC5424. The default value is <code>local0</code>.</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<table id="gatewayConfig-object_installing-ibm-cloud-customizations" class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 8. <code>gatewayConfig</code> object</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>routingViaHost</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>boolean</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Set this field to <code>true</code> to send egress traffic from pods to the host networking stack.
+For highly-specialized installations and applications that rely on manually configured routes in the kernel routing table, you might want to route egress traffic to the host networking stack.
+By default, egress traffic is processed in OVN to exit the cluster and is not affected by specialized routes in the kernel routing table.
+The default value is <code>false</code>.</p>
+</div>
+<div class="paragraph">
+<p>This field has an interaction with the Open vSwitch hardware offloading feature.
+If you set this field to <code>true</code>, you do not receive the performance benefits of the offloading because egress traffic is processed by the host networking stack.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>ipForwarding</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>You can control IP forwarding for all traffic on OVN-Kubernetes managed interfaces by using the <code>ipForwarding</code> specification in the <code>Network</code> resource. Specify <code>Restricted</code> to only allow IP forwarding for Kubernetes related traffic. Specify <code>Global</code> to allow forwarding of all IP traffic. For new installations, the default is <code>Restricted</code>. For updates to OKD 4.14 or later, the default is <code>Global</code>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The default value of <code>Restricted</code> sets the IP forwarding to drop.</p>
+</div>
+</td>
+</tr>
+</table>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>ipv4</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Optional: Specify an object to configure the internal OVN-Kubernetes masquerade address for host to service traffic for IPv4 addresses.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>ipv6</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>object</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Optional: Specify an object to configure the internal OVN-Kubernetes masquerade address for host to service traffic for IPv6 addresses.</p>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<table id="gatewayconfig-ipv4-object_installing-ibm-cloud-customizations" class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 9. <code>gatewayConfig.ipv4</code> object</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>internalMasqueradeSubnet</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>The masquerade IPv4 addresses that are used internally to enable host to service traffic. The host is configured with these IP addresses as well as the shared gateway bridge interface. The default value is <code>169.254.169.0/29</code>.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For OKD 4.17 and later versions, clusters use <code>169.254.0.0/17</code> as the default masquerade subnet. For upgraded clusters, there is no change to the default masquerade subnet.</p>
+</div>
+</td>
+</tr>
+</table>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<table id="gatewayconfig-ipv6-object_installing-ibm-cloud-customizations" class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 10. <code>gatewayConfig.ipv6</code> object</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>internalMasqueradeSubnet</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>The masquerade IPv6 addresses that are used internally to enable host to service traffic. The host is configured with these IP addresses as well as the shared gateway bridge interface. The default value is <code>fd69::/125</code>.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For OKD 4.17 and later versions, clusters use <code>fd69::/112</code> as the default masquerade subnet. For upgraded clusters, there is no change to the default masquerade subnet.</p>
+</div>
+</td>
+</tr>
+</table>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<table id="nw-operator-cr-ipsec_installing-ibm-cloud-customizations" class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 11. <code>ipsecConfig</code> object</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-middle">Field</th>
+<th class="tableblock halign-left valign-middle">Type</th>
+<th class="tableblock halign-left valign-middle">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>mode</code></p></td>
+<td class="tableblock halign-left valign-middle"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Specifies the behavior of the IPsec implementation. Must be one of the following values:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p><code>Disabled</code>: IPsec is not enabled on cluster nodes.</p>
+</li>
+<li>
+<p><code>External</code>: IPsec is enabled for network traffic with external hosts.</p>
+</li>
+<li>
+<p><code>Full</code>: IPsec is enabled for pod traffic and network traffic with external hosts.</p>
+</li>
+</ul>
+</div>
+</div>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<div class="listingblock">
+<div class="title">Example OVN-Kubernetes configuration with IPSec enabled</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">defaultNetwork</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">OVNKubernetes</span>
+  <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+    <span class="na">mtu</span><span class="pi">:</span> <span class="m">1400</span>
+    <span class="na">genevePort</span><span class="pi">:</span> <span class="m">6081</span>
+    <span class="na">ipsecConfig</span><span class="pi">:</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="s">Full</span></code></pre>
+</div>
+</div>
+</div>
+</div>
 </div>
 </div>
 </div>
