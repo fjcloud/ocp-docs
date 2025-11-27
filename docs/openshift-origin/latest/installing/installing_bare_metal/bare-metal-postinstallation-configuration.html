@@ -2712,7 +2712,8 @@
                     <li><a class="" href="../../virt/managing_vms/virtual_disks/virt-hot-plugging-virtual-disks.html" style="padding-left: 70px;">Hot-plugging VM disks</a></li>
                     <li><a class="" href="../../virt/managing_vms/virtual_disks/virt-expanding-vm-disks.html" style="padding-left: 70px;">Expanding VM disks</a></li>
                     <li><a class="" href="../../virt/managing_vms/virtual_disks/virt-configuring-shared-volumes-for-vms.html" style="padding-left: 70px;">Configuring shared volumes</a></li>
-                    <li><a class="" href="../../virt/managing_vms/virtual_disks/virt-migrating-storage-class.html" style="padding-left: 70px;">Migrating VM disks to a different storage class</a></li>                  </ul>
+                    <li><a class="" href="../../virt/managing_vms/virtual_disks/virt-migrating-storage-class.html" style="padding-left: 70px;">Migrating VM disks to a different storage class</a></li>
+                    <li><a class="" href="../../virt/managing_vms/virtual_disks/virt-inserting-cd-roms-in-virtual-machines.html" style="padding-left: 70px;">Inserting CD-ROMs in virtual machines</a></li>                  </ul>
                   </li>
               </ul>
             </li>
@@ -3228,7 +3229,10 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <h2 id="creating-manifest-file-customized-br-ex-bridge_bare-metal-postinstallation-configuration"><a class="anchor" href="#creating-manifest-file-customized-br-ex-bridge_bare-metal-postinstallation-configuration"></a>Creating a manifest object that includes a customized <code>br-ex</code> bridge</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>As an alternative to using the <code>configure-ovs.sh</code> shell script to set a <code>br-ex</code> bridge on a bare-metal platform, you can create a <code>NodeNetworkConfigurationPolicy</code> (NNCP) custom resource (CR) that includes an NMState configuration file. The Kubernetes NMState Operator uses the NMState configuration file to create a customized <code>br-ex</code> bridge network configuration on each node in your cluster.</p>
+<p>As an alternative to using the <code>configure-ovs.sh</code> shell script to set a <code>br-ex</code> bridge on a bare-metal platform, you can create a <code>NodeNetworkConfigurationPolicy</code> (NNCP) custom resource (CR) that includes an NMState configuration file.</p>
+</div>
+<div class="paragraph">
+<p>The Kubernetes NMState Operator uses the NMState configuration file to create a customized <code>br-ex</code> bridge network configuration on each node in your cluster.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3351,7 +3355,7 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>Create a <code>NodeNetworkConfigurationPolicy</code> (NNCP) CR and define a customized <code>br-ex</code> bridge network configuration. Depending on your needs, ensure that you set a masquerade IP for either the <code>ipv4.address.ip</code>, <code>ipv6.address.ip</code>, or both parameters. Always include a masquerade IP address in the NNCP CR and this address must match an in-use IP address block.</p>
+<p>Create a <code>NodeNetworkConfigurationPolicy</code> (NNCP) CR and define a customized <code>br-ex</code> bridge network configuration. The <code>br-ex</code> NNCP CR must include the OVN-Kubernetes masquerade IP address and subnet of your network. The example NNCP CR includes default values in the <code>ipv4.address.ip</code> and <code>ipv6.address.ip</code> parameters. You can set the masquerade IP address in the <code>ipv4.address.ip</code>, <code>ipv6.address.ip</code>, or both parameters.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -3360,32 +3364,28 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 </td>
 <td class="content">
 <div class="paragraph">
-<p>As a post-installation task, you can configure most parameters for a customized <code>br-ex</code> bridge that you defined in an existing NNCP CR, except for the primary IP address of the customized <code>br-ex</code> bridge.</p>
-</div>
-<div class="paragraph">
-<p>If you want to convert your single-stack cluster network to a dual-stack cluster network, you can add or change a secondary IPv6 address in the NNCP CR, but the existing primary IP address cannot be changed.</p>
+<p>As a post-installation task, you cannot change the primary IP address of the customized <code>br-ex</code> bridge. If you want to convert your single-stack cluster network to a dual-stack cluster network, you can add or change a secondary IPv6 address in the NNCP CR, but the existing primary IP address cannot be changed.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
 <div class="listingblock">
-<div class="title">Example of an NNCP CR that sets IPv6 and IPv4 masquerade IP addresses</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nmstate.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">NodeNetworkConfigurationPolicy</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">worker-0-br-ex</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">worker-0-br-ex</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">nodeSelector</span><span class="pi">:</span>
     <span class="s">kubernetes.io/hostname</span><span class="pi">:</span> <span class="s">worker-0</span>
     <span class="na">desiredState</span><span class="pi">:</span>
     <span class="na">interfaces</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span> <i class="conum" data-value="2"></i><b>(2)</b>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span> <i class="conum" data-value="3"></i><b>(3)</b>
-      <span class="na">state</span><span class="pi">:</span> <span class="s">up</span> <i class="conum" data-value="4"></i><b>(4)</b>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+      <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
       <span class="na">ipv4</span><span class="pi">:</span>
-        <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="5"></i><b>(5)</b>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
       <span class="na">ipv6</span><span class="pi">:</span>
         <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex</span>
@@ -3401,7 +3401,7 @@ Use the following procedure to configure NTP servers on the control plane nodes 
         <span class="na">options</span><span class="pi">:</span>
           <span class="na">mcast-snooping-enable</span><span class="pi">:</span> <span class="no">true</span>
         <span class="na">port</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span> <i class="conum" data-value="6"></i><b>(6)</b>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span>
         <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex</span>
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex</span>
       <span class="na">type</span><span class="pi">:</span> <span class="s">ovs-interface</span>
@@ -3410,51 +3410,58 @@ Use the following procedure to configure NTP servers on the control plane nodes 
       <span class="na">ipv4</span><span class="pi">:</span>
         <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
         <span class="na">dhcp</span><span class="pi">:</span> <span class="no">true</span>
-        <span class="na">auto-route-metric</span><span class="pi">:</span> <span class="s">48</span> <i class="conum" data-value="7"></i><b>(7)</b>
+        <span class="na">auto-route-metric</span><span class="pi">:</span> <span class="m">48</span>
         <span class="na">address</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s2">"</span><span class="s">169.254.169.2"</span>
-          <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">29</span>
+        <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s2">"</span><span class="s">169.254.0.2"</span>
+          <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">17</span>
       <span class="na">ipv6</span><span class="pi">:</span>
         <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
         <span class="na">dhcp</span><span class="pi">:</span> <span class="no">true</span>
         <span class="na">auto-route-metric</span><span class="pi">:</span> <span class="m">48</span>
         <span class="na">address</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s2">"</span><span class="s">fd69::2"</span>
-        <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">125</span>
+        <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">112</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Name of the policy.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Name of the interface.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The type of ethernet.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>The requested state for the interface after creation.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Disables IPv4 and IPv6 in this example.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>The node NIC to which the bridge is attached.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>Set the parameter to <code>48</code> to ensure the <code>br-ex</code> default route always has the highest precedence (lowest metric). This configuration prevents routing conflicts with any other interfaces that are automatically configured by the <code>NetworkManager</code> service.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>metadata.name</code></dt>
+<dd>
+<p>Name of the policy.</p>
+</dd>
+<dt class="hdlist1"><code>interfaces.name</code></dt>
+<dd>
+<p>Name of the interface.</p>
+</dd>
+<dt class="hdlist1"><code>interfaces.type</code></dt>
+<dd>
+<p>The type of ethernet.</p>
+</dd>
+<dt class="hdlist1"><code>interfaces.state</code></dt>
+<dd>
+<p>The requested state for the interface after creation.</p>
+</dd>
+<dt class="hdlist1"><code>ipv4.enabled</code></dt>
+<dd>
+<p>Disables IPv4 and IPv6 in this example.</p>
+</dd>
+<dt class="hdlist1"><code>port.name</code></dt>
+<dd>
+<p>The node NIC to which the bridge is attached.</p>
+</dd>
+<dt class="hdlist1"><code>address.ip</code></dt>
+<dd>
+<p>Shows the default IPv4 and IPv6 IP addresses. Ensure that you set the masquerade IPv4 and IPv6 IP addresses of your network.</p>
+</dd>
+<dt class="hdlist1"><code>auto-route-metric</code></dt>
+<dd>
+<p>Set the parameter to <code>48</code> to ensure the <code>br-ex</code> default route always has the highest precedence (lowest metric). This configuration prevents routing conflicts with any other interfaces that are automatically configured by the <code>NetworkManager</code> service.</p>
+</dd>
+</dl>
 </div>
 </li>
 </ul>

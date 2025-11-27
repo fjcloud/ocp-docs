@@ -1271,7 +1271,15 @@
         <div id="toc" class="toc">
 <div id="toctitle"></div>
 <ul class="sectlevel1">
-<li><a href="#prerequisites_cloud-experts-aws-load-balancer-operator">Prerequisites</a></li>
+<li><a href="#prerequisites_cloud-experts-aws-load-balancer-operator">Prerequisites</a>
+<ul class="sectlevel2">
+<li><a href="#environment_cloud-experts-aws-load-balancer-operator">Environment</a></li>
+<li><a href="#aws-vpc-subnets_cloud-experts-aws-load-balancer-operator">AWS VPC and subnets</a></li>
+</ul>
+</li>
+<li><a href="#installation_cloud-experts-aws-load-balancer-operator">Installation</a></li>
+<li><a href="#validating-the-deployment_cloud-experts-aws-load-balancer-operator">Validating the deployment</a></li>
+<li><a href="#cleaning-up_cloud-experts-aws-load-balancer-operator">Cleaning up</a></li>
 </ul>
 </div>
 <div id="preamble">
@@ -1368,7 +1376,478 @@
 <li>
 <p><a href="../rosa_install_access_delete_clusters/rosa-sts-creating-a-cluster-quickly.html#rosa-sts-creating-a-cluster-quickly">A multi-AZ Red Hat OpenShift Service on AWS (classic architecture) cluster</a></p>
 </li>
+<li>
+<p>BYO VPC cluster</p>
+</li>
+<li>
+<p>AWS CLI</p>
+</li>
+<li>
+<p>OC CLI</p>
+</li>
 </ul>
+</div>
+<div class="sect2">
+<h3 id="environment_cloud-experts-aws-load-balancer-operator"><a class="anchor" href="#environment_cloud-experts-aws-load-balancer-operator"></a>Environment</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>Prepare the environment variables:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">AWS_PAGER</span><span class="o">=</span><span class="s2">""</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">ROSA_CLUSTER_NAME</span><span class="o">=</span><span class="si">$(</span>oc get infrastructure cluster <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s2">"{.status.infrastructureName}"</span>  | <span class="nb">sed</span> <span class="s1">'s/-[a-z0-9]\{5\}$//'</span><span class="si">)</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">REGION</span><span class="o">=</span><span class="si">$(</span>oc get infrastructure cluster <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s2">"{.status.platformStatus.aws.region}"</span><span class="si">)</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">OIDC_ENDPOINT</span><span class="o">=</span><span class="si">$(</span>oc get authentication.config.openshift.io cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.serviceAccountIssuer}'</span> | <span class="nb">sed</span>  <span class="s1">'s|^https://||'</span><span class="si">)</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">AWS_ACCOUNT_ID</span><span class="o">=</span><span class="si">$(</span>aws sts get-caller-identity <span class="nt">--query</span> Account <span class="nt">--output</span> text<span class="si">)</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">SCRATCH</span><span class="o">=</span><span class="s2">"/tmp/</span><span class="k">${</span><span class="nv">ROSA_CLUSTER_NAME</span><span class="k">}</span><span class="s2">/alb-operator"</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">mkdir</span> <span class="nt">-p</span> <span class="k">${</span><span class="nv">SCRATCH</span><span class="k">}</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="s2">"Cluster: </span><span class="k">${</span><span class="nv">ROSA_CLUSTER_NAME</span><span class="k">}</span><span class="s2">, Region: </span><span class="k">${</span><span class="nv">REGION</span><span class="k">}</span><span class="s2">, OIDC Endpoint: </span><span class="k">${</span><span class="nv">OIDC_ENDPOINT</span><span class="k">}</span><span class="s2">, AWS Account ID: </span><span class="k">${</span><span class="nv">AWS_ACCOUNT_ID</span><span class="k">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="aws-vpc-subnets_cloud-experts-aws-load-balancer-operator"><a class="anchor" href="#aws-vpc-subnets_cloud-experts-aws-load-balancer-operator"></a>AWS VPC and subnets</h3>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This section only applies to clusters that were deployed into existing VPCs. If you did not deploy your cluster into an existing VPC, skip this section and proceed to the installation section below.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Set the below variables to the proper values for your cluster deployment:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">VPC_ID</span><span class="o">=</span>&lt;vpc-id&gt;
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">PUBLIC_SUBNET_IDS</span><span class="o">=</span>&lt;public-subnets&gt;
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">PRIVATE_SUBNET_IDS</span><span class="o">=</span>&lt;private-subnets&gt;
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">CLUSTER_NAME</span><span class="o">=</span><span class="si">$(</span>oc get infrastructure cluster <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s2">"{.status.infrastructureName}"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add a tag to your cluster&#8217;s VPC with the cluster name:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="nt">--resources</span> <span class="k">${</span><span class="nv">VPC_ID</span><span class="k">}</span> <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/cluster/<span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span>,Value<span class="o">=</span>owned <span class="nt">--region</span> <span class="k">${</span><span class="nv">REGION</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add a tag to your public subnets:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="se">\</span>
+     <span class="nt">--resources</span> <span class="k">${</span><span class="nv">PUBLIC_SUBNET_IDS</span><span class="k">}</span> <span class="se">\</span>
+     <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/elb,Value<span class="o">=</span><span class="s1">''</span> <span class="se">\</span>
+     <span class="nt">--region</span> <span class="k">${</span><span class="nv">REGION</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add a tag to your private subnets:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 create-tags <span class="se">\</span>
+     <span class="nt">--resources</span> <span class="s2">"</span><span class="k">${</span><span class="nv">PRIVATE_SUBNET_IDS</span><span class="k">}</span><span class="s2">"</span> <span class="se">\</span>
+     <span class="nt">--tags</span> <span class="nv">Key</span><span class="o">=</span>kubernetes.io/role/internal-elb,Value<span class="o">=</span><span class="s1">''</span> <span class="se">\</span>
+     <span class="nt">--region</span> <span class="k">${</span><span class="nv">REGION</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="installation_cloud-experts-aws-load-balancer-operator"><a class="anchor" href="#installation_cloud-experts-aws-load-balancer-operator"></a>Installation</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Create an AWS IAM policy for the AWS Load Balancer Controller:</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The policy is sourced from <a href="https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.4/docs/install/iam_policy.json">the upstream AWS Load Balancer Controller policy</a> plus permission to create tags on subnets. This is required by the Operator to function.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc new-project aws-load-balancer-operator
+<span class="gp">$</span><span class="w"> </span><span class="nv">POLICY_ARN</span><span class="o">=</span><span class="si">$(</span>aws iam list-policies <span class="nt">--query</span> <span class="se">\</span>
+     <span class="s2">"Policies[?PolicyName=='aws-load-balancer-operator-policy'].{ARN:Arn}"</span> <span class="se">\</span>
+     <span class="nt">--output</span> text<span class="si">)</span>
+<span class="gp">$</span><span class="w"> </span><span class="k">if</span> <span class="o">[[</span> <span class="nt">-z</span> <span class="s2">"</span><span class="k">${</span><span class="nv">POLICY_ARN</span><span class="k">}</span><span class="s2">"</span> <span class="o">]]</span><span class="p">;</span> <span class="k">then</span>
+<span class="gp">    wget -O "$</span><span class="o">{</span>SCRATCH<span class="o">}</span>/load-balancer-operator-policy.json<span class="s2">" </span><span class="se">\</span><span class="s2">
+       https://raw.githubusercontent.com/rh-mobb/documentation/main/content/rosa/aws-load-balancer-operator/load-balancer-operator-policy.json
+</span><span class="gp">     POLICY_ARN=$</span><span class="s2">(aws --region "</span><span class="nv">$REGION</span><span class="s2">" --query Policy.Arn </span><span class="se">\</span><span class="s2">
+     --output text iam create-policy </span><span class="se">\</span><span class="s2">
+     --policy-name aws-load-balancer-operator-policy </span><span class="se">\</span><span class="s2">
+     --policy-document "</span>file://<span class="k">${</span><span class="nv">SCRATCH</span><span class="k">}</span>/load-balancer-operator-policy.json<span class="s2">")
+</span><span class="go">fi
+</span><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nv">$POLICY_ARN</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create an AWS IAM trust policy for AWS Load Balancer Operator:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span><span class="no">EOF</span><span class="sh"> &gt; "</span><span class="k">${</span><span class="nv">SCRATCH</span><span class="k">}</span><span class="sh">/trust-policy.json"
+</span><span class="go">{
+ "Version": "2012-10-17",
+ "Statement": [
+ {
+ "Effect": "Allow",
+ "Condition": {
+   "StringEquals" : {
+</span><span class="gp">     "$</span><span class="o">{</span>OIDC_ENDPOINT<span class="o">}</span>:sub<span class="s2">": ["</span>system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-operator-controller-manager<span class="s2">", "</span>system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-controller-cluster<span class="s2">"]
+</span><span class="go">   }
+ },
+ "Principal": {
+</span><span class="gp">   "Federated": "arn:aws:iam::$</span>AWS_ACCOUNT_ID:oidc-provider/<span class="k">${</span><span class="nv">OIDC_ENDPOINT</span><span class="k">}</span><span class="s2">"
+</span><span class="go"> },
+ "Action": "sts:AssumeRoleWithWebIdentity"
+ }
+ ]
+}
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create an AWS IAM role for the AWS Load Balancer Operator:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">ROLE_ARN</span><span class="o">=</span><span class="si">$(</span>aws iam create-role <span class="nt">--role-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">ROSA_CLUSTER_NAME</span><span class="k">}</span><span class="s2">-alb-operator"</span> <span class="se">\</span>
+   <span class="nt">--assume-role-policy-document</span> <span class="s2">"file://</span><span class="k">${</span><span class="nv">SCRATCH</span><span class="k">}</span><span class="s2">/trust-policy.json"</span> <span class="se">\</span>
+   <span class="nt">--query</span> Role.Arn <span class="nt">--output</span> text<span class="si">)</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nv">$ROLE_ARN</span>
+<span class="go">
+</span><span class="gp">$</span><span class="w"> </span>aws iam attach-role-policy <span class="nt">--role-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">ROSA_CLUSTER_NAME</span><span class="k">}</span><span class="s2">-alb-operator"</span> <span class="se">\</span>
+     <span class="nt">--policy-arn</span> <span class="nv">$POLICY_ARN</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a secret for the AWS Load Balancer Operator to assume our newly created AWS IAM role:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span> <span class="no">EOF</span><span class="sh"> | oc apply -f -
+</span><span class="go">apiVersion: v1
+kind: Secret
+metadata:
+  name: aws-load-balancer-operator
+  namespace: aws-load-balancer-operator
+stringData:
+  credentials: |
+    [default]
+</span><span class="gp">    role_arn = $</span>ROLE_ARN
+<span class="go">    web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Install the AWS Load Balancer Operator:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span> <span class="no">EOF</span><span class="sh"> | oc apply -f -
+</span><span class="go">apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: aws-load-balancer-operator
+  namespace: aws-load-balancer-operator
+spec:
+  upgradeStrategy: Default
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: aws-load-balancer-operator
+  namespace: aws-load-balancer-operator
+spec:
+  channel: stable-v1.0
+  installPlanApproval: Automatic
+  name: aws-load-balancer-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: aws-load-balancer-operator.v1.0.0
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Deploy an instance of the AWS Load Balancer Controller using the Operator:</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you get an error here wait a minute and try again, it means the Operator has not completed installing yet.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span> <span class="no">EOF</span><span class="sh"> | oc apply -f -
+</span><span class="go">apiVersion: networking.olm.openshift.io/v1
+kind: AWSLoadBalancerController
+metadata:
+  name: cluster
+spec:
+  credentials:
+    name: aws-load-balancer-operator
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the that the Operator and controller pods are both running:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> aws-load-balancer-operator get pods</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You should see the following, if not wait a moment and retry:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="go">NAME                                                             READY   STATUS    RESTARTS   AGE
+aws-load-balancer-controller-cluster-6ddf658785-pdp5d            1/1     Running   0          99s
+aws-load-balancer-operator-controller-manager-577d9ffcb9-w6zqn   2/2     Running   0          2m4s</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="validating-the-deployment_cloud-experts-aws-load-balancer-operator"><a class="anchor" href="#validating-the-deployment_cloud-experts-aws-load-balancer-operator"></a>Validating the deployment</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Create a new project:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc new-project hello-world</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Deploy a hello world application:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc new-app <span class="nt">-n</span> hello-world <span class="nt">--image</span><span class="o">=</span>docker.io/openshift/hello-openshift</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Configure a NodePort service for the AWS ALB to connect to:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span> <span class="no">EOF</span><span class="sh"> | oc apply -f -
+</span><span class="go">apiVersion: v1
+kind: Service
+metadata:
+  name: hello-openshift-nodeport
+  namespace: hello-world
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  type: NodePort
+  selector:
+    deployment: hello-openshift
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Deploy an AWS ALB using the AWS Load Balancer Operator:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span> <span class="no">EOF</span><span class="sh"> | oc apply -f -
+</span><span class="go">apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-openshift-alb
+  namespace: hello-world
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Exact
+            backend:
+              service:
+                name: hello-openshift-nodeport
+                port:
+                  number: 80
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Curl the AWS ALB Ingress endpoint to verify the hello world application is accessible:</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>AWS ALB provisioning takes a few minutes. If you receive an error that says <code>curl: (6) Could not resolve host</code>, please wait and try again.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="termnial">$ INGRESS=$(oc -n hello-world get ingress hello-openshift-alb \
+    -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+$ curl "http://${INGRESS}"</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="text">Hello OpenShift!</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Deploy an AWS NLB for your hello world application:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span> <span class="no">EOF</span><span class="sh"> | oc apply -f -
+</span><span class="go">apiVersion: v1
+kind: Service
+metadata:
+  name: hello-openshift-nlb
+  namespace: hello-world
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: external
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  type: LoadBalancer
+  selector:
+    deployment: hello-openshift
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Test the AWS NLB endpoint:</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>NLB provisioning takes a few minutes. If you receive an error that says <code>curl: (6) Could not resolve host</code>, please wait and try again.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">NLB</span><span class="o">=</span><span class="si">$(</span>oc <span class="nt">-n</span> hello-world get service hello-openshift-nlb <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.loadBalancer.ingress[0].hostname}'</span><span class="si">)</span>
+<span class="gp">$</span><span class="w"> </span>curl <span class="s2">"http://</span><span class="k">${</span><span class="nv">NLB</span><span class="k">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="text">Hello OpenShift!</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="cleaning-up_cloud-experts-aws-load-balancer-operator"><a class="anchor" href="#cleaning-up_cloud-experts-aws-load-balancer-operator"></a>Cleaning up</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Delete the hello world application namespace (and all the resources in the namespace):</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete project hello-world</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the AWS Load Balancer Operator and the AWS IAM roles:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete subscription aws-load-balancer-operator <span class="nt">-n</span> aws-load-balancer-operator
+<span class="gp">$</span><span class="w"> </span>aws iam detach-role-policy <span class="se">\</span>
+  <span class="nt">--role-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">ROSA_CLUSTER_NAME</span><span class="k">}</span><span class="s2">-alb-operator"</span> <span class="se">\</span>
+  <span class="nt">--policy-arn</span> <span class="nv">$POLICY_ARN</span>
+<span class="gp">$</span><span class="w"> </span>aws iam delete-role <span class="se">\</span>
+  <span class="nt">--role-name</span> <span class="s2">"</span><span class="k">${</span><span class="nv">ROSA_CLUSTER_NAME</span><span class="k">}</span><span class="s2">-alb-operator"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the AWS IAM policy:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws iam delete-policy <span class="nt">--policy-arn</span> <span class="nv">$POLICY_ARN</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
