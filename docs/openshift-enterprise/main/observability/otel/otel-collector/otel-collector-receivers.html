@@ -1966,6 +1966,7 @@
                   <li><a class="" href="../../../nodes/nodes/nodes-nodes-managing.html">Managing nodes</a></li>
                   <li><a class="" href="../../../nodes/nodes/nodes-nodes-adding-node-iso.html">Adding worker nodes to an on-premise cluster</a></li>
                   <li><a class="" href="../../../nodes/nodes/nodes-nodes-managing-max-pods.html">Managing the maximum number of pods per node</a></li>
+                  <li><a class="" href="../../../nodes/nodes/nodes-nodes-replace-control-plane.html">Replacing a failed bare-metal control plane node without BMC credentials</a></li>
                   <li><a class="" href="../../../nodes/nodes/nodes-node-tuning-operator.html">Using the Node Tuning Operator</a></li>
                   <li><a class="" href="../../../nodes/nodes/nodes-remediating-fencing-maintaining-rhwa.html">Remediating, fencing, and maintaining nodes</a></li>
                   <li><a class="" href="../../../nodes/nodes/nodes-nodes-rebooting.html">Understanding node rebooting</a></li>
@@ -3387,6 +3388,7 @@
 <li><a href="#otel-receivers-filelog-receiver_otel-collector-receivers">Filelog Receiver</a></li>
 <li><a href="#otel-receivers-journald-receiver_otel-collector-receivers">Journald Receiver</a></li>
 <li><a href="#otel-receivers-kubernetesevents-receiver_otel-collector-receivers">Kubernetes Events Receiver</a></li>
+<li><a href="#otel-receivers-prometheus-remote-write-receiver_otel-collector-receivers">Prometheus Remote Write Receiver</a></li>
 <li><a href="#additional-resources_otel-collector-receivers">Additional resources</a></li>
 </ul>
 </div>
@@ -4310,7 +4312,74 @@ To match any origin, enter only <code>*</code>.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>An array of Operators. Each Operator performs a simple task such as parsing a timestamp or JSON. To process logs into a desired format, chain the Operators together.</td>
+<td>An array of operators. Each operator performs a simple task such as parsing a timestamp or JSON. To process logs into a desired format, chain the operators together.</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>You can use this receiver to collect logs from pod filesystems in one of two ways:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Configuring the receiver in a sidecar container running alongside your application pod.</p>
+</li>
+<li>
+<p>Deploying the receiver as a DaemonSet on the host machine with appropriate permissions to access Kubernetes logs.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To collect logs from application containers, you can use this receiver with sidecar injection. The Red&#160;Hat build of OpenTelemetry Operator allows injecting an OpenTelemetry Collector as a sidecar container into an application pod. This approach is useful when your application writes logs to files within the container filesystem. This receiver can then tail log files and apply operators to parse the logs.</p>
+</div>
+<div class="paragraph">
+<p>To use this receiver in sidecar mode to collect logs from application containers, you must configure volume mounts in the <code>OpenTelemetryCollector</code> custom resource. Both the application container and the sidecar Collector must mount the same shared volume, such as <code>emptyDir</code>. Define the volume in the application&#8217;s <code>Pod</code> specification. See the following example:</p>
+</div>
+<div class="listingblock">
+<div class="title">OpenTelemetry Collector custom resource with the Filelog Receiver configured in sidecar mode</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">opentelemetry.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">OpenTelemetryCollector</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">filelog</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">otel-logging</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">mode</span><span class="pi">:</span> <span class="s">sidecar</span>
+  <span class="na">volumeMounts</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">logs</span>
+    <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/app</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">receivers</span><span class="pi">:</span>
+      <span class="na">filelog</span><span class="pi">:</span>
+        <span class="na">include</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+        <span class="pi">-</span> <span class="s">/var/log/app/*.log</span>
+        <span class="na">operators</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">regex_parser</span>
+          <span class="na">regex</span><span class="pi">:</span> <span class="s1">'</span><span class="s">^(?P&lt;timestamp&gt;\d{4}-\d{2}-\d{2}</span><span class="nv"> </span><span class="s">\d{2}:\d{2}:\d{2})</span><span class="nv"> </span><span class="s">\[(?P&lt;level&gt;\w+)\]</span><span class="nv"> </span><span class="s">(?P&lt;message&gt;.*)$'</span>
+          <span class="na">timestamp</span><span class="pi">:</span>
+            <span class="na">parse_from</span><span class="pi">:</span> <span class="s">attributes.timestamp</span>
+            <span class="na">layout</span><span class="pi">:</span> <span class="s1">'</span><span class="s">%Y-%m-%d</span><span class="nv"> </span><span class="s">%H:%M:%S'</span>
+    <span class="na">processors</span><span class="pi">:</span> <span class="pi">{}</span>
+    <span class="na">exporters</span><span class="pi">:</span>
+      <span class="na">debug</span><span class="pi">:</span>
+        <span class="na">verbosity</span><span class="pi">:</span> <span class="s">detailed</span>
+    <span class="na">service</span><span class="pi">:</span>
+      <span class="na">pipelines</span><span class="pi">:</span>
+        <span class="na">logs</span><span class="pi">:</span>
+          <span class="na">receivers</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">filelog</span><span class="pi">]</span>
+          <span class="na">processors</span><span class="pi">:</span> <span class="pi">[]</span>
+          <span class="na">exporters</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">debug</span><span class="pi">]</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Defines the volume mount that the sidecar Collector uses to access the target log files. This volume must match the volume name defined in the application deployment.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Specifies file glob patterns for matching the log files to tail. This receiver watches these paths for new log entries.</td>
 </tr>
 </table>
 </div>
@@ -4592,6 +4661,97 @@ To match any origin, enter only <code>*</code>.</td>
 <td>The list of namespaces to collect events from. The default value is empty, which means that all namespaces are collected.</td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="otel-receivers-prometheus-remote-write-receiver_otel-collector-receivers"><a class="anchor" href="#otel-receivers-prometheus-remote-write-receiver_otel-collector-receivers"></a>Prometheus Remote Write Receiver</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The Prometheus Remote Write Receiver receives metrics from Prometheus using the Remote Write protocol and converts them to the OpenTelemetry format. This receiver supports only the Prometheus Remote Write v2 protocol.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The Prometheus Remote Write Receiver is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">OpenTelemetry Collector custom resource with the enabled Prometheus Remote Write Receiver</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">receivers</span><span class="pi">:</span>
+      <span class="na">prometheusremotewrite</span><span class="pi">:</span>
+        <span class="na">endpoint</span><span class="pi">:</span> <span class="s">0.0.0.0:9090</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="c1"># ...</span>
+    <span class="na">service</span><span class="pi">:</span>
+      <span class="na">pipelines</span><span class="pi">:</span>
+        <span class="na">metrics</span><span class="pi">:</span>
+          <span class="na">receivers</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">prometheusremotewrite</span><span class="pi">]</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The endpoint where the receiver listens for Prometheus Remote Write requests.</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following are the prerequisites for using this receiver with Prometheus:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Prometheus is started with the metadata WAL records feature flag enabled.</p>
+</li>
+<li>
+<p>Prometheus Remote Write v2 Protocol is enabled in the Prometheus remote write configuration.</p>
+</li>
+<li>
+<p>Native histograms are enabled in Prometheus by using the feature flag.</p>
+</li>
+<li>
+<p>Prometheus is configured to convert classic histograms into native histograms.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about enabling these Prometheus features, see the Prometheus documentation.</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://prometheus.io/docs/prometheus/latest/feature_flags/#metadata-wal-records">Feature flags: Metadata WAL Records</a></p>
+</li>
+<li>
+<p><a href="https://prometheus.io/docs/specs/prw/remote_write_spec_2_0/">Prometheus Remote-Write 2.0 specification (EXPERIMENTAL)</a></p>
+</li>
+<li>
+<p><a href="https://prometheus.io/docs/specs/native_histograms/">Native Histograms</a></p>
+</li>
+<li>
+<p><a href="https://prometheus.io/docs/prometheus/latest/feature_flags/#native-histograms">Feature flags: Native Histograms</a></p>
+</li>
+<li>
+<p><a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/">Prometheus Configuration</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>

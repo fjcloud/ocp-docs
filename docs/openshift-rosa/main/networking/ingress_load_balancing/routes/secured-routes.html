@@ -1548,26 +1548,17 @@ traffic at the endpoint. This is currently the only method that can support requ
 <div class="sect1">
 <h2 id="nw-ingress-route-secret-load-external-cert_secured-routes"><a class="anchor" href="#nw-ingress-route-secret-load-external-cert_secured-routes"></a>Creating a route with externally managed certificates</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can configure Red Hat OpenShift Service on AWS (classic architecture) routes with third-party certificate management solutions by using the <code>.spec.tls.externalCertificate</code> field of the route API. You can reference externally managed TLS certificates via secrets, eliminating the need for manual certificate management. Using the externally managed certificate reduces errors ensuring a smoother rollout of certificate updates, enabling the OpenShift router to serve renewed certificates promptly.</p>
+<div class="paragraph _abstract">
+<p>You can configure Red Hat OpenShift Service on AWS (classic architecture) routes with third-party certificate management solutions by using the <code>.spec.tls.externalCertificate</code> field of the route API. You can reference externally managed TLS certificates via secrets, eliminating the need for manual certificate management.</p>
 </div>
 <div class="paragraph">
-<p>You can use externally managed certificates with both edge routes and re-encrypt routes.</p>
+<p>By using the externally managed certificate, you can reduce errors to ensure a smoother rollout of certificate updates and enable the OpenShift router to serve renewed certificates promptly. You can use externally managed certificates with both edge routes and re-encrypt routes.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You must enable the <code>RouteExternalCertificate</code> feature gate.</p>
-</li>
-<li>
-<p>You have <code>create</code> permission on the <code>routes/custom-host</code> sub-resource, which is used for both creating and updating routes.</p>
-</li>
-<li>
-<p>You must have a secret containing a valid certificate/key pair in PEM-encoded format of type <code>kubernetes.io/tls</code>, which includes both <code>tls.key</code> and <code>tls.crt</code> keys.</p>
-</li>
-<li>
-<p>You must place the referenced secret in the same namespace as the route you want to secure.</p>
+<p>You must have a secret containing a valid certificate or key pair in PEM-encoded format of type <code>kubernetes.io/tls</code>, which includes both <code>tls.key</code> and <code>tls.crt</code> keys. Example command: <code>$ oc create secret tls myapp-tls --cert=server.crt --key=server.key</code>.</p>
 </li>
 </ul>
 </div>
@@ -1575,41 +1566,37 @@ traffic at the endpoint. This is currently the only method that can support requ
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a <code>role</code> in the same namespace as the secret to allow the router service account read access by running the following command:</p>
+<p>Create a <code>role</code> object in the same namespace as the secret to allow the router service account read access by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create role secret-reader <span class="nt">--verb</span><span class="o">=</span>get,list,watch <span class="nt">--resource</span><span class="o">=</span>secrets <span class="nt">--resource-name</span><span class="o">=</span>&lt;secret-name&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="gp">--namespace=&lt;current-namespace&gt;</span><span class="w"> <i class="conum" data-value="2"></i><b>(2)</b>
-</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create role secret-reader <span class="nt">--verb</span><span class="o">=</span>get,list,watch <span class="nt">--resource</span><span class="o">=</span>secrets <span class="nt">--resource-name</span><span class="o">=</span>&lt;secret-name&gt; <span class="se">\</span>
+<span class="nt">--namespace</span><span class="o">=</span>&lt;current-namespace&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the actual name of your secret.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify the namespace where both your secret and route reside.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;secret-name&gt;</code>: Specify the actual name of your secret.</p>
+</li>
+<li>
+<p><code>&lt;current-namespace&gt;</code>: Specify the namespace where both your secret and route reside.</p>
+</li>
+</ul>
 </div>
 </li>
 <li>
-<p>Create a <code>rolebinding</code> in the same namespace as the secret and bind the router service account to the newly created role by running the following command:</p>
+<p>Create a <code>rolebinding</code> object in the same namespace as the secret and bind the router service account to the newly created role by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-reader-binding <span class="nt">--role</span><span class="o">=</span>secret-reader <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-ingress:router <span class="nt">--namespace</span><span class="o">=</span>&lt;current-namespace&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-reader-binding <span class="nt">--role</span><span class="o">=</span>secret-reader <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-ingress:router <span class="nt">--namespace</span><span class="o">=</span>&lt;current-namespace&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the namespace where both your secret and route reside.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;current-namespace&gt;</code>: Specify the namespace where both your secret and route reside.</p>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -1626,36 +1613,31 @@ traffic at the endpoint. This is currently the only method that can support requ
   <span class="na">host</span><span class="pi">:</span> <span class="s">myedge-test.apps.example.com</span>
   <span class="na">tls</span><span class="pi">:</span>
     <span class="na">externalCertificate</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;secret-name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;secret-name&gt;</span>
     <span class="na">termination</span><span class="pi">:</span> <span class="s">edge</span>
     <span class="pi">[</span><span class="nv">...</span><span class="pi">]</span>
 <span class="pi">[</span><span class="nv">...</span><span class="pi">]</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the actual name of your secret.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;secret-name&gt;</code>: Specify the actual name of your secret.</p>
+</li>
+</ul>
 </div>
 </li>
 <li>
 <p>Create a <code>route</code> resource by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;route.yaml&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;route.yaml&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the generated YAML filename.</td>
-</tr>
-</table>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;route.yaml&gt;</code>: Specify the generated YAML filename.</p>
 <div class="paragraph">
 <p>If the secret exists and has a certificate/key pair, the router will serve the generated certificate if all prerequisites are met.</p>
 </div>
@@ -1667,7 +1649,7 @@ traffic at the endpoint. This is currently the only method that can support requ
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If <code>.spec.tls.externalCertificate</code> is not provided, the router will use default generated certificates.</p>
+<p>If <code>.spec.tls.externalCertificate</code> is not provided, the router uses default generated certificates.</p>
 </div>
 <div class="paragraph">
 <p>You cannot provide the <code>.spec.tls.certificate</code> field  or the <code>.spec.tls.key</code> field when using the <code>.spec.tls.externalCertificate</code> field.</p>
@@ -1677,15 +1659,10 @@ traffic at the endpoint. This is currently the only method that can support requ
 </table>
 </div>
 </li>
-</ol>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p>For troubleshooting routes with externally managed certificates, check the Red Hat OpenShift Service on AWS (classic architecture) router pod logs for errors, see <a href="../../../support/troubleshooting/investigating-pod-issues.html#investigating-pod-issues">Investigating pod issues</a>.</p>
-</li>
 </ul>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
