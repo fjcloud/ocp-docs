@@ -3374,7 +3374,12 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#nodes-pods-vertical-autoscaler-about_nodes-pods-vertical-autoscaler">About the Vertical Pod Autoscaler Operator</a></li>
+<li><a href="#nodes-pods-vertical-autoscaler-about_nodes-pods-vertical-autoscaler">About the Vertical Pod Autoscaler Operator</a>
+<ul class="sectlevel2">
+<li><a href="#nodes-pods-vertical-autoscaler-modes_nodes-pods-vertical-autoscaler">About the Vertical Pod Autoscaler Operator modes</a></li>
+<li><a href="#nodes-pods-vertical-autoscaler-in-place_nodes-pods-vertical-autoscaler">About the in-place-or-recreate mode</a></li>
+</ul>
+</li>
 <li><a href="#nodes-pods-vertical-autoscaler-install_nodes-pods-vertical-autoscaler">Installing the Vertical Pod Autoscaler Operator</a></li>
 <li><a href="#infrastructure-moving-vpa_nodes-pods-vertical-autoscaler">Moving the Vertical Pod Autoscaler Operator components</a></li>
 <li><a href="#nodes-pods-vertical-autoscaler-using-about_nodes-pods-vertical-autoscaler">About using the Vertical Pod Autoscaler Operator</a>
@@ -3450,7 +3455,7 @@
 </dd>
 <dt class="hdlist1">Updater</dt>
 <dd>
-<p>The VPA updater checks if the pods in the associated workload object have the correct resources. If the resources are correct, the updater takes no action. If the resources are not correct, the updater kills the pod so that pods' controllers can re-create them with the updated requests.</p>
+<p>The VPA updater checks if the pods in the associated workload object have the correct resources. If the resources are correct, the updater takes no action. If the resources are not correct, the updater ensures that the pods have the updated requests. The way in which the VPA updates the resources depends on the update mode, as described in <em>About the Vertical Pod Autoscaler Operator modes</em> later in this section.</p>
 </dd>
 <dt class="hdlist1">Admission controller</dt>
 <dd>
@@ -3465,7 +3470,7 @@
 <p>The default recommender automatically computes historic and current CPU and memory usage for the containers in those pods. The default recommender uses this data to determine optimized resource limits and requests to ensure that these pods are operating efficiently at all times. For example, the default recommender suggests reduced resources for pods that are requesting more resources than they are using and increased resources for pods that are not requesting enough.</p>
 </div>
 <div class="paragraph">
-<p>The VPA then automatically deletes any pods that are out of alignment with these recommendations one at a time, so that your applications can continue to serve requests with no downtime. The workload objects then redeploy the pods with the original resource limits and requests. The VPA uses a mutating admission webhook to update the pods with optimized resource limits and requests before admitting the pods to a node. If you do not want the VPA to delete pods, you can view the VPA resource limits and requests and manually update the pods as needed.</p>
+<p>Depending upon the VPA mode, the VPA can automatically update any pods that are out of alignment with these recommendations one at a time, so that your applications can continue to serve requests with no downtime. The VPA updates the pods with optimized resource limits and requests before admitting the pods to a node. If you do not want the VPA to update pods, you can view the VPA resource limits and requests and manually update the pods as needed.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3482,7 +3487,7 @@
 </table>
 </div>
 <div class="paragraph">
-<p>For example, if you have a pod that uses 50% of the CPU but only requests 10%, the VPA determines that the pod is consuming more CPU than requested and deletes the pod. The workload object, such as replica set, restarts the pods and the VPA updates the new pod with its recommended resources.</p>
+<p>For example, if you have a pod that uses 50% of the CPU but only requests 10%, the VPA determines that the pod is consuming more CPU than requested. Depending upon the VPA mode, the VPA updates the pod or you can manually update the pod at a convenient time.</p>
 </div>
 <div class="paragraph">
 <p>For developers, you can use the VPA to help ensure that your pods active during periods of high demand by scheduling pods onto nodes that have appropriate resources for each pod.</p>
@@ -3503,6 +3508,113 @@
 </td>
 </tr>
 </table>
+</div>
+<div class="sect2">
+<h3 id="nodes-pods-vertical-autoscaler-modes_nodes-pods-vertical-autoscaler"><a class="anchor" href="#nodes-pods-vertical-autoscaler-modes_nodes-pods-vertical-autoscaler"></a>About the Vertical Pod Autoscaler Operator modes</h3>
+<div class="paragraph">
+<p>You can set on of the following VPA modes by using a <code>VerticalPodAutoscaler</code> CR:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>InPlaceOrRecreate</code>. In this mode, the VPA automatically applies the recommended CPU and memory resources throughout the pod lifetime. When any pod in the project is out of alignment with the VPA recommendations, the VPA attempts to apply updates <em>in-place</em>, without restarting the pod. If the VPA is not able to update the containers in-place, the VPA deletes the pod. When redeployed by the workload object, the VPA uses a mutating admission webhook to update the new pod with its recommendations. For specific information about in-place updates, see "About the in-place-or-recreate mode".</p>
+<div class="paragraph">
+<p>The container&#8217;s resize policy dictates the way in which <code>InPlaceOrRecreate</code> mode updates are applied. If the policy is set to <code>NotRequired</code>, the VPA attempts to update the container without restarting. If the policy is <code>RestartContainer</code>, the VPA always restarts the container upon the update.</p>
+</div>
+</li>
+<li>
+<p><code>Recreate</code> and <code>Auto</code>. In either of these modes, the VPA automatically applies the recommended CPU and memory resources throughout the pod lifetime. When any pod in the project is out of alignment with the VPA recommendations, the VPA deletes the pod. When redeployed by the workload object, the VPA uses a mutating admission webhook to update the new pod with its recommendations. Use the <code>Recreate</code> mode rarely, only if you need to ensure that when the resource request changes the pods restart.</p>
+<div class="openblock">
+<div class="content">
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>Auto</code> VPA mode is a deprecated feature. Deprecated functionality is still included in OpenShift Container Platform and continues to be supported; however, it will be removed in a future release of this product and is not recommended for new deployments.</p>
+</div>
+<div class="paragraph">
+<p>For the most recent list of major functionality that has been deprecated or removed within OpenShift Container Platform, refer to the <em>Deprecated and removed features</em> section of the OpenShift Container Platform release notes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p><code>Initial</code>. In this mode, the VPA applies the recommended CPU and memory resources mode only at pod creation.</p>
+</li>
+<li>
+<p><code>Off</code>. In this mode, the VPA mode only provides the recommended resource limits and requests. You can then manually apply the recommendations. The <code>Off</code> mode does not update pods.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nodes-pods-vertical-autoscaler-in-place_nodes-pods-vertical-autoscaler"><a class="anchor" href="#nodes-pods-vertical-autoscaler-in-place_nodes-pods-vertical-autoscaler"></a>About the in-place-or-recreate mode</h3>
+<div class="paragraph">
+<p>The Vertical Pod Autoscaler Operator (VPA) contains an optional <code>InPlaceOrRecreate</code> mode. This mode instructs the VPA to attempt to perform an <em>in-place pod resize</em> when updating CPU or memory resources, where the VPA first attempts to update the resources in a running pod without recreating the pod. If an in-place resize is not possible, the VPA falls back to the <code>Recreate</code> mode and restarts the pod in order to update the resources.</p>
+</div>
+<div class="paragraph">
+<p>When in <code>InPlaceOrRecreate</code> mode, the VPA falls back to always recreating pods in the following scenarios:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The in-place update is considered <em>infeasible</em> for reasons including the following reasons:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>The requested resources exceed the node&#8217;s total capacity.</p>
+</li>
+<li>
+<p>The pod is a static pod.</p>
+</li>
+<li>
+<p>The containers has swap enabled.</p>
+</li>
+<li>
+<p>The pod is managed by a static <code>cpuManagerPolicy</code> or <code>memoryManagerPolicy</code> parameter.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>The update is <em>deferred</em> for more than 5 minutes. A deferred update is one that is currently not possible, but might become possible at a later time. For example, if another pod is removed from the node, the requested resources might become available. The kubelet retries the resize when conditions on the node change.</p>
+</li>
+<li>
+<p>The update is in progress for more than 1 hour.</p>
+</li>
+<li>
+<p>The pod QoS class would change due to the update.</p>
+</li>
+<li>
+<p>The update would downscale the memory limit.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If a container in a pod has a <code>RestartContainer</code> container resize policy, which requires a restart upon a resource update, a VPA in <code>InPlaceOrRecreate</code> mode honors the resize policy and restarts the container.</p>
+</div>
+<div class="paragraph">
+<p>For more information on in-place updates, see "Adjust pod resource levels without pod disruption".</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../nodes/pods/nodes-pods-vertical-autoscaler.html#nodes-pods-vertical-autoscaler-using-about_nodes-pods-vertical-autoscaler">About using the Vertical Pod Autoscaler Operator</a></p>
+</li>
+<li>
+<p><a href="../../nodes/pods/nodes-pods-adjust-resources-in-place.html#nodes-pods-adjust-resources-in-place">Adjust pod resource levels without pod disruption</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
@@ -3881,23 +3993,7 @@ metadata:
 <p>To use the Vertical Pod Autoscaler Operator (VPA), you create a VPA custom resource (CR) for a workload object in your cluster. The VPA learns and applies the optimal CPU and memory resources for the pods associated with that workload object. You can use a VPA with a deployment, stateful set, job, daemon set, replica set, or replication controller workload object. The VPA CR must be in the same project as the pods that you want to check.</p>
 </div>
 <div class="paragraph">
-<p>You use the VPA CR to associate a workload object and specify the mode that the VPA operates in:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>The <code>Auto</code> and <code>Recreate</code> modes automatically apply the VPA CPU and memory recommendations throughout the pod lifetime. The VPA deletes any pods in the project that are out of alignment with its recommendations. When redeployed by the workload object, the VPA updates the new pods with its recommendations.</p>
-</li>
-<li>
-<p>The <code>Initial</code> mode automatically applies VPA recommendations only at pod creation.</p>
-</li>
-<li>
-<p>The <code>Off</code> mode only provides recommended resource limits and requests. You can then manually apply the recommendations. The <code>Off</code> mode does not update pods.</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>You can also use the CR to opt-out certain containers from VPA evaluation and updates.</p>
+<p>You use the VPA CR to associate a workload object and specify the mode that the VPA operates in. You can also use the CR to opt-out certain containers from VPA evaluation and updates.</p>
 </div>
 <div class="paragraph">
 <p>For example, a pod has the following limits and requests:</p>
@@ -3914,7 +4010,7 @@ metadata:
 </div>
 </div>
 <div class="paragraph">
-<p>After creating a VPA that is set to <code>Auto</code>, the VPA learns the resource usage and deletes the pod. When redeployed, the pod uses the new resource limits and requests:</p>
+<p>After creating a VPA that is set to <code>Recreate</code>, the VPA learns the resource usage and deletes the pod. When redeployed, the pod uses the new resource limits and requests:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -3981,6 +4077,14 @@ metadata:
 <div class="paragraph">
 <p>The VPA uses the <code>lowerBound</code> and <code>upperBound</code> values to determine if a pod needs updating. If a pod has resource requests less than the <code>lowerBound</code> values or more than the <code>upperBound</code> values, the VPA terminates and recreates the pod with the <code>target</code> values.</p>
 </div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../nodes/pods/nodes-pods-adjust-resources-in-place.html#nodes-pods-adjust-resources-in-place-about_nodes-pods-adjust-resources-in-place">Adjust pod resource levels without pod disruption</a></p>
+</li>
+</ul>
+</div>
 <div class="sect2">
 <h3 id="nodes-pods-vertical-autoscaler-using-one-pod_nodes-pods-vertical-autoscaler"><a class="anchor" href="#nodes-pods-vertical-autoscaler-using-one-pod_nodes-pods-vertical-autoscaler"></a>Changing the VPA minimum value</h3>
 <div class="paragraph">
@@ -4035,10 +4139,10 @@ metadata:
 <div class="sect2">
 <h3 id="nodes-pods-vertical-autoscaler-using-auto_nodes-pods-vertical-autoscaler"><a class="anchor" href="#nodes-pods-vertical-autoscaler-using-auto_nodes-pods-vertical-autoscaler"></a>Automatically applying VPA recommendations</h3>
 <div class="paragraph">
-<p>To use the VPA to automatically update pods, create a VPA CR for a specific workload object with <code>updateMode</code> set to <code>Auto</code> or <code>Recreate</code>.</p>
+<p>To use the VPA to automatically update pods, create a VPA CR for a specific workload object with <code>updateMode</code> set to <code>InPlaceOrRecreate</code> or <code>Recreate</code>.</p>
 </div>
 <div class="paragraph">
-<p>When the pods are created for the workload object, the VPA constantly monitors the containers to analyze their CPU and memory needs. The VPA deletes any pods that do not meet the VPA recommendations for CPU and memory. When redeployed, the pods use the new resource limits and requests based on the VPA recommendations, honoring any pod disruption budget set for your applications. The recommendations are added to the <code>status</code> field of the VPA CR for reference.</p>
+<p>When the pods are created for the workload object, the VPA constantly monitors the containers to analyze their CPU and memory needs. The VPA updates any pods that do not meet the VPA recommendations for CPU and memory to use the new resource limits and requests based on the VPA recommendations, honoring any pod disruption budget set for your applications. The recommendations are added to the <code>status</code> field of the VPA CR for reference.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -4055,7 +4159,7 @@ metadata:
 </table>
 </div>
 <div class="listingblock">
-<div class="title">Example VPA CR for the <code>Auto</code> mode</div>
+<div class="title">Example VPA CR for the <code>InPlaceOrRecreate</code> or <code>Recreate</code> mode</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">VerticalPodAutoscaler</span>
@@ -4067,7 +4171,7 @@ metadata:
     <span class="na">kind</span><span class="pi">:</span>       <span class="s">Deployment</span> <i class="conum" data-value="1"></i><b>(1)</b>
     <span class="na">name</span><span class="pi">:</span>       <span class="s">frontend</span> <i class="conum" data-value="2"></i><b>(2)</b>
   <span class="na">updatePolicy</span><span class="pi">:</span>
-    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Auto"</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">InPlaceOrRecreate"</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -4082,14 +4186,14 @@ metadata:
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Set the mode to <code>Auto</code> or <code>Recreate</code>:
+<td>Set the mode to <code>InPlaceOrRecreate</code> or <code>Recreate</code>:
 <div class="ulist">
 <ul>
 <li>
-<p><code>Auto</code>. The VPA assigns resource requests on pod creation and updates the existing pods by terminating them when the requested resources differ significantly from the new recommendation.</p>
+<p><code>InPlaceOrRecreate</code>. The VPA attempts to update the workload object with the new resource requests without re-creating the pod. If the VPA is unable to update the object in place, the VPA re-creates it.</p>
 </li>
 <li>
-<p><code>Recreate</code>. The VPA assigns resource requests on pod creation and updates the existing pods by terminating them when the requested resources differ significantly from the new recommendation. Use this mode rarely, only if you need to ensure that when the resource request changes the pods restart.</p>
+<p><code>Recreate</code>. The VPA assigns resource requests on pod creation and updates the existing pods by terminating them. Use this mode rarely, only if you need to ensure that when the resource request changes the pods restart.</p>
 </li>
 </ul>
 </div></td>
@@ -4261,7 +4365,7 @@ metadata:
     <span class="na">kind</span><span class="pi">:</span>       <span class="s">Deployment</span> <i class="conum" data-value="1"></i><b>(1)</b>
     <span class="na">name</span><span class="pi">:</span>       <span class="s">frontend</span> <i class="conum" data-value="2"></i><b>(2)</b>
   <span class="na">updatePolicy</span><span class="pi">:</span>
-    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Auto"</span> <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">InPlaceOrRecreate"</span> <i class="conum" data-value="3"></i><b>(3)</b>
   <span class="na">resourcePolicy</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
     <span class="na">containerPolicies</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">containerName</span><span class="pi">:</span> <span class="s">my-opt-sidecar</span>
@@ -4280,7 +4384,7 @@ metadata:
 </tr>
 <tr>
 <td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Set the mode to <code>Auto</code>, <code>Recreate</code>, <code>Initial</code>, or <code>Off</code>. Use the <code>Recreate</code> mode rarely, only if you need to ensure that when the resource request changes the pods restart.</td>
+<td>Set the mode to <code>InPlaceOrRecreate</code>, <code>Recreate</code>, <code>Initial</code>, or <code>Off</code>. Use the <code>Recreate</code> mode rarely. For example, use this mode to ensure that the pods restart when the resources are updated.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="4"></i><b>4</b></td>
@@ -5092,7 +5196,7 @@ vpa-alt-recommender-55878867f9-6tp5v        1/1     Running   0          9s</spa
     <span class="na">kind</span><span class="pi">:</span>       <span class="s">Deployment</span> <i class="conum" data-value="1"></i><b>(1)</b>
     <span class="na">name</span><span class="pi">:</span>       <span class="s">frontend</span> <i class="conum" data-value="2"></i><b>(2)</b>
   <span class="na">updatePolicy</span><span class="pi">:</span>
-    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Auto"</span> <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">InPlaceOrRecreate"</span> <i class="conum" data-value="3"></i><b>(3)</b>
   <span class="na">resourcePolicy</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
     <span class="na">containerPolicies</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">containerName</span><span class="pi">:</span> <span class="s">my-opt-sidecar</span>
@@ -5117,10 +5221,10 @@ vpa-alt-recommender-55878867f9-6tp5v        1/1     Running   0          9s</spa
 <div class="ulist">
 <ul>
 <li>
-<p><code>Auto</code> to automatically apply the recommended resources on pods associated with the controller. The VPA terminates existing pods and creates new pods with the recommended resource limits and requests.</p>
+<p><code>InPlaceOrRecreate</code> to automatically apply the recommended resources on pods associated with the workload object. The VPA attempts to update the workload object with the new resources without re-creating the pod. If the VPA is unable to update the object in place, the VPA re-creates it.</p>
 </li>
 <li>
-<p><code>Recreate</code> to automatically apply the recommended resources on pods associated with the workload object. The VPA terminates existing pods and creates new pods with the recommended resource limits and requests. Use the <code>Recreate</code> mode rarely, only if you need to ensure that the pods restart whenever the resource request changes.</p>
+<p><code>Recreate</code> to automatically apply the recommended resources on pods associated with the workload object. The VPA terminates existing pods and creates new pods with the recommended resource limits and requests. Use the <code>Recreate</code> mode only if you need to ensure that the pods restart whenever the resource request changes.</p>
 </li>
 <li>
 <p><code>Initial</code> to automatically apply the recommended resources to newly-created pods associated with the workload object. The VPA does not update the pods as it learns new resource recommendations.</p>
@@ -5166,11 +5270,13 @@ vpa-alt-recommender-55878867f9-6tp5v        1/1     Running   0          9s</spa
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">...</span>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VerticalPodAutoscaler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">vpa-recommender</span>
+<span class="c1"># ...</span>
 <span class="na">status</span><span class="pi">:</span>
-
-<span class="nn">...</span>
-
+<span class="c1"># ...</span>
   <span class="na">recommendation</span><span class="pi">:</span>
     <span class="na">containerRecommendations</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">containerName</span><span class="pi">:</span> <span class="s">frontend</span>
@@ -5339,7 +5445,7 @@ vpa-alt-recommender-55878867f9-6tp5v        1/1     Running   0          9s</spa
     <span class="na">kind</span><span class="pi">:</span> <span class="s">ScalablePod</span>
     <span class="na">name</span><span class="pi">:</span> <span class="s">scalable-cr</span>
   <span class="na">updatePolicy</span><span class="pi">:</span>
-    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Auto"</span></code></pre>
+    <span class="na">updateMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">InPlaceOrRecreate"</span></code></pre>
 </div>
 </div>
 </div>
