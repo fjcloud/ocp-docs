@@ -2835,6 +2835,10 @@
 <li><a href="#node-tuning-hosted-cluster_hcp-machine-config">Configuring node tuning in a hosted cluster</a></li>
 <li><a href="#sriov-operator-hosted-control-planes_hcp-machine-config">Deploying the SR-IOV Operator for hosted control planes</a></li>
 <li><a href="#hcp-configure-ntp_hcp-machine-config">Configuring the NTP server for hosted clusters</a></li>
+<li><a href="#scale-up-down-autoscaler-hcp_hcp-machine-config">Scaling up and down workloads in a hosted cluster</a></li>
+<li><a href="#scale-up-autoscaler-hcp_hcp-machine-config">Scaling up workloads in a hosted cluster</a></li>
+<li><a href="#priority-expander-autoscaler-hcp_hcp-machine-config">Setting the priority expander in a hosted cluster</a></li>
+<li><a href="#balance-ignored-labels-autoscaler-hcp_hcp-machine-config">Balancing ignored labels in a hosted cluster</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -2855,7 +2859,8 @@
 </table>
 </div>
 <div class="paragraph">
-<p>In hosted control planes, the <code>MachineConfigPool</code> CR does not exist. A node pool contains a set of compute nodes. You can handle a machine configuration by using node pools.</p>
+<p>In hosted control planes, the <code>MachineConfigPool</code> CR does not exist. A node pool contains a set of compute nodes. You can handle a machine configuration by using node pools.
+You can manage your workloads in your hosted cluster by using the cluster autoscaler.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3556,6 +3561,357 @@ sriov-network-operator.4.0-202211021237   SR-IOV Network Operator   4.0-20221102
 </li>
 <li>
 <p><a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.14/html-single/clusters/index#create-host-inventory-cli-steps">Creating a host inventory</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="scale-up-down-autoscaler-hcp_hcp-machine-config"><a class="anchor" href="#scale-up-down-autoscaler-hcp_hcp-machine-config"></a>Scaling up and down workloads in a hosted cluster</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To scale up and down the workloads in your hosted cluster, you can use the <code>ScaleUpAndScaleDown</code> behavior. The compute nodes scale up when you add workloads and scale down when you delete workloads.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have created the <code>HostedCluster</code> and <code>NodePool</code> resources.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Enable cluster autoscaling for your hosted cluster by setting the scaling behavior to <code>ScaleUpAndScaleDown</code>. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  hostedcluster &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"autoscaling": {"scaling": "ScaleUpAndScaleDown", "maxPodGracePeriod": 60, "scaleDown": {"utilizationThresholdPercent": 50}}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Remove the <code>spec.replicas</code> field from the <code>NodePool</code> resource to allow cluster autoscaler to manage the node count. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  nodepool &lt;node_pool_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>json  <span class="se">\</span>
+  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'[{"op": "remove", "path": "/spec/replicas"}]'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable cluster autoscaling to configure the minimum and maximum node counts for your node pools. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  nodepool &lt;nodepool_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"autoScaling": {"max": 3, "min": 1}}}'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>To verify that all compute nodes are in the <code>Ready</code> status, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;hosted_cluster_name&gt;.kubeconfig get nodes</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="scale-up-autoscaler-hcp_hcp-machine-config"><a class="anchor" href="#scale-up-autoscaler-hcp_hcp-machine-config"></a>Scaling up workloads in a hosted cluster</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To scale up the workloads in your hosted cluster, you can use the <code>ScaleUpOnly</code> behavior.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have created the <code>HostedCluster</code> and <code>NodePool</code> resources.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Enable cluster autoscaling for your hosted cluster by setting the scaling behavior to <code>ScaleUpOnly</code>. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; hostedcluster &lt;hosted_cluster_name&gt; <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"autoscaling": {"scaling": "ScaleUpOnly", "maxPodGracePeriod": 60}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Remove the <code>spec.replicas</code> field from the <code>NodePool</code> resource to allow the cluster autoscaler to manage the node count. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> clusters nodepool &lt;node_pool_name&gt; <span class="nt">--type</span><span class="o">=</span>json  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'[{"op": "remove", "path": "/spec/replicas"}]'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable cluster autoscaling to configure the minimum and maximum node counts for your node pools. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; nodepool &lt;nodepool_name&gt;
+<span class="go">  --type=merge --patch='{"spec": {"autoScaling": {"max": 3, "min": 1}}}'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that all compute nodes are in the <code>Ready</code> status by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;hosted_cluster_name&gt;.kubeconfig get nodes</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the compute nodes are scaled up successfully by checking the node count for your node pools. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> nested.config get nodes <span class="nt">-l</span> <span class="s1">'hypershift.openshift.io/nodePool=&lt;node_pool_name&gt;'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="priority-expander-autoscaler-hcp_hcp-machine-config"><a class="anchor" href="#priority-expander-autoscaler-hcp_hcp-machine-config"></a>Setting the priority expander in a hosted cluster</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can define the priority for your node pools and create high priority machines before low priority machines by using the priority expander in your hosted cluster.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have created the <code>HostedCluster</code> and <code>NodePool</code> resources.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>To define the priority for your node pools, create a config map named <code>priority-expander-configmap.yaml</code> in your hosted cluster. Node pools with low numbers receive high priority. See the following example configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster-autoscaler-priority-expander</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">kube-system</span>
+<span class="c1"># ...</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="na">priorities</span><span class="pi">:</span> <span class="pi">|-</span>
+    <span class="s">10:</span>
+      <span class="s">- ".*&lt;node_pool_name1&gt;.*"</span>
+    <span class="s">100:</span>
+      <span class="s">- ".*&lt;node_pool_name2&gt;.*"</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Generate the <code>kubeconfig</code> file by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>hcp create kubeconfig <span class="nt">--name</span> &lt;hosted_cluster_name&gt; <span class="nt">--namespace</span> &lt;hosted_cluster_namespace&gt; <span class="o">&gt;</span> nested.config</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the <code>ConfigMap</code> object by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> nested.config create <span class="nt">-f</span> priority-expander-configmap.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable cluster autoscaling by setting the priority expander for your hosted cluster. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  hostedcluster &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"autoscaling": {"scaling": "ScaleUpOnly", "maxPodGracePeriod": 60, "expanders": ["Priority"]}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Remove the <code>spec.replicas</code> field from the <code>NodePool</code> resource to allow the cluster autoscaler to manage the node count. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  nodepool &lt;node_pool_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>json
+<span class="go">  --patch='[{"op": "remove", "path": "/spec/replicas"}]'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable cluster autoscaling to configure the minimum and maximum node counts for your node pools. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  nodepool &lt;nodepool_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"autoScaling": {"max": 3, "min": 1}}}'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>After you apply new workloads, verify that the compute nodes associated with the priority node pool are scaled up first. Run the following command to check the status of the compute node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> nested.config get nodes <span class="nt">-l</span> <span class="s1">'hypershift.openshift.io/nodePool=&lt;node_pool_name&gt;'</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="balance-ignored-labels-autoscaler-hcp_hcp-machine-config"><a class="anchor" href="#balance-ignored-labels-autoscaler-hcp_hcp-machine-config"></a>Balancing ignored labels in a hosted cluster</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>After you scale up your node pools, you can use <code>balancingIgnoredLabels</code> to evenly distribute the machines across node pools.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have created the <code>HostedCluster</code> and <code>NodePool</code> resources.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Add the <code>node.group.balancing.ignored</code> label to each of the relevant node pool by using the same label value. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  nodepool &lt;node_pool_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"nodeLabels": {"node.group.balancing.ignored": "&lt;label_name&gt;"}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable cluster autoscaling for your hosted cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+ hostedcluster &lt;hosted_cluster_name&gt; <span class="se">\</span>
+ <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+ <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"autoscaling": {"balancingIgnoredLabels": ["node.group.balancing.ignored"]}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Remove the <code>spec.replicas</code> field from the <code>NodePool</code> resource to allow the cluster autoscaler to manage the node count. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  nodepool &lt;node_pool_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>json <span class="se">\</span>
+  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'[{"op": "remove", "path": "/spec/replicas"}]'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable cluster autoscaling to configure the minimum and maximum node counts for your node pools. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  nodepool &lt;nodepool_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"autoScaling": {"max": 3, "min": 1}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Generate the <code>kubeconfig</code> file by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>hcp create kubeconfig <span class="se">\</span>
+  <span class="nt">--name</span> &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--namespace</span> &lt;hosted_cluster_namespace&gt; <span class="o">&gt;</span> nested.config</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>After scaling up the node pools, check that all compute nodes are in the <code>Ready</code> status by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> nested.config get nodes <span class="nt">-l</span> <span class="s1">'hypershift.openshift.io/nodePool=&lt;node_pool_name&gt;'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Confirm that the new nodes contain the <code>node.group.balancing.ignored</code> label by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> nested.config get nodes <span class="se">\</span>
+  <span class="nt">-l</span> <span class="s1">'hypershift.openshift.io/nodePool=&lt;node_pool_name&gt;'</span> <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[*].metadata.labels}'</span> | <span class="nb">grep</span> <span class="s2">"node.group.balancing.ignored"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable cluster autoscaling for your hosted cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  hostedcluster &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"autoscaling": {"balancingIgnoredLabels": ["node.group.balancing.ignored"]}}}'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the number of nodes provisioned by each node pool is evenly distributed. For example, if you created three node pools with the same label value, the node counts might be 3, 2, and 3. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> nested.config get nodes <span class="nt">-l</span> <span class="s1">'hypershift.openshift.io/nodePool=&lt;node_pool_name&gt;'</span></code></pre>
+</div>
+</div>
 </li>
 </ul>
 </div>
