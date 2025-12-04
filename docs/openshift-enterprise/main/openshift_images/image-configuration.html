@@ -3375,11 +3375,23 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#images-configuration-parameters_image-configuration">Image controller configuration parameters</a></li>
+<li><a href="#images-configuration-mco-and-registry-changes_image-configuration">Machine Config Operator behavior and registry changes</a>
+<ul class="sectlevel2">
+<li><a href="#images-configuration-mco-and-blocking-registry-sources_image-configuration">When allowing and blocking registry sources</a></li>
+<li><a href="#images-configuration-mco-and-shortnames_image-configuration">When using the containerRuntimeSearchRegistries parameter</a></li>
+</ul>
+</li>
 <li><a href="#images-configuration-file_image-configuration">Configuring image registry settings</a>
 <ul class="sectlevel2">
-<li><a href="#images-configuration-allowed_image-configuration">Adding specific registries</a></li>
+<li><a href="#images-configuration-allowed_image-configuration">Adding specific registries to an allowlist</a></li>
 <li><a href="#images-configuration-blocked_image-configuration">Blocking specific registries</a></li>
+<li><a href="#images-configuration-blocked-payload_image-configuration">Blocking a payload registry</a></li>
 <li><a href="#images-configuration-insecure_image-configuration">Allowing insecure registries</a></li>
+</ul>
+</li>
+<li><a href="#images-configuration-shortname-con_image-configuration">About adding registries that allow image short names</a>
+<ul class="sectlevel2">
+<li><a href="#images-configuration-shortname-when-not-to-use_image-configuration">When not to use image short names</a></li>
 <li><a href="#images-configuration-shortname_image-configuration">Adding registries that allow image short names</a></li>
 <li><a href="#images-configuration-cas_image-configuration">Configuring additional trust stores for image registry access</a></li>
 </ul>
@@ -3387,21 +3399,23 @@
 <li><a href="#images-configuration-registry-mirror_image-configuration">Understanding image registry repository mirroring</a>
 <ul class="sectlevel2">
 <li><a href="#images-configuration-registry-mirror-configuring_image-configuration">Configuring image registry repository mirroring</a></li>
+<li><a href="#images-configuration-registry-mirror-config-params_image-configuration">Image registry repository mirroring configuration parameters</a></li>
 <li><a href="#images-configuration-registry-mirror-convert_image-configuration">Converting ImageContentSourcePolicy (ICSP) files for image registry repository mirroring</a></li>
 </ul>
 </li>
+<li><a href="#additional-resources_image-configuration">Additional resources</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>Use the following procedure to configure image registries.</p>
+<div class="paragraph _abstract">
+<p>You can configure an image registry to store and serve container images.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="images-configuration-parameters_image-configuration"><a class="anchor" href="#images-configuration-parameters_image-configuration"></a>Image controller configuration parameters</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The <code>image.config.openshift.io/cluster</code> resource holds cluster-wide information about how to handle images. The canonical, and only valid name is <code>cluster</code>. Its <code>spec</code> offers the following configuration parameters.</p>
+<div class="paragraph _abstract">
+<p>You can configure certain parameters that handle images cluster-wide in the <code>spec</code> of the <code>image.config.openshift.io/cluster</code> resource.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3411,24 +3425,52 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Parameters such as <code>DisableScheduledImport</code>, <code>MaxImagesBulkImportedPerRepository</code>, <code>MaxScheduledImportsPerMinute</code>, <code>ScheduledImageImportMinimumIntervalSeconds</code>, <code>InternalRegistryHostname</code> are not configurable.</p>
+<p>The following non-configurable parameters are not listed in the table:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>DisableScheduledImport</code></p>
+</li>
+<li>
+<p><code>MaxImagesBulkImportedPerRepository</code></p>
+</li>
+<li>
+<p><code>MaxScheduledImportsPerMinute</code></p>
+</li>
+<li>
+<p><code>ScheduledImageImportMinimumIntervalSeconds</code></p>
+</li>
+<li>
+<p><code>InternalRegistryHostname</code></p>
+</li>
+</ul>
 </div>
 </td>
 </tr>
 </table>
 </div>
 <table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Image controller configuration parameters</caption>
 <colgroup>
 <col style="width: 27.2727%;">
 <col style="width: 72.7273%;">
 </colgroup>
 <thead>
 <tr>
-<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Field name</th>
 <th class="tableblock halign-left valign-top">Description</th>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><code>kind.Image</code></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Holds cluster-wide information about how to handle images. The canonical, and only valid name for this CR is <code>cluster</code>.</p>
+</div></div></td>
+</tr>
 <tr>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p><code>allowedRegistriesForImport</code></p>
@@ -3470,11 +3512,10 @@
 <p><code>registrySources</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Contains configuration that determines how the container runtime should treat individual registries when accessing images for builds and
-pods. For instance, whether or not to allow insecure access. It does not contain configuration for the internal cluster registry.</p>
+<p>Contains configuration that determines how the container runtime should treat individual registries when accessing images for builds and pods. For example, whether or not to allow insecure access. It does not contain configuration for the internal cluster registry.</p>
 </div>
 <div class="paragraph">
-<p><code>insecureRegistries</code>: Registries which do not have a valid TLS certificate or only support HTTP connections. To specify all subdomains, add the asterisk (<code>*</code>) wildcard character as a prefix to the domain name. For example, <code>*.example.com</code>. You can specify an individual repository within a registry. For example: <code>reg1.io/myrepo/myapp:latest</code>.</p>
+<p><code>insecureRegistries</code>: Registries that do not have a valid TLS certificate or only support HTTP connections. To specify all subdomains, add the asterisk (<code>*</code>) wildcard character as a prefix to the domain name. For example, <code>*.example.com</code>. You can specify an individual repository within a registry. For example: <code>reg1.io/myrepo/myapp:latest</code>.</p>
 </div>
 <div class="paragraph">
 <p><code>blockedRegistries</code>: Registries for which image pull and push actions are denied. To specify all subdomains, add the asterisk (<code>*</code>) wildcard character as a prefix to the domain name. For example, <code>*.example.com</code>. You can specify an individual repository within a registry. For example: <code>reg1.io/myrepo/myapp:latest</code>. All other registries are allowed.</p>
@@ -3486,7 +3527,7 @@ pods. For instance, whether or not to allow insecure access. It does not contain
 <p><code>containerRuntimeSearchRegistries</code>: Registries for which image pull and push actions are allowed using image short names. All other registries are blocked.</p>
 </div>
 <div class="paragraph">
-<p>Either <code>blockedRegistries</code> or <code>allowedRegistries</code> can be set, but not both.</p>
+<p>You can set either <code>blockedRegistries</code> or <code>allowedRegistries</code>, but not both.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -3556,10 +3597,17 @@ For more information about feature gates, see "Understanding feature gates".</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p><code>imageStreamImportMode</code> is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+<p><code>imageStreamImportMode</code> is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
 </div>
 <div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+<p>For more information about the support scope of Red Hat Technology Preview features, see the following link:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a></p>
+</li>
+</ul>
 </div>
 </td>
 </tr>
@@ -3576,7 +3624,7 @@ For more information about feature gates, see "Understanding feature gates".</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>When the <code>allowedRegistries</code> parameter is defined, all registries, including <code>registry.redhat.io</code> and <code>quay.io</code> registries and the default OpenShift image registry, are blocked unless explicitly listed. When using the parameter, to prevent pod failure, add all registries including the <code>registry.redhat.io</code> and <code>quay.io</code> registries and the <code>internalRegistryHostname</code> to the <code>allowedRegistries</code> list, as they are required by payload images within your environment. For disconnected clusters, mirror registries should also be added.</p>
+<p>When you define the <code>allowedRegistries</code> parameter, all registries, including <code>registry.redhat.io</code>, <code>quay.io</code>, and the default OpenShift image registry, are blocked unless explicitly listed. You must add all of the registries that your payload images require to the <code>allowedRegistries</code> list. For example, list <code>registry.redhat.io</code>, <code>quay.io</code>, and the <code>internalRegistryHostname</code> registries. For disconnected clusters, you must also add your mirror registries. Otherwise, you risk pod failure.</p>
 </div>
 </td>
 </tr>
@@ -3586,6 +3634,7 @@ For more information about feature gates, see "Understanding feature gates".</p>
 <p>The <code>status</code> field of the <code>image.config.openshift.io/cluster</code> resource holds observed values from the cluster.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. Image controller status field parameters</caption>
 <colgroup>
 <col style="width: 27.2727%;">
 <col style="width: 72.7273%;">
@@ -3615,30 +3664,21 @@ For more information about feature gates, see "Understanding feature gates".</p>
 </tr>
 </tbody>
 </table>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="../openshift_images/image-streams-manage.html#images-imagestream-import-import-mode_image-streams-managing">Working with manifest lists</a></p>
-</li>
-<li>
-<p><a href="../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling-features-about_nodes-cluster-enabling-features">Understanding feature gates</a></p>
-</li>
-</ul>
-</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="images-configuration-file_image-configuration"><a class="anchor" href="#images-configuration-file_image-configuration"></a>Configuring image registry settings</h2>
+<h2 id="images-configuration-mco-and-registry-changes_image-configuration"><a class="anchor" href="#images-configuration-mco-and-registry-changes_image-configuration"></a>Machine Config Operator behavior and registry changes</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The Machine Config Operator (MCO) watches the <code>image.config.openshift.io/cluster</code> custom resource (CR) for any changes to registries and takes specific steps when the registry changes.</p>
+</div>
 <div class="paragraph">
-<p>You can configure image registry settings by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR).
-When changes to the registry are applied to the <code>image.config.openshift.io/cluster</code> CR, the Machine Config Operator (MCO) performs the following sequential actions:</p>
+<p>When changes to the registry are applied to the <code>image.config.openshift.io/cluster</code> CR, the MCO performs the following sequential actions:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Cordons the node</p>
+<p>Cordons the node; certain parameters result in drained nodes, and others do not</p>
 </li>
 <li>
 <p>Applies changes by restarting CRI-O</p>
@@ -3653,7 +3693,7 @@ When changes to the registry are applied to the <code>image.config.openshift.io/
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The MCO does not restart nodes when it detects changes.</p>
+<p>The MCO does not restart nodes when it detects changes. During this period, you might experience service unavailability.</p>
 </div>
 </td>
 </tr>
@@ -3662,11 +3702,45 @@ When changes to the registry are applied to the <code>image.config.openshift.io/
 </li>
 </ol>
 </div>
+<div class="sect2">
+<h3 id="images-configuration-mco-and-blocking-registry-sources_image-configuration"><a class="anchor" href="#images-configuration-mco-and-blocking-registry-sources_image-configuration"></a>When allowing and blocking registry sources</h3>
+<div class="paragraph">
+<p>The MCO watches the <code>image.config.openshift.io/cluster</code> resource for any changes to the registries. When the MCO detects a change, it triggers a rollout on nodes in machine config pool (MCP). The allowed registries list is used to update the image signature policy in the <code>/etc/containers/policy.json</code> file on each node. Changes to the <code>/etc/containers/policy.json</code> file do not require the node to drain.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="images-configuration-mco-and-shortnames_image-configuration"><a class="anchor" href="#images-configuration-mco-and-shortnames_image-configuration"></a>When using the containerRuntimeSearchRegistries parameter</h3>
+<div class="paragraph">
+<p>After the nodes return to the <code>Ready</code> state, if the <code>containerRuntimeSearchRegistries</code> parameter is added, the MCO creates a file in the <code>/etc/containers/registries.conf.d</code> directory on each node with the listed registries. The file overrides the default list of unqualified search registries in the <code>/etc/containers/registries.conf</code> file. There is no way to fall back to the default list of unqualified search registries.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>containerRuntimeSearchRegistries</code> parameter works only with the Podman and CRI-O container engines. The registries in the list can be used only in pod specs, not in builds and image streams.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="images-configuration-file_image-configuration"><a class="anchor" href="#images-configuration-file_image-configuration"></a>Configuring image registry settings</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure image registry settings by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR).</p>
+</div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Edit the <code>image.config.openshift.io/cluster</code> custom resource:</p>
+<p>Edit the <code>image.config.openshift.io/cluster</code> CR by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit image.config.openshift.io/cluster</code></pre>
@@ -3678,7 +3752,7 @@ When changes to the registry are applied to the <code>image.config.openshift.io/
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Image</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Image</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">annotations</span><span class="pi">:</span>
     <span class="s">release.openshift.io/create-only</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
@@ -3689,12 +3763,12 @@ When changes to the registry are applied to the <code>image.config.openshift.io/
   <span class="na">selfLink</span><span class="pi">:</span> <span class="s">/apis/config.openshift.io/v1/images/cluster</span>
   <span class="na">uid</span><span class="pi">:</span> <span class="s">e34555da-78a9-11e9-b92b-06d6c7da38dc</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">allowedRegistriesForImport</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">allowedRegistriesForImport</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">domainName</span><span class="pi">:</span> <span class="s">quay.io</span>
       <span class="na">insecure</span><span class="pi">:</span> <span class="no">false</span>
-  <span class="na">additionalTrustedCA</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">additionalTrustedCA</span><span class="pi">:</span>
     <span class="na">name</span><span class="pi">:</span> <span class="s">myconfigmap</span>
-  <span class="na">registrySources</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="na">registrySources</span><span class="pi">:</span>
     <span class="na">allowedRegistries</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">example.com</span>
     <span class="pi">-</span> <span class="s">quay.io</span>
@@ -3707,26 +3781,6 @@ When changes to the registry are applied to the <code>image.config.openshift.io/
   <span class="na">internalRegistryHostname</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>Image</code>: Holds cluster-wide information about how to handle images. The canonical, and only valid name is <code>cluster</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td><code>allowedRegistriesForImport</code>: Limits the container image registries from which normal users may import images. Set this list to the registries that you trust to contain valid images, and that you want applications to be able to import from. Users with permission to create images or <code>ImageStreamMappings</code> from the API are not affected by this policy. Typically only cluster administrators have the appropriate permissions.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td><code>additionalTrustedCA</code>: A reference to a config map containing additional certificate authorities (CA) that are trusted during image stream import, pod image pull, <code>openshift-image-registry</code> pullthrough, and builds. The namespace for this config map is <code>openshift-config</code>. The format of the config map is to use the registry hostname as the key, and the PEM certificate as the value, for each additional registry CA to trust.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td><code>registrySources</code>: Contains configuration that determines whether the container runtime allows or blocks individual registries when accessing images for builds and pods. Either the <code>allowedRegistries</code> parameter or the <code>blockedRegistries</code> parameter can be set, but not both. You can also define whether or not to allow access to insecure registries or registries that allow registries that use image short names. This example uses the <code>allowedRegistries</code> parameter, which defines the registries that are allowed to be used. The insecure registry <code>insecure.com</code> is also allowed. The <code>registrySources</code> parameter does not contain configuration for the internal cluster registry.</td>
-</tr>
-</table>
-</div>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3735,21 +3789,23 @@ When changes to the registry are applied to the <code>image.config.openshift.io/
 </td>
 <td class="content">
 <div class="paragraph">
-<p>When the <code>allowedRegistries</code> parameter is defined, all registries, including the registry.redhat.io and quay.io registries and the default OpenShift image registry, are blocked unless explicitly listed. If you use the parameter, to prevent pod failure, you must add the <code>registry.redhat.io</code> and <code>quay.io</code> registries and the <code>internalRegistryHostname</code> to the <code>allowedRegistries</code> list, as they are required by payload images within your environment. Do not add the <code>registry.redhat.io</code> and <code>quay.io</code> registries to the <code>blockedRegistries</code> list.</p>
+<p>When you use the <code>allowedRegistries</code>, <code>blockedRegistries</code>, or <code>insecureRegistries</code> parameter, you can specify an individual repository within a registry. For example: <code>reg1.io/myrepo/myapp:latest</code>.</p>
 </div>
 <div class="paragraph">
-<p>When using the <code>allowedRegistries</code>, <code>blockedRegistries</code>, or <code>insecureRegistries</code> parameter, you can specify an individual repository within a registry. For example: <code>reg1.io/myrepo/myapp:latest</code>.</p>
-</div>
-<div class="paragraph">
-<p>Insecure external registries should be avoided to reduce possible security risks.</p>
+<p>Avoid insecure external registries to reduce possible security risks.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
 </li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
 <li>
-<p>To check that the changes are applied, list your nodes:</p>
+<p>To verify your changes, list your nodes by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
@@ -3771,12 +3827,15 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </ol>
 </div>
 <div class="sect2">
-<h3 id="images-configuration-allowed_image-configuration"><a class="anchor" href="#images-configuration-allowed_image-configuration"></a>Adding specific registries</h3>
-<div class="paragraph">
-<p>You can add a list of registries, and optionally an individual repository within a registry, that are permitted for image pull and push actions by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR). OpenShift Container Platform applies the changes to this CR to all nodes in the cluster.</p>
+<h3 id="images-configuration-allowed_image-configuration"><a class="anchor" href="#images-configuration-allowed_image-configuration"></a>Adding specific registries to an allowlist</h3>
+<div class="paragraph _abstract">
+<p>You can add an allowlist of registries, or an individual repository, within a registry for image pull and push actions by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR).</p>
 </div>
 <div class="paragraph">
-<p>When pulling or pushing images, the container runtime searches the registries listed under the <code>registrySources</code> parameter in the <code>image.config.openshift.io/cluster</code> CR. If you created a list of registries under the <code>allowedRegistries</code> parameter, the container runtime searches only those registries. Registries not in the list are blocked.</p>
+<p>OpenShift Container Platform applies the changes to this CR to all nodes in the cluster.</p>
+</div>
+<div class="paragraph">
+<p>When pulling or pushing images, the container runtime searches the registries listed under the <code>registrySources</code> parameter in the <code>image.config.openshift.io/cluster</code> CR. If you created a list of registries under the <code>allowedRegistries</code> parameter, the container runtime searches only those registries. Registries not in your allowlist are blocked.</p>
 </div>
 <div class="admonitionblock warning">
 <table>
@@ -3786,7 +3845,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </td>
 <td class="content">
 <div class="paragraph">
-<p>When the <code>allowedRegistries</code> parameter is defined, all registries, including the <code>registry.redhat.io</code> and <code>quay.io</code> registries and the default OpenShift image registry, are blocked unless explicitly listed. If you use the parameter, to prevent pod failure, add the <code>registry.redhat.io</code> and <code>quay.io</code> registries and the <code>internalRegistryHostname</code> to the <code>allowedRegistries</code> list, as they are required by payload images within your environment. For disconnected clusters, mirror registries should also be added.</p>
+<p>When you define the <code>allowedRegistries</code> parameter, all registries, including <code>registry.redhat.io</code>, <code>quay.io</code>, and the default OpenShift image registry, are blocked unless explicitly listed. You must add all of the registries that your payload images require to the <code>allowedRegistries</code> list. For example, list <code>registry.redhat.io</code>, <code>quay.io</code>, and the <code>internalRegistryHostname</code> registries. For disconnected clusters, you must also add your mirror registries. Otherwise, you risk pod failure.</p>
 </div>
 </td>
 </tr>
@@ -3796,7 +3855,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>Edit the <code>image.config.openshift.io/cluster</code> custom resource:</p>
+<p>Edit the <code>image.config.openshift.io/cluster</code> custom resource by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit image.config.openshift.io/cluster</code></pre>
@@ -3819,8 +3878,8 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
   <span class="na">selfLink</span><span class="pi">:</span> <span class="s">/apis/config.openshift.io/v1/images/cluster</span>
   <span class="na">uid</span><span class="pi">:</span> <span class="s">e34555da-78a9-11e9-b92b-06d6c7da38dc</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">registrySources</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">allowedRegistries</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">registrySources</span><span class="pi">:</span>
+    <span class="na">allowedRegistries</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">example.com</span>
     <span class="pi">-</span> <span class="s">quay.io</span>
     <span class="pi">-</span> <span class="s">registry.redhat.io</span>
@@ -3830,43 +3889,10 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
   <span class="na">internalRegistryHostname</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Contains configurations that determine how the container runtime should treat individual registries when accessing images for builds and pods. It does not contain configuration for the internal cluster registry.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify registries, and optionally a repository in that registry, to use for image pull and push actions. All other registries are blocked.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Either the <code>allowedRegistries</code> parameter or the <code>blockedRegistries</code> parameter can be set, but not both.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>The Machine Config Operator (MCO) watches the <code>image.config.openshift.io/cluster</code> resource for any changes to the registries. When the MCO detects a change, it triggers a rollout on nodes in machine config pool (MCP). The allowed registries list is used to update the image signature policy in the <code>/etc/containers/policy.json</code> file on each node. Changes to the <code>/etc/containers/policy.json</code> file do not require the node to drain.</p>
-</div>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Verification</div>
-<ul>
+<div class="olist arabic">
+<ol class="arabic">
 <li>
-<p>Enter the following command to obtain a list of your nodes:</p>
+<p>After you make your configuration updates, list your nodes by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
@@ -3881,14 +3907,16 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </span><span class="gp">&lt;node_name&gt;</span><span class="w">        </span>Ready    control-plane,master   37m   v1.27.8+4fab27b</code></pre>
 </div>
 </div>
-<div class="olist arabic">
-<ol class="arabic">
+</li>
 <li>
-<p>Run the following command to enter debug mode on the node:</p>
+<p>Enter debug mode on the node by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Replace &lt;node_name&gt; with the name of your node.</p>
 </div>
 </li>
 <li>
@@ -3899,20 +3927,26 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </div>
 </div>
 </li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
 <li>
-<p>Enter the following command to check that the registries have been added to the policy file:</p>
+<p>Check that the registries are in the policy file by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">cat</span> /etc/containers/policy.json | jq <span class="s1">'.'</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The following policy indicates that only images from the example.com, quay.io, and registry.redhat.io registries are permitted for image pulls and pushes:</p>
+<p>The following policy indicates that only images from the <code>example.com</code>, <code>quay.io</code>, and <code>registry.redhat.io</code> registries are accessible for image pulls and pushes:</p>
 </div>
-<details>
-<summary class="title">Example image signature policy file</summary>
-<div class="content">
 <div class="listingblock">
+<div class="title">Example image signature policy file</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="text">{
    "default":[
@@ -3996,14 +4030,8 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 }</code></pre>
 </div>
 </div>
-</div>
-</details>
-</li>
-</ol>
-</div>
-</li>
-</ul>
-</div>
+<div class="openblock">
+<div class="content">
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -4036,10 +4064,18 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </table>
 </div>
 </div>
+</div>
+</li>
+</ol>
+</div>
+</div>
 <div class="sect2">
 <h3 id="images-configuration-blocked_image-configuration"><a class="anchor" href="#images-configuration-blocked_image-configuration"></a>Blocking specific registries</h3>
+<div class="paragraph _abstract">
+<p>You can block any registry, or an individual repository, within a registry by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR).</p>
+</div>
 <div class="paragraph">
-<p>You can block any registry, and optionally an individual repository within a registry, by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR). OpenShift Container Platform applies the changes to this CR to all nodes in the cluster.</p>
+<p>OpenShift Container Platform applies the changes to this CR to all nodes in the cluster.</p>
 </div>
 <div class="paragraph">
 <p>When pulling or pushing images, the container runtime searches the registries listed under the <code>registrySources</code> parameter in the <code>image.config.openshift.io/cluster</code> CR. If you created a list of registries under the <code>blockedRegistries</code> parameter, the container runtime does not search those registries. All other registries are allowed.</p>
@@ -4052,7 +4088,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </td>
 <td class="content">
 <div class="paragraph">
-<p>To prevent pod failure, do not add the <code>registry.redhat.io</code> and <code>quay.io</code> registries to the <code>blockedRegistries</code> list, as they are required by payload images within your environment.</p>
+<p>To prevent pod failure, do not add the <code>registry.redhat.io</code> and <code>quay.io</code> registries to the <code>blockedRegistries</code> list. Payload images within your environment require access to these registries.</p>
 </div>
 </td>
 </tr>
@@ -4062,7 +4098,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>Edit the <code>image.config.openshift.io/cluster</code> custom resource:</p>
+<p>Edit the <code>image.config.openshift.io/cluster</code> custom resource by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit image.config.openshift.io/cluster</code></pre>
@@ -4085,51 +4121,21 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
   <span class="na">selfLink</span><span class="pi">:</span> <span class="s">/apis/config.openshift.io/v1/images/cluster</span>
   <span class="na">uid</span><span class="pi">:</span> <span class="s">e34555da-78a9-11e9-b92b-06d6c7da38dc</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">registrySources</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">blockedRegistries</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">registrySources</span><span class="pi">:</span>
+    <span class="na">blockedRegistries</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">untrusted.com</span>
     <span class="pi">-</span> <span class="s">reg1.io/myrepo/myapp:latest</span>
 <span class="na">status</span><span class="pi">:</span>
   <span class="na">internalRegistryHostname</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Contains configurations that determine how the container runtime should treat individual registries when accessing images for builds and pods. It does not contain configuration for the internal cluster registry.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify registries, and optionally a repository in that registry, that should not be used for image pull and push actions. All other registries are allowed.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
 <div class="paragraph">
-<p>Either the <code>blockedRegistries</code> registry or the <code>allowedRegistries</code> registry can be set, but not both.</p>
+<p>You cannot set both the <code>blockedRegistries</code> and <code>allowedRegistries</code> parameters. You must select one or the other.</p>
 </div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>The Machine Config Operator (MCO) watches the <code>image.config.openshift.io/cluster</code> resource for any changes to the registries. When the MCO detects a change, it drains the nodes, applies the change, and uncordons the nodes. After the nodes return to the <code>Ready</code> state, changes to the blocked registries appear in the <code>/etc/containers/registries.conf</code> file on each node. During this period, you might experience service unavailability.</p>
-</div>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Verification</div>
-<ul>
+<div class="olist arabic">
+<ol class="arabic">
 <li>
-<p>Enter the following command to obtain a list of your nodes:</p>
+<p>Get a list of your nodes by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
@@ -4144,14 +4150,16 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </span><span class="gp">&lt;node_name&gt;</span><span class="w">         </span>Ready    control-plane,master   37m   v1.27.8+4fab27b</code></pre>
 </div>
 </div>
-<div class="olist arabic">
-<ol class="arabic">
+</li>
 <li>
 <p>Run the following command to enter debug mode on the node:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Replace &lt;node_name&gt; with the name of the node you want details about.</p>
 </div>
 </li>
 <li>
@@ -4162,15 +4170,23 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </div>
 </div>
 </li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
 <li>
-<p>Enter the following command to check that the registries have been added to the policy file:</p>
+<p>Verify that the registries are in the policy file by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">cat </span>etc/containers/registries.conf</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The following example indicates that images from the <code>untrusted.com</code> registry are prevented for image pulls and pushes:</p>
+<p>The following example indicates that images from the <code>untrusted.com</code> registry are blocked for image pulls and pushes:</p>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
@@ -4186,13 +4202,12 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </li>
 </ol>
 </div>
-</li>
-</ul>
 </div>
-<div class="sect3">
-<h4 id="images-configuration-blocked-payload"><a class="anchor" href="#images-configuration-blocked-payload"></a>Blocking a payload registry</h4>
-<div class="paragraph">
-<p>In a mirroring configuration, you can block upstream payload registries in a disconnected environment using a <code>ImageContentSourcePolicy</code> (ICSP) object. The following example procedure demonstrates how to block the <code>quay.io/openshift-payload</code> payload registry.</p>
+<div class="sect2">
+<h3 id="images-configuration-blocked-payload_image-configuration"><a class="anchor" href="#images-configuration-blocked-payload_image-configuration"></a>Blocking a payload registry</h3>
+<div class="paragraph _abstract">
+<p>In a mirroring configuration, you can block upstream payload registries in a disconnected environment by using a <code>ImageContentSourcePolicy</code> (ICSP) object.
+The following example procedure demonstrates how to block the <code>quay.io/openshift-payload</code> payload registry.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -4214,7 +4229,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </div>
 </li>
 <li>
-<p>After the object deploys onto your nodes, verify that the mirror configuration is set by checking the <code>/etc/containers/registries.conf</code> file:</p>
+<p>After the object deploys onto your nodes, verify that the mirror configuration is set by checking the <code>/etc/containers/registries.conf</code> custom resource (CR):</p>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
@@ -4229,7 +4244,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </div>
 </li>
 <li>
-<p>Use the following command to edit the <code>image.config.openshift.io</code> custom resource file:</p>
+<p>Use the following command to edit the <code>image.config.openshift.io</code> CR:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit image.config.openshift.io cluster</code></pre>
@@ -4237,7 +4252,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </div>
 </li>
 <li>
-<p>To block the payload registry, add the following configuration to the <code>image.config.openshift.io</code> custom resource file:</p>
+<p>To block the payload registry, add the following configuration to the <code>image.config.openshift.io</code> CR:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
@@ -4255,7 +4270,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <li>
 <p>Verify that the upstream payload registry is blocked by checking the <code>/etc/containers/registries.conf</code> file on the node.</p>
 <div class="listingblock">
-<div class="title">Example output</div>
+<div class="title">Example <code>/etc/containers/registries.conf</code> file</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">[[registry]]
   prefix = ""
@@ -4271,14 +4286,31 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </ul>
 </div>
 </div>
-</div>
 <div class="sect2">
 <h3 id="images-configuration-insecure_image-configuration"><a class="anchor" href="#images-configuration-insecure_image-configuration"></a>Allowing insecure registries</h3>
-<div class="paragraph">
-<p>You can add insecure registries, and optionally an individual repository within a registry, by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR). OpenShift Container Platform applies the changes to this CR to all nodes in the cluster.</p>
+<div class="paragraph _abstract">
+<p>You can add insecure registries, or an individual repository, within a registry by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR).</p>
 </div>
 <div class="paragraph">
-<p>Registries that do not use valid SSL certificates or do not require HTTPS connections are considered insecure.</p>
+<p>OpenShift Container Platform applies the changes to this CR to all nodes in the cluster. Registries that do not use valid SSL certificates or do not require HTTPS connections are considered insecure.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Avoid insecure external registries to reduce possible security risks.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>+
+:leveloffset: +1</p>
 </div>
 <div class="admonitionblock warning">
 <table>
@@ -4288,7 +4320,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Insecure external registries should be avoided to reduce possible security risks.</p>
+<p>When you define the <code>allowedRegistries</code> parameter, all registries, including <code>registry.redhat.io</code>, <code>quay.io</code>, and the default OpenShift image registry, are blocked unless explicitly listed. You must add all of the registries that your payload images require to the <code>allowedRegistries</code> list. For example, list <code>registry.redhat.io</code>, <code>quay.io</code>, and the <code>internalRegistryHostname</code> registries. For disconnected clusters, you must also add your mirror registries. Otherwise, you risk pod failure.</p>
 </div>
 </td>
 </tr>
@@ -4298,7 +4330,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>Edit the <code>image.config.openshift.io/cluster</code> custom resource:</p>
+<p>Edit the <code>image.config.openshift.io/cluster</code> custom resource (CR) by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit image.config.openshift.io/cluster</code></pre>
@@ -4321,53 +4353,20 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
   <span class="na">selfLink</span><span class="pi">:</span> <span class="s">/apis/config.openshift.io/v1/images/cluster</span>
   <span class="na">uid</span><span class="pi">:</span> <span class="s">e34555da-78a9-11e9-b92b-06d6c7da38dc</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">registrySources</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">insecureRegistries</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">registrySources</span><span class="pi">:</span>
+    <span class="na">insecureRegistries</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">insecure.com</span>
     <span class="pi">-</span> <span class="s">reg4.io/myrepo/myapp:latest</span>
     <span class="na">allowedRegistries</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">example.com</span>
     <span class="pi">-</span> <span class="s">quay.io</span>
     <span class="pi">-</span> <span class="s">registry.redhat.io</span>
-    <span class="pi">-</span> <span class="s">insecure.com</span> <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="pi">-</span> <span class="s">insecure.com</span>
     <span class="pi">-</span> <span class="s">reg4.io/myrepo/myapp:latest</span>
     <span class="pi">-</span> <span class="s">image-registry.openshift-image-registry.svc:5000</span>
 <span class="na">status</span><span class="pi">:</span>
   <span class="na">internalRegistryHostname</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000</span></code></pre>
 </div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Contains configurations that determine how the container runtime should treat individual registries when accessing images for builds and pods. It does not contain configuration for the internal cluster registry.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify an insecure registry. You can specify a repository in that registry.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Ensure that any insecure registries are included in the <code>allowedRegistries</code> list.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>When the <code>allowedRegistries</code> parameter is defined, all registries, including the registry.redhat.io and quay.io registries and the default OpenShift image registry, are blocked unless explicitly listed. If you use the parameter, to prevent pod failure, add all registries including the <code>registry.redhat.io</code> and <code>quay.io</code> registries and the <code>internalRegistryHostname</code> to the <code>allowedRegistries</code> list, as they are required by payload images within your environment. For disconnected clusters, mirror registries should also be added.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>The Machine Config Operator (MCO) watches the <code>image.config.openshift.io/cluster</code> CR for any changes to the registries, then drains and uncordons the nodes when it detects changes. After the nodes return to the <code>Ready</code> state, changes to the insecure and blocked registries appear in the <code>/etc/containers/registries.conf</code> file on each node.</p>
 </div>
 </li>
 </ul>
@@ -4376,14 +4375,14 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <div class="title">Verification</div>
 <ul>
 <li>
-<p>To check that the registries have been added to the policy file, use the following command on a node:</p>
+<p>Check that the registries are added to the policy file by running the following command on a node:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> /etc/containers/registries.conf</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The following example indicates that images from the <code>insecure.com</code> registry is insecure and is allowed for image pulls and pushes.</p>
+<p>The following example indicates that images from the <code>insecure.com</code> registry is insecure and are allowed for image pulls and pushes.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
@@ -4400,19 +4399,36 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </ul>
 </div>
 </div>
-<div class="sect2">
-<h3 id="images-configuration-shortname_image-configuration"><a class="anchor" href="#images-configuration-shortname_image-configuration"></a>Adding registries that allow image short names</h3>
-<div class="paragraph">
-<p>You can add registries to search for an image short name by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR). OpenShift Container Platform applies the changes to this CR to all nodes in the cluster.</p>
+</div>
+</div>
+<div class="sect1">
+<h2 id="images-configuration-shortname-con_image-configuration"><a class="anchor" href="#images-configuration-shortname-con_image-configuration"></a>About adding registries that allow image short names</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>With an image short name, you can search for images without including the fully qualified domain name in the pull <code>spec</code> parameter.</p>
 </div>
 <div class="paragraph">
-<p>An image short name enables you to search for images without including the fully qualified domain name in the pull spec. For example, you could use <code>rhel7/etcd</code> instead of <code>registry.access.redhat.com/rhe7/etcd</code>.</p>
+<p>For example, you could use <code>rhel7/etcd</code> instead of <code>registry.access.redhat.com/rhe7/etcd</code>. You can add registries to search for an image short name by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR).</p>
 </div>
 <div class="paragraph">
-<p>You might use short names in situations where using the full path is not practical. For example, if your cluster references multiple internal registries whose DNS changes frequently, you would need to update the fully qualified domain names in your pull specs with each change. In this case, using an image short name might be beneficial.</p>
+<p>You might use short names in situations where using the full path is not practical. For example, if your cluster references multiple internal registries whose DNS changes often, you would need to update the fully qualified domain names in your pull specs with each change. In this case, using an image short name might be beneficial.</p>
 </div>
 <div class="paragraph">
 <p>When pulling or pushing images, the container runtime searches the registries listed under the <code>registrySources</code> parameter in the <code>image.config.openshift.io/cluster</code> CR. If you created a list of registries under the <code>containerRuntimeSearchRegistries</code> parameter, when pulling an image with a short name, the container runtime searches those registries.</p>
+</div>
+<div class="sect2">
+<h3 id="images-configuration-shortname-when-not-to-use_image-configuration"><a class="anchor" href="#images-configuration-shortname-when-not-to-use_image-configuration"></a>When not to use image short names</h3>
+<div class="paragraph">
+<p>Using image short names with public registries is strongly discouraged because the image might not deploy if the public registry requires authentication. Use fully-qualified image names with public registries.</p>
+</div>
+<div class="paragraph">
+<p>Red&#160;Hat internal or private registries typically support the use of image short names.</p>
+</div>
+<div class="paragraph">
+<p>You cannot list multiple public registries under the <code>containerRuntimeSearchRegistries</code> parameter if each public registry requires different credentials and a cluster does not list the public registry in the global pull secret.</p>
+</div>
+<div class="paragraph">
+<p>For a public registry that requires authentication, you can use an image short name only if the registry has its credentials stored in the global pull secret.</p>
 </div>
 <div class="admonitionblock warning">
 <table>
@@ -4422,29 +4438,31 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Using image short names with public registries is strongly discouraged because the image might not deploy if the public registry requires authentication. Use fully-qualified image names with public registries.</p>
-</div>
-<div class="paragraph">
-<p>Red Hat internal or private registries typically support the use of image short names.</p>
-</div>
-<div class="paragraph">
 <p>If you list public registries under the <code>containerRuntimeSearchRegistries</code> parameter (including the <code>registry.redhat.io</code>, <code>docker.io</code>, and <code>quay.io</code> registries), you expose your credentials to all the registries on the list, and you risk network and registry attacks. Because you can only have one pull secret for pulling images, as defined by the global pull secret, that secret is used to authenticate against every registry in that list. Therefore, if you include public registries in the list, you introduce a security risk.</p>
-</div>
-<div class="paragraph">
-<p>You cannot list multiple public registries under the <code>containerRuntimeSearchRegistries</code> parameter if each public registry requires different credentials and a cluster does not list the public registry in the global pull secret.</p>
-</div>
-<div class="paragraph">
-<p>For a public registry that requires authentication, you can use an image short name only if the registry has its credentials stored in the global pull secret.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
-<div class="paragraph">
-<p>The Machine Config Operator (MCO) watches the <code>image.config.openshift.io/cluster</code> resource for any changes to the registries. When the MCO detects a change, it drains the nodes, applies the change, and uncordons the nodes. During this period, you might experience service unavailability. After the nodes return to the <code>Ready</code> state, if the <code>containerRuntimeSearchRegistries</code> parameter is added, the MCO creates a file in the <code>/etc/containers/registries.conf.d</code> directory on each node with the listed registries. The file overrides the default list of unqualified search registries in the <code>/etc/containers/registries.conf</code> file. There is no way to fall back to the default list of unqualified search registries.</p>
 </div>
+<div class="sect2">
+<h3 id="images-configuration-shortname_image-configuration"><a class="anchor" href="#images-configuration-shortname_image-configuration"></a>Adding registries that allow image short names</h3>
+<div class="paragraph _abstract">
+<p>You can add registries to search for an image short name by editing the <code>image.config.openshift.io/cluster</code> custom resource (CR). OpenShift Container Platform applies the changes to this CR to all nodes in the cluster.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
 <div class="paragraph">
-<p>The <code>containerRuntimeSearchRegistries</code> parameter works only with the Podman and CRI-O container engines. The registries in the list can be used only in pod specs, not in builds and image streams.</p>
+<p>When you define the <code>allowedRegistries</code> parameter, all registries, including <code>registry.redhat.io</code>, <code>quay.io</code>, and the default OpenShift image registry, are blocked unless explicitly listed. You must add all of the registries that your payload images require to the <code>allowedRegistries</code> list. For example, list <code>registry.redhat.io</code>, <code>quay.io</code>, and the <code>internalRegistryHostname</code> registries. For disconnected clusters, you must also add your mirror registries. Otherwise, you risk pod failure.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="ulist">
 <div class="title">Procedure</div>
@@ -4479,11 +4497,11 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
   <span class="na">additionalTrustedCA</span><span class="pi">:</span>
     <span class="na">name</span><span class="pi">:</span> <span class="s">myconfigmap</span>
   <span class="na">registrySources</span><span class="pi">:</span>
-    <span class="na">containerRuntimeSearchRegistries</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">containerRuntimeSearchRegistries</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">reg1.io</span>
     <span class="pi">-</span> <span class="s">reg2.io</span>
     <span class="pi">-</span> <span class="s">reg3.io</span>
-    <span class="na">allowedRegistries</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="na">allowedRegistries</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">example.com</span>
     <span class="pi">-</span> <span class="s">quay.io</span>
     <span class="pi">-</span> <span class="s">registry.redhat.io</span>
@@ -4496,40 +4514,10 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
   <span class="na">internalRegistryHostname</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify registries to use with image short names. You should use image short names with only internal or private registries to reduce possible security risks.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Ensure that any registries listed under <code>containerRuntimeSearchRegistries</code> are included in the <code>allowedRegistries</code> list.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>When the <code>allowedRegistries</code> parameter is defined, all registries, including the <code>registry.redhat.io</code> and <code>quay.io</code> registries and the default OpenShift image registry, are blocked unless explicitly listed. If you use this parameter, to prevent pod failure, add all registries including the <code>registry.redhat.io</code> and <code>quay.io</code> registries and the <code>internalRegistryHostname</code> to the <code>allowedRegistries</code> list, as they are required by payload images within your environment. For disconnected clusters, mirror registries should also be added.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Verification</div>
-<ul>
+<div class="olist arabic">
+<ol class="arabic">
 <li>
-<p>Enter the following command to obtain a list of your nodes:</p>
+<p>Get a list of your nodes by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
@@ -4544,8 +4532,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </span><span class="gp">&lt;node_name&gt;</span><span class="w">         </span>Ready    control-plane,master   37m   v1.27.8+4fab27b</code></pre>
 </div>
 </div>
-<div class="olist arabic">
-<ol class="arabic">
+</li>
 <li>
 <p>Run the following command to enter debug mode on the node:</p>
 <div class="listingblock">
@@ -4562,8 +4549,16 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </div>
 </div>
 </li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
 <li>
-<p>Enter the following command to check that the registries have been added to the policy file:</p>
+<p>Verify that registries are added to the policy file by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">cat</span> /etc/containers/registries.conf.d/01-image-searchRegistries.conf</code></pre>
@@ -4578,20 +4573,17 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </li>
 </ol>
 </div>
-</li>
-</ul>
-</div>
 </div>
 <div class="sect2">
 <h3 id="images-configuration-cas_image-configuration"><a class="anchor" href="#images-configuration-cas_image-configuration"></a>Configuring additional trust stores for image registry access</h3>
 <div class="paragraph _abstract">
-<p>You can update an <code>image.config.openshift.io/cluster</code> custom resource (CR) to include a reference to a config map that includes additional certificate authorities (CAs). You must ensure that these CAs are trusted during image registry access. The config map key is the hostname of a registry with the port for which this CA is to be trusted. The Privacy-Enhanced Mail (PEM) certificate content is the value, for each additional registry CA to trust.</p>
+<p>You can add references to a config map that has additional certificate authorities (CAs) to be trusted during image registry access to the <code>image.config.openshift.io/cluster</code> custom resource (CR).</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Ensure that a CA is PEM-encoded.</p>
+<p>The certificate authorities (CAs) must be PEM-encoded.</p>
 </li>
 </ul>
 </div>
@@ -4599,8 +4591,9 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a config map in the <code>openshift-config</code> namespace. The following example configurations show defined image registry CA that exists in a config map:</p>
+<p>Create a config map in the <code>openshift-config</code> namespace, then and use the config map name in the <code>AdditionalTrustedCA</code> parameter of the <code>image.config.openshift.io</code> CR. This adds CAs that should be trusted when the cluster contacts external image registries.</p>
 <div class="listingblock">
+<div class="title">Image registry CA config map example</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
@@ -4622,15 +4615,22 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><code>registry-with-port.example.com..5000</code></dt>
+<dt class="hdlist1"><code>data:registry.example.com:</code></dt>
 <dd>
-<p>If the registry has the port, <code>:</code> should be replaced with <code>..</code>.</p>
+<p>An example hostname of a registry for which this CA is to be trusted.</p>
+</dd>
+<dt class="hdlist1"><code>data:registry-with-port.example.com..5000:</code></dt>
+<dd>
+<p>An example hostname of a registry with the port for which this CA is to be trusted. If the registry has a port, such as <code>registry-with-port.example.com:5000</code>, <code>:</code> must be replaced with <code>..</code>.</p>
+<div class="paragraph">
+<p>The PEM certificate content is the value for each additional registry CA to trust.</p>
+</div>
 </dd>
 </dl>
 </div>
 </li>
 <li>
-<p>Configure an additional CA. Ensure that you specify the name of the CA in the AdditionalTrustedCA` parameter of the <code>image.config.openshift.io</code> CR. You can then provide additional CAs that must be trusted when contacting external registries.</p>
+<p>Optional. Configure an additional CA by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create configmap registry-config <span class="nt">--from-file</span><span class="o">=</span>&lt;external_registry_address&gt;<span class="o">=</span>ca.crt <span class="nt">-n</span> openshift-config</code></pre>
@@ -4657,8 +4657,8 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <div class="sect1">
 <h2 id="images-configuration-registry-mirror_image-configuration"><a class="anchor" href="#images-configuration-registry-mirror_image-configuration"></a>Understanding image registry repository mirroring</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>Setting up container registry repository mirroring enables you to perform the following tasks:</p>
+<div class="paragraph _abstract">
+<p>By setting up container registry repository mirroring, you can perform the following tasks:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -4679,7 +4679,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <p>Image pulls are resilient to registry downtimes.</p>
 </li>
 <li>
-<p>Clusters in disconnected environments can pull images from critical locations, such as quay.io, and have registries behind a company firewall provide the requested images.</p>
+<p>Clusters in disconnected environments can pull images from critical locations, such as <code>quay.io</code>, and have registries behind a company firewall provide the requested images.</p>
 </li>
 <li>
 <p>A particular order of registries is tried when an image pull request is made, with the permanent registry typically being the last one tried.</p>
@@ -4693,7 +4693,7 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </ul>
 </div>
 <div class="paragraph">
-<p>Setting up repository mirroring can be done in the following ways:</p>
+<p>You can set up repository mirroring in the following ways:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -4708,8 +4708,6 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <div class="paragraph">
 <p>If you did not configure mirroring during OpenShift Container Platform installation, you can do so postinstallation by using any of the following custom resource (CR) objects:</p>
 </div>
-<div class="openblock">
-<div class="content">
 <div class="ulist">
 <ul>
 <li>
@@ -4720,11 +4718,6 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </li>
 <li>
 <p><code>ImageContentSourcePolicy</code> (ICSP). This object allows you to pull images from a mirrored registry by using digest specifications. The ICSP CR always falls back to the source registry if the mirrors do not work.</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -4733,7 +4726,10 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Using an <code>ImageContentSourcePolicy</code> (ICSP) object to configure repository mirroring is a deprecated feature. Deprecated functionality is still included in OpenShift Container Platform and continues to be supported; however, it will be removed in a future release of this product and is not recommended for new deployments. If you have existing YAML files that you used to create <code>ImageContentSourcePolicy</code> objects, you can use the <code>oc adm migrate icsp</code> command to convert those files to an <code>ImageDigestMirrorSet</code> YAML file. For more information, see "Converting ImageContentSourcePolicy (ICSP) files for image registry repository mirroring" in the following section.</p>
+<p>Using an <code>ImageContentSourcePolicy</code> (ICSP) object to configure repository mirroring is a deprecated feature. Deprecated functionality is still included in OpenShift Container Platform and continues to be supported. It will be removed in a future release and is not recommended for new deployments.</p>
+</div>
+<div class="paragraph">
+<p>If you have existing YAML files that you used to create <code>ImageContentSourcePolicy</code> objects, you can use the <code>oc adm migrate icsp</code> command to convert those files to a <code>ImageDigestMirrorSet</code> YAML files. For more information, see "Converting ImageContentSourcePolicy (ICSP) files for image registry repository mirroring".</p>
 </div>
 </td>
 </tr>
@@ -4742,23 +4738,21 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </li>
 </ul>
 </div>
+</li>
+</ul>
+</div>
 <div class="paragraph">
 <p>Each of these custom resource objects identify the following information:</p>
 </div>
-<div class="openblock">
-<div class="content">
 <div class="ulist">
 <ul>
 <li>
 <p>The source of the container image repository you want to mirror.</p>
 </li>
 <li>
-<p>A separate entry for each mirror repository you want to offer the content
-requested from the source repository.</p>
+<p>A separate entry for each mirror repository you want to offer the content</p>
 </li>
 </ul>
-</div>
-</div>
 </div>
 <div class="paragraph">
 <p>Note the following actions and how they affect node drain behavior:</p>
@@ -4827,10 +4821,10 @@ requested from the source repository.</p>
 </ul>
 </div>
 <div class="paragraph">
-<p>For new clusters, you can use IDMS, ITMS, and ICSP CRs objects as desired. However, using IDMS and ITMS is recommended.</p>
+<p>For new clusters, you can use IDMS, ITMS, and ICSP CRs objects as needed. However, using IDMS and ITMS is recommended.</p>
 </div>
 <div class="paragraph">
-<p>If you upgraded a cluster, any existing ICSP objects remain stable, and both IDMS and ICSP objects are supported. Workloads using ICSP objects continue to function as expected. However, if you want to take advantage of the fallback policies introduced in the IDMS CRs, you can migrate current workloads to IDMS objects by using the <code>oc adm migrate icsp</code> command as shown in the <strong>Converting ImageContentSourcePolicy (ICSP) files for image registry repository mirroring</strong> section that follows. Migrating to IDMS objects does not require a cluster reboot.</p>
+<p>If you upgraded a cluster, any existing ICSP objects remain stable, and both IDMS and ICSP objects are supported. Workloads that use ICSP objects continue to function as expected. However, if you want to take advantage of the fallback policies introduced in the IDMS CRs, you can migrate current workloads to IDMS objects by using the <code>oc adm migrate icsp</code> command as shown in the <strong>Converting ImageContentSourcePolicy (ICSP) files for image registry repository mirroring</strong> section that follows. Migrating to IDMS objects does not require a cluster reboot.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -4846,17 +4840,9 @@ requested from the source repository.</p>
 </tr>
 </table>
 </div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p>For more information about global pull secrets, see <a href="../openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets">Updating the global cluster pull secret</a>.</p>
-</li>
-</ul>
-</div>
 <div class="sect2">
 <h3 id="images-configuration-registry-mirror-configuring_image-configuration"><a class="anchor" href="#images-configuration-registry-mirror-configuring_image-configuration"></a>Configuring image registry repository mirroring</h3>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can create postinstallation mirror configuration custom resources (CR) to redirect image pull requests from a source image registry to a mirrored image registry.</p>
 </div>
 <div class="ulist">
@@ -4877,12 +4863,19 @@ requested from the source repository.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Setting up a mirrored repository with Red&#160;Hat Quay, as described in <a href="https://access.redhat.com/documentation/en-us/red_hat_quay/3/html/manage_red_hat_quay/repo-mirroring-in-red-hat-quay">Red&#160;Hat Quay Repository Mirroring</a>. Using Red&#160;Hat Quay allows you to copy images from one repository to another and also automatically sync those repositories repeatedly over time.</p>
+<p>Setting up a mirrored repository with Red&#160;Hat Quay. You can copy images from one repository to another and also automatically sync those repositories repeatedly over time by using Red&#160;Hat Quay.</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://access.redhat.com/documentation/en-us/red_hat_quay/3/html/manage_red_hat_quay/repo-mirroring-in-red-hat-quay">Red&#160;Hat Quay Repository Mirroring</a></p>
+</li>
+</ul>
+</div>
 </li>
 <li>
 <p>Using a tool such as <code>skopeo</code> to copy images manually from the source repository to the mirrored repository.</p>
 <div class="paragraph">
-<p>For example, after installing the skopeo RPM package on a Red Hat Enterprise Linux (RHEL) 7 or RHEL 8 system, use the <code>skopeo</code> command as shown in this example:</p>
+<p>For example, after installing the skopeo RPM package on a {op-system-base-full system}, use the <code>skopeo</code> command as shown in the following example:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -4892,7 +4885,7 @@ docker://example.io/example/ubi-minimal</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>In this example, you have a container image registry that is named <code>example.io</code> with an image repository named <code>example</code> to which you want to copy the <code>ubi9/ubi-minimal</code> image from <code>registry.access.redhat.com</code>. After you create the mirrored registry, you can configure your OpenShift Container Platform cluster to redirect requests made of the source repository to the mirrored repository.</p>
+<p>In this example, you have a container image registry named <code>example.io</code> and image repository named <code>example</code>. You want to copy the <code>ubi9/ubi-minimal</code> image from <code>registry.access.redhat.com</code> to <code>example.io</code>. After you create the mirrored registry, you can configure your OpenShift Container Platform cluster to redirect requests made to the source repository to the mirrored repository.</p>
 </div>
 </li>
 </ul>
@@ -4901,127 +4894,45 @@ docker://example.io/example/ubi-minimal</code></pre>
 </div>
 </li>
 <li>
-<p>Create a postinstallation mirror configuration CR, by using one of the following examples:</p>
+<p>Create a postinstallation mirror configuration custom resource (CR), by using one of the following examples:</p>
 <div class="ulist">
 <ul>
 <li>
 <p>Create an <code>ImageDigestMirrorSet</code> or <code>ImageTagMirrorSet</code> CR, as needed, replacing the source and mirrors with your own registry and repository pairs and images:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span> <i class="conum" data-value="1"></i><b>(1)</b>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ImageDigestMirrorSet</span> <i class="conum" data-value="2"></i><b>(2)</b>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ImageDigestMirrorSet</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">ubi9repo</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">imageDigestMirrors</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">imageDigestMirrors</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">mirrors</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">example.io/example/ubi-minimal</span> <i class="conum" data-value="4"></i><b>(4)</b>
-    <span class="pi">-</span> <span class="s">example.com/example/ubi-minimal</span> <i class="conum" data-value="5"></i><b>(5)</b>
-    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.access.redhat.com/ubi9/ubi-minimal</span> <i class="conum" data-value="6"></i><b>(6)</b>
-    <span class="na">mirrorSourcePolicy</span><span class="pi">:</span> <span class="s">AllowContactingSource</span> <i class="conum" data-value="7"></i><b>(7)</b>
+    <span class="pi">-</span> <span class="s">example.io/example/ubi-minimal</span>
+    <span class="pi">-</span> <span class="s">example.com/example2/ubi-minimal</span>
+    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.access.redhat.com/ubi9/ubi-minimal</span>
+    <span class="na">mirrorSourcePolicy</span><span class="pi">:</span> <span class="s">AllowContactingSource</span>
   <span class="pi">-</span> <span class="na">mirrors</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">mirror.example.com/redhat</span>
-    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com/redhat</span> <i class="conum" data-value="8"></i><b>(8)</b>
+    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com/redhat</span>
     <span class="na">mirrorSourcePolicy</span><span class="pi">:</span> <span class="s">AllowContactingSource</span>
   <span class="pi">-</span> <span class="na">mirrors</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">mirror.example.com</span>
-    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com</span> <i class="conum" data-value="9"></i><b>(9)</b>
+    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com</span>
     <span class="na">mirrorSourcePolicy</span><span class="pi">:</span> <span class="s">AllowContactingSource</span>
   <span class="pi">-</span> <span class="na">mirrors</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">mirror.example.net/image</span>
-    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com/example/myimage</span> <i class="conum" data-value="10"></i><b>(10)</b>
+    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com/example/myimage</span>
     <span class="na">mirrorSourcePolicy</span><span class="pi">:</span> <span class="s">AllowContactingSource</span>
   <span class="pi">-</span> <span class="na">mirrors</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">mirror.example.net</span>
-    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com/example</span> <i class="conum" data-value="11"></i><b>(11)</b>
+    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com/example</span>
     <span class="na">mirrorSourcePolicy</span><span class="pi">:</span> <span class="s">AllowContactingSource</span>
   <span class="pi">-</span> <span class="na">mirrors</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">mirror.example.net/registry-example-com</span>
-    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com</span> <i class="conum" data-value="12"></i><b>(12)</b>
+    <span class="na">source</span><span class="pi">:</span> <span class="s">registry.example.com</span>
     <span class="na">mirrorSourcePolicy</span><span class="pi">:</span> <span class="s">AllowContactingSource</span></code></pre>
 </div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Indicates the API to use with this CR. This must be <code>config.openshift.io/v1</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Indicates the kind of object according to the pull type:
-<div class="ulist">
-<ul>
-<li>
-<p><code>ImageDigestMirrorSet</code>: Pulls a digest reference image.</p>
-</li>
-<li>
-<p><code>ImageTagMirrorSet</code>: Pulls a tag reference image.</p>
-</li>
-</ul>
-</div></td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Indicates the type of image pull method, either:
-<div class="ulist">
-<ul>
-<li>
-<p><code>imageDigestMirrors</code>: Use for an <code>ImageDigestMirrorSet</code> CR.</p>
-</li>
-<li>
-<p><code>imageTagMirrors</code>: Use for an <code>ImageTagMirrorSet</code> CR.</p>
-</li>
-</ul>
-</div></td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Indicates the name of the mirrored image registry and repository.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Optional: Indicates a secondary mirror repository for each target repository. If one mirror is down, the target repository can use the secondary mirror.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Indicates the registry and repository source, which is the repository that is referred to in an image pull specification.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>Optional: Indicates the fallback policy if the image pull fails:
-<div class="ulist">
-<ul>
-<li>
-<p><code>AllowContactingSource</code>: Allows continued attempts to pull the image from the source repository. This is the default.</p>
-</li>
-<li>
-<p><code>NeverContactSource</code>: Prevents continued attempts to pull the image from the source repository.</p>
-</li>
-</ul>
-</div></td>
-</tr>
-<tr>
-<td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>Optional: Indicates a namespace inside a registry, which allows you to use any image in that namespace. If you use a registry domain as a source, the object is applied to all repositories from the registry.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="9"></i><b>9</b></td>
-<td>Optional: Indicates a registry, which allows you to use any image in that registry. If you specify a registry name, the object is applied to all repositories from a source registry to a mirror registry.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="10"></i><b>10</b></td>
-<td>Pulls the image <code>registry.example.com/example/myimage@sha256:&#8230;&#8203;</code> from the mirror <code>mirror.example.net/image@sha256:..</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="11"></i><b>11</b></td>
-<td>Pulls the image <code>registry.example.com/example/image@sha256:&#8230;&#8203;</code> in the source registry namespace from the mirror <code>mirror.example.net/image@sha256:&#8230;&#8203;</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="12"></i><b>12</b></td>
-<td>Pulls the image <code>registry.example.com/myimage@sha256</code> from the mirror registry <code>example.net/registry-example-com/myimage@sha256:&#8230;&#8203;</code>.</td>
-</tr>
-</table>
 </div>
 </li>
 <li>
@@ -5035,31 +4946,34 @@ docker://example.io/example/ubi-minimal</code></pre>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">repositoryDigestMirrors</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">mirrors</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">mirror.registry.com:443/ocp/release</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">source</span><span class="pi">:</span> <span class="s">quay.io/openshift-release-dev/ocp-release</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="pi">-</span> <span class="s">mirror.registry.com:443/ocp/release</span>
+    <span class="na">source</span><span class="pi">:</span> <span class="s">quay.io/openshift-release-dev/ocp-release</span>
   <span class="pi">-</span> <span class="na">mirrors</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="s">mirror.registry.com:443/ocp/release</span>
     <span class="na">source</span><span class="pi">:</span> <span class="s">quay.io/openshift-release-dev/ocp-v4.0-art-dev</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies the name of the mirror image registry and repository.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies the online registry and repository containing the content that is mirrored.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>- mirror.registry.com:443/ocp/release</code></dt>
+<dd>
+<p>Specifies the name of the mirror image registry and repository.</p>
+</dd>
+<dt class="hdlist1"><code>source: quay.io/openshift-release-dev/ocp-release</code></dt>
+<dd>
+<p>Specifies the online registry and repository containing the content that is mirrored.</p>
+</dd>
+</dl>
 </div>
 </li>
 </ul>
 </div>
 </li>
 <li>
-<p>Create the new object:</p>
+<p>Create the new object by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> registryrepomirror.yaml</code></pre>
@@ -5124,7 +5038,7 @@ To use host binaries, run `chroot /host`</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The following output represents a <code>registries.conf</code> file where postinstallation mirror configuration CRs were applied. The final two entries are marked <code>digest-only</code> and <code>tag-only</code> respectively.</p>
+<p>The following output represents a <code>registries.conf</code> file where postinstallation mirror configuration CRs are applied.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
@@ -5134,11 +5048,11 @@ short-name-mode = ""
 
 [[registry]]
   prefix = ""
-  location = "registry.access.redhat.com/ubi9/ubi-minimal" <i class="conum" data-value="1"></i><b>(1)</b>
+  location = "registry.access.redhat.com/ubi9/ubi-minimal"
 
   [[registry.mirror]]
-    location = "example.io/example/ubi-minimal" <i class="conum" data-value="2"></i><b>(2)</b>
-    pull-from-mirror = "digest-only" <i class="conum" data-value="3"></i><b>(3)</b>
+    location = "example.io/example/ubi-minimal"
+    pull-from-mirror = "digest-only"
 
   [[registry.mirror]]
     location = "example.com/example/ubi-minimal"
@@ -5186,37 +5100,20 @@ short-name-mode = ""
 [[registry]]
   prefix = ""
   location = "registry.access.redhat.com/ubi9/ubi-minimal"
-  blocked = true <i class="conum" data-value="4"></i><b>(4)</b>
+  blocked = true
 
   [[registry.mirror]]
     location = "example.io/example/ubi-minimal-tag"
-    pull-from-mirror = "tag-only" <i class="conum" data-value="5"></i><b>(5)</b>
-</span></code></pre>
+    pull-from-mirror = "tag-only"</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Indicates the repository that is referred to in a pull spec.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Indicates the mirror for that repository.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Indicates that the image pull from the mirror is a digest reference image.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Indicates that the <code>NeverContactSource</code> parameter is set for this repository.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Indicates that the image pull from the mirror is a tag reference image.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:
+<code>[[registry]].location = "registry.access.redhat.com/ubi9/ubi-minimal"</code>:: The repository listed in a pull spec.
+<code>[[registry.mirror]].location = "example.io/example/ubi-minimal"</code>:: Indicates the mirror for that repository.
+<code>[[registry.mirror]].pull-from-mirror = "digest-only"</code>:: Means that the image pull from the mirror is a digest reference image.
+<code>[[registry]].blocked = true</code>:: Indicates that the <code>NeverContactSource</code> parameter is set for this repository.
+<code>[[registry.mirror]].pull-from-mirror = "tag-only"</code>:: Indicates that the image pull from the mirror is a tag reference image.</p>
 </div>
 </li>
 <li>
@@ -5233,8 +5130,8 @@ short-name-mode = ""
 </ol>
 </div>
 <div class="paragraph">
-<div class="title">Troubleshooting repository mirroring</div>
-<p>If the repository mirroring procedure does not work as described, use the following information about how repository mirroring works to help troubleshoot the problem.</p>
+<div class="title">Troubleshooting</div>
+<p>If the repository mirroring procedure does not work as described, use the following information about how repository mirroring works to help troubleshoot the problem:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -5254,9 +5151,76 @@ short-name-mode = ""
 </div>
 </div>
 <div class="sect2">
+<h3 id="images-configuration-registry-mirror-config-params_image-configuration"><a class="anchor" href="#images-configuration-registry-mirror-config-params_image-configuration"></a>Image registry repository mirroring configuration parameters</h3>
+<div class="paragraph _abstract">
+<p>You can use the following table for information about parameters when configuring your image repository for mirroring.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"><strong>Parameter</strong></th>
+<th class="tableblock halign-left valign-top"><strong>Values and Information</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>apiVersion:</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Required. The value must be <code>config.openshift.io/v1</code> API.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kind:</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The kind of object according to the pull type. The <code>ImageDigestMirrorSet</code> type pulls a digest reference image The <code>ImageTagMirrorSet</code> type pulls a tag reference image.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec: imageDigestMirrors:</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The type of image pull method. Use <code>imageDigestMirrors`for an `ImageDigestMirrorSet</code> CR. Use <code>imageTagMirrors</code> for an <code>ImageTagMirrorSet</code> CR.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>- mirrors: - example.io/example/ubi-minimal</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The name of the mirrored image registry and repository.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>- mirrors: -example.com/example2/ubi-minimal</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The value of this parameter is the name of a secondary mirror repository for each target repository. If one mirror is down the target repository can use the secondary mirror.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>source: registry.access.redhat.com/ubi9/ubi-minimal</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The registry and repository source. The source is the repository that is listed in an image pull specification.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirrorSourcePolicy: AllowContactingSource</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Optional parameter that indicates the fallback policy if the image pull fails. The <code>AllowContactingSource</code> value allows continued attempts to pull the image from the source repository. Default value. <code>NeverContactSource</code> prevents continued attempts to pull the image from the source repository.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>source: registry.example.com/redhat</code>: An optional parameter that indicates a namespace inside a registry. Setting a namespace inside a registry allows use of any image in that namespace. If you use a registry domain as a source, the object applies to all of the repositories from the registry.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>source: registry.example.com</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Optional parameter that indicates a registry. Allows us of any image in that registry. If you specify a registry name, the object applies to all repositories from a source registry to a mirror registry.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>source: registry.example.com/example/myimage</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pulls the image <code>registry.example.com/example/myimage@sha256:&#8230;&#8203;</code> from the mirror <code>mirror.example.net/image@sha256:..</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>source: registry.example.com/example</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pulls the image <code>registry.example.com/example/image@sha256:&#8230;&#8203;</code> in the source registry namespace from the mirror <code>mirror.example.net/image@sha256:&#8230;&#8203;</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>source: registry.example.com</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
 <h3 id="images-configuration-registry-mirror-convert_image-configuration"><a class="anchor" href="#images-configuration-registry-mirror-convert_image-configuration"></a>Converting ImageContentSourcePolicy (ICSP) files for image registry repository mirroring</h3>
+<div class="paragraph _abstract">
+<p>Using an <code>ImageContentSourcePolicy</code> (ICSP) object to configure repository mirroring is a deprecated feature.</p>
+</div>
 <div class="paragraph">
-<p>Using an <code>ImageContentSourcePolicy</code> (ICSP) object to configure repository mirroring is a deprecated feature. This functionality is still included in OpenShift Container Platform and continues to be supported; however, it will be removed in a future release of this product and is not recommended for new deployments.</p>
+<p>This functionality is still included in OpenShift Container Platform and continues to be supported; however, it will be removed in a future release of this product and is not recommended for new deployments.</p>
 </div>
 <div class="paragraph">
 <p>ICSP objects are being replaced by <code>ImageDigestMirrorSet</code> and <code>ImageTagMirrorSet</code> objects to configure repository mirroring. If you have existing YAML files that you used to create <code>ImageContentSourcePolicy</code> objects, you can use the <code>oc adm migrate icsp</code> command to convert those files to an <code>ImageDigestMirrorSet</code> YAML file. The command updates the API to the current version, changes the <code>kind</code> value to <code>ImageDigestMirrorSet</code>, and changes <code>spec.repositoryDigestMirrors</code> to <code>spec.imageDigestMirrors</code>. The rest of the file is not changed.</p>
@@ -5288,8 +5252,6 @@ short-name-mode = ""
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm migrate icsp &lt;file_name&gt;.yaml &lt;file_name&gt;.yaml &lt;file_name&gt;.yaml <span class="nt">--dest-dir</span> &lt;path_to_the_directory&gt;</code></pre>
 </div>
 </div>
-<div class="openblock">
-<div class="content">
 <div class="paragraph">
 <p>where:</p>
 </div>
@@ -5302,11 +5264,6 @@ short-name-mode = ""
 <dt class="hdlist1"><code>--dest-dir</code></dt>
 <dd>
 <p>Optional: Specifies a directory for the output <code>ImageDigestMirrorSet</code> YAML. If unset, the file is written to the current directory.</p>
-</dd>
-</dl>
-</div>
-</div>
-</div>
 <div class="paragraph">
 <p>For example, the following command converts the <code>icsp.yaml</code> and <code>icsp-2.yaml</code> file and saves the new YAML files to the <code>idms-files</code> directory.</p>
 </div>
@@ -5322,6 +5279,9 @@ short-name-mode = ""
 wrote ImageDigestMirrorSet to idms-files/imagedigestmirrorset_ubi9repo.6456931852378115011.yaml</span></code></pre>
 </div>
 </div>
+</dd>
+</dl>
+</div>
 </li>
 <li>
 <p>Create the CR object by running the following command:</p>
@@ -5330,8 +5290,6 @@ wrote ImageDigestMirrorSet to idms-files/imagedigestmirrorset_ubi9repo.645693185
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;path_to_the_directory&gt;/&lt;file-name&gt;.yaml</code></pre>
 </div>
 </div>
-<div class="openblock">
-<div class="content">
 <div class="paragraph">
 <p>where:</p>
 </div>
@@ -5347,14 +5305,30 @@ wrote ImageDigestMirrorSet to idms-files/imagedigestmirrorset_ubi9repo.645693185
 </dd>
 </dl>
 </div>
-</div>
-</div>
 </li>
 <li>
 <p>Remove the ICSP objects after the IDMS objects are rolled out.</p>
 </li>
 </ol>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources_image-configuration"><a class="anchor" href="#additional-resources_image-configuration"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="../openshift_images/image-streams-manage.html#images-imagestream-import-import-mode_image-streams-managing">Working with manifest lists</a></p>
+</li>
+<li>
+<p><a href="../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling-features-about_nodes-cluster-enabling">Understanding feature gates</a></p>
+</li>
+<li>
+<p><a href="../openshift_images/managing_images/using-image-pull-secrets.html#images-update-global-pull-secret_using-image-pull-secrets">Updating the global cluster pull secret</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>

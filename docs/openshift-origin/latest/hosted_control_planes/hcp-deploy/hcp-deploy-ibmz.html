@@ -2839,7 +2839,7 @@
 </li>
 <li><a href="#hcp-bm-create-hc-ibm-z">Creating a hosted cluster on bare metal for IBM Z</a>
 <ul class="sectlevel2">
-<li><a href="#hcp-bm-hc_hcp-deploy-ibmz">Creating a hosted cluster by using the CLI</a></li>
+<li><a href="#hcp-ibmz-create-hc_hcp-deploy-ibmz">Creating a hosted cluster on bare metal for IBM Z</a></li>
 </ul>
 </li>
 <li><a href="#hcp-ibm-z-infraenv_hcp-deploy-ibmz">Creating an InfraEnv resource for hosted control planes on IBM Z</a></li>
@@ -3121,7 +3121,7 @@ compute-1              IN A 1xx.2x.2xx.1yy</span></code></pre>
 <p>You can create a hosted cluster or import one. When the Assisted Installer is enabled as an add-on to multicluster engine Operator and you create a hosted cluster with the Agent platform, the HyperShift Operator installs the Agent Cluster API provider in the hosted control plane namespace.</p>
 </div>
 <div class="sect2">
-<h3 id="hcp-bm-hc_hcp-deploy-ibmz"><a class="anchor" href="#hcp-bm-hc_hcp-deploy-ibmz"></a>Creating a hosted cluster by using the CLI</h3>
+<h3 id="hcp-ibmz-create-hc_hcp-deploy-ibmz"><a class="anchor" href="#hcp-ibmz-create-hc_hcp-deploy-ibmz"></a>Creating a hosted cluster on bare metal for IBM Z</h3>
 <div class="paragraph">
 <p>On bare-metal infrastructure, you can create or import a hosted cluster. After you enable the Assisted Installer as an add-on to multicluster engine Operator and you create a hosted cluster with the Agent platform, the HyperShift Operator installs the Agent Cluster API provider in the hosted control plane namespace. The Agent Cluster API provider connects a management cluster that hosts the control plane and a hosted cluster that consists of only the compute nodes.</p>
 </div>
@@ -3142,30 +3142,6 @@ compute-1              IN A 1xx.2x.2xx.1yy</span></code></pre>
 </li>
 <li>
 <p>Verify that you have a default storage class configured for your cluster. Otherwise, you might see pending persistent volume claims (PVCs).</p>
-</li>
-<li>
-<p>By default when you use the <code>hcp create cluster agent</code> command, the command creates a hosted cluster with configured node ports. The preferred publishing strategy for hosted clusters on bare metal exposes services through a load balancer. If you create a hosted cluster by using the web console or by using Red&#160;Hat Advanced Cluster Management, to set a publishing strategy for a service besides the Kubernetes API server, you must manually specify the <code>servicePublishingStrategy</code> information in the <code>HostedCluster</code> custom resource.</p>
-</li>
-<li>
-<p>Ensure that you meet the requirements described in "Requirements for hosted control planes on bare metal", which includes requirements related to infrastructure, firewalls, ports, and services. For example, those requirements describe how to add the appropriate zone labels to the bare-metal hosts in your management cluster, as shown in the following example commands:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label node <span class="o">[</span>compute-node-1] topology.kubernetes.io/zone<span class="o">=</span>zone1</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label node <span class="o">[</span>compute-node-2] topology.kubernetes.io/zone<span class="o">=</span>zone2</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label node <span class="o">[</span>compute-node-3] topology.kubernetes.io/zone<span class="o">=</span>zone3</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Ensure that you have added bare-metal nodes to a hardware inventory.</p>
 </li>
 </ul>
 </div>
@@ -3258,52 +3234,6 @@ compute-1              IN A 1xx.2x.2xx.1yy</span></code></pre>
 </div>
 </li>
 <li>
-<p>Configure the service publishing strategy. By default, hosted clusters use the <code>NodePort</code> service publishing strategy because node ports are always available without additional infrastructure. However, you can configure the service publishing strategy to use a load balancer.</p>
-<div class="ulist">
-<ul>
-<li>
-<p>If you are using the default <code>NodePort</code> strategy, configure the DNS to point to the hosted cluster compute nodes, not the management cluster nodes. For more information, see "DNS configurations on bare metal".</p>
-</li>
-<li>
-<p>For production environments, use the <code>LoadBalancer</code> strategy because this strategy provides certificate handling and automatic DNS resolution. The following example demonstrates changing the service publishing <code>LoadBalancer</code> strategy in your hosted cluster configuration file:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">services</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">APIServer</span>
-    <span class="na">servicePublishingStrategy</span><span class="pi">:</span>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">LoadBalancer</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">Ignition</span>
-    <span class="na">servicePublishingStrategy</span><span class="pi">:</span>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">Route</span>
-  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">Konnectivity</span>
-    <span class="na">servicePublishingStrategy</span><span class="pi">:</span>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">Route</span>
-  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">OAuthServer</span>
-    <span class="na">servicePublishingStrategy</span><span class="pi">:</span>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">Route</span>
-  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">OIDC</span>
-    <span class="na">servicePublishingStrategy</span><span class="pi">:</span>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">Route</span>
-  <span class="na">sshKey</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;ssh_key&gt;</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify <code>LoadBalancer</code> as the API Server type. For all other services, specify <code>Route</code> as the type.</td>
-</tr>
-</table>
-</div>
-</li>
-</ul>
-</div>
-</li>
-<li>
 <p>Apply the changes to the hosted cluster configuration file by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
@@ -3316,263 +3246,27 @@ compute-1              IN A 1xx.2x.2xx.1yy</span></code></pre>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hostedcluster <span class="se">\</span>
-  &lt;hosted_cluster_namespace&gt; <span class="nt">-n</span> <span class="se">\</span>
+  &lt;hosted_cluster_name&gt; <span class="nt">-n</span> <span class="se">\</span>
   &lt;hosted_cluster_namespace&gt; <span class="nt">-o</span> <span class="se">\</span>
   <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.status=="False")]}'</span> | jq .</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodepool <span class="se">\</span>
-  &lt;hosted_cluster_namespace&gt; <span class="nt">-n</span> <span class="se">\</span>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hostedcluster <span class="se">\</span>
+  &lt;nodepool_name&gt; <span class="nt">-n</span> <span class="se">\</span>
   &lt;hosted_cluster_namespace&gt; <span class="nt">-o</span> <span class="se">\</span>
   <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.status=="False")]}'</span> | jq .</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt;</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> &lt;hosted_control_plane_namespace&gt;</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Confirm that the hosted cluster is ready. The status of <code>Available: True</code> indicates the readiness of the cluster and the node pool status shows <code>AllMachinesReady: True</code>. These statuses indicate the healthiness of all cluster Operators.</p>
-</li>
-<li>
-<p>Install MetalLB in the hosted cluster:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Extract the <code>kubeconfig</code> file from the hosted cluster and set the environment variable for hosted cluster access by entering the following commands:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secret <span class="se">\</span>
-  &lt;hosted_cluster_namespace&gt;-admin-kubeconfig <span class="se">\</span>
-  <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
-  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.kubeconfig}'</span> <span class="se">\</span>
-  | <span class="nb">base64</span> <span class="nt">-d</span> <span class="o">&gt;</span> <span class="se">\</span>
-  kubeconfig-&lt;hosted_cluster_namespace&gt;.yaml</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="s2">"/path/to/kubeconfig-&lt;hosted_cluster_namespace&gt;.yaml"</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Install the MetalLB Operator by creating the <code>install-metallb-operator.yaml</code> file:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-system</span>
-<span class="nn">---</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">OperatorGroup</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-operator</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">metallb-system</span>
-<span class="nn">---</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1alpha1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Subscription</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-operator</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">metallb-system</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">channel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">stable"</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-operator</span>
-  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators</span>
-  <span class="na">sourceNamespace</span><span class="pi">:</span> <span class="s">openshift-marketplace</span>
-  <span class="na">installPlanApproval</span><span class="pi">:</span> <span class="s">Automatic</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Apply the file by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> install-metallb-operator.yaml</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Configure the MetalLB IP address pool by creating the <code>deploy-metallb-ipaddresspool.yaml</code> file:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">metallb.io/v1beta1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">IPAddressPool</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">metallb-system</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">autoAssign</span><span class="pi">:</span> <span class="no">true</span>
-  <span class="na">addresses</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">10.11.176.71-10.11.176.75</span>
-<span class="nn">---</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">metallb.io/v1beta1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">L2Advertisement</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">l2advertisement</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">metallb-system</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">ipAddressPools</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">metallb</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Apply the configuration by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> deploy-metallb-ipaddresspool.yaml</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Verify the installation of MetalLB by checking the Operator status, the IP address pool, and the <code>L2Advertisement</code> resource by entering the following commands:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> metallb-system</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ipaddresspool <span class="nt">-n</span> metallb-system</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get l2advertisement <span class="nt">-n</span> metallb-system</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</li>
-<li>
-<p>Configure the load balancer for ingress:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Create the <code>ingress-loadbalancer.yaml</code> file:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">annotations</span><span class="pi">:</span>
-    <span class="s">metallb.universe.tf/address-pool</span><span class="pi">:</span> <span class="s">metallb</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-ingress</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ingress</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">ports</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http</span>
-      <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
-      <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
-      <span class="na">targetPort</span><span class="pi">:</span> <span class="m">80</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">https</span>
-      <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
-      <span class="na">port</span><span class="pi">:</span> <span class="m">443</span>
-      <span class="na">targetPort</span><span class="pi">:</span> <span class="m">443</span>
-  <span class="na">selector</span><span class="pi">:</span>
-    <span class="s">ingresscontroller.operator.openshift.io/deployment-ingresscontroller</span><span class="pi">:</span> <span class="s">default</span>
-  <span class="na">type</span><span class="pi">:</span> <span class="s">LoadBalancer</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Apply the configuration by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> ingress-loadbalancer.yaml</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Verify that the load balancer service works as expected by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get svc metallb-ingress <span class="nt">-n</span> openshift-ingress</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">NAME              TYPE           CLUSTER-IP       EXTERNAL-IP    PORT(S)                      AGE
-metallb-ingress   LoadBalancer   172.31.127.129   10.11.176.71   80:30961/TCP,443:32090/TCP   16h</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</li>
-<li>
-<p>Configure the DNS to work with the load balancer:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Configure the DNS for the <code>apps</code> domain by pointing the <code>*.apps.&lt;hosted_cluster_namespace&gt;.&lt;base_domain&gt;</code> wildcard DNS record to the load balancer IP address.</p>
-</li>
-<li>
-<p>Verify the DNS resolution by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>nslookup console-openshift-console.apps.&lt;hosted_cluster_namespace&gt;.&lt;base_domain&gt; &lt;load_balancer_ip_address&gt;</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">Server:         10.11.176.1
-Address:        10.11.176.1#53
-
-Name:   console-openshift-console.apps.my-hosted-cluster.sample-base-domain.com
-Address: 10.11.176.71</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</li>
-</ol>
-</div>
-<div class="olist arabic">
-<div class="title">Verification</div>
-<ol class="arabic">
-<li>
-<p>Check the cluster Operators by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteroperators</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Ensure that all Operators show <code>AVAILABLE: True</code>, <code>PROGRESSING: False</code>, and <code>DEGRADED: False</code>.</p>
-</div>
-</li>
-<li>
-<p>Check the nodes by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Ensure that each node has the <code>READY</code> status.</p>
-</div>
-</li>
-<li>
-<p>Test access to the console by entering the following URL in a web browser:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">https://console-openshift-console.apps.&lt;hosted_cluster_namespace&gt;.&lt;base_domain&gt;</code></pre>
-</div>
-</div>
+<p>Confirm that the hosted cluster is ready. The status of <code>Available: True</code> indicates the readiness of the control plane.</p>
 </li>
 </ol>
 </div>

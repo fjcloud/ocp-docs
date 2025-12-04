@@ -3421,7 +3421,15 @@
 <p>To require a specific SCC for a workload, you can add an SCC to a specific user or group by using the <code>oc adm policy add-scc-to-user</code> or <code>oc adm policy add-scc-to-group</code> command. For more information, see the "OpenShift CLI administrator command reference".</p>
 </div>
 <div class="paragraph">
-<p>Also, you can optionally use the <code>procMount</code> parameter in a pod specification to configure the <code>/proc</code> file system in pods as <code>unmasked</code>. Setting <code>/proc</code> to <code>unmasked</code>, which is generally considered as safe, bypasses the default masking behavior of the container runtime, and should be used only with an SCC that sets <code>hostUsers</code> to <code>false</code>.</p>
+<p>Also, you can optionally use the <code>procMount</code> parameter in a pod specification to configure the <code>/proc</code> file system in pods as <code>unmasked</code>. Setting <code>/proc</code> to <code>unmasked</code>, which is generally considered as safe, bypasses the default masking behavior of the container runtime, and should be used only with an SCC that sets <code>userNamespaceLevel</code> to <code>RequirePodLevel</code>.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Log into an OpenShift Container Platform cluster as a user configured with the <code>restricted-v3</code> or <code>nested-container</code> SCC, or as a user from a user group configured with either SCC. Alternatively, you can set the <code>restricted-v3</code> or <code>nested-container</code> SCC directly in the workload object.</p>
+</li>
+</ul>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3444,24 +3452,31 @@
     <span class="s">openshift.io/display-name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
     <span class="s">openshift.io/requester</span><span class="pi">:</span> <span class="s">system:admin</span>
     <span class="s">openshift.io/sa.scc.mcs</span><span class="pi">:</span> <span class="s">s0:c27,c24</span>
-    <span class="s">openshift.io/sa.scc.supplemental-groups</span><span class="pi">:</span> <span class="s">1000/10000</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="s">openshift.io/sa.scc.uid-range</span><span class="pi">:</span> <span class="s">1000/10000</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="s">openshift.io/sa.scc.supplemental-groups</span><span class="pi">:</span> <span class="s">1000/10000</span>
+    <span class="s">openshift.io/sa.scc.uid-range</span><span class="pi">:</span> <span class="s">1000/10000</span>
 <span class="c1"># ...</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">userns</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies the default GID to require in the pod spec. The range for a Linux user namespace must be <code>65535</code> or lower. The default is <code>1000000000/10000</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies the default UID to require in the pod spec. The range for a Linux user namespace must be <code>65535</code> or lower. The default is <code>1000000000/10000</code>.</td>
-</tr>
-</table>
+<div class="openblock">
+<div class="content">
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>metadata.annotations.openshift.io/sa.scc.supplemental-groups</code></dt>
+<dd>
+<p>Specifies the default GID to require in the pod spec. The range for a Linux user namespace must be <code>65535</code> or lower. The default is <code>1000000000/10000</code>.</p>
+</dd>
+<dt class="hdlist1"><code>metadata.annotations.openshift.io/sa.scc.uid-range</code></dt>
+<dd>
+<p>Specifies the default UID to require in the pod spec. The range for a Linux user namespace must be <code>65535</code> or lower. The default is <code>1000000000/10000</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3490,65 +3505,59 @@
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">userns</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">userns-pod</span>
-<span class="c1"># ...</span>
 <span class="na">spec</span><span class="pi">:</span>
-<span class="c1">#...</span>
-  <span class="na">template</span><span class="pi">:</span>
-    <span class="na">metadata</span><span class="pi">:</span>
-      <span class="na">labels</span><span class="pi">:</span>
-        <span class="na">app</span><span class="pi">:</span> <span class="s">name</span>
-      <span class="na">annotations</span><span class="pi">:</span>
-        <span class="s">openshift.io/required-scc</span><span class="pi">:</span> <span class="s2">"</span><span class="s">restricted-v3"</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">spec</span><span class="pi">:</span>
-      <span class="na">hostUsers</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="2"></i><b>(2)</b>
-      <span class="na">containers</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">userns-container</span>
-        <span class="na">image</span><span class="pi">:</span> <span class="s">registry.access.redhat.com/ubi9</span>
-        <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">sleep"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">1000"</span><span class="pi">]</span>
-        <span class="na">securityContext</span><span class="pi">:</span>
-          <span class="na">capabilities</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
-            <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ALL"</span><span class="pi">]</span>
-          <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
-          <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="4"></i><b>(4)</b>
-          <span class="na">procMount</span><span class="pi">:</span> <span class="s">Unmasked</span> <i class="conum" data-value="5"></i><b>(5)</b>
-          <span class="na">runAsUser</span><span class="pi">:</span> <span class="s">1000</span> <i class="conum" data-value="6"></i><b>(6)</b>
-          <span class="na">runAsGroup</span><span class="pi">:</span> <span class="s">1000</span> <i class="conum" data-value="7"></i><b>(7)</b>
+  <span class="na">securityContext</span><span class="pi">:</span>
+    <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">seccompProfile</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+  <span class="na">hostUsers</span><span class="pi">:</span> <span class="no">false</span>
+  <span class="na">containers</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">userns-container</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">registry.access.redhat.com/ubi9</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">sleep"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">1000"</span><span class="pi">]</span>
+    <span class="na">securityContext</span><span class="pi">:</span>
+      <span class="na">runAsUser</span><span class="pi">:</span> <span class="m">1000</span>
+      <span class="na">runAsGroup</span><span class="pi">:</span> <span class="m">1000</span>
+      <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">procMount</span><span class="pi">:</span> <span class="s">Unmasked</span>
+      <span class="na">capabilities</span><span class="pi">:</span>
+        <span class="na">add</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">SETGID"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">SETUID"</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies the SCC to use with this workload.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies whether the pod is to be run in a user namespace. If <code>false</code>, the pod runs in a new user namespace that is created for the pod. If <code>true</code>, the pod runs in the host user namespace. The default is <code>true</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td><code>capabilities</code> permit privileged actions without giving full root access. Technically, setting capabilities inside of a user namespace is safer than setting them outside, as the scope of the capabilities are limited by being inside user namespace, and can generally be considered to be safe. However, giving pods capabilities like <code>CAP_SYS_ADMIN</code> to any untrusted workload could increase the potential kernel surface area that a containerized process has access to and could find exploits in. Thus, capabilities inside of a user namespace are allowed at <code>baseline</code> level in pod security admission.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Specifies that processes inside the container run with a user that has any UID other than 0.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Optional: Specifies the type of proc mount to use for the containers. The <code>unmasked</code> value ensures that a container&#8217;s <code>/proc</code> file system is mounted as read/write by the container process. The default is <code>Default</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Specifies the user ID for processes that run inside of the container. This must fall in the range that you set in the <code>namespace</code> object.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>Specifies the group ID for processes that run inside of the containers. This must fall in the range that you set in the <code>namespace</code> object.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.hostUsers</code></dt>
+<dd>
+<p>Specifies whether the pod is to be run in a user namespace. If <code>false</code>, the pod runs in a new user namespace that is created for the pod. If <code>true</code>, the pod runs in the host user namespace. The default is <code>true</code>.</p>
+</dd>
+<dt class="hdlist1"><code>spec.containers.securityContext.runAsUser</code></dt>
+<dd>
+<p>Specifies the user ID for processes that run inside of the container. This must fall in the range that you set in the <code>namespace</code> object.</p>
+</dd>
+<dt class="hdlist1"><code>spec.containers.securityContext.runAsGroup</code></dt>
+<dd>
+<p>Specifies the group ID for processes that run inside of the containers. This must fall in the range that you set in the <code>namespace</code> object.</p>
+</dd>
+<dt class="hdlist1"><code>spec.containers.securityContext.runAsNonRoot</code></dt>
+<dd>
+<p>Specifies that processes inside the container run with a user that has any UID other than 0.</p>
+</dd>
+<dt class="hdlist1"><code>spec.containers.securityContext.procMount</code></dt>
+<dd>
+<p>Specifies the type of proc mount to use for the containers. The <code>unmasked</code> value ensures that a container&#8217;s <code>/proc</code> file system is mounted as read/write by the container process. The default is <code>Default</code>. This value is optional.</p>
+</dd>
+<dt class="hdlist1"><code>spec.containers.securityContext.capabilities.add</code></dt>
+<dd>
+<p>Specifies Linux capabilities to set in the user namespace. This permits privileged actions without giving full root access. Technically, setting capabilities inside of a user namespace is safer than setting them outside, as the scope of the capabilities are limited by being inside user namespace, and can generally be considered to be safe. However, giving pods capabilities like <code>CAP_SYS_ADMIN</code> to any untrusted workload could increase the potential kernel surface area that a containerized process has access to and could find exploits in. Thus, capabilities inside of a user namespace are allowed at <code>baseline</code> level in pod security admission. This value is optional.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3581,7 +3590,7 @@
 <div class="listingblock">
 <div class="title">Example command</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-c</span> userns-container_name pod/userns-pod</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-c</span> userns-container pod/userns-pod</code></pre>
 </div>
 </div>
 </li>
@@ -3630,6 +3639,14 @@
 <td>The UID for the process should be the same as you set in the pod spec.</td>
 </tr>
 </table>
+</div>
+</li>
+<li>
+<p>Exit the container shell session by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1$</span><span class="w"> </span><span class="nb">exit</span></code></pre>
+</div>
 </div>
 </li>
 </ol>
