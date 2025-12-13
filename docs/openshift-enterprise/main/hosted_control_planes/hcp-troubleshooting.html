@@ -1198,15 +1198,16 @@
               <ul id="topicSubGroup-13-3" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../networking/multiple_networks/understanding-multiple-networks.html">Understanding multiple networks</a></li>
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-13-3-1"><span id="ssgSpan-13-3-1" class="fa fa-caret-right"></span>&nbsp;Primary networks</a>
-                  <ul id="topicSubSubGroup-13-3-1" class="nav-tertiary list-unstyled collapse">
+                  <li><a class="" href="../networking/multiple_networks/use-cases-secondary-network.html">Use cases for a secondary network</a></li>
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-13-3-2"><span id="ssgSpan-13-3-2" class="fa fa-caret-right"></span>&nbsp;Primary networks</a>
+                  <ul id="topicSubSubGroup-13-3-2" class="nav-tertiary list-unstyled collapse">
 
                     <li><a class="" href="../networking/multiple_networks/primary_networks/about-user-defined-networks.html" style="padding-left: 70px;">UserDefinedNetwork CR</a></li>
                     <li><a class="" href="../networking/multiple_networks/primary_networks/about-primary-nwt-nad.html" style="padding-left: 70px;">NetworkAttachmentDefinition CR</a></li>                  </ul>
                   </li>
 
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-13-3-2"><span id="ssgSpan-13-3-2" class="fa fa-caret-right"></span>&nbsp;Secondary networks</a>
-                  <ul id="topicSubSubGroup-13-3-2" class="nav-tertiary list-unstyled collapse">
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-13-3-3"><span id="ssgSpan-13-3-3" class="fa fa-caret-right"></span>&nbsp;Secondary networks</a>
+                  <ul id="topicSubSubGroup-13-3-3" class="nav-tertiary list-unstyled collapse">
 
                     <li><a class="" href="../networking/multiple_networks/secondary_networks/creating-secondary-nwt-ovnk.html" style="padding-left: 70px;">Creating secondary networks on OVN-Kubernetes</a></li>
                     <li><a class="" href="../networking/multiple_networks/secondary_networks/creating-secondary-nwt-other-cni.html" style="padding-left: 70px;">Creating secondary networks with other CNI plugins</a></li>
@@ -3408,6 +3409,15 @@
 <li><a href="#hosted-control-planes-pause-reconciliation_hcp-troubleshooting">Pausing the reconciliation of a hosted cluster and hosted control plane</a></li>
 <li><a href="#scale-down-data-plane_hcp-troubleshooting">Scaling down the data plane to zero</a></li>
 <li><a href="#agent-service-failure_hcp-troubleshooting">Agent service failures and agents not joining the cluster</a></li>
+<li><a href="#hcp-ts-internal-subnets_hcp-troubleshooting">Troubleshooting internal subnets for hosted clusters</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-ts-ovnkubernetes_hcp-troubleshooting">Configuring the ovnKubernetesConfig object fails with an error</a></li>
+<li><a href="#hcp-ts-identical-subnet-fields_hcp-troubleshooting">Setting CIDR values in internal subnet fields</a></li>
+<li><a href="#hcp-ts-subnet-cidr-format_hcp-troubleshooting">Ensuring a valid IPv4 CIDR format</a></li>
+<li><a href="#hcp-ts-cidr-overlap_hcp-troubleshooting">Avoiding an overlap between OVN subnets and CIDR values</a></li>
+<li><a href="#hcp-ts-nodes-not-ready_hcp-troubleshooting">Resolving a stuck OVN rollout</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <div class="paragraph">
@@ -4526,6 +4536,192 @@ As a workaround, you can disable signature verification by modifying the contain
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-ts-internal-subnets_hcp-troubleshooting"><a class="anchor" href="#hcp-ts-internal-subnets_hcp-troubleshooting"></a>Troubleshooting internal subnets for hosted clusters</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>If you encounter issues releated to subnets on hosted control planes, the following information can help you determine the cause and find a resolution.</p>
+</div>
+<div class="paragraph">
+<p>The following known limitations exist related to internal subnets on hosted clusters:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>IPv6 subnets are not supported.</p>
+</li>
+<li>
+<p>The hosted control planes command-line interface, <code>hcp</code>, might not have native flags for the subnet fields. Manual YAML editing or <code>oc patch</code> is required.</p>
+</li>
+<li>
+<p>Modifying OVN subnets after you create a cluster triggers a rollout of OVN components, which might cause brief network disruptions.</p>
+</li>
+<li>
+<p>You cannot modify OVN subnet configuration while a cluster update is in progress or scheduled.</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="hcp-ts-ovnkubernetes_hcp-troubleshooting"><a class="anchor" href="#hcp-ts-ovnkubernetes_hcp-troubleshooting"></a>Configuring the ovnKubernetesConfig object fails with an error</h3>
+<div class="paragraph">
+<p>When you try to configure the <code>ovnKubernetesConfig</code> object on a hosted cluster by using a different network type, such as <code>OpenShiftSDN</code>, an error occurs because hosted control planes works only with the <code>OVNKubernetes</code> network type.</p>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Verify the network type of your hosted cluster by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hostedcluster &lt;hosted_cluster_name&gt; <span class="nt">-n</span> &lt;hosted_control_plane_namespace&gt; <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.networking.networkType}'</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-ts-identical-subnet-fields_hcp-troubleshooting"><a class="anchor" href="#hcp-ts-identical-subnet-fields_hcp-troubleshooting"></a>Setting CIDR values in internal subnet fields</h3>
+<div class="paragraph">
+<p>If the <code>internalJoinSubnet</code> field and the <code>internalTransitSwitchSubnet</code> field are set to the same CIDR values, an error occurs.</p>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Use different subnets for each field, as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+  <span class="na">ipv4</span><span class="pi">:</span>
+    <span class="na">internalJoinSubnet</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100.99.0.0/16"</span>
+    <span class="na">internalTransitSwitchSubnet</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100.69.0.0/16"</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-ts-subnet-cidr-format_hcp-troubleshooting"><a class="anchor" href="#hcp-ts-subnet-cidr-format_hcp-troubleshooting"></a>Ensuring a valid IPv4 CIDR format</h3>
+<div class="paragraph">
+<p>If you do not specify subnets in a valid CIDR format, an error occurs.</p>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Ensure that the CIDR format follows the following format:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">X.X.X.X/Y</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>X</code></dt>
+<dd>
+<p>is a value from <code>0</code> to <code>255</code>. The first octet must not be <code>0</code>.</p>
+</dd>
+<dt class="hdlist1"><code>Y</code></dt>
+<dd>
+<p>is a value from <code>0</code> to <code>30</code>.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="title">Valid examples</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">100.99.0.0/16
+192.168.1.0/24</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Invalid examples</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">100.99.0.0
+256.1.1.0/16
+0.99.0.0/16</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-ts-cidr-overlap_hcp-troubleshooting"><a class="anchor" href="#hcp-ts-cidr-overlap_hcp-troubleshooting"></a>Avoiding an overlap between OVN subnets and CIDR values</h3>
+<div class="paragraph">
+<p>If the configured OVN subnets overlap with the machine classless inter-domain routing (CIDR), service CIDR, cluster network CIDR, or with each other, an error occurs.</p>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Use subnets that do not overlap with any network CIDR. You can use a CIDR calculator to verify that no overlaps exist.</p>
+<div class="listingblock">
+<div class="title">Example of configuration with no overlaps</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">networking</span><span class="pi">:</span>
+    <span class="na">machineCIDR</span><span class="pi">:</span> <span class="s">10.0.0.0/16</span>
+    <span class="na">serviceCIDR</span><span class="pi">:</span> <span class="s">172.30.0.0/16</span>
+    <span class="na">clusterNetwork</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">cidr</span><span class="pi">:</span> <span class="s">10.128.0.0/14</span>
+
+  <span class="na">operatorConfiguration</span><span class="pi">:</span>
+    <span class="na">clusterNetworkOperator</span><span class="pi">:</span>
+      <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+        <span class="na">ipv4</span><span class="pi">:</span>
+          <span class="na">internalJoinSubnet</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100.99.0.0/16"</span>
+          <span class="na">internalTransitSwitchSubnet</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100.69.0.0/16"</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-ts-nodes-not-ready_hcp-troubleshooting"><a class="anchor" href="#hcp-ts-nodes-not-ready_hcp-troubleshooting"></a>Resolving a stuck OVN rollout</h3>
+<div class="paragraph">
+<p>After you change an existing configuration, the OVN component rollout might take a long time or encounter issues.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check the status of the <code>ovnkube-node</code> DaemonSet rollout by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rollout status daemonset/ovnkube-node <span class="se">\</span>
+  <span class="nt">-n</span> openshift-ovn-kubernetes <span class="se">\</span>
+  <span class="nt">--kubeconfig</span><span class="o">=</span>hosted-kubeconfig</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the pod logs for errors by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ovn-kubernetes <span class="se">\</span>
+  <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>ovnkube-node <span class="se">\</span>
+  <span class="nt">--kubeconfig</span><span class="o">=</span>hosted-kubeconfig</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>If the rollout is stuck, you might need to revert the configuration change.</p>
+</div>
 </div>
 </div>
 </div>
