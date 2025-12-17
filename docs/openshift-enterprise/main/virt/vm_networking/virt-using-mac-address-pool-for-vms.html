@@ -2285,6 +2285,7 @@
                   <li><a class="" href="../../ai_workloads/kueue/rbac-permissions.html">Configuring role-based permissions</a></li>
                   <li><a class="" href="../../ai_workloads/kueue/configuring-quotas.html">Configuring quotas</a></li>
                   <li><a class="" href="../../ai_workloads/kueue/managing-workloads.html">Managing jobs and workloads</a></li>
+                  <li><a class="" href="../../ai_workloads/kueue/monitoring-pending-workloads.html">Monitoring pending workloads</a></li>
                   <li><a class="" href="../../ai_workloads/kueue/using-cohorts.html">Using cohorts</a></li>
                   <li><a class="" href="../../ai_workloads/kueue/configuring-fairsharing.html">Configuring fair sharing</a></li>
                   <li><a class="" href="../../ai_workloads/kueue/gangscheduling.html">Gang scheduling</a></li>
@@ -3385,10 +3386,11 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#virt-managing-kubemacpool-cli_virt-using-mac-address-pool-for-vms">Managing KubeMacPool by using the CLI</a></li>
+<li><a href="#virt-custom-kubemacpool-range_virt-using-mac-address-pool-for-vms">Customizing the MAC pool range</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>The <em>KubeMacPool</em> component allocates MAC addresses for virtual machine (VM) network interfaces from a shared MAC address pool. This ensures that each network interface is assigned a unique MAC address.</p>
+<div class="paragraph _abstract">
+<p>KubeMacPool allocates MAC addresses for virtual machine (VM) network interfaces from a shared MAC address pool. This ensures that each network interface is assigned a unique MAC address.</p>
 </div>
 <div class="paragraph">
 <p>A virtual machine instance created from that VM retains the assigned MAC address across reboots.</p>
@@ -3446,6 +3448,103 @@
 </div>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-custom-kubemacpool-range_virt-using-mac-address-pool-for-vms"><a class="anchor" href="#virt-custom-kubemacpool-range_virt-using-mac-address-pool-for-vms"></a>Customizing the MAC pool range</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>KubeMacPool works by allocating MAC addresses to VMs from a range. The <code>rangeStart</code> and <code>rangeEnd</code> parameters in the <code>HyperConverged</code> custom resource (CR) define the MAC pool range.</p>
+</div>
+<div class="paragraph">
+<p>As a cluster administrator, you can configure this range to ensure that MAC addresses for VMs hosted on OpenShift Virtualization do not conflict with other virtualization solutions on the same network.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have cluster administrator access on an OpenShift Container Platform cluster.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the <code>HyperConverged</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit hyperconverged kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Update the <code>HyperConverged</code> CR to configure the <code>rangeStart</code> and <code>rangeEnd</code> parameters that define your required MAC address range:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hco.kubevirt.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HyperConverged</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt-hyperconverged</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">kubeMacPoolConfiguration</span><span class="pi">:</span>
+    <span class="na">rangeStart</span><span class="pi">:</span> <span class="s2">"</span><span class="s">AA:00:00:00:00:00"</span>
+    <span class="na">rangeEnd</span><span class="pi">:</span> <span class="s2">"</span><span class="s">FD:FF:FF:FF:FF:FF"</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Run the following command and observe the output:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hco kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.kubeMacPoolConfiguration}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you have successfully applied the configuration changes, the output shows the new MAC pool range you have configured:</p>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+  "rangeStart": "AA:00:00:00:00:00",
+  "rangeEnd": "FD:FF:FF:FF:FF:FF"
+}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optional. Create a new VM and run the following command to check the MAC address of the VM&#8217;s network interface:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get vmi &lt;vm-name&gt; <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.interfaces[0].macAddress}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">macAddress</span><span class="pi">:</span> <span class="s">AA:00:00:00:00:04</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you have successfully applied the configuration changes, the <code>macAddress</code> field in the VM interface is within the range you specified in your <code>kubeMacPoolConfiguration</code>, between the value of <code>rangeStart</code> and <code>rangeEnd</code>.</p>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
