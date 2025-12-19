@@ -1264,8 +1264,8 @@
 </div>
 <div id="preamble">
 <div class="sectionbody">
-<div class="paragraph">
-<p>This document describes how to manage compute (also known as worker) nodes with Red Hat OpenShift Service on AWS.</p>
+<div class="paragraph _abstract">
+<p>With Red Hat OpenShift Service on AWS, you can manage compute (also known as worker) nodes to create and configure optimal compute capacity for your workloads.</p>
 </div>
 <div class="paragraph">
 <p>The majority of changes for compute nodes are configured on machine pools. A machine pool is a group of compute nodes in a cluster that have the same configuration, providing ease of management.</p>
@@ -1292,7 +1292,7 @@
 <div class="ulist">
 <ul>
 <li>
-<p>You have installed the ROSA CLI version 1.2.57 or above.</p>
+<p>You installed and configured the latest ROSA CLI.</p>
 </li>
 <li>
 <p>Your Red Hat OpenShift Service on AWS cluster is version 4.19 or later.</p>
@@ -1308,9 +1308,6 @@
 </li>
 <li>
 <p>You cannot use autoscaling on a machine pool with configured Capacity Reservations.</p>
-</li>
-<li>
-<p>You cannot upgrade a machine pool with configured Capacity Reservations.</p>
 </li>
 </ul>
 </div>
@@ -1817,7 +1814,7 @@ Message:</span></code></pre>
 </div>
 <div class="sect2">
 <h3 id="creating_machine_pools_cli_capres_rosa-managing-worker-nodes"><a class="anchor" href="#creating_machine_pools_cli_capres_rosa-managing-worker-nodes"></a>Creating a machine pool with Capacity Reservations using the ROSA CLI</h3>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can create a new machine pool with Capacity Reservations by using the ROSA command-line interface (CLI) (<code>rosa</code>). Both On-Demand Capacity Reservations and Capacity Blocks for ML are supported.</p>
 </div>
 <div class="admonitionblock note">
@@ -1828,7 +1825,7 @@ Message:</span></code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Currently, upgrading machine pools and enabling autoscaling is not suppored on machine pools with Capacity Reservations.</p>
+<p>Currently, autoscaling is not supported on machine pools with Capacity Reservations.</p>
 </div>
 </td>
 </tr>
@@ -1838,7 +1835,7 @@ Message:</span></code></pre>
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You installed and configured the ROSA CLI version 1.2.57 or above.</p>
+<p>You installed and configured the latest ROSA CLI.</p>
 </li>
 <li>
 <p>You logged in to your Red&#160;Hat account using the ROSA CLI.</p>
@@ -1858,18 +1855,20 @@ Message:</span></code></pre>
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>Create the machine pool and define the instance type, worker node count, and Capacity Reservation ID by running the following command:</p>
-<div class="openblock">
-<div class="content">
+<p>Create the machine pool and define the Capacity Reservation preference and ID by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa create machinepool <span class="nt">--cluster</span><span class="o">=</span>&lt;cluster-name&gt; <span class="se">\</span>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa create machinepool <span class="nt">--cluster</span><span class="o">=</span>&lt;cluster_name&gt; <span class="se">\</span>
                           <span class="nt">--name</span><span class="o">=</span>&lt;machine_pool_id&gt; <span class="se">\</span>
                           <span class="nt">--replicas</span><span class="o">=</span>&lt;replica_count&gt; <span class="se">\</span>
+                          <span class="nt">--capacity-reservation-preference</span> none | open | capacity-reservations-only <span class="se">\</span>
                           <span class="nt">--capacity-reservation-id</span> cr-&lt;capacity_reservation_id&gt; <span class="se">\</span>
                           <span class="nt">--instance-type</span><span class="o">=</span>&lt;instance_type&gt; <span class="se">\</span>
                           <span class="nt">--subnet</span> &lt;subnet_id&gt;</code></pre>
 </div>
+</div>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>where:</p>
@@ -1884,6 +1883,23 @@ Message:</span></code></pre>
 <dd>
 <p>Specifies the number of provisioned compute nodes. If you deploy Red Hat OpenShift Service on AWS using a single AZ, this defines the number of compute nodes provisioned to the machine pool for the AZ. If you deploy your cluster using multiple AZs, this defines the total number of compute nodes provisioned across all AZs. For multi-zone clusters, the compute node count must be a multiple of 3. The <code>--replicas</code> argument is required when autoscaling is not configured.</p>
 </dd>
+<dt class="hdlist1"><strong>&lt;capacity_reservation_preference&gt;</strong></dt>
+<dd>
+<p>Specifies the Capacity Reservation behaviour. Valid preferences include:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>none</code>: The instance does not use a Capacity Reservation even if one is available. The instance runs as an EC2 On-Demand instance. Choose this option when you want to avoid consuming purchased reserved capacity and use it for other workloads.</p>
+</li>
+<li>
+<p><code>open</code>: The instance can run in any <code>open</code> Capacity Reservation that has matching attributes such as the instance type, platform, AZ, or tenancy. Choose this option for flexibility; if a reservation is not available, the instance can use regular unreserved EC2 capacity.</p>
+</li>
+<li>
+<p><code>capacity-reservations-only</code>: The instance can only run in a Capacity Reservation. If capacity is not available, the instance fails to launch.</p>
+</li>
+</ul>
+</div>
+</dd>
 <dt class="hdlist1"><strong>cr-&lt;capacity_reservation_id&gt;</strong></dt>
 <dd>
 <p>Specifies the reservation ID. You get an ID in the <code>cr-&lt;capacity_reservation_id&gt;</code> format when you purchase a Capacity Reservation from AWS. The ID can be for both On-Demand Capacity Reservations or Capacity Blocks for ML, you do not need to specify the reservation type.</p>
@@ -1894,7 +1910,7 @@ Message:</span></code></pre>
 </dd>
 <dt class="hdlist1"><strong>&lt;subnet_id&gt;</strong></dt>
 <dd>
-<p><strong>Optional</strong>: Specifies the subnet ID. For Bring Your Own Virtual Private Cloud (BYO VPC) clusters, you can select a subnet to create a single-AZ machine pool. If you select a subnet that was not specified during the initial cluster creation, you must tag the subnet with the <code>kubernetes.io/cluster/&lt;infra-id&gt;</code> key and <code>shared</code> value. Customers can obtain the Infra ID by running the following command:</p>
+<p><strong>Optional</strong>: Specifies the subnet ID. For Bring Your Own Virtual Private Cloud (BYO VPC) clusters, you can select a subnet to create a single-AZ machine pool. If you select a subnet that was not specified during the initial cluster creation, you must tag the subnet with the <code>kubernetes.io/cluster/&lt;infra_id&gt;</code> key and <code>shared</code> value. Customers can obtain the Infra ID by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa describe cluster <span class="nt">--cluster</span> &lt;cluster_name&gt;|grep <span class="s2">"Infra ID:"</span></code></pre>
@@ -1908,11 +1924,6 @@ Message:</span></code></pre>
 </div>
 </dd>
 </dl>
-</div>
-</div>
-</div>
-</li>
-</ul>
 </div>
 <div class="paragraph">
 <div class="title">Example</div>
@@ -1954,7 +1965,7 @@ I: Machine pool 'mymachinepool' created successfully on hosted cluster 'mycluste
 <div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">ID:                         &lt;machine_pool_name&gt;</span><span class="w">
-</span><span class="gp">Cluster ID:                 &lt;cluster-id&gt;</span><span class="w">
+</span><span class="gp">Cluster ID:                 &lt;cluster_id&gt;</span><span class="w">
 </span><span class="go">Autoscaling:                No
 Desired replicas:           1
 Current replicas:           1
@@ -1963,7 +1974,7 @@ Labels:
 </span><span class="gp">Tags:                       red-hat-managed=true, api.openshift.com/environment=production, api.openshift.com/id=&lt;cluster_name&gt;</span>, api.openshift.com/legal-entity-id<span class="o">=</span>&lt;legal_entity_id&gt;, api.openshift.com/name<span class="o">=</span>&lt;cluster_name&gt;, api.openshift.com/nodepool-hypershift<span class="o">=</span>&lt;cluster_name&gt;-&lt;machine_pool_name&gt;, api.openshift.com/nodepool-ocm<span class="o">=</span>&lt;machine_pool_name&gt;, red-hat-clustertype<span class="o">=</span>rosa
 <span class="go">Taints:
 Availability zone:          us-east-1a
-</span><span class="gp">Subnet:                     &lt;subnet-id&gt;</span><span class="w">
+</span><span class="gp">Subnet:                     &lt;subnet_id&gt;</span><span class="w">
 </span><span class="go">Disk Size:                  300 GiB
 Version:                    4.19.10
 EC2 Metadata Http Tokens:   optional
@@ -1973,8 +1984,9 @@ Kubelet configs:
 Additional security group IDs:
 Node drain grace period:
 Capacity Reservation:
-</span><span class="gp">    - ID:                   &lt;capacity-reservation-id&gt;</span><span class="w">
+</span><span class="gp">    - ID:                   &lt;capacity_reservation_id&gt;</span><span class="w">
 </span><span class="go">    - Type:                 OnDemand
+    - Preference:           open
 Management upgrade:
     - Type:                 Replace
     - Max surge:            1
@@ -1983,7 +1995,7 @@ Message:                    Minimum availability requires 1 replicas, current 1 
 </div>
 </div>
 <div class="paragraph">
-<p>The output should include the Capacity Reservation ID and type.</p>
+<p>The output should include the Capacity Reservation ID, type, and preference.</p>
 </div>
 </li>
 </ul>

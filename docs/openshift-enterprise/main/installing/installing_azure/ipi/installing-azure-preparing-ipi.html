@@ -999,11 +999,13 @@
               <ul id="topicSubGroup-11-9" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-overview.html">Zero Trust Workload Identity Manager overview</a></li>
+                  <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-components.html">Zero Trust Workload Identity Manager components</a></li>
                   <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-release-notes.html">Zero Trust Workload Identity Manager release notes</a></li>
                   <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-install.html">Installing Zero Trust Workload Identity Manager</a></li>
-                  <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-proxy.html">Configuring the egress proxy</a></li>
                   <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-configuration.html">Deploying Zero Trust Workload Identity Manager operands</a></li>
+                  <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-proxy.html">Configuring the egress proxy</a></li>
                   <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-oidc-federation.html">Configuring Zero Trust Workload Identity Manager OIDC Federation</a></li>
+                  <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-spire-federation.html">Configuring Zero Trust Workload Identity Manager SPIRE Federation</a></li>
                   <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-reconciliation.html">Enabling create-only mode for the Zero Trust Workload Identity Manager</a></li>
                   <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-monitoring.html">Monitoring Zero Trust Workload Identity Manager</a></li>
                   <li><a class="" href="../../../security/zero_trust_workload_identity_manager/zero-trust-manager-uninstall.html">Uninstalling the Zero Trust Workload Identity Manager</a></li>              </ul>
@@ -3393,6 +3395,7 @@
 <li><a href="#cli-installing-cli-windows_installing-azure-preparing-ipi">Installing the OpenShift CLI on Windows</a></li>
 <li><a href="#cli-installing-cli-macos_installing-azure-preparing-ipi">Installing the OpenShift CLI on macOS</a></li>
 <li><a href="#cluster-telemetry_installing-azure-preparing-ipi">Telemetry access for OpenShift Container Platform</a></li>
+<li><a href="#installation-azure-day2-operations-diskencryptionsets.adoc_installing-azure-preparing-ipi">Preparing an Azure Disk Encryption Set for Day2 Operator</a></li>
 <li><a href="#preparing-disk-encryption-sets_installing-azure-preparing-ipi">Preparing an Azure Disk Encryption Set</a></li>
 </ul>
 </div>
@@ -3960,6 +3963,120 @@ However, you must have an active subscription to access this page.</p>
 <p>For more information about the Telemetry service, see <a href="../../../support/remote_health_monitoring/about-remote-health-monitoring.html#about-remote-health-monitoring">About remote health monitoring</a></p>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="installation-azure-day2-operations-diskencryptionsets.adoc_installing-azure-preparing-ipi"><a class="anchor" href="#installation-azure-day2-operations-diskencryptionsets.adoc_installing-azure-preparing-ipi"></a>Preparing an Azure Disk Encryption Set for Day2 Operator</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The OpenShift Container Platform installation program can use an existing Disk Encryption Set with a user-managed key. To enable this feature, create a <code>DiskEncryptionSet</code> object in Azure and provide the key to the installation program.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisite</div>
+<ul>
+<li>
+<p>You enabled the <code>EncryptionAtHost</code> feature in your Azure subscription. For more information, see "Use the Azure portal to enable end-to-end encryption using encryption at host".
+.Procedure</p>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Mark the node from the <code>encyptionAtHost</code> cluster resource group as unschedulable by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm cordon &lt;node_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Evacuate the pods from the compute node. There are several ways to do this. For example, you can evacuate all the pods or the selected pods on a node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm drain &lt;compute_node&gt; <span class="o">[</span><span class="nt">--pod-selector</span><span class="o">=</span>&lt;pod_selector&gt;]</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For other options to evacuate pods from a node, see the "Understanding how to evacuate pods on nodes" section.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>De-allocate the node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az vm deallocate <span class="nt">-n</span> &lt;node_name&gt; <span class="nt">-g</span> &lt;cluster_resource_group&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the <code>encryptionAtHost</code> property to <code>true</code> by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az vm update <span class="nt">-n</span> &lt;node_name&gt; <span class="nt">-g</span> &lt;cluster_resource_group&gt; <span class="nt">--set</span> securityProfile.encryptionAtHost<span class="o">=</span><span class="nb">true</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Start the node by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az vm start <span class="nt">-n</span> &lt;node_name&gt; <span class="nt">-g</span> &lt;cluster_resource_group&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Mark the node as schedulable by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm uncordon &lt;node_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that all cluster Operators are available:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteroperators</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>All Operators should show <code>AVAILABLE=True</code>, <code>PROGRESSING=False</code>, and <code>DEGRADED=False</code>.</p>
+</div>
+</li>
+<li>
+<p>Repeat the above steps on all the nodes that run <code>encryptionAtHost</code>.</p>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you want to enable encryption for your host during cluster installation, specify the following parameters in the <code>install-config.yaml</code> file:
+* <code>compute.platform.azure.encryptionAtHost</code>
+* <code>controlPlane.platform.azure.encryptionAtHost</code>
+* <code>platform.azure.defaultMachinePlatform.encryptionAtHost</code></p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
