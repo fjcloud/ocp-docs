@@ -2820,6 +2820,30 @@ allows external clients to connect securely to applications running under the <c
 <div class="paragraph">
 <p>You can replace the default ingress certificate for all applications under the <code>.apps</code> subdomain. After you replace the certificate, all applications, including the web console and CLI, have encryption provided by the specified certificate.</p>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Before using the procedure, ensure you understand the following Ingress Controller behaviors:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When certificates are renewed or rotated by using external certificate management tools, only the contents of the secret, such as the certificate and key, are updated. The secret name remains unchanged. Kubelet automatically propagates these updates to the mounted volume, allowing the router to detect the file changes and hot-reload the new certificate and key. As a result, no rolling update of the router deployment is triggered or required.</p>
+</li>
+<li>
+<p>For secret renewal or rotation, the cert-manager Operator changes the secret content, such as a cert/key pair, but does not change the secret name. This happens because kubelet automatically propagates changes to the secret in the volume mount. The router pod detects the file change and then hot reloads the new cert/key pair. Updating the secret content does not trigger rolling update.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
@@ -2851,17 +2875,20 @@ allows external clients to connect securely to applications running under the <c
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create configmap custom-ca <span class="se">\</span>
-     <span class="nt">--from-file</span><span class="o">=</span>ca-bundle.crt<span class="o">=</span>&lt;/path/to/example-ca.crt&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
+     <span class="nt">--from-file</span><span class="o">=</span>ca-bundle.crt<span class="o">=</span>&lt;/path/to/example-ca.crt&gt; <span class="se">\</span>
      <span class="nt">-n</span> openshift-config</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>&lt;/path/to/example-ca.crt&gt;</code> is the path to the root CA certificate file on your local file system. For example, <code>/etc/pki/ca-trust/source/anchors</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;/path/to/example-ca.crt&gt;</code></dt>
+<dd>
+<p>The path to the root CA certificate file on your local file system. For example, <code>/etc/pki/ca-trust/source/anchors</code>.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -2895,27 +2922,30 @@ allows external clients to connect securely to applications running under the <c
 <p>Create a secret that contains the wildcard certificate chain and key:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret tls &lt;secret&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
-     <span class="nt">--cert</span><span class="o">=</span>&lt;/path/to/cert.crt&gt; <span class="se">\</span><i class="conum" data-value="2"></i><b>(2)</b>
-     <span class="nt">--key</span><span class="o">=</span>&lt;/path/to/cert.key&gt; <span class="se">\</span><i class="conum" data-value="3"></i><b>(3)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret tls &lt;secret&gt; <span class="se">\</span>
+     <span class="nt">--cert</span><span class="o">=</span>&lt;/path/to/cert.crt&gt; <span class="se">\</span>
+     <span class="nt">--key</span><span class="o">=</span>&lt;/path/to/cert.key&gt; <span class="se">\</span>
      <span class="nt">-n</span> openshift-ingress</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>&lt;secret&gt;</code> is the name of the secret that will contain the certificate chain and private key.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td><code>&lt;/path/to/cert.crt&gt;</code> is the path to the certificate chain on your local file system.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td><code>&lt;/path/to/cert.key&gt;</code> is the path to the private key associated with this certificate.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;secret&gt;</code></dt>
+<dd>
+<p>Specifies the name of the secret that will contain the certificate chain and private key.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;/path/to/cert.crt&gt;</code></dt>
+<dd>
+<p>Specifies the path to the certificate chain on your local file system.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;/path/to/cert.key&gt;</code></dt>
+<dd>
+<p>Specifies the path to the private key associated with this certificate.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -2924,32 +2954,16 @@ allows external clients to connect securely to applications running under the <c
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch ingresscontroller.operator default <span class="se">\</span>
      <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="se">\</span>
-     <span class="s1">'{"spec":{"defaultCertificate": {"name": "&lt;secret&gt;"}}}'</span> <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
+     <span class="s1">'{"spec":{"defaultCertificate": {"name": "&lt;secret&gt;"}}}'</span> <span class="se">\</span>
      <span class="nt">-n</span> openshift-ingress-operator</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;secret&gt;</code> with the name used for the secret in the previous step.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>To trigger the Ingress Operator to perform a rolling update, you must update the name of the secret.
-Because the kubelet automatically propagates changes to the secret in the volume mount, updating the secret contents does not trigger a rolling update. For more information, see this <a href="https://access.redhat.com/solutions/4542531">Red&#160;Hat Knowledgebase Solution</a>.</p>
-</div>
-</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;secret&gt;</code>:: Specifies the name used for the secret. Replace <code>&lt;secret&gt;</code> with the name used for the secret.</p>
+</li>
+</ul>
 </div>
 </li>
 </ol>

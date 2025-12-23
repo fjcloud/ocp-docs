@@ -3573,6 +3573,36 @@
 <div class="sect1">
 <h2 id="cert-manager-certificate-ingress_cert-manager-creating-certificate"><a class="anchor" href="#cert-manager-certificate-ingress_cert-manager-creating-certificate"></a>Creating certificates for the Ingress Controller</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can create a certificate for the Ingress Controller and then replace bootstrapped default self-signed certificates with cert-manager-managed external certificates.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Before using the procedure, ensure you understand the following Ingress Controller behaviors:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>When certificates are renewed or rotated by using the cert-manager Operator, only the contents of the secret, such as the certificate and key, are updated. The secret name remains unchanged. Kubelet automatically propagates these updates to the mounted volume, allowing the router to detect the file changes and hot-reload the new certificate and key. As a result, no rolling update of the router deployment is triggered or required.</p>
+</li>
+<li>
+<p>The secret name is referenced in the Ingress Controller configuration. If you want to replace the default ingress certificate or use different secret name in Ingress Controller configuration, you must patch or edit the configuration to apply the change. This operation triggers a rolling update for router pods where new router pods load the new cert/key pair.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information, see this <a href="https://access.redhat.com/solutions/4542531">Red&#160;Hat Knowledgebase Solution</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
@@ -3602,43 +3632,46 @@
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">cert-manager.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Certificate</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;tls_cert&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;tls_cert&gt;</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ingress</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">isCA</span><span class="pi">:</span> <span class="no">false</span>
-  <span class="na">commonName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">apps.&lt;cluster_base_domain&gt;"</span> <i class="conum" data-value="2"></i><b>(2)</b>
-  <span class="na">secretName</span><span class="pi">:</span> <span class="s">&lt;secret_name&gt;</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">commonName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">apps.&lt;cluster_base_domain&gt;"</span>
+  <span class="na">secretName</span><span class="pi">:</span> <span class="s">&lt;secret_name&gt;</span>
   <span class="na">dnsNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">apps.&lt;cluster_base_domain&gt;"</span> <i class="conum" data-value="4"></i><b>(4)</b>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">*.apps.&lt;cluster_base_domain&gt;"</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="pi">-</span> <span class="s2">"</span><span class="s">apps.&lt;cluster_base_domain&gt;"</span>
+  <span class="pi">-</span> <span class="s2">"</span><span class="err">\</span><span class="s">*.apps.&lt;cluster_base_domain&gt;"</span>
   <span class="na">issuerRef</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;issuer_name&gt;</span> <i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;issuer_name&gt;</span>
     <span class="na">kind</span><span class="pi">:</span> <span class="s">Issuer</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Provide a name for the certificate.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify the common name (CN).</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specify the name of the secret to create that contains the certificate.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Specify the DNS name of the ingress.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Specify the name of the issuer.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;tls_cert&gt;</code></dt>
+<dd>
+<p>Specifies the name for the certificate.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;cluster_base_domain&gt;</code></dt>
+<dd>
+<p>Specifies the common name (CN).</p>
+</dd>
+<dt class="hdlist1"><code>&lt;secret_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the secret to create that contains the certificate.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;cluster_base_domain&gt;</code></dt>
+<dd>
+<p>Specifies the DNS name of the ingress.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;issuer_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the issuer.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3657,21 +3690,37 @@
 </li>
 </ol>
 </div>
-<div class="ulist">
+<div class="olist arabic">
 <div class="title">Verification</div>
-<ul>
+<ol class="arabic">
 <li>
 <p>Verify that the certificate is created and ready to use by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get certificate <span class="nt">-w</span> <span class="nt">-n</span> openshift-ingress</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get certificate <span class="nt">-n</span> openshift-ingress</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify the definition and content of the secret object by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secret &lt;secretName&gt; <span class="nt">-n</span> openshift-ingress</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the default TLS certificate has the correct configuration details for the Ingress Controller by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ingresscontroller default <span class="nt">-n</span> openshift-ingress-operator <span class="nt">-o</span> yaml | <span class="nb">grep</span> <span class="nt">-A2</span> defaultCertificate</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Once certificate is in <code>Ready</code> status, Ingress Controller on your cluster can start using the generated certificate secret.</p>
+<p>After the certificate is in <code>Ready</code> status, the Ingress Controller on your cluster can start using the generated certificate secret.</p>
 </div>
 </li>
-</ul>
+</ol>
 </div>
 </div>
 </div>
