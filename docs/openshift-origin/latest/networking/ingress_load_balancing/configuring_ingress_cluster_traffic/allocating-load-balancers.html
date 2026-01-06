@@ -961,7 +961,7 @@
 
                     <li><a class="" href="../../../networking/ingress_load_balancing/configuring_ingress_cluster_traffic/overview-traffic.html" style="padding-left: 70px;">Overview</a></li>
                     <li><a class="" href="../../../networking/ingress_load_balancing/configuring_ingress_cluster_traffic/configuring-externalip.html" style="padding-left: 70px;">Configuring ExternalIPs for services</a></li>
-                    <li><a class="" href="../../../networking/ingress_load_balancing/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-ingress-controller.html" style="padding-left: 70px;">Configuring ingress cluster traffic using an Ingress Controller</a></li>
+                    <li><a class="" href="../../../networking/ingress_load_balancing/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-ingress-controller.html" style="padding-left: 70px;">Configuring ingress cluster traffic by using an Ingress Controller</a></li>
                     <li><a class="" href="../../../networking/ingress_load_balancing/configuring_ingress_cluster_traffic/nw-configuring-ingress-controller-endpoint-publishing-strategy.html" style="padding-left: 70px;">Configuring the Ingress Controller endpoint publishing strategy</a></li>
                     <li><a class="" href="../../../networking/ingress_load_balancing/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-load-balancer.html" style="padding-left: 70px;">Configuring ingress cluster traffic using a load balancer</a></li>
                     <li><a class="" href="../../../networking/ingress_load_balancing/configuring_ingress_cluster_traffic/configuring-ingress-cluster-traffic-aws.html" style="padding-left: 70px;">Configuring ingress cluster traffic on AWS</a></li>
@@ -2794,7 +2794,7 @@
 </li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can manage application traffic efficiently by allocating load balancers. Network administrators can allocate load balancers to customize deployments which can ensure optimal traffic distribution, high availability of applications, uninterrupted service, and network segmentation.</p>
 </div>
 </div>
@@ -2802,25 +2802,49 @@
 <div class="sect1">
 <h2 id="nw-allocating-load-balancers-to-subnets_allocating-load-balancers"><a class="anchor" href="#nw-allocating-load-balancers-to-subnets_allocating-load-balancers"></a>Allocating API and Ingress Load Balancers to Specific Subnets on AWS</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can control the network placement of OKD Load Balancers on AWS, including Load Balancers for the Ingress Controller, by explicitly defining your subnets from the virtual private cloud (VPC). You can then assign the subnets specific roles directly within the <code>platform.aws.vpc.subnets</code> section of the <code>install-config.yaml</code> file.</p>
+</div>
 <div class="paragraph">
-<p>You can control the network placement of OpenShift Load Balancers on AWS, including those for the Ingress Controller, by explicitly defining your virtual private cloud&#8217;s (VPC&#8217;s) subnets and assigning them specific roles directly within the <code>platform.aws.vpc.subnets</code> section of the <code>install-config.yaml</code> file. This method provides granular control over which subnets are used for resources, such as the Ingress Controller and other cluster components.</p>
+<p>By using this method, you have granular control of subnets that are used for resources, such as the Ingress Controller and other cluster components.</p>
 </div>
 <div class="sect2">
 <h3 id="nw-allocating-load-balancers-to-subnets-procedure_allocating-load-balancers"><a class="anchor" href="#nw-allocating-load-balancers-to-subnets-procedure_allocating-load-balancers"></a>Specifying AWS subnets for OpenShift API and ingress load balancers at installation</h3>
-<div class="paragraph">
-<p>Perform the following steps to allocate API and ingress load balancers to specific subnets.</p>
+<div class="paragraph _abstract">
+<p>You can allocate API and ingress load balancers to specific subnets for the purposes of aligning security and networking policies with your organization requirements.</p>
 </div>
 <div class="paragraph">
-<div class="title">Prerequisites</div>
-<p>Before you begin, ensure you have:</p>
+<p>When defining entries for control plane load balancers in the <code>subnets</code> list, ensure that you adhere to the following pattern:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ... (within platform.aws.vpc.subnets list)</span>
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-0fcf8e0392f0910d6</span> <span class="c1"># Public Subnet for External API LB</span>
+        <span class="na">roles</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">ControlPlaneExternalLB</span>
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-0fcf8e0392f0910d7</span> <span class="c1"># Private Subnet for Internal API LB</span>
+        <span class="na">roles</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">ControlPlaneInternalLB</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For the default public Ingress Controller, any subnet assigned the <code>IngressControllerLB</code> role in your <code>install-config.yaml</code> file must be a public subnet. For example, the subnet must have a route table entry in AWS that directs outbound traffic to an internet gateway (IGW). Ensure you list all necessary subnets, public and private across the AZs, and assign them appropriate roles according to your cluster architecture.</p>
+</div>
+<div class="paragraph">
+<p>Subnet IDs define the subnets in an existing VPC and can optionally specify their intended roles. If no roles are specified on any subnet, the subnet roles are decided automatically. In this case, the VPC must not contain any other non-cluster subnets without the <code>kubernetes.io/cluster/&lt;cluster-id&gt;</code> tag.</p>
+</div>
+<div class="paragraph">
+<p>If roles are specified for subnets, each subnet must have at least one assigned role, and the <code>ClusterNode</code>, <code>BootstrapNode</code>, <code>IngressControllerLB</code>, <code>ControlPlaneExternalLB</code>, and <code>ControlPlaneInternalLB</code> roles must be assigned to at least one subnet. However, if the cluster scope is internal, <code>ControlPlaneExternalLB</code> is not required.</p>
 </div>
 <div class="ulist">
+<div class="title">Prerequisites</div>
 <ul>
 <li>
 <p>An existing AWS virtual private cloud (VPC).</p>
 </li>
 <li>
-<p>Pre-configured AWS subnets intended for use by the OpenShift cluster, with the following considerations:</p>
+<p>Pre-configured AWS subnets intended for use by the OKD cluster, with the following considerations:</p>
 <div class="ulist">
 <ul>
 <li>
@@ -2839,7 +2863,7 @@
 </div>
 </li>
 <li>
-<p>You have the OpenShift installer binary for your target OpenShift version.</p>
+<p>You have the OKD installation program binary for your target OKD version.</p>
 </li>
 <li>
 <p>You have an <code>install-config.yaml</code> file.</p>
@@ -2850,139 +2874,103 @@
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Prepare the <code>install-config.yaml</code> file:</p>
-<div class="paragraph">
-<p>If you haven&#8217;t already, generate the installation configuration file using the OpenShift installer:</p>
-</div>
+<p>Generate the installation configuration file by using the OKD installation program by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openshift-install create install-config <span class="nt">--dir</span><span class="o">=</span>&lt;your_installation_directory&gt;</code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p>This command creates the <code>install-config.yaml</code> file in the specified directory.</p>
-</div>
 </li>
 <li>
-<p>Define subnets and assign roles:</p>
-<div class="paragraph">
-<p>Open the <code>install-config.yaml</code> file located in <code>&lt;your_installation_directory&gt;</code> using a text editor. You will define your VPC subnets and their designated roles under the <code>platform.aws.vpc.subnets</code> field.</p>
-</div>
-<div class="paragraph">
-<p>For each AWS subnet you intend the cluster to use, you will create an entry specifying its <code>id</code> and a list of <code>roles</code>. Each role is an object with a <code>type</code> key. To designate a subnet for the default Ingress Controller, assign it a role with <code>type: IngressControllerLB</code>.</p>
-</div>
+<p>Use a text editor to open the <code>install-config.yaml</code> file.</p>
+</li>
+<li>
+<p>Define subnets and assign roles. You must define your VPC subnets and their designated roles under the <code>platform.aws.vpc.subnets</code> parameter. For each AWS subnet, create an entry by specifying an <code>id</code> and a list of <code>roles</code>. Each role is an object with a <code>type</code> key. To designate a subnet for the default Ingress Controller, assign a role with <code>type: IngressControllerLB</code> to the subnet.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">baseDomain</span><span class="pi">:</span> <span class="s">example.com</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">baseDomain</span><span class="pi">:</span> <span class="s">example.com</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster</span> <span class="c1"># Example cluster name</span>
 <span class="na">platform</span><span class="pi">:</span>
   <span class="na">aws</span><span class="pi">:</span>
-    <span class="na">region</span><span class="pi">:</span> <span class="s">us-east-1</span> <i class="conum" data-value="2"></i><b>(2)</b>
-    <span class="na">vpc</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
-      <span class="na">subnets</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
-      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-0fcf8e0392f0910d5</span> <span class="c1"># Public Subnet in AZ us-east-1a </span><i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="na">region</span><span class="pi">:</span> <span class="s">us-east-1</span>
+    <span class="na">vpc</span><span class="pi">:</span>
+      <span class="na">subnets</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-0fcf8e0392f0910d5</span> <span class="c1"># Public Subnet in AZ us-east-1a</span>
         <span class="na">roles</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">IngressControllerLB</span> <i class="conum" data-value="6"></i><b>(6)</b>
+        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">IngressControllerLB</span>
         <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">BootstrapNode</span>
       <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-0xxxxxxxxxxxxxxza</span> <span class="c1"># Public Subnet in another AZ for HA</span>
         <span class="na">roles</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">IngressControllerLB</span>
       <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-0fcf8e0392f0910d4</span> <span class="c1"># Private Subnet in AZ us-east-1a</span>
         <span class="na">roles</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterNode</span> <i class="conum" data-value="7"></i><b>(7)</b>
+        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterNode</span>
       <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-0yyyyyyyyyyyyyyzb</span> <span class="c1"># Private Subnet in another AZ for HA</span>
         <span class="na">roles</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">ClusterNode</span>
       <span class="c1"># Add other subnet IDs and their roles as needed for your cluster architecture</span>
-<span class="na">pullSecret</span><span class="pi">:</span> <span class="s1">'</span><span class="s">...'</span> <i class="conum" data-value="8"></i><b>(8)</b>
-<span class="na">sshKey</span><span class="pi">:</span> <span class="s1">'</span><span class="s">...'</span> <i class="conum" data-value="9"></i><b>(9)</b></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Your base domain.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Your AWS region.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The vpc object under <code>platform.aws</code> contains the subnets list.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>List of all subnet objects that OpenShift will use. Each object defines a subnet id and its roles.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Replace with your AWS Subnet ID.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>The <code>type: IngressControllerLB</code> role specifically designates this subnet for the default Ingress Controller&#8217;s LoadBalancer. In private/internal cluster, the subnet with <code>IngressControllerLB</code> role must be private.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>The <code>type: ClusterNode</code> role designates this subnet for control plane and compute nodes. These are typically private subnets.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>Your pull secret.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="9"></i><b>9</b></td>
-<td>Your SSH key.</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>Entries for control plane load balancers in the <code>subnets</code> list would follow a similar pattern:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ... (within platform.aws.vpc.subnets list)</span>
-      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-0fcf8e0392f0910d6</span> <span class="c1"># Public Subnet for External API LB</span>
-        <span class="na">roles</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">ControlPlaneExternalLB</span>
-      <span class="pi">-</span> <span class="na">id</span><span class="pi">:</span> <span class="s">subnet-0fcf8e0392f0910d7</span> <span class="c1"># Private Subnet for Internal API LB</span>
-        <span class="na">roles</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">ControlPlaneInternalLB</span>
-<span class="c1"># ...</span></code></pre>
+<span class="na">pullSecret</span><span class="pi">:</span> <span class="s1">'</span><span class="s">...'</span>
+<span class="na">sshKey</span><span class="pi">:</span> <span class="s1">'</span><span class="s">...'</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>For the default public Ingress Controller, any subnet assigned the <code>IngressControllerLB</code> role in your <code>install-config.yaml</code> file must be a public subnet. For example, it must have a route table entry in AWS that directs outbound traffic to an internet gateway (IGW).</p>
+<p>where:</p>
 </div>
-<div class="paragraph">
-<p>Ensure you list all necessary subnets, public and private across the AZs, and assign them appropriate roles according to your cluster architecture.</p>
-</div>
-<div class="paragraph">
-<p>Subnet IDs define the subnets in an existing VPC and can optionally specify their intended roles. If no roles are specified on any subnet, the subnet roles are decided automatically. In this case, the VPC must not contain any other non-cluster subnets without the <code>kubernetes.io/cluster/&lt;cluster-id&gt;</code> tag.</p>
-</div>
-<div class="paragraph">
-<p>If roles are specified for subnets, each subnet must have at least one assigned role, and the <code>ClusterNode</code>, <code>BootstrapNode</code>, <code>IngressControllerLB</code>, <code>ControlPlaneExternalLB</code>, and <code>ControlPlaneInternalLB</code> roles must be assigned to at least one subnet. However, if the cluster scope is internal, <code>ControlPlaneExternalLB</code> is not required.</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>baseDomain</code></dt>
+<dd>
+<p>Specifies the base domain.</p>
+</dd>
+<dt class="hdlist1"><code>region</code></dt>
+<dd>
+<p>Specifies the AWS region.</p>
+</dd>
+<dt class="hdlist1"><code>vpc</code></dt>
+<dd>
+<p>Specifies the VPC object under <code>platform.aws</code> contains the subnets list.</p>
+</dd>
+<dt class="hdlist1"><code>subnets</code></dt>
+<dd>
+<p>Specifies a list of all subnet objects that OpenShift will use. Each object defines a subnet id and its roles.</p>
+</dd>
+<dt class="hdlist1"><code>id</code></dt>
+<dd>
+<p>Specifies the AWS Subnet ID.</p>
+</dd>
+<dt class="hdlist1"><code>type.IngressControllerLB</code></dt>
+<dd>
+<p>Specifies the <code>type: IngressControllerLB</code> role specifically designates this subnet for the default Ingress Controller&#8217;s LoadBalancer. In private/internal cluster, the subnet with <code>IngressControllerLB</code> role must be private.</p>
+</dd>
+<dt class="hdlist1"><code>type.ClusterNode</code></dt>
+<dd>
+<p>Specifies the <code>type: ClusterNode</code> role designates this subnet for control plane and compute nodes. These are typically private subnets.</p>
+</dd>
+<dt class="hdlist1"><code>pullSecret</code></dt>
+<dd>
+<p>Specifies the pull secret.</p>
+</dd>
+<dt class="hdlist1"><code>sshKey</code></dt>
+<dd>
+<p>Specifies the SSH key.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
-<p>Proceed with the cluster Installation:</p>
-<div class="paragraph">
-<p>After saving your changes to the <code>install-config.yaml</code> file, create the cluster:</p>
-</div>
+<p>Save you changes to the <code>install-config.yaml</code> file.</p>
+</li>
+<li>
+<p>Install the cluster by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openshift-install create cluster <span class="nt">--dir</span><span class="o">=</span>&lt;your_installation_directory&gt;</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The installation program will now use the subnet definitions and explicit role assignments from the <code>platform.aws.vpc.subnets</code> section of your <code>install-config.yaml</code> file to provision cluster resources, including placing the Ingress Controller&#8217;s LoadBalancer in the subnets you designated with the <code>IngressControllerLB</code> role.</p>
-</div>
-</li>
-</ol>
+<p>The installation program uses the subnet definitions and explicit role assignments from the <code>platform.aws.vpc.subnets</code> section of your <code>install-config.yaml</code> file to provision cluster resources. This includes placing the LoadBalancer of the Ingress Controller in the subnets you designated with the <code>IngressControllerLB</code> role.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -2992,11 +2980,14 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The role assignment mechanism within <code>platform.aws.vpc.subnets</code>, such as specifying types like <code>IngressControllerLB</code>, <code>ClusterNode</code>, <code>ControlPlaneExternalLB</code>, <code>ControlPlaneInternalLB</code>, <code>BootstrapNode</code> is the comprehensive way the OpenShift installer identifies suitable subnets for various cluster services and components.</p>
+<p>The role assignment mechanism within <code>platform.aws.vpc.subnets</code>, such as specifying types like <code>IngressControllerLB</code>, <code>ClusterNode</code>, <code>ControlPlaneExternalLB</code>, <code>ControlPlaneInternalLB</code>, <code>BootstrapNode</code> is the comprehensive way the installation program identifies suitable subnets for various cluster services and components.</p>
 </div>
 </td>
 </tr>
 </table>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
