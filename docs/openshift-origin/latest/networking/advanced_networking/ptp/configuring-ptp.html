@@ -2826,12 +2826,18 @@
 <li><a href="#cnf-configuring-enhanced-log-reduction-for-linuxptp_configuring-ptp">Configuring enhanced PTP log reduction</a></li>
 </ul>
 </li>
+<li><a href="#cnf-configuring-gnss-ntp-failover_configuring-ptp">Configuring GNSS failover to NTP for time synchronization continuity</a>
+<ul class="sectlevel2">
+<li><a href="#configuring-gnss-to-ntp-failover_configuring-ptp">Creating a PTP Grandmaster configuration with GNSS failover</a></li>
+<li><a href="#configuring-gnss-to-ntp-failover-sno_configuring-ptp">Creating a PTP Grandmaster configuration with GNSS failover on Single Node OpenShift</a></li>
+</ul>
+</li>
 <li><a href="#cnf-troubleshooting-common-ptp-operator-issues_configuring-ptp">Troubleshooting common PTP Operator issues</a></li>
 <li><a href="#cnf-getting-the-dpll-firmware-version-for-intel-800-series-nics_configuring-ptp">Getting the DPLL firmware version for the CGU in an Intel 800 series NIC</a></li>
 <li><a href="#cnf-about-collecting-nro-data_configuring-ptp">Collecting PTP Operator data</a></li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>The PTP Operator adds the <code>NodePtpDevice.ptp.openshift.io</code> custom resource definition (CRD) to OKD.</p>
 </div>
 <div class="paragraph">
@@ -7373,6 +7379,1451 @@ ptp-operator-3r4dcvf7f4-zndk7   1/1     Running   0          1d7h    10.129.0.61
 <td>&lt;linux_daemon_container&gt; is the name of the <code>linuxptp-daemon</code> pod, for example, <code>linuxptp-daemon-gmv2n</code>.</td>
 </tr>
 </table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="cnf-configuring-gnss-ntp-failover_configuring-ptp"><a class="anchor" href="#cnf-configuring-gnss-ntp-failover_configuring-ptp"></a>Configuring GNSS failover to NTP for time synchronization continuity</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Automatic failover from global navigation satellite system (GNSS) to Network Time Protocol (NTP) maintains time synchronization continuity when the primary signal is lost, ensuring system stability for telco operations.</p>
+</div>
+<div class="paragraph">
+<p>Telco operators require time source redundancy to ensure time synchronization continuity and system stability.</p>
+</div>
+<div class="paragraph">
+<p>OKD provides automatic failover capabilities to maintain synchronization. The system utilizes GNSS (delivered by <code>phc2sys</code>) as the primary time source. To protect against primary signal loss, such as jamming or antenna failure, the system automatically transitions to the secondary time source, NTP delivered by <code>chronyd</code>. Upon signal recovery, the system automatically switches back to and resumes synchronization with <code>phc2sys</code>.</p>
+</div>
+<div class="paragraph">
+<p>You can control the resilience of the time synchronization by setting the <code>ts2phc.holdover</code> parameter in seconds. This value dictates the maximum time the internal control algorithm can continue synchronizing the PHC after the main time of day (ToD) source such as a GNSS receiver is lost. The algorithm can only continue if it remains in a stable state (SERVO_LOCKED_STABLE). When the process exits this configured holdover period, it signifies an unrecoverable primary signal loss. The system then allows failover to a secondary source such as NTP.</p>
+</div>
+<div class="sect2">
+<h3 id="configuring-gnss-to-ntp-failover_configuring-ptp"><a class="anchor" href="#configuring-gnss-to-ntp-failover_configuring-ptp"></a>Creating a PTP Grandmaster configuration with GNSS failover</h3>
+<div class="paragraph _abstract">
+<p>Configure a Precision Time Protocol (PTP) Telecom Grandmaster clock with automatic failover from global navigation satellite system (GNSS) to Network Time Protocol (NTP) when satellite signals are unavailable.</p>
+</div>
+<div class="paragraph">
+<p>This procedure configures a T-GM (Telecom Grandmaster) clock that uses an Intel E810 Westport Channel NIC as the PTP grandmaster clock with GNSS to NTP failover capabilities.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>For T-GM clocks in production environments, install an Intel E810 Westport Channel NIC in the bare-metal cluster host.</p>
+</li>
+<li>
+<p>Install the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>Log in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>Install the PTP Operator.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Verify the PTP Operator installation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-ptp <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following listing the PTP Operator pod and the <code>linuxptp-daemon</code> pods:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                            READY   STATUS    RESTARTS   AGE   IP              NODE                       NOMINATED NODE   READINESS GATES
+</span><span class="gp">linuxptp-daemon-4xk9m           2/2     Running   0          15m   192.168.1.101   worker-0.cluster.local     &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;
+<span class="gp">linuxptp-daemon-7bv2n           2/2     Running   0          15m   192.168.1.102   worker-1.cluster.local     &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;
+<span class="gp">linuxptp-daemon-9cp4r           2/2     Running   0          15m   192.168.1.103   worker-2.cluster.local     &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;
+<span class="gp">linuxptp-daemon-kw8h5           2/2     Running   0          15m   192.168.1.104   worker-3.cluster.local     &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;
+<span class="gp">linuxptp-daemon-m3j7t           2/2     Running   0          15m   192.168.1.105   worker-4.cluster.local     &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;
+<span class="gp">ptp-operator-75c77dbf86-xm9kl   1/1     Running   0          20m   10.129.0.45     master-1.cluster.local     &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ptp-operator-*</code>: The PTP Operator pod (one instance in the cluster)</p>
+</li>
+<li>
+<p><code>linuxptp-daemon-*</code>: The linuxptp daemon pods. A daemon pod runs on each node that matches the PtpConfig profile. Each daemon pod should show <code>2/2</code> in the READY column, indicating both containers (<code>linuxptp-daemon-container</code> and <code>kube-rbac-proxy</code>) are running.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The number of <code>linuxptp-daemon</code> pods is determined by the node labels defined in the <code>PtpOperatorConfig</code> which controls the DaemonSet deployment. The PtpConfig profile matching, as shown in Step 4, only determines which specific PTP settings are applied on the running daemons. In this example, the operator configuration targets all 5 worker nodes. For single-node OpenShift clusters, you will see only one <code>linuxptp-daemon</code> pod, as the configuration targets only the control plane node which acts as the worker.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Check which network interfaces support hardware timestamping by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get NodePtpDevice <span class="nt">-n</span> openshift-ptp <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following showing NodePtpDevice resources for nodes with PTP-capable network interfaces:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">items</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v1</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">NodePtpDevice</span>
+  <span class="na">metadata</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">worker-0.cluster.local</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ptp</span>
+  <span class="na">spec</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">status</span><span class="pi">:</span>
+    <span class="na">devices</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ens7f0</span>
+      <span class="na">hwConfig</span><span class="pi">:</span>
+        <span class="na">phcIndex</span><span class="pi">:</span> <span class="m">0</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ens7f1</span>
+      <span class="na">hwConfig</span><span class="pi">:</span>
+        <span class="na">phcIndex</span><span class="pi">:</span> <span class="m">1</span>
+<span class="pi">-</span> <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v1</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">NodePtpDevice</span>
+  <span class="na">metadata</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">worker-1.cluster.local</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ptp</span>
+  <span class="na">spec</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">status</span><span class="pi">:</span>
+    <span class="na">devices</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ens7f0</span>
+      <span class="na">hwConfig</span><span class="pi">:</span>
+        <span class="na">phcIndex</span><span class="pi">:</span> <span class="m">0</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ens7f1</span>
+      <span class="na">hwConfig</span><span class="pi">:</span>
+        <span class="na">phcIndex</span><span class="pi">:</span> <span class="m">1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">List</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">resourceVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In this example output:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ens7f0</code> and <code>ens7f1</code> are PTP-capable interfaces (Intel E810 NIC ports).</p>
+</li>
+<li>
+<p><code>phcIndex</code> indicates the PTP Hardware Clock number (maps to <code>/dev/ptp0</code>, <code>/dev/ptp1</code>, and so on).</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The output shows one NodePtpDevice resource for each node with PTP-capable interfaces. In this example, five worker nodes have Intel E810 NICs. For single-node OpenShift clusters, you would see only one NodePtpDevice resource.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>The PTP profile uses node labels for matching. Check your machine config pool (MCP) to find the node labels by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get mcp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME     CONFIG                   UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT DEGRADEDMACHINECOUNT AGE
+master   rendered-master-a1b1**   True      False      False      3              3                   3                   0                    45d
+worker   rendered-worker-f6e5**   True      False      False      5              5                   5                   0                    45d</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The CONFIG column shows a truncated hash of the rendered MachineConfig. In actual output, this will be a full 64-character hash such as <code>rendered-master-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>In this example, the <code>&lt;MCP-name&gt;</code> is <code>worker</code> for worker nodes and <code>master</code> for control plane nodes. Most T-GM deployments use worker nodes, so you would use <code>worker</code> as the <code>&lt;MCP-name&gt;</code>.</p>
+</li>
+<li>
+<p>For single-node OpenShift clusters, the <code>&lt;MCP-name&gt;</code> is <code>master</code> (the worker MCP will show <code>MACHINECOUNT</code> of 0).</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Create a <code>PtpConfig</code> custom resource (CR) that configures the T-GM clock with GNSS to NTP failover. Save the following YAML configuration to a file named <code>ptp-config-gnss-ntp-failover.yaml</code>, replacing <code>&lt;MCP-name&gt;</code> with the name of your machine config pool from the previous step.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># The grandmaster profile is provided for testing only</span>
+<span class="c1"># It is not installed on production clusters</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PtpConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">grandmaster</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ptp</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">ran.openshift.io/ztp-deploy-wave</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">profile</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">grandmaster"</span>
+    <span class="na">ptp4lOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-2</span><span class="nv"> </span><span class="s">--summary_interval</span><span class="nv"> </span><span class="s">-4"</span>
+    <span class="na">phc2sysOpts</span><span class="pi">:</span> <span class="s">-r -u 0 -m -N 8 -R 16 -s ens7f0 -n </span><span class="m">24</span>
+    <span class="na">ptpSchedulingPolicy</span><span class="pi">:</span> <span class="s">SCHED_FIFO</span>
+    <span class="na">ptpSchedulingPriority</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">ptpSettings</span><span class="pi">:</span>
+      <span class="na">logReduce</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+
+    <span class="c1"># --- FAILOVER CONFIGURATION ---</span>
+    <span class="c1"># Holdover time: 14400 seconds (4 hours) before switching to NTP</span>
+    <span class="na">ts2phcOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">--ts2phc.holdover</span><span class="nv"> </span><span class="s">14400"</span>
+
+    <span class="c1"># Configure Chronyd (Secondary Time Source)</span>
+    <span class="na">chronydOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-d"</span>
+    <span class="na">chronydConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">server time.nist.gov iburst</span>
+      <span class="s">makestep 1.0 -1</span>
+      <span class="s">pidfile /var/run/chronyd.pid</span>
+
+    <span class="na">plugins</span><span class="pi">:</span>
+      <span class="c1"># E810 Hardware-Specific Configuration</span>
+      <span class="na">e810</span><span class="pi">:</span>
+        <span class="na">enableDefaultConfig</span><span class="pi">:</span> <span class="no">false</span>
+        <span class="na">settings</span><span class="pi">:</span>
+          <span class="na">LocalHoldoverTimeout</span><span class="pi">:</span> <span class="m">14400</span>
+          <span class="na">LocalMaxHoldoverOffSet</span><span class="pi">:</span> <span class="m">1500</span>
+          <span class="na">MaxInSpecOffset</span><span class="pi">:</span> <span class="m">1500</span>
+        <span class="na">pins</span><span class="pi">:</span>
+          <span class="c1"># Syntax guide:</span>
+          <span class="c1"># - The 1st number in each pair must be one of:</span>
+          <span class="c1">#    0 - Disabled</span>
+          <span class="c1">#    1 - RX</span>
+          <span class="c1">#    2 - TX</span>
+          <span class="c1"># - The 2nd number in each pair must match the channel number</span>
+          <span class="na">ens7f0</span><span class="pi">:</span>
+            <span class="na">SMA1</span><span class="pi">:</span> <span class="s">0 </span><span class="m">1</span>
+            <span class="na">SMA2</span><span class="pi">:</span> <span class="s">0 </span><span class="m">2</span>
+            <span class="s">U.FL1</span><span class="pi">:</span> <span class="s">0 </span><span class="m">1</span>
+            <span class="s">U.FL2</span><span class="pi">:</span> <span class="s">0 </span><span class="m">2</span>
+        <span class="na">ublxCmds</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -z CFG-HW-ANT_CFG_VOLTCTRL,1</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-z"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">CFG-HW-ANT_CFG_VOLTCTRL,1"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -e GPS</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-e"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">GPS"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -d Galileo</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">Galileo"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -d GLONASS</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">GLONASS"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -d BeiDou</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">BeiDou"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -d SBAS</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">SBAS"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -t -w 5 -v 1 -e SURVEYIN,600,50000</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-t"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-w"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">5"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-v"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">1"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-e"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">SURVEYIN,600,50000"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -p MON-HW</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-p"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">MON-HW"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -p CFG-MSG,1,38,248</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-p"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">CFG-MSG,1,38,248"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">true</span>
+
+      <span class="c1"># NTP Failover Plugin</span>
+      <span class="na">ntpfailover</span><span class="pi">:</span>
+        <span class="na">gnssFailover</span><span class="pi">:</span> <span class="no">true</span>
+
+    <span class="c1"># --- GNSS (ts2phc) CONFIGURATION (Primary Source) ---</span>
+    <span class="na">ts2phcConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">[nmea]</span>
+      <span class="s">ts2phc.master 1</span>
+      <span class="s">[global]</span>
+      <span class="s">use_syslog  0</span>
+      <span class="s">verbose 1</span>
+      <span class="s">logging_level 7</span>
+      <span class="s">ts2phc.pulsewidth 100000000</span>
+      <span class="s">ts2phc.nmea_serialport /dev/ttyGNSS_1700_0</span>
+      <span class="s">leapfile  /usr/share/zoneinfo/leap-seconds.list</span>
+      <span class="s">[ens7f0]</span>
+      <span class="s">ts2phc.extts_polarity rising</span>
+      <span class="s">ts2phc.extts_correction 0</span>
+
+    <span class="c1"># --- PTP4L CONFIGURATION (Grandmaster Role) ---</span>
+    <span class="na">ptp4lConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">[ens7f0]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[ens7f1]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[global]</span>
+      <span class="s">#</span>
+      <span class="s"># Default Data Set</span>
+      <span class="s">#</span>
+      <span class="s">twoStepFlag 1</span>
+      <span class="s">priority1 128</span>
+      <span class="s">priority2 128</span>
+      <span class="s">domainNumber 24</span>
+      <span class="s">#utc_offset 37</span>
+      <span class="s">clockClass 6</span>
+      <span class="s">clockAccuracy 0x27</span>
+      <span class="s">offsetScaledLogVariance 0xFFFF</span>
+      <span class="s">free_running 0</span>
+      <span class="s">freq_est_interval 1</span>
+      <span class="s">dscp_event 0</span>
+      <span class="s">dscp_general 0</span>
+      <span class="s">dataset_comparison G.8275.x</span>
+      <span class="s">G.8275.defaultDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Port Data Set</span>
+      <span class="s">#</span>
+      <span class="s">logAnnounceInterval -3</span>
+      <span class="s">logSyncInterval -4</span>
+      <span class="s">logMinDelayReqInterval -4</span>
+      <span class="s">logMinPdelayReqInterval 0</span>
+      <span class="s">announceReceiptTimeout 3</span>
+      <span class="s">syncReceiptTimeout 0</span>
+      <span class="s">delayAsymmetry 0</span>
+      <span class="s">fault_reset_interval -4</span>
+      <span class="s">neighborPropDelayThresh 20000000</span>
+      <span class="s">masterOnly 0</span>
+      <span class="s">G.8275.portDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Run time options</span>
+      <span class="s">#</span>
+      <span class="s">assume_two_step 0</span>
+      <span class="s">logging_level 6</span>
+      <span class="s">path_trace_enabled 0</span>
+      <span class="s">follow_up_info 0</span>
+      <span class="s">hybrid_e2e 0</span>
+      <span class="s">inhibit_multicast_service 0</span>
+      <span class="s">net_sync_monitor 0</span>
+      <span class="s">tc_spanning_tree 0</span>
+      <span class="s">tx_timestamp_timeout 50</span>
+      <span class="s">unicast_listen 0</span>
+      <span class="s">unicast_master_table 0</span>
+      <span class="s">unicast_req_duration 3600</span>
+      <span class="s">use_syslog 1</span>
+      <span class="s">verbose 0</span>
+      <span class="s">summary_interval -4</span>
+      <span class="s">kernel_leap 1</span>
+      <span class="s">check_fup_sync 0</span>
+      <span class="s">clock_class_threshold 7</span>
+      <span class="s">#</span>
+      <span class="s"># Servo Options</span>
+      <span class="s">#</span>
+      <span class="s">pi_proportional_const 0.0</span>
+      <span class="s">pi_integral_const 0.0</span>
+      <span class="s">pi_proportional_scale 0.0</span>
+      <span class="s">pi_proportional_exponent -0.3</span>
+      <span class="s">pi_proportional_norm_max 0.7</span>
+      <span class="s">pi_integral_scale 0.0</span>
+      <span class="s">pi_integral_exponent 0.4</span>
+      <span class="s">pi_integral_norm_max 0.3</span>
+      <span class="s">step_threshold 2.0</span>
+      <span class="s">first_step_threshold 0.00002</span>
+      <span class="s">clock_servo pi</span>
+      <span class="s">sanity_freq_limit  200000000</span>
+      <span class="s">ntpshm_segment 0</span>
+      <span class="s">#</span>
+      <span class="s"># Transport options</span>
+      <span class="s">#</span>
+      <span class="s">transportSpecific 0x0</span>
+      <span class="s">ptp_dst_mac 01:1B:19:00:00:00</span>
+      <span class="s">p2p_dst_mac 01:80:C2:00:00:0E</span>
+      <span class="s">udp_ttl 1</span>
+      <span class="s">udp6_scope 0x0E</span>
+      <span class="s">uds_address /var/run/ptp4l</span>
+      <span class="s">#</span>
+      <span class="s"># Default interface options</span>
+      <span class="s">#</span>
+      <span class="s">clock_type BC</span>
+      <span class="s">network_transport L2</span>
+      <span class="s">delay_mechanism E2E</span>
+      <span class="s">time_stamping hardware</span>
+      <span class="s">tsproc_mode filter</span>
+      <span class="s">delay_filter moving_median</span>
+      <span class="s">delay_filter_length 10</span>
+      <span class="s">egressLatency 0</span>
+      <span class="s">ingressLatency 0</span>
+      <span class="s">boundary_clock_jbod 0</span>
+      <span class="s">#</span>
+      <span class="s"># Clock description</span>
+      <span class="s">#</span>
+      <span class="s">productDescription ;;</span>
+      <span class="s">revisionData ;;</span>
+      <span class="s">manufacturerIdentity 00:00:00</span>
+      <span class="s">userDescription ;</span>
+      <span class="s">timeSource 0x20</span>
+    <span class="na">ptpClockThreshold</span><span class="pi">:</span>
+      <span class="na">holdOverTimeout</span><span class="pi">:</span> <span class="m">5</span>
+      <span class="na">maxOffsetThreshold</span><span class="pi">:</span> <span class="m">100</span>
+      <span class="na">minOffsetThreshold</span><span class="pi">:</span> <span class="s">-100</span>
+  <span class="na">recommend</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">profile</span><span class="pi">:</span> <span class="s2">"</span><span class="s">grandmaster"</span>
+    <span class="na">priority</span><span class="pi">:</span> <span class="m">4</span>
+    <span class="na">match</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">nodeLabel</span><span class="pi">:</span> <span class="s">node-role.kubernetes.io/&lt;MCP-name&gt;</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Replace the example interface names (<code>ens7f0</code>, <code>ens7f1</code>) with your actual E810 NIC interface names found in step 2. Common E810 interface naming patterns include <code>ens7f0</code>, <code>ens8f0</code>, <code>eth0</code>, <code>enp2s0f0</code>, and so on. The exact name depends on your system firmware settings and Linux network device naming conventions. Also replace <code>/dev/ttyGNSS_1700_0</code> with your actual GNSS serial port device path. For single-node OpenShift clusters, replace <code>&lt;MCP-name&gt;</code> with <code>master</code> in the nodeLabel match. For multi-node clusters using worker nodes as T-GM, use <code>worker</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The configuration includes the following components:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>PTP4L options:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>-2</code>: Use PTP version 2</p>
+</li>
+<li>
+<p><code>--summary_interval -4</code>: Log summary every 2^(-4) = 0.0625 seconds</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>PHC2SYS options:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>-r</code>: Synchronize system clock from PTP hardware clock</p>
+</li>
+<li>
+<p><code>-u 0</code>: Update rate multiplier</p>
+</li>
+<li>
+<p><code>-m</code>: Print messages to stdout</p>
+</li>
+<li>
+<p><code>-N 8</code>: Domain number for ptp4l</p>
+</li>
+<li>
+<p><code>-R 16</code>: Update rate</p>
+</li>
+<li>
+<p><code>-s ens7f0</code>: Source interface (replace with your E810 interface name)</p>
+</li>
+<li>
+<p><code>-n 24</code>: Domain number</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>Failover configuration:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ts2phcOpts --ts2phc.holdover 14400</code>: 4-hour holdover before switching to NTP</p>
+</li>
+<li>
+<p><code>chronydConf</code>: NTP server configuration for failover replace <code>time.nist.gov</code> with your preferred NTP server</p>
+</li>
+<li>
+<p><code>ntpfailover plugin</code>: Enables automatic GNSS-to-NTP switching with <code>gnssFailover: true</code></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>E810 plugin configuration:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>LocalHoldoverTimeout: 14400</code>: E810 hardware holdover timeout (4 hours)</p>
+</li>
+<li>
+<p><code>pins</code>: Configuration for 1PPS input on E810 physical pins (U.FL2, SMA1, SMA2, U.FL1)</p>
+</li>
+<li>
+<p><code>ublxCmds</code>: Commands to configure u-blox GNSS receiver (enable GPS, disable other constellations, set survey-in mode)</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>GNSS (ts2phc) configuration:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ts2phc.nmea_serialport /dev/ttyGNSS_1700_0</code>: GNSS serial port device path (replace with your actual GNSS device)</p>
+</li>
+<li>
+<p><code>ts2phc.extts_polarity rising</code>: 1PPS signal on rising edge</p>
+</li>
+<li>
+<p><code>ts2phc.pulsewidth 100000000</code>: 1PPS pulse width in nanoseconds</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>PTP4L configuration:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>masterOnly 1</code>: Interface acts only as PTP master</p>
+</li>
+<li>
+<p><code>clockClass 6</code>: GPS-synchronized quality level</p>
+</li>
+<li>
+<p><code>domainNumber 24</code>: PTP domain</p>
+</li>
+<li>
+<p><code>clock_type BC</code>: Boundary Clock mode</p>
+</li>
+<li>
+<p><code>time_stamping hardware</code>: Use hardware timestamps from E810 NIC</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Apply the <code>PtpConfig</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> ptp-config-gnss-ntp-failover.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">ptpconfig.ptp.openshift.io/grandmaster created</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>The PTP daemon checks for profile updates every 30 seconds. Wait approximately 30 seconds, then verify by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ptpconfig <span class="nt">-n</span> openshift-ptp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME           AGE
+grandmaster    2m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the NodePtpDevice to see if the profile is applied by running the following command, replacing <code>&lt;node_name&gt;</code> with your node hostname:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe nodeptpdevice &lt;node_name&gt; <span class="nt">-n</span> openshift-ptp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For example, on a multi-node cluster with worker nodes: <code>worker-0.cluster.local</code></p>
+</div>
+<div class="paragraph">
+<p>For single-node OpenShift clusters, use the control plane node name, which you can find by running:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check if the profile is being loaded by monitoring the daemon logs:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-ptp | <span class="nb">grep </span>linuxptp-daemon</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then check the logs, replacing <code>&lt;linuxptp-daemon-pod&gt;</code> with the actual pod name from the previous command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp &lt;linuxptp-daemon-pod&gt; <span class="nt">-c</span> linuxptp-daemon-container <span class="nt">--tail</span><span class="o">=</span>100</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Success indicators in the logs are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>load profiles</code> - Profile is being loaded</p>
+</li>
+<li>
+<p><code>in applyNodePTPProfiles</code> - Profile is being applied</p>
+</li>
+<li>
+<p>No <code>ptp profile doesn&#8217;t exist for node</code> errors</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Check <code>chronyd</code> status to verify NTP is running as the secondary time source by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp &lt;linuxptp-daemon-pod&gt; <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep </span>chronyd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">chronyd version 4.5 starting
+</span><span class="gp">Added source ID#</span>0000000001 <span class="o">(</span>time.nist.gov<span class="o">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check GNSS/gpsd by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp &lt;linuxptp-daemon-pod&gt; <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep </span>gpsd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows the following when GNSS is functioning correctly:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>gpsd</code> starting successfully</p>
+</li>
+<li>
+<p>No <code>No such file or directory</code> errors exist</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Check <code>ts2phc</code> (GNSS synchronization) status by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp &lt;linuxptp-daemon-pod&gt; <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep </span>ts2phc</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check <code>phc2sys</code> (system clock sync) status by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp &lt;linuxptp-daemon-pod&gt; <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep </span>phc2sys</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows synchronization status messages for <code>phc2sys</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">phc2sys[xxx]: CLOCK_REALTIME phc offset -17 s2 freq -13865 delay 2305</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="configuring-gnss-to-ntp-failover-sno_configuring-ptp"><a class="anchor" href="#configuring-gnss-to-ntp-failover-sno_configuring-ptp"></a>Creating a PTP Grandmaster configuration with GNSS failover on Single Node OpenShift</h3>
+<div class="paragraph _abstract">
+<p>This procedure configures a T-GM (Telecom Grandmaster) clock on single-node OpenShift that uses an Intel E810 Westport Channel NIC as the PTP grandmaster clock with GNSS to NTP failover capabilities.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>For T-GM clocks in production environments, install an Intel E810 Westport Channel NIC in the bare metal single-node OpenShift host.</p>
+</li>
+<li>
+<p>Install the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>Log in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>Install the PTP Operator.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Verify the PTP Operator installation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-ptp <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following listing the PTP Operator pod and the single <code>linuxptp-daemon</code> pod:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                            READY   STATUS    RESTARTS   AGE   IP              NODE                   NOMINATED NODE   READINESS GATES
+</span><span class="gp">linuxptp-daemon-xz8km           2/2     Running   0          15m   192.168.1.50    mysno-sno.demo.lab     &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;
+<span class="gp">ptp-operator-75c77dbf86-xm9kl   1/1     Running   0          20m   10.129.0.45     mysno-sno.demo.lab     &lt;none&gt;</span><span class="w">           </span>&lt;none&gt;</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ptp-operator-*</code>: The PTP Operator pod (one instance in the cluster).</p>
+</li>
+<li>
+<p><code>linuxptp-daemon-*</code>: The linuxptp daemon pod. On single-node OpenShift, there is only one daemon pod running on the master node. The daemon pod should show <code>2/2</code> in the READY column, indicating both containers (<code>linuxptp-daemon-container</code> and <code>kube-rbac-proxy</code>) are running.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Check which network interfaces support hardware timestamping by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get NodePtpDevice <span class="nt">-n</span> openshift-ptp <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following one, showing the NodePtpDevice resource for the single-node OpenShift node with PTP-capable network interfaces:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">items</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v1</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">NodePtpDevice</span>
+  <span class="na">metadata</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">mysno-sno.demo.lab</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ptp</span>
+  <span class="na">spec</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">status</span><span class="pi">:</span>
+    <span class="na">devices</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ens7f0</span>
+      <span class="na">hwConfig</span><span class="pi">:</span>
+        <span class="na">phcIndex</span><span class="pi">:</span> <span class="m">0</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ens7f1</span>
+      <span class="na">hwConfig</span><span class="pi">:</span>
+        <span class="na">phcIndex</span><span class="pi">:</span> <span class="m">1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">List</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">resourceVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In this example output:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ens7f0</code> and <code>ens7f1</code> are PTP-capable interfaces (Intel E810 NIC ports).</p>
+</li>
+<li>
+<p><code>phcIndex</code> indicates the PTP Hardware Clock number (maps to <code>/dev/ptp0</code>, <code>/dev/ptp1</code>, etc.)</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>On single-node OpenShift clusters, you will see only one NodePtpDevice resource for the single master node.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>The PTP profile uses node labels for matching. Check your machine config pool (MCP) to verify the master MCP by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get mcp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME     CONFIG                  UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT DEGRADEDMACHINECOUNT AGE
+master   rendered-master-a1b1*   True      False      False      1              1                   1                   0                    45d
+worker   rendered-worker-f6e5*   True      False      False      0              0                   0                   0                    45d</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The CONFIG column shows a truncated hash of the rendered MachineConfig. In actual output, this will be a full 64-character hash like <code>rendered-master-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>On single-node OpenShift clusters, the master MCP shows <code>MACHINECOUNT</code> of 1 (the single node), and the worker MCP shows <code>MACHINECOUNT</code> of 0. The PTP profile must target the <code>master</code> node label.</p>
+</div>
+</li>
+<li>
+<p>Create a <code>PtpConfig</code> custom resource (CR) that configures the T-GM clock with GNSS to NTP failover. Save the following YAML configuration to a file named <code>ptp-config-gnss-ntp-failover-sno.yaml</code>.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># The grandmaster profile is provided for testing only</span>
+<span class="c1"># It is not installed on production clusters</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PtpConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">grandmaster</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ptp</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">ran.openshift.io/ztp-deploy-wave</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">profile</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">grandmaster"</span>
+    <span class="na">ptp4lOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-2</span><span class="nv"> </span><span class="s">--summary_interval</span><span class="nv"> </span><span class="s">-4"</span>
+    <span class="na">phc2sysOpts</span><span class="pi">:</span> <span class="s">-r -u 0 -m -N 8 -R 16 -s ens7f0 -n </span><span class="m">24</span>
+    <span class="na">ptpSchedulingPolicy</span><span class="pi">:</span> <span class="s">SCHED_FIFO</span>
+    <span class="na">ptpSchedulingPriority</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">ptpSettings</span><span class="pi">:</span>
+      <span class="na">logReduce</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+
+    <span class="c1"># --- FAILOVER CONFIGURATION ---</span>
+    <span class="c1"># Holdover time: 14400 seconds (4 hours) before switching to NTP</span>
+    <span class="na">ts2phcOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">--ts2phc.holdover</span><span class="nv"> </span><span class="s">14400"</span>
+
+    <span class="c1"># Configure Chronyd (Secondary Time Source)</span>
+    <span class="na">chronydOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-d"</span>
+    <span class="na">chronydConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">server time.nist.gov iburst</span>
+      <span class="s">makestep 1.0 -1</span>
+      <span class="s">pidfile /var/run/chronyd.pid</span>
+
+    <span class="na">plugins</span><span class="pi">:</span>
+      <span class="c1"># E810 Hardware-Specific Configuration</span>
+      <span class="na">e810</span><span class="pi">:</span>
+        <span class="na">enableDefaultConfig</span><span class="pi">:</span> <span class="no">false</span>
+        <span class="na">settings</span><span class="pi">:</span>
+          <span class="na">LocalHoldoverTimeout</span><span class="pi">:</span> <span class="m">14400</span>
+          <span class="na">LocalMaxHoldoverOffSet</span><span class="pi">:</span> <span class="m">1500</span>
+          <span class="na">MaxInSpecOffset</span><span class="pi">:</span> <span class="m">1500</span>
+        <span class="na">pins</span><span class="pi">:</span>
+          <span class="c1"># Syntax guide:</span>
+          <span class="c1"># - The 1st number in each pair must be one of:</span>
+          <span class="c1">#    0 - Disabled</span>
+          <span class="c1">#    1 - RX</span>
+          <span class="c1">#    2 - TX</span>
+          <span class="c1"># - The 2nd number in each pair must match the channel number</span>
+          <span class="na">ens7f0</span><span class="pi">:</span>
+            <span class="na">SMA1</span><span class="pi">:</span> <span class="s">0 </span><span class="m">1</span>
+            <span class="na">SMA2</span><span class="pi">:</span> <span class="s">0 </span><span class="m">2</span>
+            <span class="s">U.FL1</span><span class="pi">:</span> <span class="s">0 </span><span class="m">1</span>
+            <span class="s">U.FL2</span><span class="pi">:</span> <span class="s">0 </span><span class="m">2</span>
+        <span class="na">ublxCmds</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -z CFG-HW-ANT_CFG_VOLTCTRL,1</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-z"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">CFG-HW-ANT_CFG_VOLTCTRL,1"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -e GPS</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-e"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">GPS"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -d Galileo</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">Galileo"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -d GLONASS</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">GLONASS"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -d BeiDou</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">BeiDou"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -d SBAS</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">SBAS"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -t -w 5 -v 1 -e SURVEYIN,600,50000</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-t"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-w"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">5"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-v"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">1"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-e"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">SURVEYIN,600,50000"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -p MON-HW</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-p"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">MON-HW"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.20 -p CFG-MSG,1,38,248</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">29.20"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">-p"</span>
+              <span class="pi">-</span> <span class="s2">"</span><span class="s">CFG-MSG,1,38,248"</span>
+            <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">true</span>
+
+      <span class="c1"># NTP Failover Plugin</span>
+      <span class="na">ntpfailover</span><span class="pi">:</span>
+        <span class="na">gnssFailover</span><span class="pi">:</span> <span class="no">true</span>
+
+    <span class="c1"># --- GNSS (ts2phc) CONFIGURATION (Primary Source) ---</span>
+    <span class="na">ts2phcConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">[nmea]</span>
+      <span class="s">ts2phc.master 1</span>
+      <span class="s">[global]</span>
+      <span class="s">use_syslog  0</span>
+      <span class="s">verbose 1</span>
+      <span class="s">logging_level 7</span>
+      <span class="s">ts2phc.pulsewidth 100000000</span>
+      <span class="s">ts2phc.nmea_serialport /dev/ttyGNSS_1700_0</span>
+      <span class="s">leapfile  /usr/share/zoneinfo/leap-seconds.list</span>
+      <span class="s">[ens7f0]</span>
+      <span class="s">ts2phc.extts_polarity rising</span>
+      <span class="s">ts2phc.extts_correction 0</span>
+
+    <span class="c1"># --- PTP4L CONFIGURATION (Grandmaster Role) ---</span>
+    <span class="na">ptp4lConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">[ens7f0]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[ens7f1]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[global]</span>
+      <span class="s">#</span>
+      <span class="s"># Default Data Set</span>
+      <span class="s">#</span>
+      <span class="s">twoStepFlag 1</span>
+      <span class="s">priority1 128</span>
+      <span class="s">priority2 128</span>
+      <span class="s">domainNumber 24</span>
+      <span class="s">#utc_offset 37</span>
+      <span class="s">clockClass 6</span>
+      <span class="s">clockAccuracy 0x27</span>
+      <span class="s">offsetScaledLogVariance 0xFFFF</span>
+      <span class="s">free_running 0</span>
+      <span class="s">freq_est_interval 1</span>
+      <span class="s">dscp_event 0</span>
+      <span class="s">dscp_general 0</span>
+      <span class="s">dataset_comparison G.8275.x</span>
+      <span class="s">G.8275.defaultDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Port Data Set</span>
+      <span class="s">#</span>
+      <span class="s">logAnnounceInterval -3</span>
+      <span class="s">logSyncInterval -4</span>
+      <span class="s">logMinDelayReqInterval -4</span>
+      <span class="s">logMinPdelayReqInterval 0</span>
+      <span class="s">announceReceiptTimeout 3</span>
+      <span class="s">syncReceiptTimeout 0</span>
+      <span class="s">delayAsymmetry 0</span>
+      <span class="s">fault_reset_interval -4</span>
+      <span class="s">neighborPropDelayThresh 20000000</span>
+      <span class="s">masterOnly 0</span>
+      <span class="s">G.8275.portDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Run time options</span>
+      <span class="s">#</span>
+      <span class="s">assume_two_step 0</span>
+      <span class="s">logging_level 6</span>
+      <span class="s">path_trace_enabled 0</span>
+      <span class="s">follow_up_info 0</span>
+      <span class="s">hybrid_e2e 0</span>
+      <span class="s">inhibit_multicast_service 0</span>
+      <span class="s">net_sync_monitor 0</span>
+      <span class="s">tc_spanning_tree 0</span>
+      <span class="s">tx_timestamp_timeout 50</span>
+      <span class="s">unicast_listen 0</span>
+      <span class="s">unicast_master_table 0</span>
+      <span class="s">unicast_req_duration 3600</span>
+      <span class="s">use_syslog 1</span>
+      <span class="s">verbose 0</span>
+      <span class="s">summary_interval -4</span>
+      <span class="s">kernel_leap 1</span>
+      <span class="s">check_fup_sync 0</span>
+      <span class="s">clock_class_threshold 7</span>
+      <span class="s">#</span>
+      <span class="s"># Servo Options</span>
+      <span class="s">#</span>
+      <span class="s">pi_proportional_const 0.0</span>
+      <span class="s">pi_integral_const 0.0</span>
+      <span class="s">pi_proportional_scale 0.0</span>
+      <span class="s">pi_proportional_exponent -0.3</span>
+      <span class="s">pi_proportional_norm_max 0.7</span>
+      <span class="s">pi_integral_scale 0.0</span>
+      <span class="s">pi_integral_exponent 0.4</span>
+      <span class="s">pi_integral_norm_max 0.3</span>
+      <span class="s">step_threshold 2.0</span>
+      <span class="s">first_step_threshold 0.00002</span>
+      <span class="s">clock_servo pi</span>
+      <span class="s">sanity_freq_limit  200000000</span>
+      <span class="s">ntpshm_segment 0</span>
+      <span class="s">#</span>
+      <span class="s"># Transport options</span>
+      <span class="s">#</span>
+      <span class="s">transportSpecific 0x0</span>
+      <span class="s">ptp_dst_mac 01:1B:19:00:00:00</span>
+      <span class="s">p2p_dst_mac 01:80:C2:00:00:0E</span>
+      <span class="s">udp_ttl 1</span>
+      <span class="s">udp6_scope 0x0E</span>
+      <span class="s">uds_address /var/run/ptp4l</span>
+      <span class="s">#</span>
+      <span class="s"># Default interface options</span>
+      <span class="s">#</span>
+      <span class="s">clock_type BC</span>
+      <span class="s">network_transport L2</span>
+      <span class="s">delay_mechanism E2E</span>
+      <span class="s">time_stamping hardware</span>
+      <span class="s">tsproc_mode filter</span>
+      <span class="s">delay_filter moving_median</span>
+      <span class="s">delay_filter_length 10</span>
+      <span class="s">egressLatency 0</span>
+      <span class="s">ingressLatency 0</span>
+      <span class="s">boundary_clock_jbod 0</span>
+      <span class="s">#</span>
+      <span class="s"># Clock description</span>
+      <span class="s">#</span>
+      <span class="s">productDescription ;;</span>
+      <span class="s">revisionData ;;</span>
+      <span class="s">manufacturerIdentity 00:00:00</span>
+      <span class="s">userDescription ;</span>
+      <span class="s">timeSource 0x20</span>
+    <span class="na">ptpClockThreshold</span><span class="pi">:</span>
+      <span class="na">holdOverTimeout</span><span class="pi">:</span> <span class="m">5</span>
+      <span class="na">maxOffsetThreshold</span><span class="pi">:</span> <span class="m">100</span>
+      <span class="na">minOffsetThreshold</span><span class="pi">:</span> <span class="s">-100</span>
+  <span class="na">recommend</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">profile</span><span class="pi">:</span> <span class="s2">"</span><span class="s">grandmaster"</span>
+    <span class="na">priority</span><span class="pi">:</span> <span class="m">4</span>
+    <span class="na">match</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">nodeLabel</span><span class="pi">:</span> <span class="s">node-role.kubernetes.io/master</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Replace the example interface names (<code>ens7f0</code>, <code>ens7f1</code>) with your actual E810 NIC interface names found in step 2. Common E810 interface naming patterns include <code>ens7f0</code>, <code>ens8f0</code>, <code>eth0</code>, <code>enp2s0f0</code>, and so on. The exact name depends on your system BIOS settings and Linux network device naming conventions. Also, replace <code>/dev/ttyGNSS_1700_0</code> with your actual GNSS serial port device path. The <code>nodeLabel</code> is set to <code>node-role.kubernetes.io/master</code> to target the single-node OpenShift master node which serves all roles.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The configuration includes the following components:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>PTP4L options</strong>:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>-2</code>: Use PTP version 2</p>
+</li>
+<li>
+<p><code>--summary_interval -4</code>: Log summary every 2^(-4) = 0.0625 seconds</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>PHC2SYS options:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>-r</code>: Synchronize system clock from PTP hardware clock</p>
+</li>
+<li>
+<p><code>-u 0</code>: Update rate multiplier</p>
+</li>
+<li>
+<p><code>-m</code>: Print messages to stdout</p>
+</li>
+<li>
+<p><code>-N 8</code>: Domain number for ptp4l</p>
+</li>
+<li>
+<p><code>-R 16</code>: Update rate</p>
+</li>
+<li>
+<p><code>-s ens7f0</code>: Source interface (replace with your E810 interface name)</p>
+</li>
+<li>
+<p><code>-n 24</code>: Domain number</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>Failover configuration:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ts2phcOpts --ts2phc.holdover 14400</code>: 4-hour holdover before switching to NTP</p>
+</li>
+<li>
+<p><code>chronydConf</code>: NTP server configuration for failover replace <code>time.nist.gov</code> with your preferred NTP server</p>
+</li>
+<li>
+<p><code>ntpfailover plugin</code>: Enables automatic GNSS-to-NTP switching with <code>gnssFailover: true</code>.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>E810 plugin configuration:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>LocalHoldoverTimeout: 14400</code>: E810 hardware holdover timeout (4 hours)</p>
+</li>
+<li>
+<p><code>pins</code>: Configuration for 1PPS input on E810 physical pins (U.FL2, SMA1, SMA2, U.FL1)</p>
+</li>
+<li>
+<p><code>ublxCmds</code>: Commands to configure u-blox GNSS receiver (enable GPS, disable other constellations, set survey-in mode)</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>GNSS (ts2phc) configuration:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ts2phc.nmea_serialport /dev/ttyGNSS_1700_0</code>: GNSS serial port device path (replace with your actual GNSS device)</p>
+</li>
+<li>
+<p><code>ts2phc.extts_polarity rising</code>: 1PPS signal on rising edge</p>
+</li>
+<li>
+<p><code>ts2phc.pulsewidth 100000000</code>: 1PPS pulse width in nanoseconds</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>PTP4L configuration:</strong></p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>masterOnly 1</code>: Interface acts only as PTP master</p>
+</li>
+<li>
+<p><code>clockClass 6</code>: GPS-synchronized quality level</p>
+</li>
+<li>
+<p><code>domainNumber 24</code>: PTP domain</p>
+</li>
+<li>
+<p><code>clock_type BC</code>: Boundary Clock mode</p>
+</li>
+<li>
+<p><code>time_stamping hardware</code>: Use hardware timestamps from E810 NIC</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Apply the <code>PtpConfig</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> ptp-config-gnss-ntp-failover-sno.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">ptpconfig.ptp.openshift.io/grandmaster created</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>The PTP daemon checks for profile updates every 30 seconds. Wait approximately 30 seconds, then verify by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ptpconfig <span class="nt">-n</span> openshift-ptp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME           AGE
+grandmaster    2m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the NodePtpDevice to see if the profile is applied. First, get your single-node OpenShift node name:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                 STATUS   ROLES                         AGE     VERSION
+mysno-sno.demo.lab   Ready    control-plane,master,worker   4h19m   v1.34.1</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then describe the NodePtpDevice using your node name:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe nodeptpdevice mysno-sno.demo.lab <span class="nt">-n</span> openshift-ptp</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check if the profile is being loaded by monitoring the daemon logs. First, get the daemon pod name:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-ptp | <span class="nb">grep </span>linuxptp-daemon</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows the single linuxptp-daemon pod:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">linuxptp-daemon-xz8km           2/2     Running   0          15m</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Then check the logs using the pod name:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp linuxptp-daemon-xz8km <span class="nt">-c</span> linuxptp-daemon-container <span class="nt">--tail</span><span class="o">=</span>100</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Success indicators in the logs are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>load profiles</code> - Profile is being loaded</p>
+</li>
+<li>
+<p><code>in applyNodePTPProfiles</code> - Profile is being applied</p>
+</li>
+<li>
+<p>No <code>ptp profile doesn&#8217;t exist for node</code> errors</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Check <code>chronyd</code> status to verify NTP is running as the secondary time source by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp linuxptp-daemon-xz8km <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep </span>chronyd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">chronyd version 4.5 starting
+</span><span class="gp">Added source ID#</span>0000000001 <span class="o">(</span>time.nist.gov<span class="o">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check GNSS/gpsd by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp linuxptp-daemon-xz8km <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep </span>gpsd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows the following when GNSS is functioning correctly:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>gpsd</code> starting successfully</p>
+</li>
+<li>
+<p>No <code>No such file or directory</code> errors exist</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Check <code>ts2phc</code> (GNSS synchronization) status by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp linuxptp-daemon-xz8km <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep </span>ts2phc</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check <code>phc2sys</code> (system clock sync) status by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-ptp linuxptp-daemon-xz8km <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep </span>phc2sys</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows synchronization status messages for <code>phc2sys</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">phc2sys[xxx]: CLOCK_REALTIME phc offset -17 s2 freq -13865 delay 2305</span></code></pre>
+</div>
 </div>
 </li>
 </ol>
