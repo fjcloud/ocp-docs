@@ -3342,7 +3342,11 @@
 <li><a href="#installation-restricted-network-limits_installing-restricted-networks-ibm-z-kvm">Additional limits</a></li>
 </ul>
 </li>
-<li><a href="#installation-infrastructure-user-infra_installing-restricted-networks-ibm-z-kvm">Preparing the user-provisioned infrastructure</a></li>
+<li><a href="#installation-infrastructure-user-infra_installing-restricted-networks-ibm-z-kvm">Preparing the user-provisioned infrastructure</a>
+<ul class="sectlevel2">
+<li><a href="#installation-load-balancing-user-infra-example_installing-restricted-networks-ibm-z-kvm">Example load balancer configuration for user-provisioned clusters</a></li>
+</ul>
+</li>
 <li><a href="#installation-initializing-manual_installing-restricted-networks-ibm-z-kvm">Manually creating the installation configuration file</a>
 <ul class="sectlevel2">
 <li><a href="#installation-bare-metal-config-yaml_installing-restricted-networks-ibm-z-kvm">Sample install-config.yaml file for IBM Z</a></li>
@@ -3516,8 +3520,8 @@ you cannot access the required image stream tags.</p>
 <div class="sect1">
 <h2 id="installation-infrastructure-user-infra_installing-restricted-networks-ibm-z-kvm"><a class="anchor" href="#installation-infrastructure-user-infra_installing-restricted-networks-ibm-z-kvm"></a>Preparing the user-provisioned infrastructure</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>Before you install OpenShift Container Platform on user-provisioned infrastructure, you must prepare the underlying infrastructure.</p>
+<div class="paragraph _abstract">
+<p>To ensure a successful deployment and meet cluster requirements in OpenShift Container Platform, prepare your user-provisioned infrastructure before starting the installation. Configuring your compute, network, and storage components in advance provides the stable foundation necessary for the installation program to function correctly.</p>
 </div>
 <div class="paragraph">
 <p>This section provides details about the high-level steps required to set up your cluster infrastructure in preparation for an OpenShift Container Platform installation. This includes configuring IP networking and network connectivity for your cluster nodes,
@@ -3644,9 +3648,6 @@ enabling the required ports through your firewall, and setting up the required D
 </li>
 <li>
 <p>Provision the required API and application ingress load balancing infrastructure. See the <em>Load balancing requirements for user-provisioned infrastructure</em> section for more information about the requirements.</p>
-</li>
-</ol>
-</div>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3661,13 +3662,151 @@ enabling the required ports through your firewall, and setting up the required D
 </tr>
 </table>
 </div>
+</li>
+</ol>
+</div>
+<div class="sect2">
+<h3 id="installation-load-balancing-user-infra-example_installing-restricted-networks-ibm-z-kvm"><a class="anchor" href="#installation-load-balancing-user-infra-example_installing-restricted-networks-ibm-z-kvm"></a>Example load balancer configuration for user-provisioned clusters</h3>
+<div class="paragraph _abstract">
+<p>Reference the example API and application Ingress load balancer configuration so that you can understand how to meet the load balancing requirements for user-provisioned clusters.</p>
+</div>
+<div class="paragraph">
+<p>The sample is an <code>/etc/haproxy/haproxy.cfg</code> configuration for an HAProxy load balancer. The example is not meant to provide advice for choosing one load balancing solution over another.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you are using HAProxy as a load balancer, you can check that the <code>haproxy</code> process is listening on ports <code>6443</code>, <code>22623</code>, <code>443</code>, and <code>80</code> by running <code>netstat -nltupe</code> on the HAProxy node.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>In the example, the same load balancer is used for the Kubernetes API and application ingress traffic. In production scenarios, you can deploy the API and application ingress load balancers separately so that you can scale the load balancer infrastructure for each in isolation.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you are using HAProxy as a load balancer and SELinux is set to <code>enforcing</code>, you must ensure that the HAProxy service can bind to the configured TCP port by running <code>setsebool -P haproxy_connect_any=1</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Sample API and application Ingress load balancer configuration</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">global
+  log         127.0.0.1 local2
+  pidfile     /var/run/haproxy.pid
+  maxconn     4000
+  daemon
+defaults
+  mode                    http
+  log                     global
+  option                  dontlognull
+  option http-server-close
+  option                  redispatch
+  retries                 3
+  timeout http-request    10s
+  timeout queue           1m
+  timeout connect         10s
+  timeout client          1m
+  timeout server          1m
+  timeout http-keep-alive 10s
+  timeout check           10s
+  maxconn                 3000
+listen api-server-6443
+  bind *:6443
+  mode tcp
+  option  httpchk GET /readyz HTTP/1.0
+  option  log-health-checks
+  balance roundrobin
+  server bootstrap bootstrap.ocp4.example.com:6443 verify none check check-ssl inter 10s fall 2 rise 3 backup
+  server master0 master0.ocp4.example.com:6443 weight 1 verify none check check-ssl inter 10s fall 2 rise 3
+  server master1 master1.ocp4.example.com:6443 weight 1 verify none check check-ssl inter 10s fall 2 rise 3
+  server master2 master2.ocp4.example.com:6443 weight 1 verify none check check-ssl inter 10s fall 2 rise 3
+listen machine-config-server-22623
+  bind *:22623
+  mode tcp
+  server bootstrap bootstrap.ocp4.example.com:22623 check inter 1s backup
+  server master0 master0.ocp4.example.com:22623 check inter 1s
+  server master1 master1.ocp4.example.com:22623 check inter 1s
+  server master2 master2.ocp4.example.com:22623 check inter 1s
+listen ingress-router-443
+  bind *:443
+  mode tcp
+  balance source
+  server compute0 compute0.ocp4.example.com:443 check inter 1s
+  server compute1 compute1.ocp4.example.com:443 check inter 1s
+listen ingress-router-80
+  bind *:80
+  mode tcp
+  balance source
+  server compute0 compute0.ocp4.example.com:80 check inter 1s
+  server compute1 compute1.ocp4.example.com:80 check inter 1s</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>listen api-server-6443</code></dt>
+<dd>
+<p>Port <code>6443</code> handles the Kubernetes API traffic and points to the control plane machines.</p>
+</dd>
+<dt class="hdlist1"><code>server bootstrap bootstrap.ocp4.example.com</code></dt>
+<dd>
+<p>The bootstrap entries must be in place before the OpenShift Container Platform cluster installation and they must be removed after the bootstrap process is complete.</p>
+</dd>
+<dt class="hdlist1"><code>listen machine-config-server</code></dt>
+<dd>
+<p>Port <code>22623</code> handles the machine config server traffic and points to the control plane machines.</p>
+</dd>
+<dt class="hdlist1"><code>listen ingress-router-443</code></dt>
+<dd>
+<p>Port <code>443</code> handles the HTTPS traffic and points to the machines that run the Ingress Controller pods. The Ingress Controller pods run on the compute machines by default.</p>
+</dd>
+<dt class="hdlist1"><code>listen ingress-router-80</code></dt>
+<dd>
+<p>Port <code>80</code> handles the HTTP traffic and points to the machines that run the Ingress Controller pods. The Ingress Controller pods run on the compute machines by default.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you are deploying a three-node cluster with zero compute nodes, the Ingress Controller pods run on the control plane nodes. In three-node cluster deployments, you must configure your application Ingress load balancer to route HTTP and HTTPS traffic to the control plane nodes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</dd>
+</dl>
+</div>
+</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="installation-initializing-manual_installing-restricted-networks-ibm-z-kvm"><a class="anchor" href="#installation-initializing-manual_installing-restricted-networks-ibm-z-kvm"></a>Manually creating the installation configuration file</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>Installing the cluster requires that you manually create the installation configuration file.</p>
+<div class="paragraph _abstract">
+<p>To customise your OpenShift Container Platform deployment and meet specific network requirements, manually create the installation configuration file. This ensures that the installation program uses your tailored settings rather than default values during the setup process.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
