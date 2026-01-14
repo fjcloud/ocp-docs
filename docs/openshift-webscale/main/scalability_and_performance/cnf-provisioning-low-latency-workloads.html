@@ -302,7 +302,7 @@
 <li><a href="#cnf-node-tuning-operator-disabling-cpu-load-balancing-for-dpdk_cnf-provisioning-low-latency">Disabling CPU load balancing in a Pod</a></li>
 <li><a href="#cnf-configuring-high-priority-workload-pods_cnf-provisioning-low-latency">Disabling power saving mode for high priority pods</a></li>
 <li><a href="#cnf-disabling-cpu-cfs-quota_cnf-provisioning-low-latency">Disabling CPU CFS quota</a></li>
-<li><a href="#cnf-disabling-interrupt-processing-for-individual-pods_cnf-provisioning-low-latency">Disabling interrupt processing for CPUs where pinned containers are running</a></li>
+<li><a href="#cnf-disabling-interrupt-processing-for-individual-pods_cnf-provisioning-low-latency">Configuring interrupt processing for individual pods</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -958,28 +958,137 @@ dynamic-low-latency-pod  1/1     Running   0          5h33m   10.131.0.10  cnf-w
 </div>
 </div>
 <div class="sect1">
-<h2 id="cnf-disabling-interrupt-processing-for-individual-pods_cnf-provisioning-low-latency"><a class="anchor" href="#cnf-disabling-interrupt-processing-for-individual-pods_cnf-provisioning-low-latency"></a>Disabling interrupt processing for CPUs where pinned containers are running</h2>
+<h2 id="cnf-disabling-interrupt-processing-for-individual-pods_cnf-provisioning-low-latency"><a class="anchor" href="#cnf-disabling-interrupt-processing-for-individual-pods_cnf-provisioning-low-latency"></a>Configuring interrupt processing for individual pods</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>To achieve low latency for workloads, some containers require that the CPUs they are pinned to do not process device interrupts. A pod annotation, <code>irq-load-balancing.crio.io</code>, is used to define whether device interrupts are processed or not on the CPUs where the pinned containers are running. When configured, CRI-O disables device interrupts where the pod containers are running.</p>
+<p>To achieve low latency for workloads, some containers require that the CPUs they are pinned to do not process device interrupts. You can use the <code>irq-load-balancing.crio.io</code> pod annotation to control whether device interrupts are processed on CPUs where the pinned containers are running.</p>
 </div>
 <div class="paragraph">
-<p>To disable interrupt processing for CPUs where containers belonging to individual pods are pinned, ensure that <code>globallyDisableIrqLoadBalancing</code> is set to <code>false</code> in the performance profile. Then, in the pod specification, set the <code>irq-load-balancing.crio.io</code> pod annotation to <code>disable</code>.</p>
+<p>The annotation supports the following values:</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>disable</code></dt>
+<dd>
+<p>Disables IRQ load balancing for all CPUs allocated to the container. Use this value for latency-sensitive workloads when you want to exclude container CPUs from interrupt handling.</p>
+</dd>
+<dt class="hdlist1"><code>housekeeping</code></dt>
+<dd>
+<p>Preserves IRQ handling on the first CPU that is allocated to the container, including that CPU&#8217;s thread siblings. The subsequent CPUs allocated to the container are excluded from interrupt processing. This configuration also injects the <code>OPENSHIFT_HOUSEKEEPING_CPUS</code> environment variable into the container. Use this variable to see which CPUs are designated for housekeeping tasks.</p>
 <div class="paragraph">
-<p>The following pod specification contains this annotation:</p>
+<p>You can use the <code>housekeeping</code> value to reduce the overall CPU footprint by allowing a small subset of container CPUs to handle both application housekeeping work and system interrupts.</p>
 </div>
+</dd>
+</dl>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When using the <code>housekeeping</code> value, the CPUs designated for housekeeping handle interrupts for the entire system.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You configured a performance profile for the node.</p>
+</li>
+<li>
+<p>You set the <code>globallyDisableIrqLoadBalancing</code> field to <code>false</code> in the performance profile.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create the <code>Pod</code> resource and configure the <code>irq-load-balancing.crio.io</code> annotation:</p>
 <div class="listingblock">
+<div class="title">Example pod specification</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">performance.openshift.io/v2</span>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
 <span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">dpdk-workload</span>
   <span class="na">annotations</span><span class="pi">:</span>
-      <span class="s">irq-load-balancing.crio.io</span><span class="pi">:</span> <span class="s2">"</span><span class="s">disable"</span>
+    <span class="s">irq-load-balancing.crio.io</span><span class="pi">:</span> <span class="s2">"</span><span class="s">disable"</span>
 <span class="na">spec</span><span class="pi">:</span>
-    <span class="na">runtimeClassName</span><span class="pi">:</span> <span class="s">performance-&lt;profile_name&gt;</span>
-<span class="nn">...</span></code></pre>
+  <span class="na">runtimeClassName</span><span class="pi">:</span> <span class="s">performance-&lt;profile_name&gt;</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">example-image</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">requests</span><span class="pi">:</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">8"</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">4Gi"</span>
+      <span class="na">limits</span><span class="pi">:</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">8"</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">4Gi"</span></code></pre>
 </div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>annotations.irq-load-balancing.crio.io</code> defines whether device interrupts are processed on the container CPUs. Set to <code>disable</code> to prevent all container CPUs from handling IRQs, or set to <code>housekeeping</code> to allow the first allocated CPU and its thread siblings to handle IRQs while excluding the remaining CPUs from IRQ handling.</p>
+</li>
+<li>
+<p><code>spec.runtimeClassName</code> sets the runtime class to the performance profile. Replace <code>&lt;profile_name&gt;</code> with the name of your performance profile.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Apply the <code>Pod</code> resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> pod.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify the CPUs assigned to the pod:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> &lt;pod_name&gt; <span class="nt">--</span> <span class="nb">cat</span> /sys/fs/cgroup/cpuset.cpus</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>For pods using the <code>housekeeping</code> annotation, verify the housekeeping CPU environment variable:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> &lt;pod_name&gt; <span class="nt">--</span> <span class="nb">printenv </span>OPENSHIFT_HOUSEKEEPING_CPUS</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;pod_name&gt;</code> with the name of the pod.</p>
+</div>
+</li>
+<li>
+<p>On the worker node, verify the CPUs excluded from IRQ handling:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">grep </span>IRQBALANCE_BANNED_CPUS /etc/sysconfig/irqbalance</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output is a hexadecimal bitmask representing the CPUs excluded from IRQ handling.</p>
+</div>
+</li>
+</ol>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
