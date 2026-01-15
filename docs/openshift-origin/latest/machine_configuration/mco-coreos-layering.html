@@ -2804,11 +2804,12 @@
 <li><a href="#coreos-layering-removing_mco-coreos-layering">Reverting an out-of-cluster node</a></li>
 </ul>
 </li>
+<li><a href="#coreos-layering-install-time_mco-coreos-layering">Applying a custom layered image during OKD installation</a></li>
 <li><a href="#coreos-layering-updating_mco-coreos-layering">Updating with a FCOS custom layered image</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>Image mode for OpenShift allows you to easily extend the functionality of your base FCOS image by layering additional images onto the base image. This layering does not modify the base FCOS image. Instead, it creates a <em>custom layered image</em> that includes all FCOS functionality and adds additional functionality to specific nodes in the cluster.</p>
+<div class="paragraph _abstract">
+<p>You can extend the functionality of your base FCOS image by layering additional images onto the base image. This layering does not modify the base FCOS image. Instead, it creates a <em>custom layered image</em> that includes all FCOS functionality and adds additional functionality to specific nodes in the cluster.</p>
 </div>
 <div class="paragraph">
 <p>Image mode is a cloud-native approach to operating system management that treats your OS like a container image. You define your operating system configuration as code, build it as a unified image, and deploy it consistently across your entire fleet.</p>
@@ -2845,7 +2846,7 @@
 <p>As soon as you apply the custom layered image to your cluster, you effectively <em>take ownership</em> of your custom layered images and those nodes. While Red Hat remains responsible for maintaining and updating the base FCOS image on standard nodes, you are responsible for maintaining and updating images on nodes that use a custom layered image. You assume the responsibility for the package you applied with the custom layered image and any issues that might arise with the package.</p>
 </div>
 <div class="paragraph">
-<p>There are two methods for deploying a custom layered image onto your nodes:</p>
+<p>There are three methods for deploying a custom layered image onto your nodes:</p>
 </div>
 <div class="dlist">
 <dl>
@@ -2857,6 +2858,10 @@
 <dd>
 <p>With <a href="../machine_configuration/mco-coreos-layering.html#coreos-layering-configuring_mco-coreos-layering">out-of-cluster image mode</a>, you create a Containerfile that references an OKD image and the RPM that you want to apply, build the layered image in your own environment, and push the image to your repository. Then, in your cluster, create a <code>MachineConfig</code> object for the targeted node pool that points to the new image. The Machine Config Operator overrides the base FCOS image, as specified by the <code>osImageURL</code> value in the associated machine config, and boots the new image.</p>
 </dd>
+<dt class="hdlist1">During OKD installation</dt>
+<dd>
+<p>You can apply a pre-built custom layered image to specific nodes during OKD installation.</p>
+</dd>
 </dl>
 </div>
 <div class="admonitionblock important">
@@ -2867,7 +2872,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>For both methods, use the same base FCOS image installed on the rest of your cluster. Use the <code>oc adm release info --image-for rhel-coreos</code> command to obtain the base image used in your cluster.</p>
+<p>For these methods, use the same base FCOS image installed on the rest of your cluster. Use the <code>oc adm release info --image-for rhel-coreos</code> command to obtain the base image used in your cluster.</p>
 </div>
 </td>
 </tr>
@@ -4673,6 +4678,218 @@ Deployments:
 </li>
 </ol>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="coreos-layering-install-time_mco-coreos-layering"><a class="anchor" href="#coreos-layering-install-time_mco-coreos-layering"></a>Applying a custom layered image during OKD installation</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can use the standard OKD installation process to apply a custom layered image to your nodes by adding a <code>MachineOSConfig</code> custom resource (CR) YAML and a push secret YAML to the <code>&lt;installation_directory&gt;/manifests/</code> directory. This allows you to use image mode for OpenShift to apply additional functionality to specific nodes upon cluster installation.</p>
+</div>
+<div class="paragraph">
+<p>After the installation, if you modify a machine config pool or update the OKD version, the Machine Config Operator (MCO) builds and applies a new custom layered image, and pushes the updated image to your repository.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have a custom layered image in a repository that your cluster can access.</p>
+<div class="listingblock">
+<div class="title">Example containerFile for a custom layered image</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="s">FROM quay.io/centos/centos:stream9 AS centos</span>
+<span class="s">RUN dnf install -y epel-release</span>
+
+<span class="s">FROM [rhel-coreos image] AS configs</span>
+<span class="s">COPY --from=centos /etc/yum.repos.d /etc/yum.repos.d</span>
+<span class="s">COPY --from=centos /etc/pki/rpm-gpg/RPM-GPG-KEY-* /etc/pki/rpm-gpg/</span>
+<span class="s">RUN sed -i 's/\$stream/9-stream/g' /etc/yum.repos.d/centos*.repo &amp;&amp; \</span>
+    <span class="s">rpm-ostree install cowsay &amp;&amp; \</span>
+    <span class="s">ostree container commit</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>You have a repository and any needed secret where the MCO can push any updated custom layered images.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a YAML file for the <code>MachineOSConfig</code> object similar to the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineOSConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">worker</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/pre-built-image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">quay.io/myorg/custom-rhcos@sha256:abc123..."</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">machineConfigPool</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">worker</span>
+  <span class="na">imageBuilder</span><span class="pi">:</span>
+    <span class="na">imageBuilderType</span><span class="pi">:</span> <span class="s">Job</span>
+  <span class="na">renderedImagePushSpec</span><span class="pi">:</span> <span class="s">quay.io/your-registry/layered-rhcos:latest</span>
+  <span class="na">renderedImagePushSecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">push-secret</span>
+  <span class="na">containerFile</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">containerfileArch</span><span class="pi">:</span> <span class="s">NoArch</span>
+    <span class="na">content</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">FROM configs AS final</span>
+      <span class="s">RUN rpm-ostree install cowsay &amp;&amp; \</span>
+        <span class="s">ostree container commit</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>metadata.name</code></dt>
+<dd>
+<p>Specifies a name for the <code>MachineOSConfig</code> object. The name must match the name of the associated machine config pool.</p>
+</dd>
+<dt class="hdlist1"><code>metadata.annotations.machineconfiguration.openshift.io/pre-built-image</code></dt>
+<dd>
+<p>Specifies the digested image pull spec of your custom layered image.</p>
+</dd>
+<dt class="hdlist1"><code>spec.machineConfigPool</code></dt>
+<dd>
+<p>Specifies the name of the machine config pool associated with the nodes where you want to deploy the custom layered image.</p>
+</dd>
+<dt class="hdlist1"><code>spec.imageBuilder.imageBuilderType</code></dt>
+<dd>
+<p>Specifies the name of the image builder to use. This must be <code>Job</code>, which is a reference to the <code>job</code> object that is managing the image build.</p>
+</dd>
+<dt class="hdlist1"><code>spec.renderedImagePushSpec</code></dt>
+<dd>
+<p>Specifies an image registry to push any updated custom layered images to, if needed, after the installation process is complete. This can be any registry that your cluster has access to in the <code>host[:port][/namespace]/name</code> or <code>svc_name.namespace.svc[:port]/repository/name:&lt;tag&gt;</code> format. You can specify a mirror registry if you cluster is properly configured to use a mirror registry.</p>
+</dd>
+<dt class="hdlist1"><code>spec.renderedImagePushSecret.name</code></dt>
+<dd>
+<p>Specifies the name of the push secret needed by the MCO to push the updated custom layered image to that registry.</p>
+</dd>
+<dt class="hdlist1"><code>spec.containerFile</code></dt>
+<dd>
+<p>Specifies the containerFile that you used to create the custom layered image.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Create a YAML file for the push secret similar to the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Secret</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">push-secret</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-config-operator</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="s">.dockerconfigjson</span><span class="pi">:</span> <span class="s">secret</span>
+<span class="na">type</span><span class="pi">:</span> <span class="s">kubernetes.io/dockerconfigjson</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>When the <code>manifests</code> directory is available, add the <code>MachineOSConfig</code> YAML to the directory by using a command similar to the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cp</span> &lt;file-name&gt;.yaml manifests/</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>file-name</code></dt>
+<dd>
+<p>Specifies the YAML file for the <code>MachineOSConfig</code> object.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Add the push secret YAML to the <code>manifests</code> directory by using a command similar to the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cp</span> &lt;file-name&gt;.yaml manifests/</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>file-name</code></dt>
+<dd>
+<p>Specifies the YAML file for the push secret.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Continue with the installation process as usual.</p>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>After the installation is complete, check that the <code>MachineOSConfig</code> object displays the <code>PreBuiltImageSeeded</code> status as <code>True</code> and contains a reference to the custom layered image by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineosconfigs.machineconfiguration.openshift.io <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">items</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">MachineOSConfig</span>
+  <span class="na">metadata</span><span class="pi">:</span>
+    <span class="na">annotations</span><span class="pi">:</span>
+      <span class="s">machineconfiguration.openshift.io/current-machine-os-build</span><span class="pi">:</span> <span class="s">worker-4cedbc10da849ae7019288febc3a2d17</span>
+<span class="c1"># ...</span>
+  <span class="na">status</span><span class="pi">:</span>
+    <span class="na">conditions</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-11-19T13:32:17Z"</span>
+      <span class="na">message</span><span class="pi">:</span> <span class="s">MachineOSConfig seeded with pre-built image "quay.io/myorg/custom-rhcos@sha256:abc123..."</span>
+      <span class="na">reason</span><span class="pi">:</span> <span class="s">PreBuiltImageSeeded</span>
+      <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">Seeded</span>
+    <span class="na">currentImagePullSpec</span><span class="pi">:</span> <span class="s">image-registry.openshift-image-registry.svc:5000/openshift-machine-config-operator/layered-rhcos@sha256:3c8fc667adcb432ce0c83581f16086afec08a961dd28fed69bb6bad6db0a0754</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>items.status.conditions.reason.PreBuiltImageSeeded.True</code></dt>
+<dd>
+<p>Specifies that the associated nodes were created using your custom layered image.</p>
+</dd>
+<dt class="hdlist1"><code>items.status.currentImagePullSpec</code></dt>
+<dd>
+<p>Specifies the digested image pull spec for the new custom layered image.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+</ul>
 </div>
 </div>
 </div>
