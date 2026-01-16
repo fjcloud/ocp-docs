@@ -4250,7 +4250,7 @@ To match any origin, enter only <code>*</code>.</td>
 </table>
 </div>
 <div class="listingblock">
-<div class="title">OpenTelemetry Collector custom resource with the enabled Filelog Receiver that tails a text file</div>
+<div class="title">OpenTelemetry Collector custom resource with an enabled Filelog Receiver that tails a text file</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
   <span class="na">config</span><span class="pi">:</span>
@@ -4276,7 +4276,107 @@ To match any origin, enter only <code>*</code>.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>An array of operators. Each operator performs a simple task such as parsing a timestamp or JSON. To process logs into a desired format, chain the operators together.</td>
+<td>An array of Operators. Each Operator performs a simple task such as parsing a timestamp or JSON. To process logs into a needed format, chain the Operators together.</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The next example shows how to make the Filelog Receiver work within security context constraints.</p>
+</div>
+<div class="listingblock">
+<div class="title">OpenTelemetry Collector custom resource with an enabled Filelog Receiver that parses cluster logs</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">security.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">SecurityContextConstraints</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">otel-clusterlogs-collector-scc</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">allowPrivilegedContainer</span><span class="pi">:</span> <span class="no">false</span>
+<span class="na">requiredDropCapabilities</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">ALL</span>
+<span class="na">allowHostDirVolumePlugin</span><span class="pi">:</span> <span class="no">true</span>
+<span class="na">volumes</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">configMap</span>
+<span class="pi">-</span> <span class="s">emptyDir</span>
+<span class="pi">-</span> <span class="s">hostPath</span>
+<span class="pi">-</span> <span class="s">projected</span>
+<span class="pi">-</span> <span class="s">secret</span>
+<span class="na">defaultAllowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
+<span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
+<span class="na">runAsUser</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">RunAsAny</span>
+<span class="na">seLinuxContext</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">RunAsAny</span>
+<span class="na">readOnlyRootFilesystem</span><span class="pi">:</span> <span class="no">true</span>
+<span class="na">forbiddenSysctls</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s1">'</span><span class="s">*'</span>
+<span class="na">seccompProfiles</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">runtime/default</span>
+<span class="na">users</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">system:serviceaccount:observability:clusterlogs-collector</span> <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">opentelemetry.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">OpenTelemetryCollector</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">clusterlogs</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">observability</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">mode</span><span class="pi">:</span> <span class="s">daemonset</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">receivers</span><span class="pi">:</span>
+      <span class="na">filelog</span><span class="pi">:</span>
+        <span class="na">include</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">/var/log/pods/*/*/*.log"</span>
+        <span class="na">exclude</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">/var/log/pods/*/otc-container/*.log"</span> <i class="conum" data-value="3"></i><b>(3)</b>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">/var/log/pods/*/*/*.gz"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">/var/log/pods/*/*/*.log.*"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">/var/log/pods/*/*/*.tmp"</span>
+        <span class="na">include_file_path</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">include_file_name</span><span class="pi">:</span> <span class="no">false</span>
+        <span class="na">operators</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">container</span>
+    <span class="na">exporters</span><span class="pi">:</span>
+      <span class="na">debug</span><span class="pi">:</span>
+        <span class="na">verbosity</span><span class="pi">:</span> <span class="s">detailed</span>
+    <span class="na">service</span><span class="pi">:</span>
+      <span class="na">pipelines</span><span class="pi">:</span>
+        <span class="na">logs</span><span class="pi">:</span>
+          <span class="na">receivers</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">filelog</span><span class="pi">]</span>
+          <span class="na">exporters</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">debug</span><span class="pi">]</span>
+  <span class="na">securityContext</span><span class="pi">:</span>
+    <span class="na">runAsUser</span><span class="pi">:</span> <span class="m">0</span>
+    <span class="na">seLinuxOptions</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">spc_t</span>
+    <span class="na">readOnlyRootFilesystem</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
+    <span class="na">seccompProfile</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+    <span class="na">capabilities</span><span class="pi">:</span>
+      <span class="na">drop</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">ALL</span>
+  <span class="na">volumeMounts</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">varlogpods</span>
+    <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/var/log/pods</span>
+    <span class="na">readOnly</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">volumes</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">varlogpods</span>
+    <span class="na">hostPath</span><span class="pi">:</span>
+      <span class="na">path</span><span class="pi">:</span> <span class="s">/var/log/pods</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Configure a security context constraint (SCC) to allow access to files on the host.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The OpenTelemetry Operator created this service account for the Collector. Assign the SCC to this service account.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Exclude logs from the Collector container.</td>
 </tr>
 </table>
 </div>
@@ -4294,7 +4394,7 @@ To match any origin, enter only <code>*</code>.</td>
 </ul>
 </div>
 <div class="paragraph">
-<p>To collect logs from application containers, you can use this receiver with sidecar injection. The Red&#160;Hat build of OpenTelemetry Operator allows injecting an OpenTelemetry Collector as a sidecar container into an application pod. This approach is useful when your application writes logs to files within the container filesystem. This receiver can then tail log files and apply operators to parse the logs.</p>
+<p>To collect logs from application containers, you can use this receiver with sidecar injection. The Red&#160;Hat build of OpenTelemetry Operator allows injecting an OpenTelemetry Collector as a sidecar container into an application pod. This approach is useful when your application writes logs to files within the container filesystem. This receiver can then tail log files and apply Operators to parse the logs.</p>
 </div>
 <div class="paragraph">
 <p>To use this receiver in sidecar mode to collect logs from application containers, you must configure volume mounts in the <code>OpenTelemetryCollector</code> custom resource. Both the application container and the sidecar Collector must mount the same shared volume, such as <code>emptyDir</code>. Define the volume in the application&#8217;s <code>Pod</code> specification. See the following example:</p>
