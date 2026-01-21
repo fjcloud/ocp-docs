@@ -1549,7 +1549,7 @@
                   <li><a class="" href="../../nodes/pods/nodes-pods-plugins.html">Using Device Manager to make devices available to nodes</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-priority.html">Including pod priority in pod scheduling decisions</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-node-selectors.html">Placing pods on specific nodes using node selectors</a></li>
-                  <li><a class="" href="../../nodes/pods/nodes-pods-allocate-dra.html">Allocating GPUs to pods</a></li>
+                  <li><a class="" href="../../nodes/pods/nodes-pods-allocate-dra.html">Allocating GPUs to pods by using DRA</a></li>
                   <li><a class="" href="../../nodes/pods/nodes-pods-user-namespaces.html">Running pods in Linux user namespaces</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-24-2"><span id="sgSpan-24-2" class="fa fa-caret-right"></span>&nbsp;Automatically scaling pods with the Custom Metrics Autoscaler Operator</a>
@@ -2803,12 +2803,15 @@
 <li><a href="#risks-setting-higher-process-id-limits_nodes-nodes-resources-configuring">Risks of setting higher process ID limits for OKD pods</a></li>
 </ul>
 </li>
-<li><a href="#nodes-nodes-resources-configuring-auto_nodes-nodes-resources-configuring">Automatically allocating resources for nodes</a></li>
 <li><a href="#nodes-nodes-resources-configuring-setting_nodes-nodes-resources-configuring">Manually allocating resources for nodes</a></li>
+<li><a href="#nodes-nodes-resources-configuring_additional-resources">Additional resources</a></li>
 </ul>
 </div>
+<div class="paragraph _abstract">
+<p>By default, upon node start up OKD automatically calculates and reserves a portion of the CPU and memory resources for use by the underlying node components, such as <code>kubelet</code> and <code>kube-proxy</code>, and the remaining system components, such as <code>sshd</code> and <code>NetworkManager</code>. Review the information in this section to determine if these automatic settings are appropriate for your cluster.</p>
+</div>
 <div class="paragraph">
-<p>To provide more reliable scheduling and minimize node resource overcommitment, reserve a portion of the CPU and memory resources for use by the underlying node components, such as <code>kubelet</code> and <code>kube-proxy</code>, and the remaining system components, such as <code>sshd</code> and <code>NetworkManager</code>. By specifying the resources to reserve, you provide the scheduler with more information about the remaining CPU and memory resources that a node has available for use by pods. You can allow OKD to <a href="../../nodes/nodes/nodes-nodes-resources-configuring.html#nodes-nodes-resources-configuring-auto_nodes-nodes-resources-configuring">automatically determine the optimal <code>system-reserved</code> CPU and memory resources</a> for your nodes or you can <a href="../../nodes/nodes/nodes-nodes-resources-configuring.html#nodes-nodes-resources-configuring-setting_nodes-nodes-resources-configuring">manually determine and set the best resources</a> for your nodes.</p>
+<p>You can modify the CPU and memory resources for these node and system components, as needed, by creating a <code>Kubelet Config</code> CR.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -2818,7 +2821,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>To manually set resource values, you must use a kubelet config CR. You cannot use a machine config CR.</p>
+<p>If you updated your cluster from a version earlier than 4.21, automatic allocation of system resources is disabled by default. To enable the feature, delete the <code>50-worker-auto-sizing-disabled</code> machine config.</p>
 </div>
 </td>
 </tr>
@@ -2829,8 +2832,8 @@
 <div class="sect1">
 <h2 id="nodes-nodes-resources-configuring-about_nodes-nodes-resources-configuring"><a class="anchor" href="#nodes-nodes-resources-configuring-about_nodes-nodes-resources-configuring"></a>Understanding how to allocate resources for nodes</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>CPU and memory resources reserved for node components in OKD are based on two node settings:</p>
+<div class="paragraph _abstract">
+<p>CPU and memory resources reserved for node components in OKD are based on two node settings: <code>kube-reserved</code> and <code>system-reserved</code>. These settings are automatically configured upon node start up, or you can manually set these values as needed.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -2873,6 +2876,84 @@ introduction of allocatable resources.</p>
 </tr>
 </table>
 </div>
+<div class="paragraph">
+<p>By default, OKD uses a script on each worker node to automatically determine the optimal <code>system-reserved</code> CPU and memory resources for nodes. The script runs on node start up and uses the following calculations by default.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Memory reservation</dt>
+<dd>
+<p>The memory reservation is weighted. For smaller nodes, OKD reserves a higher percentage of memory. For larger nodes, OKD reserves a smaller percentage of the remaining capacity.</p>
+<div class="paragraph">
+<p>OKD uses the following calculations to determine how much memory to reserve for node and system components:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>25% of the first 4 GiB of memory</p>
+</li>
+<li>
+<p>20% of the next 4 GiB of memory (up to 8 GiB)</p>
+</li>
+<li>
+<p>10% of the next 8 GiB of memory (up to 16 GiB)</p>
+</li>
+<li>
+<p>6% of the next 112 GiB of memory (up to 128 GiB)</p>
+</li>
+<li>
+<p>2% of any memory above 128 GiB</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>For example, on node with 16 GiB of memory, OKD reserves 2.6 GiB for node and system components, leaving approximately 13.4 GiB for workloads.</p>
+</div>
+</dd>
+<dt class="hdlist1">CPU reservation</dt>
+<dd>
+<p>OKD uses the following logic to determine how much CPU to reserve for node and system components:</p>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>OKD starts with a base allocation for 1 CPU in fractions of a core (60 millicores = 0.06 CPU core).</p>
+</li>
+<li>
+<p>Then, it increments 12 millicores (0.012 CPU) for every additional core beyond the first.</p>
+</li>
+<li>
+<p>The result is compared against a minimum floor of 0.5 CPU. If the calculated value is less than 0.5, the system enforces a reservation of 0.5 CPU.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>For example, on a 4-core node, 0.5 vCPU is reserved for node and system components, leaving 3.5 vCPUs for workloads. Note that 1000 millicores is equal to 1CPU/vCPU.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you updated your cluster from a version earlier than 4.21, automatic allocation of system resources is disabled by default. To enable the feature, delete the <code>50-worker-auto-sizing-disabled</code> machine config.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</dd>
+</dl>
+</div>
 <div class="sect2">
 <h3 id="computing-allocated-resources_nodes-nodes-resources-configuring"><a class="anchor" href="#computing-allocated-resources_nodes-nodes-resources-configuring"></a>How OKD computes allocated resources</h3>
 <div class="paragraph">
@@ -2901,7 +2982,7 @@ introduction of allocatable resources.</p>
 <p>If <code>Allocatable</code> is negative, it is set to <code>0</code>.</p>
 </div>
 <div class="paragraph">
-<p>Each node reports the system resources that are used by the container runtime and kubelet. To simplify configuring the <code>system-reserved</code> parameter, view the resource use for the node by using the node summary API. The node summary is available at <code>/api/v1/nodes/&lt;node&gt;/proxy/stats/summary</code>.</p>
+<p>Each node reports the system resources that are used by the container runtime and kubelet. To simplify configuring the <code>system-reserved</code> parameter, view the resource use for the node by using the node summary API. The node summary is available at <code>/api/v1/nodes/&lt;node&gt;/proxy/stats/summary</code>. For more information, use the "Node metrics data" link in the <em>Additional resources</em> section.</p>
 </div>
 </div>
 <div class="sect2">
@@ -3042,17 +3123,6 @@ the cluster.</p>
 <div class="paragraph">
 <p>When a node exceeds the allowed maximum number of PIDs per node, the node can become unstable because new processes cannot have PIDs assigned. If existing processes cannot complete without creating additional processes, the entire node can become unusable and require reboot. This situation can result in data loss, depending on the processes and applications being run. Customer administrators and Red&#160;Hat Site Reliability Engineering are notified when this threshold is reached, and a <code>Worker node is experiencing PIDPressure</code> warning will appear in the cluster logs.</p>
 </div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="../../machine_configuration/machine-configs-custom.html#create-a-kubeletconfig-crd-to-edit-kubelet-parameters_machine-configs-custom">Creating a KubeletConfig CR to edit kubelet parameters</a></p>
-</li>
-<li>
-<p><a href="../../nodes/nodes/nodes-nodes-resources-configuring.html#nodes-nodes-resources-configuring">Allocating resources for nodes in an OKD cluster</a></p>
-</li>
-</ul>
-</div>
 <div class="sect2">
 <h3 id="risks-setting-higher-process-id-limits_nodes-nodes-resources-configuring"><a class="anchor" href="#risks-setting-higher-process-id-limits_nodes-nodes-resources-configuring"></a>Risks of setting higher process ID limits for OKD pods</h3>
 <div class="paragraph">
@@ -3085,124 +3155,111 @@ the cluster.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="nodes-nodes-resources-configuring-auto_nodes-nodes-resources-configuring"><a class="anchor" href="#nodes-nodes-resources-configuring-auto_nodes-nodes-resources-configuring"></a>Automatically allocating resources for nodes</h2>
+<h2 id="nodes-nodes-resources-configuring-setting_nodes-nodes-resources-configuring"><a class="anchor" href="#nodes-nodes-resources-configuring-setting_nodes-nodes-resources-configuring"></a>Manually allocating resources for nodes</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>OKD can automatically determine the optimal <code>system-reserved</code> CPU and memory resources for nodes associated with a specific machine config pool and update the nodes with those values when the nodes start. By default, the <code>system-reserved</code> CPU is <code>500m</code> and <code>system-reserved</code> memory is <code>1Gi</code>.</p>
+<div class="paragraph _abstract">
+<p>As an administrator, you can manually set <code>system-reserved</code> CPU and memory resources for your nodes. Setting these values ensures that your cluster is running efficiently and prevents node failure due to resource starvation of system components.</p>
 </div>
 <div class="paragraph">
-<p>To automatically determine and allocate the <code>system-reserved</code> resources on nodes, create a <code>KubeletConfig</code> custom resource (CR) to set the <code>autoSizingReserved: true</code> parameter. A script on each node calculates the optimal values for the respective reserved resources based on the installed CPU and memory capacity on each node. The script takes into account that increased capacity requires a corresponding increase in the reserved resources.</p>
+<p>By default, OKD uses a script on each worker node to automatically determine the optimal <code>system-reserved</code> CPU and memory resources for nodes associated with a specific machine config pool and update the nodes with those values. The script runs on node start up.</p>
 </div>
-<div class="paragraph">
-<p>Automatically determining the optimal <code>system-reserved</code> settings ensures that your cluster is running efficiently and prevents node failure due to resource starvation of system components, such as CRI-O and kubelet, without your needing to manually calculate and update the values.</p>
-</div>
-<div class="paragraph">
-<p>This feature is disabled by default.</p>
-</div>
-<div class="olist arabic">
-<div class="title">Prerequisites</div>
-<ol class="arabic">
-<li>
-<p>Obtain the label associated with the static <code>MachineConfigPool</code> object for the type of node you want to configure by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit machineconfigpool &lt;name&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>For example:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit machineconfigpool worker</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfigPool</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2022-11-16T15:34:25Z"</span>
-  <span class="na">generation</span><span class="pi">:</span> <span class="m">4</span>
-  <span class="na">labels</span><span class="pi">:</span>
-    <span class="s">pools.operator.machineconfiguration.openshift.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">worker</span>
-<span class="c1">#...</span></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The label appears under <code>Labels</code>.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock tip">
+<div class="admonitionblock important">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-tip" title="Tip"></i>
+<i class="fa icon-important" title="Important"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If an appropriate label is not present, add a key/value pair such as:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="nowrap">$ oc label machineconfigpool worker custom-kubelet=small-pods</pre>
-</div>
+<p>If you updated your cluster from a version earlier than 4.21, automatic allocation of system resources is disabled by default. To enable the feature, delete the <code>50-worker-auto-sizing-disabled</code> machine config.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
+<div class="paragraph">
+<p>However, you can manually set these values by using a <code>KubeletConfig</code> custom resource (CR) that includes a set of <code>&lt;resource_type&gt;=&lt;resource_quantity&gt;</code> pairs (for example, <code>cpu=200m,memory=512Mi</code>). You must use the <code>spec.autoSizingReserved: false</code> parameter in the <code>KubeletConfig</code> CR to override the default OKD behavior of automatically setting the <code>systemReserved</code> values.</p>
+</div>
+<div class="paragraph">
+<p>For <code>memory</code> and <code>ephemeral-storage</code>, you specify the resource quantity in units of bytes, such as <code>200Ki</code>, <code>50Mi</code>, or <code>5Gi</code>. By default, the <code>system-reserved</code> CPU is <code>500m</code> and <code>system-reserved</code> memory is <code>1Gi</code>. For the <code>cpu</code> type, you specify the resource quantity in units of cores, such as <code>200m</code>, <code>0.5</code>, or <code>1</code>. Note that 1000 millicores is equal to 1CPU/vCPU.</p>
+</div>
+<div class="paragraph">
+<p>For details on the recommended <code>system-reserved</code> values, refer to the <a href="https://access.redhat.com/solutions/5843241">recommended system-reserved values</a>.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>To manually set resource values, you must use a kubelet configuration. You cannot use a machine config.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Obtain the label associated with the static <code>MachineConfigPool</code> CRD for the type of node you want to configure by entering the following command:</p>
 </li>
-</ol>
+</ul>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a custom resource (CR) for your configuration change:</p>
+<p>Create a custom resource (CR) for your configuration change.</p>
 <div class="listingblock">
 <div class="title">Sample configuration for a resource allocation CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">KubeletConfig</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">dynamic-node</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">set-allocatable</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">autoSizingReserved</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">autoSizingReserved</span><span class="pi">:</span> <span class="no">false</span>
   <span class="na">machineConfigPoolSelector</span><span class="pi">:</span>
     <span class="na">matchLabels</span><span class="pi">:</span>
-      <span class="s">pools.operator.machineconfiguration.openshift.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span> <i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="s">pools.operator.machineconfiguration.openshift.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+  <span class="na">kubeletConfig</span><span class="pi">:</span>
+    <span class="na">systemReserved</span><span class="pi">:</span>
+      <span class="na">cpu</span><span class="pi">:</span> <span class="s">1000m</span>
+      <span class="na">memory</span><span class="pi">:</span> <span class="s">4Gi</span>
+      <span class="na">ephemeral-storage</span><span class="pi">:</span> <span class="s">50Mi</span>
 <span class="c1">#...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Assign a name to CR.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Add the <code>autoSizingReserved</code> parameter set to <code>true</code> to allow OKD to automatically determine and allocate the <code>system-reserved</code> resources on the nodes associated with the specified label. To disable automatic allocation on those nodes, set this parameter to <code>false</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specify the label from the machine config pool that you configured in the "Prerequisites" section. You can choose any desired labels for the machine config pool, such as <code>custom-kubelet: small-pods</code>, or the default label, <code>pools.operator.machineconfiguration.openshift.io/worker: ""</code>.</td>
-</tr>
-</table>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>metadata.name</code></dt>
+<dd>
+<p>Specifies a name for the CR.</p>
+</dd>
+<dt class="hdlist1"><code>spec.autoSizingReserved</code></dt>
+<dd>
+<p>Specify <code>false</code> to override the default OKD behavior of automatically setting the <code>systemReserved</code> values.</p>
+</dd>
+<dt class="hdlist1"><code>spec.machineConfigPoolSelector.matchLabels</code></dt>
+<dd>
+<p>Specifies a label from the machine config pool.</p>
+</dd>
+<dt class="hdlist1"><code>spec.kubeletConfig.systemReserved</code></dt>
+<dd>
+<p>Specifies the resources to reserve for the node components and system components.</p>
+</dd>
+</dl>
 </div>
-<div class="paragraph">
-<p>The previous example enables automatic resource allocation on all worker nodes. OKD drains the nodes, applies the kubelet config, and restarts the nodes.</p>
+</div>
 </div>
 </li>
 <li>
-<p>Create the CR by entering the following command:</p>
+<p>Run the following command to create the CR:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;file_name&gt;.yaml</code></pre>
@@ -3235,156 +3292,31 @@ the cluster.</p>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">SYSTEM_RESERVED_MEMORY=3Gi
-SYSTEM_RESERVED_CPU=0.08</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">SYSTEM_RESERVED_MEMORY=4Gi
+SYSTEM_RESERVED_CPU=1000m
+SYSTEM_RESERVED_ES=50Mi</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The kubelet uses the <code>system-reserved</code> values in the <code>/etc/node-sizing.env</code> file. In the previous example, the worker nodes are allocated <code>0.08</code> CPU and 3 Gi of memory. It can take several minutes for the optimal values to appear.</p>
+<p>The kubelet uses the <code>system-reserved</code> values in the <code>/etc/node-sizing.env</code> file.</p>
 </div>
 </li>
 </ol>
 </div>
 </div>
 </div>
-<div class="sect1">
-<h2 id="nodes-nodes-resources-configuring-setting_nodes-nodes-resources-configuring"><a class="anchor" href="#nodes-nodes-resources-configuring-setting_nodes-nodes-resources-configuring"></a>Manually allocating resources for nodes</h2>
+<div class="sect1 _additional-resources">
+<h2 id="nodes-nodes-resources-configuring_additional-resources"><a class="anchor" href="#nodes-nodes-resources-configuring_additional-resources"></a>Additional resources</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>OKD supports the CPU and memory resource types for allocation. The <code>ephemeral-resource</code> resource type is also supported. For the <code>cpu</code> type, you specify the resource quantity in units of cores, such as <code>200m</code>, <code>0.5</code>, or <code>1</code>. For <code>memory</code> and <code>ephemeral-storage</code>, you specify the resource quantity in units of bytes, such as <code>200Ki</code>, <code>50Mi</code>, or <code>5Gi</code>. By default, the <code>system-reserved</code> CPU is <code>500m</code> and <code>system-reserved</code> memory is <code>1Gi</code>.</p>
-</div>
-<div class="paragraph">
-<p>As an administrator, you can set these values by using a kubelet config custom resource (CR) through a set of <code>&lt;resource_type&gt;=&lt;resource_quantity&gt;</code> pairs
-(e.g., <code>cpu=200m,memory=512Mi</code>).</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>You must use a kubelet config CR to manually set resource values. You cannot use a machine config CR.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>For details on the recommended <code>system-reserved</code> values, refer to the <a href="https://access.redhat.com/solutions/5843241">recommended system-reserved values</a>.</p>
-</div>
-<div class="olist arabic">
-<div class="title">Prerequisites</div>
-<ol class="arabic">
+<div class="ulist">
+<ul>
 <li>
-<p>Obtain the label associated with the static <code>MachineConfigPool</code> CRD for the type of node you want to configure by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit machineconfigpool &lt;name&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>For example:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit machineconfigpool worker</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfigPool</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2022-11-16T15:34:25Z"</span>
-  <span class="na">generation</span><span class="pi">:</span> <span class="m">4</span>
-  <span class="na">labels</span><span class="pi">:</span>
-    <span class="s">pools.operator.machineconfiguration.openshift.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">worker</span>
-<span class="c1">#...</span></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The label appears under Labels.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-tip" title="Tip"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If the label is not present, add a key/value pair such as:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="nowrap">$ oc label machineconfigpool worker custom-kubelet=small-pods</pre>
-</div>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-</ol>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Create a custom resource (CR) for your configuration change.</p>
-<div class="listingblock">
-<div class="title">Sample configuration for a resource allocation CR</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">KubeletConfig</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">set-allocatable</span> <i class="conum" data-value="1"></i><b>(1)</b>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">machineConfigPoolSelector</span><span class="pi">:</span>
-    <span class="na">matchLabels</span><span class="pi">:</span>
-      <span class="s">pools.operator.machineconfiguration.openshift.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span> <i class="conum" data-value="2"></i><b>(2)</b>
-  <span class="na">kubeletConfig</span><span class="pi">:</span>
-    <span class="na">systemReserved</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
-      <span class="na">cpu</span><span class="pi">:</span> <span class="s">1000m</span>
-      <span class="na">memory</span><span class="pi">:</span> <span class="s">1Gi</span>
-<span class="c1">#...</span></code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Assign a name to CR.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify the label from the machine config pool.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specify the resources to reserve for the node components and system components.</td>
-</tr>
-</table>
-</div>
+<p><a href="../../machine_configuration/machine-configs-custom.html#create-a-kubeletconfig-crd-to-edit-kubelet-parameters_machine-configs-custom">Creating a KubeletConfig CR to edit kubelet parameters</a></p>
 </li>
 <li>
-<p>Run the following command to create the CR:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;file_name&gt;.yaml</code></pre>
-</div>
-</div>
+<p><a href="https://kubernetes.io/docs/reference/instrumentation/node-metrics/">Node metrics data (Kubernetes documentation)</a></p>
 </li>
-</ol>
+</ul>
 </div>
 </div>
 </div>

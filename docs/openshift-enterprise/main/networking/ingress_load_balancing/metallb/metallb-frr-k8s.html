@@ -1903,7 +1903,7 @@
                   <li><a class="" href="../../../nodes/pods/nodes-pods-plugins.html">Using Device Manager to make devices available to nodes</a></li>
                   <li><a class="" href="../../../nodes/pods/nodes-pods-priority.html">Including pod priority in pod scheduling decisions</a></li>
                   <li><a class="" href="../../../nodes/pods/nodes-pods-node-selectors.html">Placing pods on specific nodes using node selectors</a></li>
-                  <li><a class="" href="../../../nodes/pods/nodes-pods-allocate-dra.html">Allocating GPUs to pods</a></li>
+                  <li><a class="" href="../../../nodes/pods/nodes-pods-allocate-dra.html">Allocating GPUs to pods by using DRA</a></li>
                 <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-26-1-15"><span id="ssgSpan-26-1-15" class="fa fa-caret-right"></span>&nbsp;Run Once Duration Override Operator</a>
                   <ul id="topicSubSubGroup-26-1-15" class="nav-tertiary list-unstyled collapse">
 
@@ -3339,30 +3339,16 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#nw-metallb-configuring-frr-k8s-configuratons_configure-metallb-frr-k8s">FRR configurations</a></li>
-<li><a href="#nw-metallb-frrconfiguration-crd_configure-metallb-frr-k8s">Configuring the FRRConfiguration CRD</a>
-<ul class="sectlevel2">
-<li><a href="#nw-metallb-frrconfiguration-crd-routers_configure-metallb-frr-k8s">The routers field</a></li>
-<li><a href="#nw-metallb-frrconfiguration-crd-toadvertise_configure-metallb-frr-k8s">The toAdvertise field</a></li>
-<li><a href="#nw-metallb-frrconfiguration-crd-toreceive_configure-metallb-frr-k8s">The toReceive field</a></li>
-<li><a href="#nw-metallb-frrconfiguration-crd-bgp_configure-metallb-frr-k8s">The bgp field</a></li>
-<li><a href="#nw-metallb-frrconfiguration-crd-nodeselector_configure-metallb-frr-k8s">The nodeSelector field</a></li>
-<li><a href="#nw-metallb-frrconfiguration-crd-interface_configure-metallb-frr-k8s">The interface field</a></li>
-</ul>
-</li>
-<li><a href="#nw-metallb-frr-k8s-merge-multiple-configurations_configure-metallb-frr-k8s">How FRR-K8s merges multiple configurations</a>
-<ul class="sectlevel2">
-<li><a href="#nw-metallb-frr-k8s-merge-multiple-configuration-conflicts_configure-metallb-frr-k8s">Configuration conflicts</a></li>
-<li><a href="#nw-metallb-frr-k8s-merge-multiple-configurations-merging_configure-metallb-frr-k8s">Merging</a></li>
-</ul>
-</li>
+<li><a href="#nw-metallb-configuring-frr-k8s-configurations_configure-metallb-frr-k8s">FRR configurations</a></li>
+<li><a href="#nw-metallb-frrconfiguration-crd_configure-metallb-frr-k8s">Configuring the FRRConfiguration CRD</a></li>
+<li><a href="#nw-metallb-frr-k8s-merge-multiple-configurations_configure-metallb-frr-k8s">How FRR-K8s merges multiple configurations</a></li>
 </ul>
 </div>
+<div class="paragraph _abstract">
+<p>To access advanced routing services not natively provided by MetalLB, configure the <code>FRRConfiguration</code> custom resource (CR). Defining the CR exposes specific FRRouting (FRR) capabilities and extends the routing functionality of your cluster beyond standard MetalLB advertisements.</p>
+</div>
 <div class="paragraph">
-<p>FRRouting (FRR) is a free, open source internet routing protocol suite for Linux and UNIX platforms.
-<code>FRR-K8s</code> is a Kubernetes based DaemonSet that exposes a subset of the <code>FRR</code> API in a Kubernetes-compliant manner.
-As a cluster administrator, you can use the <code>FRRConfiguration</code> custom resource (CR) to access some of the FRR services not provided by MetalLB, for example, receiving routes.
-<code>MetalLB</code> generates the <code>FRR-K8s</code> configuration corresponding to the MetalLB configuration applied.</p>
+<p>FRRouting (FRR) is a free, open-source internet routing protocol suite for Linux and UNIX platforms. <code>FRR-K8s</code> is a Kubernetes-based DaemonSet that exposes a subset of the <code>FRR</code> API in a Kubernetes-compliant manner. <code>MetalLB</code> generates the <code>FRR-K8s</code> configuration corresponding to the MetalLB configuration applied.</p>
 </div>
 <div class="imageblock">
 <div class="content">
@@ -3377,7 +3363,7 @@ As a cluster administrator, you can use the <code>FRRConfiguration</code> custom
 </td>
 <td class="content">
 <div class="paragraph">
-<p>When configuring Virtual Route Forwarding (VRF) users must change their VRFs to a table ID lower than 1000 as higher than 1000 is reserved for OpenShift Container Platform.</p>
+<p>When configuring Virtual Route Forwarding (VRF), you must change the VRFs to a table ID lower than <code>1000</code> as higher than <code>1000</code> is reserved for OpenShift Container Platform.</p>
 </div>
 </td>
 </tr>
@@ -3386,15 +3372,13 @@ As a cluster administrator, you can use the <code>FRRConfiguration</code> custom
 </div>
 </div>
 <div class="sect1">
-<h2 id="nw-metallb-configuring-frr-k8s-configuratons_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-configuring-frr-k8s-configuratons_configure-metallb-frr-k8s"></a>FRR configurations</h2>
+<h2 id="nw-metallb-configuring-frr-k8s-configurations_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-configuring-frr-k8s-configurations_configure-metallb-frr-k8s"></a>FRR configurations</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can create multiple <code>FRRConfiguration</code> CRs to use <code>FRR</code> services in <code>MetalLB</code>.
-<code>MetalLB</code> generates an <code>FRRConfiguration</code> object which <code>FRR-K8s</code> merges with all other configurations that all users have created.</p>
+<div class="paragraph _abstract">
+<p>You can create multiple <code>FRRConfiguration</code> CRs to use <code>FRR</code> services in <code>MetalLB</code>.</p>
 </div>
 <div class="paragraph">
-<p>For example, you can configure <code>FRR-K8s</code> to receive all of the prefixes advertised by a given neighbor.
-The following example configures <code>FRR-K8s</code> to receive all of the prefixes advertised by a <code>BGPPeer</code> with host <code>172.18.0.5</code>:</p>
+<p><code>MetalLB</code> generates an <code>FRRConfiguration</code> object which <code>FRR-K8s</code> merges with all other configurations that all users have created. For example, you can configure <code>FRR-K8s</code> to receive all of the prefixes advertised by a given neighbor. The following example configures <code>FRR-K8s</code> to receive all of the prefixes advertised by a <code>BGPPeer</code> with host <code>172.18.0.5</code>:</p>
 </div>
 <div class="listingblock">
 <div class="title">Example FRRConfiguration CR</div>
@@ -3413,13 +3397,12 @@ The following example configures <code>FRR-K8s</code> to receive all of the pref
        <span class="na">asn</span><span class="pi">:</span> <span class="m">64512</span>
        <span class="na">toReceive</span><span class="pi">:</span>
         <span class="na">allowed</span><span class="pi">:</span>
-            <span class="na">mode</span><span class="pi">:</span> <span class="s">all</span></code></pre>
+            <span class="na">mode</span><span class="pi">:</span> <span class="s">all</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>You can also configure FRR-K8s to always block a set of prefixes, regardless of the configuration applied.
-This can be useful to avoid routes towards the pods or <code>ClusterIPs</code> CIDRs that might result in cluster malfunctions.
-The following example blocks the set of prefixes <code>192.168.1.0/24</code>:</p>
+<p>You can also configure FRR-K8s to always block a set of prefixes, regardless of the configuration applied. This can be useful to avoid routes going to pods or <code>ClusterIPs</code> CIDRs that might result in cluster malfunctions. The following example blocks the set of prefixes <code>192.168.1.0/24</code>:</p>
 </div>
 <div class="listingblock">
 <div class="title">Example MetalLB CR</div>
@@ -3433,12 +3416,12 @@ The following example blocks the set of prefixes <code>192.168.1.0/24</code>:</p
   <span class="na">bgpBackend</span><span class="pi">:</span> <span class="s">frr-k8s</span>
   <span class="na">frrk8sConfig</span><span class="pi">:</span>
     <span class="na">alwaysBlock</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">192.168.1.0/24</span></code></pre>
+    <span class="pi">-</span> <span class="s">192.168.1.0/24</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>You can set <code>FRR-K8s</code> to block the <code>Cluster Network</code> CIDR and <code>Service Network</code> CIDR.
-You can view the values for these CIDR address specifications by running the following command:</p>
+<p>You can set <code>FRR-K8s</code> to block the <code>clusterNetwork</code> CIDR and <code>serviceNetwork</code> CIDR. You can view the values for these CIDR address specifications by running the following command:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -3450,14 +3433,19 @@ You can view the values for these CIDR address specifications by running the fol
 <div class="sect1">
 <h2 id="nw-metallb-frrconfiguration-crd_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frrconfiguration-crd_configure-metallb-frr-k8s"></a>Configuring the FRRConfiguration CRD</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The following section provides reference examples that use the <code>FRRConfiguration</code> custom resource (CR).</p>
+<div class="paragraph _abstract">
+<p>To customize routing behavior beyond standard MetalLB capabilities, configure the <code>FRRConfiguration</code> custom resource (CR).</p>
 </div>
-<div class="sect2">
-<h3 id="nw-metallb-frrconfiguration-crd-routers_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frrconfiguration-crd-routers_configure-metallb-frr-k8s"></a>The routers field</h3>
 <div class="paragraph">
-<p>You can use the <code>routers</code> field to configure multiple routers, one for each Virtual Routing and Forwarding (VRF) resource.
-For each router, you must define the Autonomous System Number (ASN).</p>
+<p>The following reference examples demonstrate how to define specific FRRouting (FRR) parameters to enable advanced services, such as receiving routes:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">The <code>routers</code> parameter</dt>
+<dd>
+<p>You can use the <code>routers</code> parameter to configure multiple routers, one for each Virtual Routing and Forwarding (VRF) resource. For each router, you must define the Autonomous System Number (ASN).</p>
+</dd>
+</dl>
 </div>
 <div class="paragraph">
 <p>You can also define a list of Border Gateway Protocol (BGP) neighbors to connect to, as in the following example:</p>
@@ -3481,15 +3469,17 @@ For each router, you must define the Autonomous System Number (ASN).</p>
         <span class="na">port</span><span class="pi">:</span> <span class="m">180</span>
       <span class="pi">-</span> <span class="na">address</span><span class="pi">:</span> <span class="s">172.18.0.6</span>
         <span class="na">asn</span><span class="pi">:</span> <span class="m">4200000000</span>
-        <span class="na">port</span><span class="pi">:</span> <span class="s">179</span></code></pre>
+        <span class="na">port</span><span class="pi">:</span> <span class="m">179</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
-</div>
-<div class="sect2">
-<h3 id="nw-metallb-frrconfiguration-crd-toadvertise_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frrconfiguration-crd-toadvertise_configure-metallb-frr-k8s"></a>The toAdvertise field</h3>
-<div class="paragraph">
-<p>By default, <code>FRR-K8s</code> does not advertise the prefixes configured as part of a router configuration.
-In order to advertise them,  you use the <code>toAdvertise</code> field.</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">The <code>toAdvertise</code> parameter</dt>
+<dd>
+<p>By default, <code>FRR-K8s</code> does not advertise the prefixes configured as part of a router configuration. To advertise the prefixes, you use the <code>toAdvertise</code> parameter.</p>
+</dd>
+</dl>
 </div>
 <div class="paragraph">
 <p>You can advertise a subset of the prefixes, as in the following example:</p>
@@ -3513,20 +3503,20 @@ In order to advertise them,  you use the <code>toAdvertise</code> field.</p>
         <span class="na">port</span><span class="pi">:</span> <span class="m">180</span>
         <span class="na">toAdvertise</span><span class="pi">:</span>
           <span class="na">allowed</span><span class="pi">:</span>
-            <span class="na">prefixes</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+            <span class="na">prefixes</span><span class="pi">:</span>
             <span class="pi">-</span> <span class="s">192.168.2.0/24</span>
       <span class="na">prefixes</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="s">192.168.2.0/24</span>
-        <span class="pi">-</span> <span class="s">192.169.2.0/24</span></code></pre>
+        <span class="pi">-</span> <span class="s">192.169.2.0/24</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Advertises a subset of prefixes.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>allowed.prefixes</code>: Advertises a subset of prefixes.</p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>The following example shows you how to advertise all of the prefixes:</p>
@@ -3550,26 +3540,27 @@ In order to advertise them,  you use the <code>toAdvertise</code> field.</p>
         <span class="na">port</span><span class="pi">:</span> <span class="m">180</span>
         <span class="na">toAdvertise</span><span class="pi">:</span>
           <span class="na">allowed</span><span class="pi">:</span>
-            <span class="na">mode</span><span class="pi">:</span> <span class="s">all</span> <i class="conum" data-value="1"></i><b>(1)</b>
+            <span class="na">mode</span><span class="pi">:</span> <span class="s">all</span>
       <span class="na">prefixes</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="s">192.168.2.0/24</span>
-        <span class="pi">-</span> <span class="s">192.169.2.0/24</span></code></pre>
+        <span class="pi">-</span> <span class="s">192.169.2.0/24</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Advertises all prefixes.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>allowed.mode</code>: Advertises all prefixes.</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">The <code>toReceive</code> parameter</dt>
+<dd>
+<p>By default, <code>FRR-K8s</code> does not process any prefixes advertised by a neighbor. You can use the <code>toReceive</code> parameter to process such addresses.</p>
+</dd>
+</dl>
 </div>
-</div>
-<div class="sect2">
-<h3 id="nw-metallb-frrconfiguration-crd-toreceive_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frrconfiguration-crd-toreceive_configure-metallb-frr-k8s"></a>The toReceive field</h3>
-<div class="paragraph">
-<p>By default, <code>FRR-K8s</code> does not process any prefixes advertised by a neighbor.
-You can use the <code>toReceive</code> field  to process such addresses.</p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>You can configure for a subset of the prefixes, as in this example:</p>
@@ -3595,17 +3586,17 @@ You can use the <code>toReceive</code> field  to process such addresses.</p>
               <span class="na">prefixes</span><span class="pi">:</span>
               <span class="pi">-</span> <span class="na">prefix</span><span class="pi">:</span> <span class="s">192.168.1.0/24</span>
               <span class="pi">-</span> <span class="na">prefix</span><span class="pi">:</span> <span class="s">192.169.2.0/24</span>
-                <span class="na">ge</span><span class="pi">:</span> <span class="s">25</span> <i class="conum" data-value="1"></i><b>(1)</b>
-                <span class="na">le</span><span class="pi">:</span> <span class="s">28</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+                <span class="na">ge</span><span class="pi">:</span> <span class="m">25</span>
+                <span class="na">le</span><span class="pi">:</span> <span class="m">28</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The prefix is applied if the prefix length is less than or equal to the <code>le</code> prefix length and greater than or equal to the <code>ge</code> prefix length.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>prefixes</code>: The prefix is applied if the prefix length is less than or equal to the <code>le</code> prefix length and greater than or equal to the <code>ge</code> prefix length.</p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>The following example configures FRR to handle all the prefixes announced:</p>
@@ -3628,15 +3619,17 @@ You can use the <code>toReceive</code> field  to process such addresses.</p>
           <span class="na">port</span><span class="pi">:</span> <span class="m">179</span>
           <span class="na">toReceive</span><span class="pi">:</span>
             <span class="na">allowed</span><span class="pi">:</span>
-              <span class="na">mode</span><span class="pi">:</span> <span class="s">all</span></code></pre>
+              <span class="na">mode</span><span class="pi">:</span> <span class="s">all</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
-</div>
-<div class="sect2">
-<h3 id="nw-metallb-frrconfiguration-crd-bgp_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frrconfiguration-crd-bgp_configure-metallb-frr-k8s"></a>The bgp field</h3>
-<div class="paragraph">
-<p>You can use the <code>bgp</code> field to define various <code>BFD</code> profiles and associate them with a neighbor.
-In the following example, <code>BFD</code> backs up the <code>BGP</code> session and <code>FRR</code> can detect link failures:</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">The <code>bgp</code> parameter</dt>
+<dd>
+<p>You can use the <code>bgp</code> parameter to define various <code>BFD</code> profiles and associate them with a neighbor. In the following example, <code>BFD</code> backs up the <code>BGP</code> session and <code>FRR</code> can detect link failures:</p>
+</dd>
+</dl>
 </div>
 <div class="listingblock">
 <div class="title">Example FRRConfiguration CR</div>
@@ -3656,15 +3649,18 @@ In the following example, <code>BFD</code> backs up the <code>BGP</code> session
         <span class="na">port</span><span class="pi">:</span> <span class="m">180</span>
         <span class="na">bfdProfile</span><span class="pi">:</span> <span class="s">defaultprofile</span>
     <span class="na">bfdProfiles</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">defaultprofile</span></code></pre>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">defaultprofile</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
-</div>
-<div class="sect2">
-<h3 id="nw-metallb-frrconfiguration-crd-nodeselector_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frrconfiguration-crd-nodeselector_configure-metallb-frr-k8s"></a>The nodeSelector field</h3>
-<div class="paragraph">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">The <code>nodeSelector</code> parameter</dt>
+<dd>
 <p>By default, <code>FRR-K8s</code> applies the configuration to all nodes where the daemon is running.
-You can use the <code>nodeSelector</code> field to specify the nodes to which you want to apply the configuration. For example:</p>
+You can use the <code>nodeSelector</code> parameter to specify the nodes to which you want to apply the configuration. For example:</p>
+</dd>
+</dl>
 </div>
 <div class="listingblock">
 <div class="title">Example FRRConfiguration CR</div>
@@ -3680,14 +3676,17 @@ You can use the <code>nodeSelector</code> field to specify the nodes to which yo
     <span class="pi">-</span> <span class="na">asn</span><span class="pi">:</span> <span class="m">64512</span>
   <span class="na">nodeSelector</span><span class="pi">:</span>
     <span class="na">labelSelector</span><span class="pi">:</span>
-    <span class="na">foo</span><span class="pi">:</span> <span class="s2">"</span><span class="s">bar"</span></code></pre>
+    <span class="na">foo</span><span class="pi">:</span> <span class="s2">"</span><span class="s">bar"</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
-</div>
-<div class="sect2">
-<h3 id="nw-metallb-frrconfiguration-crd-interface_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frrconfiguration-crd-interface_configure-metallb-frr-k8s"></a>The interface field</h3>
-<div class="paragraph">
-<p>You can use the <code>interface</code> field to configure unnumbered BGP peering by using the following example configuration:</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">The <code>interface</code> parameter</dt>
+<dd>
+<p>You can use the <code>interface</code> parameter to configure unnumbered BGP peering by using the following example configuration:</p>
+</dd>
+</dl>
 </div>
 <div class="listingblock">
 <div class="title">Example <code>FRRConfiguration</code> CR</div>
@@ -3709,7 +3708,7 @@ You can use the <code>nodeSelector</code> field to specify the nodes to which yo
       <span class="pi">-</span> <span class="na">asn</span><span class="pi">:</span> <span class="m">64512</span>
         <span class="na">bfdProfile</span><span class="pi">:</span> <span class="s">simple</span>
         <span class="na">disableMP</span><span class="pi">:</span> <span class="no">false</span>
-        <span class="na">interface</span><span class="pi">:</span> <span class="s">net10</span> <i class="conum" data-value="1"></i><b>(1)</b>
+        <span class="na">interface</span><span class="pi">:</span> <span class="s">net10</span>
         <span class="na">port</span><span class="pi">:</span> <span class="m">179</span>
         <span class="na">toAdvertise</span><span class="pi">:</span>
           <span class="na">allowed</span><span class="pi">:</span>
@@ -3720,16 +3719,16 @@ You can use the <code>nodeSelector</code> field to specify the nodes to which yo
           <span class="na">allowed</span><span class="pi">:</span>
             <span class="na">mode</span><span class="pi">:</span> <span class="s">filtered</span>
       <span class="na">prefixes</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">5.5.5.5/32</span></code></pre>
+      <span class="pi">-</span> <span class="s">5.5.5.5/32</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Activates unnumbered BGP peering.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>neighbors.interface</code>: Activates unnumbered BGP peering.</p>
+</li>
+</ul>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3739,19 +3738,17 @@ You can use the <code>nodeSelector</code> field to specify the nodes to which yo
 </td>
 <td class="content">
 <div class="paragraph">
-<p>To use the <code>interface</code> field, you must establish a point-to-point, layer 2 connection between the two BGP peers.
-You can use unnumbered BGP peering with IPv4, IPv6, or dual-stack, but you must enable IPv6 RAs (Router Advertisements).
-Each interface is limited to one BGP connection.</p>
+<p>To use the <code>interface</code> parameter, you must establish a point-to-point, layer 2 connection between the two BGP peers. You can use unnumbered BGP peering with IPv4, IPv6, or dual-stack, but you must enable IPv6 RAs (Router Advertisements). Each interface is limited to one BGP connection.</p>
 </div>
 <div class="paragraph">
-<p>If you use this field, you cannot specify a value in the <code>spec.bgp.routers.neighbors.address</code> field.</p>
+<p>If you use this parameter, you cannot specify a value in the <code>spec.bgp.routers.neighbors.address</code> parameter.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
 <div class="paragraph">
-<p>The fields for the <code>FRRConfiguration</code> custom resource are described in the following table:</p>
+<p>The parameters for the <code>FRRConfiguration</code> custom resource are described in the following table:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 1. MetalLB FRRConfiguration custom resource</caption>
@@ -3762,7 +3759,7 @@ Each interface is limited to one BGP connection.</p>
 </colgroup>
 <thead>
 <tr>
-<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Parameter</th>
 <th class="tableblock halign-left valign-top">Type</th>
 <th class="tableblock halign-left valign-top">Description</th>
 </tr>
@@ -3793,7 +3790,7 @@ Each interface is limited to one BGP connection.</p>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.vrf</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the host vrf used to establish sessions from this router.</p>
+<p>Specifies the host VRF used to establish sessions from this router.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -3807,8 +3804,7 @@ Each interface is limited to one BGP connection.</p>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.asn</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>integer</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the ASN to use for the remote end of the session.
-If you use this field, you cannot specify a value in the <code>spec.bgp.routers.neighbors.dynamicASN</code> field.</p>
+<p>Specifies the ASN to use for the remote end of the session. If you use this parameter, you cannot specify a value in the <code>spec.bgp.routers.neighbors.dynamicASN</code> parameter.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -3816,69 +3812,56 @@ If you use this field, you cannot specify a value in the <code>spec.bgp.routers.
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p>Detects the ASN to use for the remote end of the session without explicitly setting it.
-Specify <code>internal</code> for a neighbor with the same ASN, or <code>external</code> for a neighbor with a different ASN.
-If you use this field, you cannot specify a value in the <code>spec.bgp.routers.neighbors.asn</code> field.</p>
+Specify <code>internal</code> for a neighbor with the same ASN, or <code>external</code> for a neighbor with a different ASN. If you use this parameter, you cannot specify a value in the <code>spec.bgp.routers.neighbors.asn</code> parameter.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.address</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the IP address to establish the session with.
-If you use this field, you cannot specify a value in the <code>spec.bgp.routers.neighbors.interface</code> field.</p>
+<p>Specifies the IP address to establish the session with. If you use this parameter, you cannot specify a value in the <code>spec.bgp.routers.neighbors.interface</code> parameter.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.interface</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the interface name to use when establishing a session.
-Use this field to configure unnumbered BGP peering.
-There must be a point-to-point, layer 2 connection between the two BGP peers.
-You can use unnumbered BGP peering with IPv4, IPv6, or dual-stack, but you must enable IPv6 RAs (Router Advertisements).
-Each interface is limited to one BGP connection.</p>
+<p>Specifies the interface name to use when establishing a session. Use this parameter to configure unnumbered BGP peering. There must be a point-to-point, layer 2 connection between the two BGP peers. You can use unnumbered BGP peering with IPv4, IPv6, or dual-stack, but you must enable IPv6 RAs (Router Advertisements). Each interface is limited to one BGP connection.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.port</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>integer</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the port to dial when establishing the session.
-Defaults to 179.</p>
+<p>Specifies the port to dial when establishing the session. Defaults to <code>179</code>.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.password</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the password to use for establishing the BGP session.
-<code>Password</code> and <code>PasswordSecret</code> are mutually exclusive.</p>
+<p>Specifies the password to use for establishing the BGP session. <code>Password</code> and <code>PasswordSecret</code> are mutually exclusive.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.passwordSecret</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the name of the authentication secret for the neighbor.
-The secret must be of type "kubernetes.io/basic-auth", and in the same namespace as the FRR-K8s daemon.
-The key "password" stores the password in the secret.
-<code>Password</code> and <code>PasswordSecret</code> are mutually exclusive.</p>
+<p>Specifies the name of the authentication secret for the neighbor. The secret must be of type "kubernetes.io/basic-auth", and in the same namespace as the FRR-K8s daemon. The key "password" stores the password in the secret. <code>Password</code> and <code>PasswordSecret</code> are mutually exclusive.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.holdTime</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>duration</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the requested BGP hold time, per RFC4271.
-Defaults to 180s.</p>
+<p>Specifies the requested BGP hold time, per RFC4271. Defaults to 180s.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.keepaliveTime</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>duration</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the requested BGP keepalive time, per RFC4271.
-Defaults to <code>60s</code>.</p>
+<p>Specifies the requested BGP keepalive time, per RFC4271. Defaults to <code>60s</code>.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -3892,15 +3875,14 @@ Defaults to <code>60s</code>.</p>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.ebgpMultiHop</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>boolean</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Indicates if the BGPPeer is multi-hops away.</p>
+<p>Indicates if the BGPPeer is a multi-hop away.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.bfdProfile</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the name of the BFD Profile to use for the BFD session associated with the BGP session.
-If not set, the BFD session is not set up.</p>
+<p>Specifies the name of the BFD Profile to use for the BFD session associated with the BGP session. If not set, the BFD session is not set up.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -3914,25 +3896,21 @@ If not set, the BFD session is not set up.</p>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.toAdvertise.allowed.prefixes</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string array</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the list of prefixes to advertise to a neighbor.
-This list must match the prefixes that you define in the router.</p>
+<p>Specifies the list of prefixes to advertise to a neighbor. This list must match the prefixes that you define in the router.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.toAdvertise.allowed.mode</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the mode to use when handling the prefixes.
-You can set to <code>filtered</code> to allow only the prefixes in the prefixes list.
-You can set to <code>all</code> to allow all the prefixes configured on the router.</p>
+<p>Specifies the mode to use when handling the prefixes. You can set to <code>filtered</code> to allow only the prefixes in the prefixes list. You can set to <code>all</code> to allow all the prefixes configured on the router.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.toAdvertise.withLocalPref</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>array</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the prefixes associated with an advertised local preference.
-You must specify the prefixes associated with a local preference in the prefixes allowed to be advertised.</p>
+<p>Specifies the prefixes associated with an advertised local preference. You must specify the prefixes associated with a local preference in the prefixes allowed to be advertised.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -3953,8 +3931,7 @@ You must specify the prefixes associated with a local preference in the prefixes
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.toAdvertise.withCommunity</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>array</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the prefixes associated with an advertised BGP community.
-You must include the prefixes associated with a local preference in the list of prefixes that you want to advertise.</p>
+<p>Specifies the prefixes associated with an advertised BGP community. You must include the prefixes associated with a local preference in the list of prefixes that you want to advertise.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -3996,9 +3973,7 @@ You must include the prefixes associated with a local preference in the list of 
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.routers.neighbors.toReceive.allowed.mode</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the mode to use when handling the prefixes.
-When set to <code>filtered</code>, only the prefixes in the <code>prefixes</code> list are allowed.
-When set to <code>all</code>, all the prefixes configured on the router are allowed.</p>
+<p>Specifies the mode to use when handling the prefixes. When set to <code>filtered</code>, only the prefixes in the <code>prefixes</code> list are allowed. When set to <code>all</code>, all the prefixes configured on the router are allowed.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -4019,7 +3994,7 @@ When set to <code>all</code>, all the prefixes configured on the router are allo
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.bfdProfiles</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>array</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the list of bfd profiles to use when configuring the neighbors.</p>
+<p>Specifies the list of BFD profiles to use when configuring the neighbors.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -4049,24 +4024,21 @@ Defaults to <code>300ms</code>.</p>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.bfdProfiles.detectMultiplier</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>integer</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Configures the detection multiplier to determine packet loss.
-To determine the connection loss-detection timer, multiply the remote transmission interval by this value.</p>
+<p>Configures the detection multiplier to determine packet loss. To determine the connection loss-detection timer, multiply the remote transmission interval by this value.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.bfdProfiles.echoInterval</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>integer</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Configures the minimal echo receive transmission-interval that this system can handle, in milliseconds.
-Defaults to <code>50ms</code>.</p>
+<p>Configures the minimal echo receive transmission-interval that this system can handle, in milliseconds. Defaults to <code>50ms</code>.</p>
 </div></div></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.bgp.bfdProfiles.echoMode</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>boolean</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Enables or disables the echo transmission mode.
-This mode is disabled by default, and not supported on multihop setups.</p>
+<p>Enables or disables the echo transmission mode. This mode is disabled by default, and not supported on multihop setups.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -4088,9 +4060,7 @@ Configures the minimum expected TTL for an incoming BFD control packet.</p>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.nodeSelector</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Limits the nodes that attempt to apply this configuration.
-If specified, only those nodes whose labels match the specified selectors attempt to apply the configuration.
-If it is not specified, all nodes attempt to apply this configuration.</p>
+<p>Limits the nodes that attempt to apply this configuration. If specified, only those nodes whose labels match the specified selectors attempt to apply the configuration. If it is not specified, all nodes attempt to apply this configuration.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -4104,20 +4074,17 @@ If it is not specified, all nodes attempt to apply this configuration.</p>
 </table>
 </div>
 </div>
-</div>
 <div class="sect1">
 <h2 id="nw-metallb-frr-k8s-merge-multiple-configurations_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frr-k8s-merge-multiple-configurations_configure-metallb-frr-k8s"></a>How FRR-K8s merges multiple configurations</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>In a case where multiple users add configurations that select the same node, <code>FRR-K8s</code> merges the configurations.
-Each configuration can only extend others.
-This means that it is possible to add a new neighbor to a router, or to advertise an additional prefix to a neighbor, but not possible to remove a component added by another configuration.</p>
+<div class="paragraph _abstract">
+<p>FRR-K8s uses an additive merge strategy when multiple users configure the same node. By using FRR-K8s, you can extend existing configurations, such as adding neighbors or prefixes, but prevent the removal of components defined by other sources.</p>
 </div>
-<div class="sect2">
-<h3 id="nw-metallb-frr-k8s-merge-multiple-configuration-conflicts_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frr-k8s-merge-multiple-configuration-conflicts_configure-metallb-frr-k8s"></a>Configuration conflicts</h3>
-<div class="paragraph">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Configuration conflicts</dt>
+<dd>
 <p>Certain configurations can cause conflicts, leading to errors, for example:</p>
-</div>
 <div class="ulist">
 <ul>
 <li>
@@ -4131,33 +4098,38 @@ This means that it is possible to add a new neighbor to a router, or to advertis
 </li>
 </ul>
 </div>
+</dd>
+</dl>
+</div>
 <div class="paragraph">
 <p>When the daemon finds an invalid configuration for a node, it reports the configuration as invalid and reverts to the previous valid <code>FRR</code> configuration.</p>
 </div>
-</div>
-<div class="sect2">
-<h3 id="nw-metallb-frr-k8s-merge-multiple-configurations-merging_configure-metallb-frr-k8s"><a class="anchor" href="#nw-metallb-frr-k8s-merge-multiple-configurations-merging_configure-metallb-frr-k8s"></a>Merging</h3>
-<div class="paragraph">
-<p>When merging, it is possible to do the following actions:</p>
-</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Merging</dt>
+<dd>
+<p>When merging, iyou can complete the following actions:</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Extend the set of IPs that you want to advertise to a neighbor.</p>
+<p>Extend the set of IP addresses that you want to advertise to a neighbor.</p>
 </li>
 <li>
-<p>Add an extra neighbor with its set of IPs.</p>
+<p>Add an extra neighbor with its set of IP addresses.</p>
 </li>
 <li>
-<p>Extend the set of IPs to which you want to associate a community.</p>
+<p>Extend the set of IP addresses to which you want to associate a community.</p>
 </li>
 <li>
 <p>Allow incoming routes for a neighbor.</p>
 </li>
 </ul>
 </div>
+</dd>
+</dl>
+</div>
 <div class="paragraph">
-<p>Each configuration must be self contained. This means, for example, that it is not possible to allow prefixes that are not defined in the router section by leveraging prefixes coming from another configuration.</p>
+<p>Each configuration must be self contained. This means, for example, that you cannot allow prefixes that are not defined in the router section by leveraging prefixes coming from another configuration.</p>
 </div>
 <div class="paragraph">
 <p>If the configurations to be applied are compatible, merging works as follows:</p>
@@ -4188,7 +4160,6 @@ This means that it is possible to add a new neighbor to a router, or to advertis
 </td>
 </tr>
 </table>
-</div>
 </div>
 </div>
 </div>

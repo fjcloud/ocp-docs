@@ -1221,6 +1221,8 @@
 <ul class="sectlevel1">
 <li><a href="#nw-creating-a-route_creating-basic-routes">Creating an HTTP-based route</a></li>
 <li><a href="#nw-path-based-routes_creating-basic-routes">Path-based routes</a></li>
+<li><a href="#networking-ingress-label-propagation-about_creating-basic-routes">About label propagation from Ingress to Route resources</a></li>
+<li><a href="#networking-ingress-label-propagation-enabling_creating-basic-routes">Enabling label propagation from Ingress to Route resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -1441,6 +1443,140 @@
 </td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="networking-ingress-label-propagation-about_creating-basic-routes"><a class="anchor" href="#networking-ingress-label-propagation-about_creating-basic-routes"></a>About label propagation from Ingress to Route resources</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can opt-in to a feature that enables the Ingress Operator to automatically propagate labels. This allows you to add metadata that helps track or manage resources, or to control specific behaviors that depend on labels.</p>
+</div>
+<div class="paragraph">
+<p>By default, the managed <code>Route</code> object does not inherit labels from the <code>Ingress</code> resource. When you enable the propagation feature, the Operator actively reconciles the labels on the generated <code>Route</code> resource to match the labels on the parent <code>Ingress</code> resource.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When label propagation is enabled, the Ingress Operator replaces all labels on the managed <code>Route</code> resource with the exact set of labels from the parent <code>Ingress</code> resource. Any labels that were manually added to the <code>Route</code> resource are removed.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The propagation behavior is controlled by the <code>route.openshift.io/reconcile-labels</code> annotation on the <code>Ingress</code> resource. The Operator&#8217;s behavior changes depending on the state of this annotation:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Annotation not present (default): The Operator does not sync labels from the <code>Ingress</code> resource to the <code>Route</code> resource. Any existing labels on the <code>Route</code> are preserved.</p>
+</li>
+<li>
+<p>Annotation enabled (<code>route.openshift.io/reconcile-labels: "true"</code>): The Operator enables label propagation. On the next reconciliation (triggered by the <code>Ingress</code> create or update event), the Operator replaces all labels on the generated <code>Route</code> resource with the labels from the <code>Ingress</code> resource.</p>
+</li>
+<li>
+<p>Annotation disabled (removed or value set to non-"true"): The Operator disables label propagation. The labels that currently exist on the <code>Route</code> resource are kept as-is, but the Operator no longer syncs them with the <code>Ingress</code> resource.</p>
+</li>
+<li>
+<p>Annotation re-enabled: The Operator resumes propagation. It will again replace all labels on the <code>Route</code> resource with the current labels from the <code>Ingress</code> resource.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="networking-ingress-label-propagation-enabling_creating-basic-routes"><a class="anchor" href="#networking-ingress-label-propagation-enabling_creating-basic-routes"></a>Enabling label propagation from Ingress to Route resources</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can enable the Ingress Operator to automatically propagate labels from an <code>Ingress</code> resource to the <code>Route</code> resource it manages. To enable this, you must add the <code>reconcile-labels</code> annotation to an <code>Ingress</code> resource.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to an Red Hat OpenShift Service on AWS cluster.</p>
+</li>
+<li>
+<p>You have the <code>cluster-admin</code> role or permissions to create and edit <code>Ingress</code> resources in a project.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create or edit an <code>Ingress</code> resource manifest.</p>
+</li>
+<li>
+<p>In the <code>metadata.annotations</code> section, add <code>route.openshift.io/reconcile-labels: "true"</code>.</p>
+</li>
+<li>
+<p>In the <code>metadata.labels</code> section, add the labels you want to propagate.</p>
+<div class="paragraph">
+<p>Example <code>Ingress</code> resource with label propagation enabled:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Ingress</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">example-ingress</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">route.openshift.io/reconcile-labels</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">my-app</span>
+    <span class="na">owner</span><span class="pi">:</span> <span class="s">dev-team</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">ingressClassName</span><span class="pi">:</span> <span class="s">openshift-default</span>
+  <span class="na">rules</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">host</span><span class="pi">:</span> <span class="s">example.com</span>
+    <span class="na">http</span><span class="pi">:</span>
+      <span class="na">paths</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">backend</span><span class="pi">:</span>
+          <span class="na">service</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">example-service</span>
+            <span class="na">port</span><span class="pi">:</span>
+              <span class="na">number</span><span class="pi">:</span> <span class="m">27017</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/"</span>
+        <span class="na">pathType</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Prefix"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the manifest to your cluster:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;example-ingress-manifest.yaml&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;example-ingress-manifest.yaml&gt;</code> with the name of your specific manifest file.</p>
+</div>
+</li>
+<li>
+<p>Verify that the labels from the <code>Ingress</code> resource have propagated to the generated <code>Route</code> resource:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get route <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>my-app <span class="nt">--show-labels</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME          HOST/PORT     PATH   SERVICES          PORT    TERMINATION   WILDCARD   LABELS
+example-rt    example.com   /      example-service   8080                  None       app=my-app,owner=dev-team</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
