@@ -1308,6 +1308,7 @@
                     <li><a class="" href="../../networking/ingress_load_balancing/metallb/metallb-configure-services.html" style="padding-left: 70px;">Configuring services to use MetalLB</a></li>
                     <li><a class="" href="../../networking/ingress_load_balancing/metallb/metallb-configure-return-traffic.html" style="padding-left: 70px;">Managing symmetric routing with MetalLB</a></li>
                     <li><a class="" href="../../networking/ingress_load_balancing/metallb/metallb-frr-k8s.html" style="padding-left: 70px;">Configuring the integration of MetalLB and FRR-K8s</a></li>
+                    <li><a class="" href="../../networking/ingress_load_balancing/metallb/monitoring-metallb-status.html" style="padding-left: 70px;">MetalLB status reporting</a></li>
                     <li><a class="" href="../../networking/ingress_load_balancing/metallb/metallb-troubleshoot-support.html" style="padding-left: 70px;">MetalLB logging, troubleshooting, and support</a></li>                  </ul>
                   </li>
               </ul>
@@ -3487,8 +3488,29 @@
   <span class="na">config</span><span class="pi">:</span>
     <span class="na">ignition</span><span class="pi">:</span>
       <span class="na">version</span><span class="pi">:</span> <span class="s">3.5.0</span>
+    <span class="na">storage</span><span class="pi">:</span>
+      <span class="na">files</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span>
+          <span class="na">source</span><span class="pi">:</span> <span class="s">data:text/plain;charset=utf-8;base64,YXBpVmVyc2lvbjoga3ViZWxldC5jb25maWcuazhzLmlvL3YxYmV0YTEKa2luZDogS3ViZWxldENvbmZpZ3VyYXRpb24KZmFpbFN3YXBPbjogZmFsc2UK</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="m">420</span>
+        <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/openshift/kubelet.conf.d/90-swap.conf</span>
     <span class="na">systemd</span><span class="pi">:</span>
       <span class="na">units</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span> <span class="pi">|</span>
+            <span class="s">[Unit]</span>
+            <span class="s">Description=Enable swap</span>
+            <span class="s">ConditionFirstBoot=no</span>
+            <span class="s">ConditionPathExists=/var/tmp/swapfile</span>
+
+            <span class="s">[Service]</span>
+            <span class="s">Type=oneshot</span>
+            <span class="s">ExecStart=/bin/sh -c "sudo swapon /var/tmp/swapfile"</span>
+
+            <span class="s">[Install]</span>
+            <span class="s">RequiredBy=kubelet-dependencies.target</span>
+          <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">swap-enable.service</span>
         <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span> <span class="pi">|</span>
             <span class="s">[Unit]</span>
             <span class="s">Description=Provision and enable swap</span>
@@ -3498,7 +3520,7 @@
             <span class="s">[Service]</span>
             <span class="s">Type=oneshot</span>
             <span class="s">Environment=SWAP_SIZE_MB=5000</span>
-            <span class="s">ExecStart=/bin/sh -c "sudo dd if=/dev/zero of=/var/tmp/swapfile count=${SWAP_SIZE_MB} bs=1M &amp;&amp; \</span>
+            <span class="s">ExecStart=/bin/sh -c "sudo fallocate -l ${SWAP_SIZE_MB}M /var/tmp/swapfile &amp;&amp; \</span>
             <span class="s">sudo chmod 600 /var/tmp/swapfile &amp;&amp; \</span>
             <span class="s">sudo mkswap /var/tmp/swapfile &amp;&amp; \</span>
             <span class="s">sudo swapon /var/tmp/swapfile &amp;&amp; \</span>
