@@ -3326,6 +3326,12 @@
 <ul class="sectlevel1">
 <li><a href="#bare-metal-about-the-cluster-api_bare-metal-postinstallation-configuration">About the Cluster API</a></li>
 <li><a href="#configuring-ntp-for-disconnected-clusters_bare-metal-postinstallation-configuration">Configuring NTP for disconnected clusters</a></li>
+<li><a href="#bare-metal-self-signed-cert-post-install_bare-metal-postinstallation-configuration">Configuring a local or self-signed Baseboard Management Controller CA certificate</a>
+<ul class="sectlevel2">
+<li><a href="#bare-metal-replace-existing-bmc-ca_bare-metal-postinstallation-configuration">Replacing an existing BMC CA certificate</a></li>
+<li><a href="#bare-metal-install-new-bmc-ca_bare-metal-postinstallation-configuration">Installing a new BMC CA certificate</a></li>
+</ul>
+</li>
 <li><a href="#enabling-a-provisioning-network-after-installation_bare-metal-postinstallation-configuration">Enabling a provisioning network after installation</a></li>
 <li><a href="#creating-manifest-file-customized-br-ex-bridge_bare-metal-postinstallation-configuration">Creating a manifest object that includes a customized br-ex bridge</a></li>
 <li><a href="#making-disruptive-changes-br-ex-bridge.adoc_bare-metal-postinstallation-configuration">Making disruptive changes to a customized br-ex bridge</a></li>
@@ -3362,8 +3368,8 @@
 </li>
 </ul>
 </div>
-<div class="paragraph">
-<p>After successfully deploying a bare-metal cluster, consider the following postinstallation procedures.</p>
+<div class="paragraph _abstract">
+<p>After successfully deploying a bare-metal cluster, you can perform post installation procedures such as configuring NTP, enabling a provisioning network, and configuring a user-managed load balancer. Customizing your cluster can help you prepare the cluster for specific workloads and deployment requirements.</p>
 </div>
 </div>
 </div>
@@ -3603,6 +3609,154 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bare-metal-self-signed-cert-post-install_bare-metal-postinstallation-configuration"><a class="anchor" href="#bare-metal-self-signed-cert-post-install_bare-metal-postinstallation-configuration"></a>Configuring a local or self-signed Baseboard Management Controller CA certificate</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure a local or self-signed Baseboard Management Controller (BMC) CA certificate on a cluster that already has a CA certificate, or add one to a cluster that was installed without a CA certificate. Providing a local or self-signed CA certificate gives you more control over secure communication with bare metal BMC&#8217;s.</p>
+</div>
+<div class="sect2">
+<h3 id="bare-metal-replace-existing-bmc-ca_bare-metal-postinstallation-configuration"><a class="anchor" href="#bare-metal-replace-existing-bmc-ca_bare-metal-postinstallation-configuration"></a>Replacing an existing BMC CA certificate</h3>
+<div class="paragraph _abstract">
+<p>You can replace the BMC CA certificate with your own local or self-signed CA certificate by editing the <code>bmc-verify-ca</code> ConfigMap in the <code>openshift-machine-api</code> namespace. Providing your own CA certificate gives you control over the secure communications between your cluster and BMC&#8217;s.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed a cluster on bare metal.</p>
+</li>
+<li>
+<p>You configured a CA certificate for BMC communication when you installed the cluster.</p>
+</li>
+<li>
+<p>You have a local or self-signed CA certificate.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the <code>bmc-verify-ca</code> ConfigMap by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit configmap bmc-verify-ca <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Replace the contents of the <code>verify_ca.crt</code> stanza with your local or self-signed CA certificate, as in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="s">verify_ca.crt</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">-----BEGIN CERTIFICATE-----</span>
+    <span class="s">&lt;self_signed_certificate_contents&gt;</span>
+    <span class="s">-----END CERTIFICATE-----</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;self_signed_certificate_contents&gt;</code></dt>
+<dd>
+<p>Specifies the contents of your local or self-signed CA certificate.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="bare-metal-install-new-bmc-ca_bare-metal-postinstallation-configuration"><a class="anchor" href="#bare-metal-install-new-bmc-ca_bare-metal-postinstallation-configuration"></a>Installing a new BMC CA certificate</h3>
+<div class="paragraph _abstract">
+<p>You can install a local or self-signed BMC CA certificate on a cluster which was installed without a BMC CA certificate. Providing your own BMC CA certificate secures the communication between your cluster and BMC&#8217;s.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed a cluster on bare metal without a BMC CA certificate.</p>
+</li>
+<li>
+<p>You have a local or self-signed CA certificate.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a file called <code>bmc-verify-ca.yaml</code> using a text editor, with the following contents:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="s">verify_ca.crt</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">-----BEGIN CERTIFICATE-----</span>
+    <span class="s">&lt;self_signed_certificate_contents&gt;</span>
+    <span class="s">-----END CERTIFICATE-----</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">bmc-verify-ca</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;self_signed_certificate_contents&gt;</code></dt>
+<dd>
+<p>Specifies the contents of your local or self-signed CA certificate.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Apply the ConfigMap by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> bmc-verify-ca.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the ConfigMap has been mounted in the Ironic container by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-machine-api <span class="se">\</span>
+  <span class="si">$(</span>oc get pods <span class="nt">-n</span> openshift-machine-api <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>metal3 <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="si">)</span> <span class="se">\</span>
+  <span class="nt">-c</span> metal3-ironic <span class="nt">--</span> <span class="nb">ls</span> <span class="nt">-l</span> /certs/ca/bmc</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If successful, the command should display the certificate file.</p>
+</div>
+</li>
+<li>
+<p>For each bare metal host in your cluster that you want to secure BMC communications with, follow the procedure titled <em>Editing a BareMetalHost resource</em> and ensure that the <code>disableCertificateVerification</code> parameter is set to <code>false</code>.</p>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../installing/installing_bare_metal/bare-metal-postinstallation-configuration.html#bmo-editing-a-baremetalhost-resource_bare-metal-postinstallation-configuration">Editing a BareMetalHost resource</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>

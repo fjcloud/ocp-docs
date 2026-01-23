@@ -4548,42 +4548,19 @@ namespace-1 data-etcd-0 3.81%</span></code></pre>
 </div>
 <div class="sect2">
 <h3 id="storage-persistent-storage-pvc-volumeattributesclass_understanding-persistent-storage"><a class="anchor" href="#storage-persistent-storage-pvc-volumeattributesclass_understanding-persistent-storage"></a>Volume Attributes Classes</h3>
-<div class="paragraph">
-<p>Volume Attributes Classes provide a way for administrators to describe "classes" of storage they offer. Different classes might correspond to different quality-of-service levels.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Volume Attributes Classes is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>Volume Attributes Classes in OpenShift Container Platform is available only with AWS Elastic Block Storage (EBS) and Google Cloud Platform (GCP) persistent disk (PD) Container Storage Interface (CSI).</p>
-</div>
-<div class="paragraph">
-<p>You can apply a Volume Attributes Class to a persistent volume claim (PVC). If a new Volume Attributes Class becomes available in the cluster, a user can update the PVC with the new Volume Attributes Class if needed.</p>
-</div>
-<div class="paragraph">
-<p>Volume Attributes Classes have parameters that describe volumes belonging to them. If a parameter is omitted, the default is used at volume provisioning. If you apply the PVC with a different Volume Attributes Class with omitted parameters, the default value of the parameters might be used depending on the CSI driver implementation. For more information, see the related CSI driver documentation.</p>
+<div class="paragraph _abstract">
+<p>Volume Attributes Classes provide a way for administrators to describe "classes" of storage they offer. These different classes can correspond to different quality-of-service levels. You can then apply Volume Attributes Classes to a persistent volume claim (PVC). If needed, you can apply new Volume Attributes Classes that become available in the cluster to the PVC.</p>
 </div>
 <div class="sect3">
 <h4 id="limitations"><a class="anchor" href="#limitations"></a>Limitations</h4>
 <div class="paragraph">
-<p>Volume Attributes Classes has the following limitations:</p>
+<p>Volume Attributes Classes have the following limitations:</p>
 </div>
 <div class="ulist">
 <ul>
+<li>
+<p>Only supported with AWS Elastic Block Storage (EBS) and Google Cloud Platform (GCP) persistent disk (PD) Container Storage Interface (CSI).</p>
+</li>
 <li>
 <p>With GCP PD, volume modification using Volume Attributes Classes is only possible for hyperdisk-balanced disk types.</p>
 </li>
@@ -4603,23 +4580,52 @@ namespace-1 data-etcd-0 3.81%</span></code></pre>
 </div>
 </div>
 <div class="sect3">
-<h4 id="enabling-volume-attributes-classes"><a class="anchor" href="#enabling-volume-attributes-classes"></a>Enabling Volume Attributes Classes</h4>
-<div class="paragraph">
-<p>Volume Attributes Classes are not enabled by default.</p>
-</div>
-<div class="paragraph">
-<p>To enable Volume Attributes Classes, follow the procedure in section <em>Enabling OpenShift Container Platform features using FeatureGates</em>.</p>
-</div>
-</div>
-<div class="sect3">
 <h4 id="defining-volume-attributes-classes"><a class="anchor" href="#defining-volume-attributes-classes"></a>Defining Volume Attributes Classes</h4>
+<div class="paragraph">
+<p>When defining Volume Attributes Classes, you must verify supported parameters with your storage provider and explicitly declare all parameters in every Volume Attributes Classes definition.</p>
+</div>
+<div class="paragraph">
+<p>If there are multiple Volume Attributes Classes on one driver with different parameters sets, and you change from one Volume Attributes Classes to another, you might expect every non-defined parameter to be set back to the default. However, that does not occur. The non-defined parameters stay the same.</p>
+</div>
+<div class="paragraph">
+<p>For example, if you have:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Volume Attributes Class A defines throughput <code>125</code> and iops <code>300</code>.</p>
+</li>
+<li>
+<p>Volume Attributes Class B only defines iops to <code>400</code>.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If a persistent volume claim (PVC) changes its Volume Attributes Class from A to B, the resulting volume&#8217;s parameters are changed to throughput <code>125</code> and iops <code>400</code>.</p>
+</div>
+<div class="paragraph">
+<p>The metric, <code>openshift_cluster_storage_vac_mismatch_parameters</code>, helps identify mismatched parameters that might lead to the persistence issues:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>0</code>: All Volume Attributes Classes define the same set of parameters.</p>
+</li>
+<li>
+<p><code>1</code>: Mismatch detected. At least one Volume Attributes Class defines a different set of parameters than the others.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>You can modify a Volume Attributes Class on a PVC at any time. However, if a Volume Attributes Class is changed multiple times in a short time period, the underlying storage provider might enforce a delay of several hours before the most recent change is fully reconciled on the disk.</p>
+</div>
 <div class="paragraph">
 <p>The following is an example Volume Attributes Class YAML file for AWS EBS.</p>
 </div>
 <div class="listingblock">
-<div class="title"><code>VolumeAttributesClass</code> AWE EBS definition example</div>
+<div class="title"><code>VolumeAttributesClass</code> AWS EBS definition example</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1beta1</span>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeAttributesClass</span> <i class="conum" data-value="1"></i><b>(1)</b>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">silver</span> <i class="conum" data-value="2"></i><b>(2)</b>
@@ -4657,7 +4663,7 @@ namespace-1 data-etcd-0 3.81%</span></code></pre>
 <div class="listingblock">
 <div class="title"><code>VolumeAttributesClass</code> GPC PD definition example</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1beta1</span>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">storage.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeAttributesClass</span> <i class="conum" data-value="1"></i><b>(1)</b>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">silver</span> <i class="conum" data-value="2"></i><b>(2)</b>
