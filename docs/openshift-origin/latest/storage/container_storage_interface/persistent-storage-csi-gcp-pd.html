@@ -2793,6 +2793,7 @@
 <ul class="sectlevel1">
 <li><a href="#overview">Overview</a></li>
 <li><a href="#csi-about_persistent-storage-csi-gcp-pd">About CSI</a></li>
+<li><a href="#persistent-storage-csi-gcp-pd-reduce-permissions_persistent-storage-csi-gcp-pd">Reducing permissions while using the GCP PD CSI Driver Operator</a></li>
 <li><a href="#persistent-storage-csi-gcp-pd-storage-class-ref_persistent-storage-csi-gcp-pd">GCP PD CSI driver storage class parameters</a></li>
 <li><a href="#c3-instance-type-for-bare-metal-and-n4-machine-series">C3 instance type for bare metal and N4 machine series</a>
 <ul class="sectlevel2">
@@ -2858,6 +2859,79 @@
 </div>
 <div class="paragraph">
 <p>CSI Operators give OKD users storage options, such as volume snapshots, that are not possible with in-tree volume plugins.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="persistent-storage-csi-gcp-pd-reduce-permissions_persistent-storage-csi-gcp-pd"><a class="anchor" href="#persistent-storage-csi-gcp-pd-reduce-permissions_persistent-storage-csi-gcp-pd"></a>Reducing permissions while using the GCP PD CSI Driver Operator</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The default installation allows the Google Cloud Platform (GCP) persistent disk (PD) Container Storage Interface (CSI) Driver to impersonate any service account in the Google Cloud project. You can reduce the scope of permissions granted to the GCP PD CSI Driver service account in your Google Cloud project to only the required node service accounts.</p>
+</div>
+<div class="paragraph">
+<p>To reduce permissions, grant the <code>iam.serviceAccountUser</code> role to the control plane and compute node service accounts, and then remove the <code>iam.serviceAccountUser</code> role from the project-wide service account, thus reducing the scope of the permission.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Reducing permissions only applies to GCP clusters using Workload Identity Federation (WIF).</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Grant scoped <code>iam.serviceAccountUser</code> role for node service accounts by running the following Bash commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">gcloud iam service-accounts add-iam-policy-binding "$</span><span class="o">{</span>MASTER_NODE_SA<span class="o">}</span><span class="s2">" --project="</span><span class="k">${</span><span class="nv">GOOGLE_PROJECT_ID</span><span class="k">}</span><span class="s2">" --member="</span>serviceAccount:<span class="k">${</span><span class="nv">SERVICE_ACCOUNT_EMAIL</span><span class="k">}</span><span class="s2">" --role="</span>roles/iam.serviceAccountUser<span class="s2">" --condition=None
+</span><span class="gp">gcloud iam service-accounts add-iam-policy-binding "$</span><span class="s2">{WORKER_NODE_SA}"</span> <span class="nt">--project</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">GOOGLE_PROJECT_ID</span><span class="k">}</span><span class="s2">"</span> <span class="nt">--member</span><span class="o">=</span><span class="s2">"serviceAccount:</span><span class="k">${</span><span class="nv">SERVICE_ACCOUNT_EMAIL</span><span class="k">}</span><span class="s2">"</span> <span class="nt">--role</span><span class="o">=</span><span class="s2">"roles/iam.serviceAccountUser"</span> <span class="nt">--condition</span><span class="o">=</span>None</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>GOOGLE_PROJECT_ID</code>: The unique ID of your Google Cloud project.</p>
+</li>
+<li>
+<p><code>SERVICE_ACCOUNT_EMAIL</code>: The email address of the "Member" (the person or service account) who is being granted the new permissions. To find the service account, on WIF clusters, there is a default service account on GCP for the CSI driver based on the cluster name, for example: <code>${CLUSTER_NAME}-openshift-gcp-pd-csi-*</code>.</p>
+</li>
+<li>
+<p><code>MASTER_NODE_SA</code>: The email address of the service account used by your cluster&#8217;s master node.</p>
+</li>
+<li>
+<p><code>WORKER_NODE_SA</code>: The email address of the service account used by your cluster&#8217;s worker nodes.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Remove project-level <code>iam.serviceAccountUser</code> role from the binding created by the installation program by running the following Bash commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">gcloud projects remove-iam-policy-binding "$</span><span class="o">{</span>GOOGLE_PROJECT_ID<span class="o">}</span><span class="s2">" --member="</span>serviceAccount:<span class="k">${</span><span class="nv">SERVICE_ACCOUNT_EMAIL</span><span class="k">}</span><span class="s2">" --role="</span>roles/iam.serviceAccountUser<span class="s2">" --condition=None</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>SERVICE_ACCOUNT_EMAIL</code>: The email address of the account losing the permission. For example, <code>my-app-sa@my-project.iam.gserviceaccount.com</code>. To find the service account, on WIF clusters, there is a default service account on GCP for the CSI driver based on the cluster name, for example: <code>${CLUSTER_NAME}-openshift-gcp-pd-csi-*</code>.</p>
+</li>
+<li>
+<p><code>GOOGLE_PROJECT_ID</code>: The unique ID of the Google Cloud project where this is occurring. For example, <code>prod-data-789</code>.</p>
+</li>
+</ul>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
