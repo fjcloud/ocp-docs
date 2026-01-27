@@ -2598,7 +2598,8 @@
 
                   <li><a class="" href="../../virt/creating_vm/virt-creating-vms-from-instance-types.html">Creating VMs from instance types</a></li>
                   <li><a class="" href="../../virt/creating_vm/virt-creating-vms-from-templates.html">Creating VMs from templates</a></li>
-                  <li><a class="" href="../../virt/creating_vm/virt-configuring-ibm-secure-execution-vms-ibm-z.html">Configuring IBM Secure Execution virtual machines on IBM Z and IBM LinuxONE</a></li>              </ul>
+                  <li><a class="" href="../../virt/creating_vm/virt-configuring-ibm-secure-execution-vms-ibm-z.html">Configuring IBM Secure Execution virtual machines on IBM Z and IBM LinuxONE</a></li>
+                  <li><a class="" href="../../virt/creating_vm/virt-creating-vms-aws-li-windows.html">Creating AWS EC2 Windows License Included (LI) compliant VMs</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-35-6"><span id="sgSpan-35-6" class="fa fa-caret-right"></span>&nbsp;Advanced VM creation</a>
               <ul id="topicSubGroup-35-6" class="nav-tertiary list-unstyled collapse">
@@ -4778,27 +4779,33 @@ Supplying more than one user-assigned identity is an experimental feature, which
   azure:
     outboundType:</pre></div></td>
 <td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
-<p>The outbound routing strategy used to connect your cluster to the internet. If you are using user-defined routing, you must have pre-existing networking available. The outbound routing must be configured before installing a cluster. The installation program does not configure user-defined routing. If you specify the <code>NatGateway</code> routing strategy, the installation program only creates one NAT gateway. If you specify the <code>NatGateway</code> routing strategy, your account must have the <code>Microsoft.Network/natGateways/read</code> and <code>Microsoft.Network/natGateways/write</code> permissions.</p>
+<p>The outbound routing strategy used to connect your cluster to the internet. The following strategies are available:</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>UserDefinedRouting</code></dt>
+<dd>
+<p>Specifies to the installation program that you will provide and configure your own networking infrastructure for outbound access. The outbound routing must be configured before installing a cluster. The installation program does not configure user-defined routing.</p>
+</dd>
+<dt class="hdlist1"><code>LoadBalancer</code></dt>
+<dd>
+<p>Specifies that a single load balancer will be provisioned to provide outbound access for your cluster. This is the default value.</p>
+</dd>
+<dt class="hdlist1"><code>NATGatewaySingleZone</code></dt>
+<dd>
+<p>Specifies that the installation program will create one NAT Gateway. If you provide your own subnets via the <code>platform.azure.subnets</code> parameter, the installation program will attach the NAT Gateway to the compute subnet you specify. If you do not provide your own subnets, the installation program will create a subnet for the control plane and a subnet for the compute plane, and attach the NAT Gateway to the compute subnet.</p>
+</dd>
+<dt class="hdlist1"><code>NATGatewayMultiZone</code></dt>
+<dd>
+<p>Specifies that the installation program will create multiple NAT Gateways. If you provide your own subnets via the <code>platform.azure.subnets</code> parameter, the installation program creates a NAT Gateway for each subnet with the <code>node</code> role, assigns a zone to each NAT Gateway, and associates a NAT Gateway to each subnet. If you do not provide your own subnets, the installation program creates a compute subnet and NAT Gateway for each zone in the region, then attaches them to each other.</p>
+</dd>
+</dl>
+</div>
 <div class="paragraph">
-<p><code>NatGateway</code> is a Technology Preview feature only. Technology Preview features are not supported with Red Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+<p>If you specify either the <code>NATGatewaySingleZone</code> or the <code>NATGatewayMultiZone</code> routing strategy, your account must have the <code>Microsoft.Network/natGateways/read</code> and <code>Microsoft.Network/natGateways/write</code> permissions. NAT Gateways can only be used for compute machines.</p>
 </div>
 <div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p><strong>Value:</strong> <code>LoadBalancer</code>, <code>UserDefinedRouting</code>, or <code>NatGateway</code>. The default is <code>LoadBalancer</code>.</p>
+<p><strong>Value:</strong> <code>LoadBalancer</code>, <code>UserDefinedRouting</code>, <code>NATGatewaySingleZone</code>, or <code>NATGatewayMultiZone</code>. The default is <code>LoadBalancer</code>.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -4810,6 +4817,19 @@ Supplying more than one user-assigned identity is an experimental feature, which
 </div>
 <div class="paragraph">
 <p><strong>Value:</strong> Any valid region name, such as <code>centralus</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="literal"><pre>platform:
+  azure:
+    subnets:
+    - name:
+      role:</pre></div></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>A list of one or more pairs of parameters which specify the name and role of a pre-existing subnet. The installation program will use the provided subnets for the specified roles. You can only specify one subnet with the <code>control-plane</code> role. If you specify pre-existing subnets, you must also set the <code>platform.azure.networkResourceGroupName</code> and <code>platform.azure.virtualNetwork</code> parameters. Pre-existing subnets that you provide must use the same region as you specified in the <code>platform.azure.region</code> parameter. If you use the <code>NATGatewaySingleZone</code> outbound routing strategy, you can only specify one subnet with the <code>node</code> role.</p>
+</div>
+<div class="paragraph">
+<p><strong>Value:</strong> <code>name</code> specifies the name of the subnet. Valid <code>role</code> values are <code>node</code> or <code>control-plane</code>.</p>
 </div></div></td>
 </tr>
 <tr>

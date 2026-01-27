@@ -3135,7 +3135,8 @@
 
                   <li><a class="" href="../virt/creating_vm/virt-creating-vms-from-instance-types.html">Creating VMs from instance types</a></li>
                   <li><a class="" href="../virt/creating_vm/virt-creating-vms-from-templates.html">Creating VMs from templates</a></li>
-                  <li><a class="" href="../virt/creating_vm/virt-configuring-ibm-secure-execution-vms-ibm-z.html">Configuring IBM Secure Execution virtual machines on IBM Z and IBM LinuxONE</a></li>              </ul>
+                  <li><a class="" href="../virt/creating_vm/virt-configuring-ibm-secure-execution-vms-ibm-z.html">Configuring IBM Secure Execution virtual machines on IBM Z and IBM LinuxONE</a></li>
+                  <li><a class="" href="../virt/creating_vm/virt-creating-vms-aws-li-windows.html">Creating AWS EC2 Windows License Included (LI) compliant VMs</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-41-7"><span id="sgSpan-41-7" class="fa fa-caret-right"></span>&nbsp;Advanced VM creation</a>
               <ul id="topicSubGroup-41-7" class="nav-tertiary list-unstyled collapse">
@@ -3331,6 +3332,7 @@
 <ul class="sectlevel1">
 <li><a href="#etcd-leader-election-log-replication_etcd-performance">Leader election and log replication of etcd</a></li>
 <li><a href="#etcd-node-scaling_etcd-performance">Node scaling for etcd</a></li>
+<li><a href="#etcd-customize-ttl_etcd-performance">Managing etcd size by limiting the duration of Kubernetes events</a></li>
 <li><a href="#etcd-disk-latency_etcd-performance">Effects of disk latency on etcd</a></li>
 <li><a href="#etcd-consensus-latency_etcd-performance">Monitoring consensus latency for etcd</a></li>
 <li><a href="#move-etcd-different-disk_etcd-performance">Moving etcd to a different disk</a></li>
@@ -3358,7 +3360,7 @@
 <li><a href="#etcd-determine-kube-api-transaction-rate_etcd-performance">Determining Kubernetes API transaction rate for your environment</a></li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>To ensure optimal performance with etcd, it&#8217;s important to understand the conditions that affect performance, including node scaling, leader election, log replication, tuning, latency, network jitter, peer round trip time, database size, and Kubernetes API transaction rates.</p>
 </div>
 </div>
@@ -3477,6 +3479,185 @@
 </li>
 <li>
 <p><a href="../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/scenario-2-restoring-cluster-state.html#dr-restoring-cluster-state">Restoring to a previous cluster state</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="etcd-customize-ttl_etcd-performance"><a class="anchor" href="#etcd-customize-ttl_etcd-performance"></a>Managing etcd size by limiting the duration of Kubernetes events</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To manage etcd size, you can set the maximum time that Kubernetes events are stored in the etcd database of the Kubernetes API server. By specifying the <code>eventTTLMinutes</code> property, you can control how long events are stored in the etcd database before they are purged.</p>
+</div>
+<div class="paragraph">
+<p>The <code>eventTTLMinutes</code> property is managed through the <code>KubeAPIServer</code> custom resource, which is maintained by the Kube API Server Operator.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Limiting the duration of events by setting the <code>eventTTLMinutes</code> property is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the <code>KubeAPIServer</code> custom resource by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch kubeapiserver/cluster <span class="nt">-p</span><span class="o">=</span><span class="s1">'{"spec": {"eventTTLMinutes": 5 }}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The value for the <code>eventTTLMinutes</code> property specifies how many minutes events are stored in the etcd database. Valid values are <code>5</code> - <code>180</code>.</p>
+</div>
+</li>
+<li>
+<p>Save the changes to the <code>KubeAPIServer</code> custom resource.</p>
+<div class="paragraph">
+<p>The Kube API Server Operator automatically reconciles the change, which involves rolling out new configurations to the Kube API Server pods.</p>
+</div>
+</li>
+<li>
+<p>Wait for the rollout to finish by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm wait-for-stable-cluster</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example shows the output that is displayed during that process:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="c">...
+</span><span class="go">clusteroperators/kube-apiserver is still progressing after 10s
+</span><span class="c">...
+</span><span class="go">clusteroperators/kube-apiserver stabilized at 2025-11-12T12:02:40+01:00 after 9m0s</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>To verify that the configuration was applied, enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get cm config <span class="nt">-n</span> openshift-kube-apiserver <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.data.config\.yaml}'</span> | jq <span class="nt">-r</span> <span class="s2">".apiServerArguments[</span><span class="se">\"</span><span class="s2">event-ttl</span><span class="se">\"</span><span class="s2">][0]"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows the configured duration, which is 5m in the following example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">5m</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Only newly created events are written to etcd by using the new value for the <code>eventTTLMinutes</code> property. Older, existing events are not updated and will expire according to any previously specified TTL values.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>To manually verify that a given event was written with a shorter lease, examine the lease directly on etcd by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-it</span> pods/&lt;etcd_pod_name&gt; <span class="nt">-n</span> openshift-etcd <span class="nt">-c</span> etcdctl <span class="nt">--</span> sh</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output of the command looks similar to the following example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1h#</span><span class="w"> </span><span class="nv">$ </span>etcdctl lease list | xargs <span class="nt">-I</span> <span class="o">{}</span> etcdctl lease timetolive <span class="o">{}</span>
+<span class="go">lease 1e6e9a77a71d8235 granted with TTL(15s), remaining(1s)
+lease 1e6e9a77a71d8247 granted with TTL(15s), remaining(3s)
+lease 1e6e9a77a71d8252 granted with TTL(15s), remaining(3s)
+lease 1e6e9a77a71d8310 granted with TTL(15s), remaining(11s)
+lease 1e6e9a77a71d8332 granted with TTL(15s), remaining(12s)
+lease 1e6e9a77a71d833e granted with TTL(15s), remaining(13s)
+lease 086e9a77a31f0776 granted with TTL(315s), remaining(177s)
+lease 086e9a779dcd8245 granted with TTL(10860s), remaining(8369s)
+lease 086e9a779dcd8fdf granted with TTL(10860s), remaining(8369s)</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Other API objects can also have leases.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>To inspect the attached keys, filter for the key prefix of the event by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>etcdctl lease list | xargs <span class="nt">-I</span> <span class="o">{}</span> etcdctl lease timetolive <span class="nt">--keys</span> <span class="o">{}</span> | <span class="nb">grep</span> <span class="s2">"/kubernetes.io/events"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output looks similar to the following example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">lease 0f009a77a48509ac granted with TTL(315s), remaining(74s), attached keys([/kubernetes.io/events/openshift-marketplace/redhat-operators-rrq79.18773e905b3e29a8 /kubernetes.io/events/openshift-marketplace/community-operators-csds7.18773e91b1e551a3])
+</span><span class="c">...
+...
+</span><span class="go">lease 1e6e9a77a71d3df1 granted with TTL(10860s), remaining(9478s), attached keys([/kubernetes.io/events/openshift-kube-apiserver/kube-apiserver-guard-ci-ln-pbkb71t-72292-dwp9h-master-2.18773c38ef4dcc03])</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the example, the TTL value is 5 minutes (<code>300s</code>), but the output shows <code>315s</code> because a lease buffer reuse of 5% is added.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If a lease can be reused, etcd reuses it. Instead of creating a unique etcd lease for every resource that requires a <code>TTL</code> property, which would force the API server to track thousands of separate objects, the system reuses a smaller pool of existing leases. When a new object needs a lease for a specific duration, the manager checks for an existing lease that still has enough remaining life to cover that duration, plus a small safety buffer of 5%. If a match is found, the new object uses that existing lease. If not, a new lease is created and added to the pool for others to share.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 </ul>
 </div>
