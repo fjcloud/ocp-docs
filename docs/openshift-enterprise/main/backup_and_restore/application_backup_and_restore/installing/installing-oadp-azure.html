@@ -3352,7 +3352,8 @@
 </li>
 <li><a href="#oadp-auth-azure-methods_installing-oadp-azure">About authenticating OADP with Azure</a></li>
 <li><a href="#oadp-auth-azure-secret-based_installing-oadp-azure">Using a service principal or a storage account access key</a></li>
-<li><a href="#oadp-auth-azure-STS_installing-oadp-azure">Using OADP with Azure Security Token Service authentication</a></li>
+<li><a href="#oadp-auth-azure-STS_installing-oadp-azure">Using OADP with Azure Security Token Service authentication</a>
+<ul class="sectlevel2">
 <li><a href="#oadp-setting-resource-limits-and-requests_installing-oadp-azure">Setting Velero CPU and memory resource allocations</a></li>
 <li><a href="#oadp-self-signed-certificate_installing-oadp-azure">Enabling self-signed CA certificates</a></li>
 <li><a href="#oadp-using-ca-certificates-with-velero-command-aliased-for-velero-deployment_installing-oadp-azure">Using CA certificates with the velero command aliased for Velero deployment</a></li>
@@ -3364,15 +3365,16 @@
 <li><a href="#oadp-configuring-node-agent-load-concurrency_installing-oadp-azure">Configuring node agent load concurrency</a></li>
 <li><a href="#oadp-configuring-node-agent-non-root_installing-oadp-azure">Configuring the node agent as a non-root and non-privileged user</a></li>
 <li><a href="#oadp-configuring-repository-maintenance_installing-oadp-azure">Configuring repository maintenance</a></li>
-<li><a href="#oadp-configuring-velero-load-affinity_installing-oadp-azure">Configuring Velero load affinity</a>
-<ul class="sectlevel2">
-<li><a href="#oadp-configuring-imagepullpolicy_installing-oadp-azure">Overriding the imagePullPolicy setting in the DPA</a></li>
+<li><a href="#oadp-configuring-velero-load-affinity_installing-oadp-azure">Configuring Velero load affinity</a></li>
 </ul>
 </li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>You install the OpenShift API for Data Protection (OADP) with Microsoft Azure by installing the OADP Operator. The Operator installs <a href="https://velero.io/docs/v1.16/">Velero 1.16</a>.</p>
+<p>Configure the OpenShift API for Data Protection (OADP) with Microsoft Azure to back up and restore cluster resources by using Azure storage. This provides data protection capabilities for your OpenShift Container Platform clusters.</p>
+</div>
+<div class="paragraph">
+<p>The OADP Operator installs <a href="https://velero.io/docs/v1.16/">Velero 1.16</a>.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3399,8 +3401,8 @@
 <div class="sect1">
 <h2 id="migration-configuring-azure_installing-oadp-azure"><a class="anchor" href="#migration-configuring-azure_installing-oadp-azure"></a>Configuring Microsoft Azure</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You configure Microsoft Azure for OpenShift API for Data Protection (OADP).</p>
+<div class="paragraph _abstract">
+<p>Configure Microsoft Azure storage and service principal credentials for backup storage with OADP. This provides the necessary authentication and storage infrastructure for data protection operations.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3440,6 +3442,151 @@
 </div>
 <div class="paragraph">
 <p>For more details, see <a href="https://learn.microsoft.com/en-us/cli/azure/azure-cli-sp-tutorial-1?tabs=bash">Create an Azure service principal with Azure CLI</a>.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Log in to Azure:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az login</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the <code>AZURE_RESOURCE_GROUP</code> variable:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">AZURE_RESOURCE_GROUP</span><span class="o">=</span>Velero_Backups</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create an Azure resource group:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az group create <span class="nt">-n</span> <span class="nv">$AZURE_RESOURCE_GROUP</span> <span class="nt">--location</span> CentralUS</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>CentralUS</code></dt>
+<dd>
+<p>Specifies your location.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Set the <code>AZURE_STORAGE_ACCOUNT_ID</code> variable:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">AZURE_STORAGE_ACCOUNT_ID</span><span class="o">=</span><span class="s2">"velero</span><span class="si">$(</span>uuidgen | <span class="nb">cut</span> <span class="nt">-d</span> <span class="s1">'-'</span> <span class="nt">-f5</span> | <span class="nb">tr</span> <span class="s1">'[A-Z]'</span> <span class="s1">'[a-z]'</span><span class="si">)</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create an Azure storage account:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az storage account create <span class="se">\</span>
+    <span class="nt">--name</span> <span class="nv">$AZURE_STORAGE_ACCOUNT_ID</span> <span class="se">\</span>
+    <span class="nt">--resource-group</span> <span class="nv">$AZURE_RESOURCE_GROUP</span> <span class="se">\</span>
+    <span class="nt">--sku</span> Standard_GRS <span class="se">\</span>
+    <span class="nt">--encryption-services</span> blob <span class="se">\</span>
+    <span class="nt">--https-only</span> <span class="nb">true</span> <span class="se">\</span>
+    <span class="nt">--kind</span> BlobStorage <span class="se">\</span>
+    <span class="nt">--access-tier</span> Hot</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the <code>BLOB_CONTAINER</code> variable:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">BLOB_CONTAINER</span><span class="o">=</span>velero</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create an Azure Blob storage container:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az storage container create <span class="se">\</span>
+  <span class="nt">-n</span> <span class="nv">$BLOB_CONTAINER</span> <span class="se">\</span>
+  <span class="nt">--public-access</span> off <span class="se">\</span>
+  <span class="nt">--account-name</span> <span class="nv">$AZURE_STORAGE_ACCOUNT_ID</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a service principal and credentials for <code>velero</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">AZURE_SUBSCRIPTION_ID</span><span class="o">=</span><span class="sb">`</span>az account list <span class="nt">--query</span> <span class="s1">'[?isDefault].id'</span> <span class="nt">-o</span> tsv<span class="sb">`</span>
+<span class="go">  AZURE_TENANT_ID=`az account list --query '[?isDefault].tenantId' -o tsv`</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a service principal with the <code>Contributor</code> role, assigning a specific <code>--role</code> and <code>--scopes</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">AZURE_CLIENT_SECRET</span><span class="o">=</span><span class="sb">`</span>az ad sp create-for-rbac <span class="nt">--name</span> <span class="s2">"velero"</span> <span class="se">\</span>
+                                                <span class="nt">--role</span> <span class="s2">"Contributor"</span> <span class="se">\</span>
+                                                <span class="nt">--query</span> <span class="s1">'password'</span> <span class="nt">-o</span> tsv <span class="se">\</span>
+                                                <span class="nt">--scopes</span> /subscriptions/<span class="nv">$AZURE_SUBSCRIPTION_ID</span>/resourceGroups/<span class="nv">$AZURE_RESOURCE_GROUP</span><span class="sb">`</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The CLI generates a password for you. Ensure you capture the password.</p>
+</div>
+</li>
+<li>
+<p>After creating the service principal, obtain the client id.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">AZURE_CLIENT_ID</span><span class="o">=</span><span class="sb">`</span>az ad app credential list <span class="nt">--id</span> &lt;your_app_id&gt;<span class="sb">`</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For this to be successful, you must know your Azure application ID.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Save the service principal credentials in the <code>credentials-velero</code> file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span> <span class="no">EOF</span><span class="sh"> &gt; ./credentials-velero
+</span><span class="gp">AZURE_SUBSCRIPTION_ID=$</span><span class="sh">{AZURE_SUBSCRIPTION_ID}
+</span><span class="gp">AZURE_TENANT_ID=$</span><span class="sh">{AZURE_TENANT_ID}
+</span><span class="gp">AZURE_CLIENT_ID=$</span><span class="sh">{AZURE_CLIENT_ID}
+</span><span class="gp">AZURE_CLIENT_SECRET=$</span><span class="sh">{AZURE_CLIENT_SECRET}
+</span><span class="gp">AZURE_RESOURCE_GROUP=$</span><span class="sh">{AZURE_RESOURCE_GROUP}
+</span><span class="go">AZURE_CLOUD_NAME=AzurePublicCloud
+EOF</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You use the <code>credentials-velero</code> file to add Azure as a replication repository.</p>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -3530,6 +3677,9 @@
 <div class="sect1">
 <h2 id="oadp-auth-azure-methods_installing-oadp-azure"><a class="anchor" href="#oadp-auth-azure-methods_installing-oadp-azure"></a>About authenticating OADP with Azure</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Review authentication methods for OADP with Azure to select the appropriate authentication approach for your security requirements.</p>
+</div>
 <div class="paragraph">
 <p>You can authenticate OADP with Azure by using the following methods:</p>
 </div>
@@ -3655,7 +3805,7 @@
           <span class="na">subscriptionId</span><span class="pi">:</span> <span class="s">&lt;azure_subscription_id&gt;</span>
         <span class="na">credential</span><span class="pi">:</span>
           <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
-          <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;custom_secret&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;custom_secret&gt;</span>
         <span class="na">provider</span><span class="pi">:</span> <span class="s">azure</span>
         <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
         <span class="na">objectStorage</span><span class="pi">:</span>
@@ -3670,13 +3820,16 @@
         <span class="na">provider</span><span class="pi">:</span> <span class="s">azure</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Backup location <code>Secret</code> with custom name.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;custom_secret&gt;</code></dt>
+<dd>
+<p>Specifies the backup location <code>Secret</code> with custom name.</p>
+</dd>
+</dl>
 </div>
 </li>
 </ol>
@@ -3940,21 +4093,21 @@ EOF</span></code></pre>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1">&lt;cloud_storage_cr&gt;</dt>
+<dt class="hdlist1"><code>&lt;cloud_storage_cr&gt;</code></dt>
 <dd>
-<p>Specify the <code>CloudStorage</code> CR name.</p>
+<p>Specifies the <code>CloudStorage</code> CR name.</p>
 </dd>
-<dt class="hdlist1">&lt;storage_account_name&gt;</dt>
+<dt class="hdlist1"><code>&lt;storage_account_name&gt;</code></dt>
 <dd>
-<p>Specify the Azure storage account name.</p>
+<p>Specifies the Azure storage account name.</p>
 </dd>
-<dt class="hdlist1">&lt;resource_group&gt;</dt>
+<dt class="hdlist1"><code>&lt;resource_group&gt;</code></dt>
 <dd>
-<p>Specify the resource group.</p>
+<p>Specifies the resource group.</p>
 </dd>
-<dt class="hdlist1">&lt;subscription_ID&gt;</dt>
+<dt class="hdlist1"><code>&lt;subscription_ID&gt;</code></dt>
 <dd>
-<p>Specify the subscription ID.</p>
+<p>Specifies the subscription ID.</p>
 </dd>
 </dl>
 </div>
@@ -3999,11 +4152,8 @@ EOF</span></code></pre>
 </li>
 </ol>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="oadp-setting-resource-limits-and-requests_installing-oadp-azure"><a class="anchor" href="#oadp-setting-resource-limits-and-requests_installing-oadp-azure"></a>Setting Velero CPU and memory resource allocations</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-setting-resource-limits-and-requests_installing-oadp-azure"><a class="anchor" href="#oadp-setting-resource-limits-and-requests_installing-oadp-azure"></a>Setting Velero CPU and memory resource allocations</h3>
 <div class="paragraph _abstract">
 <p>You set the CPU and memory resource allocations for the <code>Velero</code> pod by editing the  <code>DataProtectionApplication</code> custom resource (CR) manifest.</p>
 </div>
@@ -4079,14 +4229,9 @@ EOF</span></code></pre>
 <div class="paragraph _abstract">
 <p>Use the <code>nodeSelector</code> field to select which nodes can run the node agent. The <code>nodeSelector</code> field is the simplest recommended form of node selection constraint. Any label specified must match the labels on each node.</p>
 </div>
-<div class="paragraph">
-<p>For more details, see <a href="../../../backup_and_restore/application_backup_and_restore/installing/installing-oadp-azure.html#oadp-configuring-node-agents_installing-oadp-azure">Configuring node agents and node labels</a>.</p>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="oadp-self-signed-certificate_installing-oadp-azure"><a class="anchor" href="#oadp-self-signed-certificate_installing-oadp-azure"></a>Enabling self-signed CA certificates</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-self-signed-certificate_installing-oadp-azure"><a class="anchor" href="#oadp-self-signed-certificate_installing-oadp-azure"></a>Enabling self-signed CA certificates</h3>
 <div class="paragraph _abstract">
 <p>You must enable a self-signed CA certificate for object storage by editing the <code>DataProtectionApplication</code> custom resource (CR) manifest to prevent a <code>certificate signed by unknown authority</code> error.</p>
 </div>
@@ -4144,10 +4289,8 @@ EOF</span></code></pre>
 </ul>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-using-ca-certificates-with-velero-command-aliased-for-velero-deployment_installing-oadp-azure"><a class="anchor" href="#oadp-using-ca-certificates-with-velero-command-aliased-for-velero-deployment_installing-oadp-azure"></a>Using CA certificates with the velero command aliased for Velero deployment</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-using-ca-certificates-with-velero-command-aliased-for-velero-deployment_installing-oadp-azure"><a class="anchor" href="#oadp-using-ca-certificates-with-velero-command-aliased-for-velero-deployment_installing-oadp-azure"></a>Using CA certificates with the velero command aliased for Velero deployment</h3>
 <div class="paragraph _abstract">
 <p>You might want to use the Velero CLI without installing it locally on your system by creating an alias for it.</p>
 </div>
@@ -4237,10 +4380,8 @@ Server:
 </ol>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-installing-dpa_installing-oadp-azure"><a class="anchor" href="#oadp-installing-dpa_installing-oadp-azure"></a>Installing the Data Protection Application</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-installing-dpa_installing-oadp-azure"><a class="anchor" href="#oadp-installing-dpa_installing-oadp-azure"></a>Installing the Data Protection Application</h3>
 <div class="paragraph _abstract">
 <p>You install the Data Protection Application (DPA) by creating an instance of the <code>DataProtectionApplication</code> API.</p>
 </div>
@@ -4487,10 +4628,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </ol>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-configuring-client-burst-qps_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-client-burst-qps_installing-oadp-azure"></a>Configuring the DPA with client burst and QPS settings</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-configuring-client-burst-qps_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-client-burst-qps_installing-oadp-azure"></a>Configuring the DPA with client burst and QPS settings</h3>
 <div class="paragraph _abstract">
 <p>The burst setting determines how many requests can be sent to the <code>velero</code> server before the limit is applied. After the burst limit is reached, the queries per second (QPS) setting determines how many additional requests can be sent per second.</p>
 </div>
@@ -4568,10 +4707,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </ul>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-configuring-node-agents_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-node-agents_installing-oadp-azure"></a>Configuring node agents and node labels</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-configuring-node-agents_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-node-agents_installing-oadp-azure"></a>Configuring node agents and node labels</h3>
 <div class="paragraph _abstract">
 <p>The Data Protection Application (DPA) uses the <code>nodeSelector</code> field to select which nodes can run the node agent. The <code>nodeSelector</code> field is the recommended form of node selection constraint.</p>
 </div>
@@ -4630,10 +4767,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </ol>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-configuring-node-agent-load-affinity_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-node-agent-load-affinity_installing-oadp-azure"></a>Configuring node agent load affinity</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-configuring-node-agent-load-affinity_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-node-agent-load-affinity_installing-oadp-azure"></a>Configuring node agent load affinity</h3>
 <div class="paragraph _abstract">
 <p>You can schedule the node agent pods on specific nodes by using the <code>spec.podConfig.nodeSelector</code> object of the <code>DataProtectionApplication</code> (DPA) custom resource (CR).</p>
 </div>
@@ -4719,10 +4854,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </ul>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-node-agent-load-affinity-guidelines_installing-oadp-azure"><a class="anchor" href="#oadp-node-agent-load-affinity-guidelines_installing-oadp-azure"></a>Node agent load affinity guidelines</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-node-agent-load-affinity-guidelines_installing-oadp-azure"><a class="anchor" href="#oadp-node-agent-load-affinity-guidelines_installing-oadp-azure"></a>Node agent load affinity guidelines</h3>
 <div class="paragraph _abstract">
 <p>Use the following guidelines to configure the node agent <code>loadAffinity</code> object in the <code>DataProtectionApplication</code> (DPA) custom resource (CR).</p>
 </div>
@@ -4764,10 +4897,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </ul>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-configuring-node-agent-load-concurrency_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-node-agent-load-concurrency_installing-oadp-azure"></a>Configuring node agent load concurrency</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-configuring-node-agent-load-concurrency_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-node-agent-load-concurrency_installing-oadp-azure"></a>Configuring node agent load concurrency</h3>
 <div class="paragraph _abstract">
 <p>You can control the maximum number of node agent operations that can run simultaneously on each node within your cluster.</p>
 </div>
@@ -4843,10 +4974,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </ol>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-configuring-node-agent-non-root_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-node-agent-non-root_installing-oadp-azure"></a>Configuring the node agent as a non-root and non-privileged user</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-configuring-node-agent-non-root_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-node-agent-non-root_installing-oadp-azure"></a>Configuring the node agent as a non-root and non-privileged user</h3>
 <div class="paragraph _abstract">
 <p>To enhance the node agent security, you can configure the OADP Operator node agent daemonset to run as a non-root and non-privileged user by using the <code>spec.configuration.velero.disableFsBackup</code> setting in the <code>DataProtectionApplication</code> (DPA) custom resource (CR).</p>
 </div>
@@ -5011,10 +5140,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </ol>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-configuring-repository-maintenance_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-repository-maintenance_installing-oadp-azure"></a>Configuring repository maintenance</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-configuring-repository-maintenance_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-repository-maintenance_installing-oadp-azure"></a>Configuring repository maintenance</h3>
 <div class="paragraph _abstract">
 <p>OADP repository maintenance is a background job, you can configure it independently of the node agent pods. This means that you can schedule the repository maintenance pod on a node where the node agent is or is not running.</p>
 </div>
@@ -5120,10 +5247,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </ul>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="oadp-configuring-velero-load-affinity_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-velero-load-affinity_installing-oadp-azure"></a>Configuring Velero load affinity</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="oadp-configuring-velero-load-affinity_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-velero-load-affinity_installing-oadp-azure"></a>Configuring Velero load affinity</h3>
 <div class="paragraph _abstract">
 <p>With each OADP deployment, there is one Velero pod and its main purpose is to schedule Velero workloads. To schedule the Velero pod, you can use the <code>velero.podConfig.nodeSelector</code> and the <code>velero.loadAffinity</code> objects in the <code>DataProtectionApplication</code> (DPA) custom resource (CR) spec.</p>
 </div>
@@ -5194,8 +5319,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </li>
 </ul>
 </div>
-<div class="sect2">
-<h3 id="oadp-configuring-imagepullpolicy_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-imagepullpolicy_installing-oadp-azure"></a>Overriding the imagePullPolicy setting in the DPA</h3>
+<div class="sect3">
+<h4 id="oadp-configuring-imagepullpolicy_installing-oadp-azure"><a class="anchor" href="#oadp-configuring-imagepullpolicy_installing-oadp-azure"></a>Overriding the imagePullPolicy setting in the DPA</h4>
 <div class="paragraph _abstract">
 <p>In OADP 1.4.0 or earlier, the Operator sets the <code>imagePullPolicy</code> field of the Velero and node agent pods to <code>Always</code> for all images.</p>
 </div>
@@ -5281,8 +5406,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </li>
 </ul>
 </div>
-<div class="sect3">
-<h4 id="oadp-enabling-csi-dpa_installing-oadp-azure"><a class="anchor" href="#oadp-enabling-csi-dpa_installing-oadp-azure"></a>Enabling CSI in the DataProtectionApplication CR</h4>
+<div class="sect4">
+<h5 id="oadp-enabling-csi-dpa_installing-oadp-azure"><a class="anchor" href="#oadp-enabling-csi-dpa_installing-oadp-azure"></a>Enabling CSI in the DataProtectionApplication CR</h5>
 <div class="paragraph _abstract">
 <p>You enable the Container Storage Interface (CSI) in the <code>DataProtectionApplication</code> custom resource (CR) in order to back up persistent volumes with CSI snapshots.</p>
 </div>
@@ -5326,8 +5451,8 @@ replicaset.apps/velero-588db7f655                              1         1      
 </li>
 </ul>
 </div>
-<div class="sect4">
-<h5 id="oadp-about-disable-node-agent-dpa_installing-oadp-azure"><a class="anchor" href="#oadp-about-disable-node-agent-dpa_installing-oadp-azure"></a>Disabling the node agent in DataProtectionApplication</h5>
+<div class="sect5">
+<h6 id="oadp-about-disable-node-agent-dpa_installing-oadp-azure"><a class="anchor" href="#oadp-about-disable-node-agent-dpa_installing-oadp-azure"></a>Disabling the node agent in DataProtectionApplication</h6>
 <div class="paragraph _abstract">
 <p>If you are not using <code>Restic</code>, <code>Kopia</code>, or <code>DataMover</code> for your backups, you can disable the <code>nodeAgent</code> field in the <code>DataProtectionApplication</code> custom resource (CR). Before you disable <code>nodeAgent</code>, ensure the OADP Operator is idle and not running any backups.</p>
 </div>
@@ -5396,12 +5521,13 @@ replicaset.apps/velero-588db7f655                              1         1      
 <p><a href="../../../backup_and_restore/application_backup_and_restore/installing/installing-oadp-kubevirt.html#oadp-installing-dpa_installing-oadp-kubevirt">Installing the Data Protection Application with the <code>kubevirt</code> and <code>openshift</code> plugins</a></p>
 </li>
 <li>
-<p><a href="../../../nodes/jobs/nodes-nodes-jobs.html#nodes-nodes-jobs">Running tasks in pods using jobs</a>.</p>
+<p><a href="../../../nodes/jobs/nodes-nodes-jobs.html#nodes-nodes-jobs">Running tasks in pods using jobs</a></p>
 </li>
 <li>
 <p><a href="../../../backup_and_restore/application_backup_and_restore/installing/configuring-oadp-multiple-bsl.html#configuring-oadp-multiple-bsl">Configuring the OpenShift API for Data Protection (OADP) with multiple backup storage locations</a></p>
 </li>
 </ul>
+</div>
 </div>
 </div>
 </div>
