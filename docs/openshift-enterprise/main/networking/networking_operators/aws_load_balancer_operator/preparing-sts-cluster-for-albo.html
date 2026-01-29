@@ -2274,12 +2274,12 @@
             <li><a class="" href="../../../edge_computing/ztp-deploying-far-edge-clusters-at-scale.html">Challenges of the network far edge</a></li>
             <li><a class="" href="../../../edge_computing/ztp-preparing-the-hub-cluster.html">Preparing the hub cluster for ZTP</a></li>
             <li><a class="" href="../../../edge_computing/ztp-updating-gitops.html">Updating GitOps ZTP</a></li>
-            <li><a class="" href="../../../edge_computing/ztp-deploying-far-edge-sites.html">Installing managed clusters with RHACM and SiteConfig resources</a></li>
+            <li><a class="" href="../../../edge_computing/ztp-deploying-far-edge-sites.html">Installing managed clusters with RHACM and ClusterInstance resources</a></li>
             <li><a class="" href="../../../edge_computing/ztp-manual-install.html">Manually installing a single-node OpenShift cluster with GitOps ZTP</a></li>
             <li><a class="" href="../../../edge_computing/ztp-migrate-clusterinstance.html">Migrating from SiteConfig CRs to ClusterInstance CRs</a></li>
             <li><a class="" href="../../../edge_computing/ztp-reference-cluster-configuration-for-vdu.html">Recommended single-node OpenShift cluster configuration for vDU application workloads</a></li>
             <li><a class="" href="../../../edge_computing/ztp-vdu-validating-cluster-tuning.html">Validating cluster tuning for vDU application workloads</a></li>
-            <li><a class="" href="../../../edge_computing/ztp-advanced-install-ztp.html">Advanced managed cluster configuration with SiteConfig resources</a></li>
+            <li><a class="" href="../../../edge_computing/ztp-advanced-install-ztp.html">Advanced managed cluster configuration with ClusterInstance resources</a></li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-32-9"><span id="sgSpan-32-9" class="fa fa-caret-right"></span>&nbsp;Managing cluster policies with PolicyGenerator resources</a>
               <ul id="topicSubGroup-32-9" class="nav-tertiary list-unstyled collapse">
 
@@ -3342,34 +3342,31 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#albo-sts-cluster_prerequisites">Prerequisites</a></li>
-<li><a href="#creating-iam-role-albo-operator_albo-sts-cluster">Creating an IAM role for the AWS Load Balancer Operator</a>
+<li><a href="#the-iam-role-albo-operator_albo-sts-cluster">The IAM role for the AWS Load Balancer Operator</a>
 <ul class="sectlevel2">
 <li><a href="#using-ccoctl-create-iam-role-alb-operator_albo-sts-cluster">Creating an AWS IAM role by using the Cloud Credential Operator utility</a></li>
 <li><a href="#using-aws-cli-create-iam-role-alb-operator_albo-sts-cluster">Creating an AWS IAM role by using the AWS CLI</a></li>
 </ul>
 </li>
 <li><a href="#specifying-role-arn-albo-sts_albo-sts-cluster">Configuring the ARN role for the AWS Load Balancer Operator</a></li>
-<li><a href="#creating-iam-role-albo-controller_albo-sts-cluster">Creating an IAM role for the AWS Load Balancer Controller</a>
+<li><a href="#the-iam-role-albo-controller.adoc_albo-sts-cluster">The IAM role for the AWS Load Balancer Controller</a>
 <ul class="sectlevel2">
 <li><a href="#using-ccoctl-create-iam-role-alb-controller_albo-sts-cluster">Creating an AWS IAM role for the controller by using the Cloud Credential Operator utility</a></li>
 <li><a href="#using-aws-cli-create-iam-role-alb-controller_albo-sts-cluster">Creating an AWS IAM role for the controller by using the AWS CLI</a></li>
 </ul>
 </li>
-<li><a href="#additional-resources">Additional resources</a></li>
+<li><a href="#additional-resources-albo-sts-cluster_albo-sts-cluster">Additional resources</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>You can install the Amazon Web Services (AWS) Load Balancer Operator on a cluster that uses the Security Token Service (STS). Follow these steps to prepare your cluster before installing the Operator.</p>
+<div class="paragraph _abstract">
+<p>To install the Amazon Web Services (AWS) Load Balancer Operator on a cluster that uses the Security Token Service (STS), prepare the cluster by configuring the <code>CredentialsRequest</code> object. This ensures the Operator can bootstrap the AWS Load Balancer Controller and access the required secrets.</p>
 </div>
 <div class="paragraph">
-<p>The AWS Load Balancer Operator relies on the <code>CredentialsRequest</code> object to bootstrap the Operator and the AWS Load Balancer Controller. The AWS Load Balancer Operator waits until the required secrets are created and available.</p>
+<p>The AWS Load Balancer Operator waits until the required secrets are created and available.</p>
 </div>
+<div class="paragraph">
+<p>Before you start any Security Token Service (STS) procedures, ensure that you meet the following prerequisites:</p>
 </div>
-</div>
-<div class="sect1">
-<h2 id="albo-sts-cluster_prerequisites"><a class="anchor" href="#albo-sts-cluster_prerequisites"></a>Prerequisites</h2>
-<div class="sectionbody">
 <div class="ulist">
 <ul>
 <li>
@@ -3387,30 +3384,41 @@
 <p>You know the OpenID Connect (OIDC) DNS information for your cluster. To show this information, enter the following command in your CLI:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get authentication.config cluster <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s2">"{.spec.serviceAccountIssuer}"</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get authentication.config cluster <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s2">"{.spec.serviceAccountIssuer}"</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>An OIDC DNS example is <code>https://rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>{.spec.serviceAccountIssuer}</code></dt>
+<dd>
+<p>Specifies an OIDC DNS URL. An example URL is <code>https://rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
-<p>You logged into the AWS Web Console, navigated to <strong>IAM</strong> &#8594; <strong>Access management</strong> &#8594; <strong>Identity providers</strong>, and located the OIDC Amazon Resource Name (ARN) information. An OIDC ARN example is <code>arn:aws:iam::777777777777:oidc-provider/&lt;oidc_dns_url&gt;</code>.</p>
+<p>You logged into the AWS management console, navigated to <strong>IAM</strong> &#8594; <strong>Access management</strong> &#8594; <strong>Identity providers</strong>, and located the OIDC Amazon Resource Name (ARN) information. An OIDC ARN example is <code>arn:aws:iam::777777777777:oidc-provider/&lt;oidc_dns_url&gt;</code>.</p>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../installing/installing_aws/ipi/installing-aws-customizations.html#cco-ccoctl-configuring_installing-aws-customizations">the Cloud Credential Operator utility (<code>ccoctl</code>)</a></p>
 </li>
 </ul>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="creating-iam-role-albo-operator_albo-sts-cluster"><a class="anchor" href="#creating-iam-role-albo-operator_albo-sts-cluster"></a>Creating an IAM role for the AWS Load Balancer Operator</h2>
+<h2 id="the-iam-role-albo-operator_albo-sts-cluster"><a class="anchor" href="#the-iam-role-albo-operator_albo-sts-cluster"></a>The IAM role for the AWS Load Balancer Operator</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>An additional Amazon Web Services (AWS) Identity and Access Management (IAM) role is required to successfully install the AWS Load Balancer Operator on a cluster that uses STS. The IAM role is required to interact with subnets and Virtual Private Clouds (VPCs). The AWS Load Balancer Operator generates the <code>CredentialsRequest</code> object with the IAM role to bootstrap itself.</p>
+<div class="paragraph _abstract">
+<p>To install the Amazon Web Services (AWS) Load Balancer Operator on a cluster by using STS, configure an additional Identity and Access Management (IAM) role. This role enables the Operator to interact with subnets and Virtual Private Clouds (VPCs), allowing the Operator to generate the <code>CredentialsRequest</code> object required for bootstrapping.</p>
 </div>
 <div class="paragraph">
 <p>You can create the IAM role by using the following options:</p>
@@ -3418,7 +3426,7 @@
 <div class="ulist">
 <ul>
 <li>
-<p>Using <a href="../../../installing/installing_aws/ipi/installing-aws-customizations.html#cco-ccoctl-configuring_installing-aws-customizations">the Cloud Credential Operator utility (<code>ccoctl</code>)</a> and a predefined <code>CredentialsRequest</code> object.</p>
+<p>Using the Cloud Credential Operator utility (<code>ccoctl</code>) and a predefined <code>CredentialsRequest</code> object.</p>
 </li>
 <li>
 <p>Using the AWS CLI and predefined AWS manifests.</p>
@@ -3430,8 +3438,8 @@
 </div>
 <div class="sect2">
 <h3 id="using-ccoctl-create-iam-role-alb-operator_albo-sts-cluster"><a class="anchor" href="#using-ccoctl-create-iam-role-alb-operator_albo-sts-cluster"></a>Creating an AWS IAM role by using the Cloud Credential Operator utility</h3>
-<div class="paragraph">
-<p>You can use the Cloud Credential Operator utility (<code>ccoctl</code>) to create an AWS IAM role for the AWS Load Balancer Operator. An AWS IAM role interacts with subnets and Virtual Private Clouds (VPCs).</p>
+<div class="paragraph _abstract">
+<p>To enable the AWS Load Balancer Operator to interact with subnets and VPCs, create an AWS IAM role by using the Cloud Credential Operator utility (<code>ccoctl</code>). By doing this task, you can generate the necessary credentials for the operator to function correctly within the cluster environment.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3466,19 +3474,19 @@
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">2023/09/12 11:38:57 Role arn:aws:iam::777777777777:role/&lt;name&gt;</span><span class="nt">-aws-load-balancer-operator-aws-load-balancer-operator</span> created <i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">2023/09/12 11:38:57 Role arn:aws:iam::777777777777:role/&lt;name&gt;</span><span class="nt">-aws-load-balancer-operator-aws-load-balancer-operator</span> created
 <span class="gp">2023/09/12 11:38:57 Saved credentials configuration to: /home/user/&lt;credentials_requests_dir&gt;</span>/manifests/aws-load-balancer-operator-aws-load-balancer-operator-credentials.yaml
 <span class="gp">2023/09/12 11:38:58 Updated Role policy for Role &lt;name&gt;</span><span class="nt">-aws-load-balancer-operator-aws-load-balancer-operator</span> created</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Note the Amazon Resource Name (ARN) of an AWS IAM role that was created for the AWS Load Balancer Operator, such as <code>arn:aws:iam::777777777777:role/&lt;name&gt;-aws-load-balancer-operator-aws-load-balancer-operator</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;name&gt;</code></dt>
+<dd>
+<p>Specifies the Amazon Resource Name (ARN) for an AWS IAM role that was created for the AWS Load Balancer Operator, such as <code>arn:aws:iam::777777777777:role/&lt;name&gt;-aws-load-balancer-operator-aws-load-balancer-operator</code>.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3493,14 +3501,17 @@
 </tr>
 </table>
 </div>
+</dd>
+</dl>
+</div>
 </li>
 </ol>
 </div>
 </div>
 <div class="sect2">
 <h3 id="using-aws-cli-create-iam-role-alb-operator_albo-sts-cluster"><a class="anchor" href="#using-aws-cli-create-iam-role-alb-operator_albo-sts-cluster"></a>Creating an AWS IAM role by using the AWS CLI</h3>
-<div class="paragraph">
-<p>You can use the AWS Command Line Interface to create an IAM role for the AWS Load Balancer Operator. The IAM role is used to interact with subnets and Virtual Private Clouds (VPCs).</p>
+<div class="paragraph _abstract">
+<p>To enable the AWS Load Balancer Operator to interact with subnets and VPCs, create an AWS IAM role by using the AWS CLI. This enables the Operator to access and manage the necessary network resources within the cluster.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3524,12 +3535,12 @@
         {
             "Effect": "Allow",
             "Principal": {
-</span><span class="gp">                "Federated": "&lt;oidc_arn&gt;</span><span class="s2">" <i class="conum" data-value="1"></i><b>(1)</b>
+</span><span class="gp">                "Federated": "&lt;oidc_arn&gt;</span><span class="s2">"
 </span><span class="go">            },
             "Action": "sts:AssumeRoleWithWebIdentity",
             "Condition": {
                 "StringEquals": {
-</span><span class="gp">                    "&lt;cluster_oidc_endpoint&gt;</span>:sub<span class="s2">": "</span>system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-operator-controller-manager<span class="s2">" <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="gp">                    "&lt;cluster_oidc_endpoint&gt;</span>:sub<span class="s2">": "</span>system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-operator-controller-manager<span class="s2">"
 </span><span class="go">                }
             }
         }
@@ -3538,17 +3549,20 @@
 EOF</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies the Amazon Resource Name (ARN) of the OIDC identity provider, such as <code>arn:aws:iam::777777777777:oidc-provider/rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies the service account for the AWS Load Balancer Controller. An example of <code>&lt;cluster_oidc_endpoint&gt;</code> is <code>rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;oidc_arn&gt;</code></dt>
+<dd>
+<p>Specifies the Amazon Resource Name (ARN) of the OIDC identity provider, such as <code>arn:aws:iam::777777777777:oidc-provider/rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</p>
+</dd>
+<dt class="hdlist1"><code>serviceaccount</code></dt>
+<dd>
+<p>Specifies the service account for the AWS Load Balancer Controller. An example of <code>&lt;cluster_oidc_endpoint&gt;</code> is <code>rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3568,13 +3582,16 @@ STRINGEQUALS	system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-
 </span><span class="gp">PRINCIPAL	arn:aws:iam:&lt;aws_account_number&gt;</span>:oidc-provider/&lt;cluster_oidc_endpoint&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Note the ARN of the created AWS IAM role that was created for the AWS Load Balancer Operator, such as <code>arn:aws:iam::777777777777:role/albo-operator</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;aws_account_number&gt;</code></dt>
+<dd>
+<p>Specifies the ARN of the created AWS IAM role for the AWS Load Balancer Operator, such as <code>arn:aws:iam::777777777777:role/albo-operator</code>.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3601,8 +3618,8 @@ STRINGEQUALS	system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-
 <div class="sect1">
 <h2 id="specifying-role-arn-albo-sts_albo-sts-cluster"><a class="anchor" href="#specifying-role-arn-albo-sts_albo-sts-cluster"></a>Configuring the ARN role for the AWS Load Balancer Operator</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can configure the Amazon Resource Name (ARN) role for the AWS Load Balancer Operator as an environment variable. You can configure the ARN role by using the CLI.</p>
+<div class="paragraph _abstract">
+<p>To authorize the AWS Load Balancer Operator, configure the Amazon Resource Name (ARN) role as an environment variable by using the CLI. This ensures the Operator has the necessary permissions to manage resources within the cluster.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3657,18 +3674,18 @@ spec:
   config:
     env:
     - name: ROLEARN
-</span><span class="gp">      value: "&lt;albo_role_arn&gt;</span><span class="s2">" <i class="conum" data-value="1"></i><b>(1)</b>
+</span><span class="gp">      value: "&lt;albo_role_arn&gt;</span><span class="s2">"
 </span><span class="go">EOF</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies the ARN role to be used in the <code>CredentialsRequest</code> to provision the AWS credentials for the AWS Load Balancer Operator. An example for <code>&lt;albo_role_arn&gt;</code> is <code>arn:aws:iam::&lt;aws_account_number&gt;:role/albo-operator</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;albo_role_arn&gt;</code></dt>
+<dd>
+<p>Specifies the ARN role to be used in the <code>CredentialsRequest</code> to provision the AWS credentials for the AWS Load Balancer Operator. An example for <code>&lt;albo_role_arn&gt;</code> is <code>arn:aws:iam::&lt;aws_account_number&gt;:role/albo-operator</code>.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3683,16 +3700,19 @@ spec:
 </tr>
 </table>
 </div>
+</dd>
+</dl>
+</div>
 </li>
 </ol>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="creating-iam-role-albo-controller_albo-sts-cluster"><a class="anchor" href="#creating-iam-role-albo-controller_albo-sts-cluster"></a>Creating an IAM role for the AWS Load Balancer Controller</h2>
+<h2 id="the-iam-role-albo-controller.adoc_albo-sts-cluster"><a class="anchor" href="#the-iam-role-albo-controller.adoc_albo-sts-cluster"></a>The IAM role for the AWS Load Balancer Controller</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The <code>CredentialsRequest</code> object for the AWS Load Balancer Controller must be set with a manually provisioned IAM role.</p>
+<div class="paragraph _abstract">
+<p>To authorize the AWS Load Balancer Controller, configure the <code>CredentialsRequest</code> object with a manually provisioned IAM role. This ensures the controller functions correctly by using the specific permissions defined in your manual provisioning process.</p>
 </div>
 <div class="paragraph">
 <p>You can create the IAM role by using the following options:</p>
@@ -3700,7 +3720,7 @@ spec:
 <div class="ulist">
 <ul>
 <li>
-<p>Using <a href="../../../installing/installing_aws/ipi/installing-aws-customizations.html#cco-ccoctl-configuring_installing-aws-customizations">the Cloud Credential Operator utility (<code>ccoctl</code>)</a> and a predefined <code>CredentialsRequest</code> object.</p>
+<p>Using the Cloud Credential Operator utility (<code>ccoctl</code>) and a predefined <code>CredentialsRequest</code> object.</p>
 </li>
 <li>
 <p>Using the AWS CLI and predefined AWS manifests.</p>
@@ -3708,12 +3728,20 @@ spec:
 </ul>
 </div>
 <div class="paragraph">
-<p>Use the AWS CLI if your environment does not support the <code>ccoctl</code> command.</p>
+<p>If your environment does not support the <code>ccoctl</code> <code>command.ws-short</code> CLI, use the AWS CLI.</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../installing/installing_aws/ipi/installing-aws-customizations.html#cco-ccoctl-configuring_installing-aws-customizations">the Cloud Credential Operator utility (<code>ccoctl</code>)</a></p>
+</li>
+</ul>
 </div>
 <div class="sect2">
 <h3 id="using-ccoctl-create-iam-role-alb-controller_albo-sts-cluster"><a class="anchor" href="#using-ccoctl-create-iam-role-alb-controller_albo-sts-cluster"></a>Creating an AWS IAM role for the controller by using the Cloud Credential Operator utility</h3>
-<div class="paragraph">
-<p>You can use the Cloud Credential Operator utility (<code>ccoctl</code>) to create an AWS IAM role for the AWS Load Balancer Controller. An AWS IAM role is used to interact with subnets and Virtual Private Clouds (VPCs).</p>
+<div class="paragraph _abstract">
+<p>To enable the AWS Load Balancer Controller to interact with subnets and VPCs, create an IAM role by using the Cloud Credential Operator utility (<code>ccoctl</code>). This utility ensures the controller has the specific permissions required to manage network resources within the cluster.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3748,19 +3776,19 @@ spec:
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">2023/09/12 11:38:57 Role arn:aws:iam::777777777777:role/&lt;name&gt;</span><span class="nt">-aws-load-balancer-operator-aws-load-balancer-controller</span> created <i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">2023/09/12 11:38:57 Role arn:aws:iam::777777777777:role/&lt;name&gt;</span><span class="nt">-aws-load-balancer-operator-aws-load-balancer-controller</span> created
 <span class="gp">2023/09/12 11:38:57 Saved credentials configuration to: /home/user/&lt;credentials_requests_dir&gt;</span>/manifests/aws-load-balancer-operator-aws-load-balancer-controller-credentials.yaml
 <span class="gp">2023/09/12 11:38:58 Updated Role policy for Role &lt;name&gt;</span><span class="nt">-aws-load-balancer-operator-aws-load-balancer-controller</span> created</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Note the Amazon Resource Name (ARN) of an AWS IAM role that was created for the AWS Load Balancer Controller, such as <code>arn:aws:iam::777777777777:role/&lt;name&gt;-aws-load-balancer-operator-aws-load-balancer-controller</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;name&gt;</code></dt>
+<dd>
+<p>Specifies the Amazon Resource Name (ARN) for an AWS IAM role that was created for the AWS Load Balancer Controller, such as <code>arn:aws:iam::777777777777:role/&lt;name&gt;-aws-load-balancer-operator-aws-load-balancer-controller</code>.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3775,14 +3803,17 @@ spec:
 </tr>
 </table>
 </div>
+</dd>
+</dl>
+</div>
 </li>
 </ol>
 </div>
 </div>
 <div class="sect2">
 <h3 id="using-aws-cli-create-iam-role-alb-controller_albo-sts-cluster"><a class="anchor" href="#using-aws-cli-create-iam-role-alb-controller_albo-sts-cluster"></a>Creating an AWS IAM role for the controller by using the AWS CLI</h3>
-<div class="paragraph">
-<p>You can use the AWS command-line interface to create an AWS IAM role for the AWS Load Balancer Controller. An AWS IAM role is used to interact with subnets and Virtual Private Clouds (VPCs).</p>
+<div class="paragraph _abstract">
+<p>To enable the AWS Load Balancer Controller to interact with subnets and Virtual Private Clouds (VPCs), create an IAM role by using the AWS CLI. This ensures the controller has the specific permissions required to manage network resources within the cluster.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3806,12 +3837,12 @@ spec:
         {
             "Effect": "Allow",
             "Principal": {
-</span><span class="gp">                "Federated": "&lt;oidc_arn&gt;</span><span class="s2">" <i class="conum" data-value="1"></i><b>(1)</b>
+</span><span class="gp">                "Federated": "&lt;oidc_arn&gt;</span><span class="s2">"
 </span><span class="go">            },
             "Action": "sts:AssumeRoleWithWebIdentity",
             "Condition": {
                 "StringEquals": {
-</span><span class="gp">                    "&lt;cluster_oidc_endpoint&gt;</span>:sub<span class="s2">": "</span>system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-operator-controller-manager<span class="s2">" <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="gp">                    "&lt;cluster_oidc_endpoint&gt;</span>:sub<span class="s2">": "</span>system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-operator-controller-manager<span class="s2">"
 </span><span class="go">                }
             }
         }
@@ -3820,17 +3851,20 @@ spec:
 EOF</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies the Amazon Resource Name (ARN) of the OIDC identity provider, such as <code>arn:aws:iam::777777777777:oidc-provider/rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies the service account for the AWS Load Balancer Controller. An example of <code>&lt;cluster_oidc_endpoint&gt;</code> is <code>rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;oidc_arn&gt;</code></dt>
+<dd>
+<p>Specifies the Amazon Resource Name (ARN) of the OIDC identity provider, such as <code>arn:aws:iam::777777777777:oidc-provider/rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</p>
+</dd>
+<dt class="hdlist1"><code>serviceaccount</code></dt>
+<dd>
+<p>Specifies the service account for the AWS Load Balancer Controller. An example of <code>&lt;cluster_oidc_endpoint&gt;</code> is <code>rh-oidc.s3.us-east-1.amazonaws.com/28292va7ad7mr9r4he1fb09b14t59t4f</code>.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3850,13 +3884,16 @@ STRINGEQUALS	system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-
 </span><span class="gp">PRINCIPAL	arn:aws:iam:&lt;aws_account_number&gt;</span>:oidc-provider/&lt;cluster_oidc_endpoint&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Note the ARN of an AWS IAM role for the AWS Load Balancer Controller, such as <code>arn:aws:iam::777777777777:role/albo-controller</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;aws_account_number&gt;</code></dt>
+<dd>
+<p>Specifies the ARN for an AWS IAM role for the AWS Load Balancer Controller, such as <code>arn:aws:iam::777777777777:role/albo-controller</code>.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3881,29 +3918,32 @@ STRINGEQUALS	system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-
 <div class="title">Example <code>sample-aws-lb-manual-creds.yaml</code> file</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.olm.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">AWSLoadBalancerController</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">AWSLoadBalancerController</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">credentialsRequestConfig</span><span class="pi">:</span>
-    <span class="na">stsIAMRoleARN</span><span class="pi">:</span> <span class="s">&lt;albc_role_arn&gt;</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+    <span class="na">stsIAMRoleARN</span><span class="pi">:</span> <span class="s">&lt;albc_role_arn&gt;</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Defines the <code>AWSLoadBalancerController</code> object.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Defines the AWS Load Balancer Controller name. All related resources use this instance name as a suffix.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specifies the ARN role for the AWS Load Balancer Controller. The <code>CredentialsRequest</code> object uses this ARN role to provision the AWS credentials. An example of <code>&lt;albc_role_arn&gt;</code> is <code>arn:aws:iam::777777777777:role/albo-controller</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>kind</code></dt>
+<dd>
+<p>Specifies the <code>AWSLoadBalancerController</code> object.</p>
+</dd>
+<dt class="hdlist1"><code>metatdata.name</code></dt>
+<dd>
+<p>Specifies the AWS Load Balancer Controller name. All related resources use this instance name as a suffix.</p>
+</dd>
+<dt class="hdlist1"><code>stsIAMRoleARN</code></dt>
+<dd>
+<p>Specifies the ARN role for the AWS Load Balancer Controller. The <code>CredentialsRequest</code> object uses this ARN role to provision the AWS credentials. An example of <code>&lt;albc_role_arn&gt;</code> is <code>arn:aws:iam::777777777777:role/albo-controller</code>.</p>
+</dd>
+</dl>
 </div>
 </li>
 </ol>
@@ -3912,7 +3952,7 @@ STRINGEQUALS	system:serviceaccount:aws-load-balancer-operator:aws-load-balancer-
 </div>
 </div>
 <div class="sect1 _additional-resources">
-<h2 id="additional-resources"><a class="anchor" href="#additional-resources"></a>Additional resources</h2>
+<h2 id="additional-resources-albo-sts-cluster_albo-sts-cluster"><a class="anchor" href="#additional-resources-albo-sts-cluster_albo-sts-cluster"></a>Additional resources</h2>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
