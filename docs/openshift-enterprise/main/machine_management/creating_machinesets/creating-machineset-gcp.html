@@ -1744,6 +1744,7 @@
                   <li><a class="" href="../../machine_management/user_infra/adding-compute-user-infra-general.html">Adding compute machines to clusters with user-provisioned infrastructure manually</a></li>
                   <li><a class="" href="../../machine_management/user_infra/adding-aws-compute-user-infra.html">Adding compute machines to AWS using CloudFormation templates</a></li>
                   <li><a class="" href="../../machine_management/user_infra/adding-vsphere-compute-user-infra.html">Adding compute machines to vSphere manually</a></li>
+                  <li><a class="" href="../../machine_management/user_infra/adding-bare-metal-compute-vsphere-user-infra.html">Adding bare-metal compute machines to a vSphere cluster</a></li>
                   <li><a class="" href="../../machine_management/user_infra/adding-bare-metal-compute-user-infra.html">Adding compute machines to bare metal</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-23-9"><span id="sgSpan-23-9" class="fa fa-caret-right"></span>&nbsp;Managing control plane machines</a>
@@ -3351,9 +3352,14 @@
 <li><a href="#machineset-label-gpu-autoscaler_creating-machineset-gcp">Labeling GPU machine sets for the cluster autoscaler</a></li>
 <li><a href="#machineset-gcp-pd-disk-types_creating-machineset-gcp">Configuring persistent disk types by using machine sets</a></li>
 <li><a href="#machineset-gcp-confidential-vm_creating-machineset-gcp">Configuring Confidential VM by using machine sets</a></li>
-<li><a href="#machineset-non-guaranteed-instance_creating-machineset-gcp">Machine sets that deploy machines as preemptible VM instances</a>
+<li><a href="#machineset-non-guaranteed-instance_creating-machineset-gcp">Machine sets that deploy machines as Spot VMs</a>
 <ul class="sectlevel2">
-<li><a href="#machineset-creating-non-guaranteed-instance_creating-machineset-gcp">Creating preemptible VM instances by using compute machine sets</a></li>
+<li><a href="#machineset-creating-non-guaranteed-instance_creating-machineset-gcp">Creating Spot VMs by using compute machine sets</a></li>
+</ul>
+</li>
+<li><a href="#machineset-non-guaranteed-instance_legacy-preempt">Machine sets that deploy machines preemptible VM instances</a>
+<ul class="sectlevel2">
+<li><a href="#machineset-creating-non-guaranteed-instance_legacy-preempt">Creating preemptible VM instances by using compute machine sets</a></li>
 </ul>
 </li>
 <li><a href="#machineset-gcp-shielded-vms_creating-machineset-gcp">Configuring Shielded VM options by using machine sets</a></li>
@@ -3975,13 +3981,116 @@ If you use Confidential VM, you must ensure that you select a supported region. 
 </div>
 </div>
 <div class="sect1">
-<h2 id="machineset-non-guaranteed-instance_creating-machineset-gcp"><a class="anchor" href="#machineset-non-guaranteed-instance_creating-machineset-gcp"></a>Machine sets that deploy machines as preemptible VM instances</h2>
+<h2 id="machineset-non-guaranteed-instance_creating-machineset-gcp"><a class="anchor" href="#machineset-non-guaranteed-instance_creating-machineset-gcp"></a>Machine sets that deploy machines as Spot VMs</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can save on costs by creating a compute machine set running on Google Cloud that deploys machines as non-guaranteed Spot VMs.
+Spot VMs use excess Compute Engine capacity and are less expensive than normal instances.
+You can use Spot VMs for workloads that can tolerate interruptions, such as batch or stateless, horizontally scalable workloads.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
 <div class="paragraph">
-<p>You can save on costs by creating a compute machine set running on Google Cloud that deploys machines as non-guaranteed preemptible VM instances. Preemptible VM instances utilize excess Compute Engine capacity and are less expensive than normal instances. You can use preemptible VM instances for workloads that can tolerate interruptions, such as batch or stateless, horizontally scalable workloads.</p>
+<p>Google Cloud recommends using Spot VMs over preemptible VMs because Spot VMs include new features that preemptible VMs do not support.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
-<p>Google Cloud Compute Engine can terminate a preemptible VM instance at any time. Compute Engine sends a preemption notice to the user indicating that an interruption will occur in 30 seconds. OpenShift Container Platform begins to remove the workloads from the affected instances when Compute Engine issues the preemption notice. An ACPI G3 Mechanical Off signal is sent to the operating system after 30 seconds if the instance is not stopped. The preemptible VM instance is then transitioned to a <code>TERMINATED</code> state by Compute Engine.</p>
+<p>Google Cloud Compute Engine can terminate a Spot VM at any time.
+Compute Engine sends a best-effort preemption notice to the user indicating that an interruption will occur after 30 seconds.
+OpenShift Container Platform begins to remove the workloads from the affected instances when Compute Engine issues the preemption notice.
+An ACPI G3 Mechanical Off signal is sent to the operating system after 30 seconds if the instance is not stopped.
+The Spot VM is then transitioned to a <code>TERMINATED</code> state by Compute Engine.</p>
+</div>
+<div class="paragraph">
+<p>Interruptions can occur when using Spot VMs for the following reasons:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>There is a system or maintenance event</p>
+</li>
+<li>
+<p>The supply of Spot VMs decreases</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>When Google Cloud terminates an instance, a termination handler running on the Spot VM node deletes the machine resource.
+To satisfy the compute machine set <code>replicas</code> quantity, the compute machine set creates a machine that requests a Spot VM.</p>
+</div>
+<div class="sect2">
+<h3 id="machineset-creating-non-guaranteed-instance_creating-machineset-gcp"><a class="anchor" href="#machineset-creating-non-guaranteed-instance_creating-machineset-gcp"></a>Creating Spot VMs by using compute machine sets</h3>
+<div class="paragraph _abstract">
+<p>You can save on costs by creating a compute machine set that deploys machines as non-guaranteed instances.
+To launch a Spot VM on Google Cloud, you add <code>provisioningModel: "Spot"</code> to your compute machine set YAML file.</p>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Add the following line under the <code>providerSpec</code> field:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">providerSpec</span><span class="pi">:</span>
+  <span class="na">value</span><span class="pi">:</span>
+    <span class="na">provisioningModel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Spot"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you specify <code>provisioningModel: "Spot"</code>, the machine is labeled as an <code>interruptible-instance</code> after the instance is launched.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This parameter is not compatible with setting the <code>providerSpec.value.preemptible</code> value to <code>true</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="machineset-non-guaranteed-instance_legacy-preempt"><a class="anchor" href="#machineset-non-guaranteed-instance_legacy-preempt"></a>Machine sets that deploy machines preemptible VM instances</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can save on costs by creating a compute machine set running on Google Cloud that deploys machines as non-guaranteed preemptible VM instances.
+Preemptible VM instances use excess Compute Engine capacity and are less expensive than normal instances.
+You can use preemptible VM instances for workloads that can tolerate interruptions, such as batch or stateless, horizontally scalable workloads.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Google Cloud recommends using Spot VMs over preemptible VMs because Spot VMs include new features that preemptible VMs do not support.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Google Cloud Compute Engine can terminate a preemptible VM instance at any time. Compute Engine sends a preemption notice to the user indicating that an interruption will occur after 30 seconds. OpenShift Container Platform begins to remove the workloads from the affected instances when Compute Engine issues the preemption notice. An ACPI G3 Mechanical Off signal is sent to the operating system after 30 seconds if the instance is not stopped. The preemptible VM instance is then transitioned to a <code>TERMINATED</code> state by Compute Engine.</p>
 </div>
 <div class="paragraph">
 <p>Interruptions can occur when using preemptible VM instances for the following reasons:</p>
@@ -4003,9 +4112,24 @@ If you use Confidential VM, you must ensure that you select a supported region. 
 <p>When Google Cloud terminates an instance, a termination handler running on the preemptible VM instance node deletes the machine resource. To satisfy the compute machine set <code>replicas</code> quantity, the compute machine set creates a machine that requests a preemptible VM instance.</p>
 </div>
 <div class="sect2">
-<h3 id="machineset-creating-non-guaranteed-instance_creating-machineset-gcp"><a class="anchor" href="#machineset-creating-non-guaranteed-instance_creating-machineset-gcp"></a>Creating preemptible VM instances by using compute machine sets</h3>
+<h3 id="machineset-creating-non-guaranteed-instance_legacy-preempt"><a class="anchor" href="#machineset-creating-non-guaranteed-instance_legacy-preempt"></a>Creating preemptible VM instances by using compute machine sets</h3>
+<div class="paragraph _abstract">
+<p>You can save on costs by creating a compute machine set that deploys machines as non-guaranteed instances.
+To launch a preemptible VM instance on Google Cloud, you add <code>preemptible</code> to your compute machine set YAML file.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
 <div class="paragraph">
-<p>You can launch a preemptible VM instance on Google Cloud by adding <code>preemptible</code> to your compute machine set YAML file.</p>
+<p>Google Cloud recommends using Spot VMs over preemptible VMs because Spot VMs include new features that preemptible VMs do not support.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="ulist">
 <div class="title">Procedure</div>
@@ -4021,6 +4145,20 @@ If you use Confidential VM, you must ensure that you select a supported region. 
 </div>
 <div class="paragraph">
 <p>If <code>preemptible</code> is set to <code>true</code>, the machine is labeled as an <code>interruptible-instance</code> after the instance is launched.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This parameter is not compatible with setting the <code>providerSpec.value.provisioningModel</code> value to <code>"Spot"</code>.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </li>
 </ul>

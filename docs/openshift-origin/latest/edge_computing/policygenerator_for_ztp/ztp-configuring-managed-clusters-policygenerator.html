@@ -1385,6 +1385,7 @@
                   <li><a class="" href="../../machine_management/user_infra/adding-compute-user-infra-general.html">Adding compute machines to clusters with user-provisioned infrastructure manually</a></li>
                   <li><a class="" href="../../machine_management/user_infra/adding-aws-compute-user-infra.html">Adding compute machines to AWS using CloudFormation templates</a></li>
                   <li><a class="" href="../../machine_management/user_infra/adding-vsphere-compute-user-infra.html">Adding compute machines to vSphere manually</a></li>
+                  <li><a class="" href="../../machine_management/user_infra/adding-bare-metal-compute-vsphere-user-infra.html">Adding bare-metal compute machines to a vSphere cluster</a></li>
                   <li><a class="" href="../../machine_management/user_infra/adding-bare-metal-compute-user-infra.html">Adding compute machines to bare metal</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-21-9"><span id="sgSpan-21-9" class="fa fa-caret-right"></span>&nbsp;Managing control plane machines</a>
@@ -2801,9 +2802,10 @@
 <li><a href="#ztp-restarting-policies-reconciliation_ztp-configuring-managed-clusters-policygenerator">Restarting policy reconciliation</a></li>
 <li><a href="#ztp-removing-content-from-managed-clusters_ztp-configuring-managed-clusters-policygenerator">Changing applied managed cluster CRs using policies</a></li>
 <li><a href="#ztp-definition-of-done-for-ztp-installations_ztp-configuring-managed-clusters-policygenerator">Indication of done for GitOps ZTP installations</a></li>
+<li><a href="#ztp-configuring-open-api-schema-for-patching_ztp-configuring-managed-clusters-policygenerator">Configuring an OpenAPI schema for patching list fields by using the PolicyGenerator CR</a></li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can customize how Red&#160;Hat Advanced Cluster Management (RHACM) uses <code>PolicyGenerator</code> CRs to generate <code>Policy</code> CRs that configure the managed clusters that you provision.</p>
 </div>
 <div class="paragraph">
@@ -4116,6 +4118,124 @@ default     ztp-group.group-du-sno-config-policy                   inform       
 </div>
 </dd>
 </dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ztp-configuring-open-api-schema-for-patching_ztp-configuring-managed-clusters-policygenerator"><a class="anchor" href="#ztp-configuring-open-api-schema-for-patching_ztp-configuring-managed-clusters-policygenerator"></a>Configuring an OpenAPI schema for patching list fields by using the PolicyGenerator CR</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure an OpenAPI schema in the <code>PolicyGenerator</code> custom resource (CR) to control how list fields are merged when patching non-core Kubernetes objects.</p>
+</div>
+<div class="paragraph">
+<p>By default, patching list fields can replace entire lists when the resource does not define merge behavior. An OpenAPI schema defines how list items are uniquely identified and merged during policy generation.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have created a <code>PolicyGenerator</code> CR.</p>
+</li>
+<li>
+<p>You have access to a running cluster if you need to generate a schema.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Obtain an OpenAPI schema for the resources that you want to patch:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>If an OpenAPI schema is available for the custom resource that you want to patch, use that schema file.</p>
+</li>
+<li>
+<p>If a schema is not available, generate it from an active cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="bash">kustomize openapi fetch</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Edit the generated schema file to keep only the resource definitions that you need to patch.</p>
+<div class="paragraph">
+<p>Removing unrelated definitions simplifies the schema and reduces maintenance effort.</p>
+</div>
+</li>
+<li>
+<p>Define merge behavior for list fields that you want to patch. For each list of objects that you want to patch, add fields that specify how list items are uniquely identified and merged. For example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="s2">"</span><span class="s">x-kubernetes-patch-merge-key"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">name"</span>
+<span class="s2">"</span><span class="s">x-kubernetes-patch-strategy"</span><span class="pi">:</span> <span class="s2">"</span><span class="s">merge"</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>x-kubernetes-patch-merge-key</code> specifies the field that uniquely identifies an object in the list.
+For example, setting this field to <code>name</code> uses the <code>name</code> field to identify list items.</p>
+</li>
+<li>
+<p><code>x-kubernetes-patch-strategy</code> specifies how the patch is applied to the identified list item. The following are the supported values:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>merge</code>: Merges the fields from the patch into the existing list item.</p>
+</li>
+<li>
+<p><code>replace</code>: Replaces the entire list item identified by the merge key with the patch content.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Save the schema file in the directory that contains the <code>kustomization.yaml</code> file.</p>
+</li>
+<li>
+<p>Reference the OpenAPI schema in the <code>kustomization.yaml</code> file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">openapi</span><span class="pi">:</span>
+  <span class="na">path</span><span class="pi">:</span> <span class="s">schema.json</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Configure the OpenAPI schema path in the <code>PolicyGenerator</code> CR:</p>
+<div class="listingblock">
+<div class="title">Example <code>PolicyGenerator</code> CR for patching list fields by using an OpenAPI schema</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">policy.open-cluster-management.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PolicyGenerator</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">policy-generator-example</span>
+<span class="na">policies</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">myapp</span>
+    <span class="na">manifests</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">input-kustomize/</span>
+        <span class="na">patches</span><span class="pi">:</span> <span class="pi">[]</span>
+        <span class="na">openapi</span><span class="pi">:</span>
+          <span class="na">path</span><span class="pi">:</span> <span class="s">schema.json</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Generate or apply the policies by using the policy generator.</p>
+<div class="paragraph">
+<p>The policy generator passes the OpenAPI schema to Kustomize to control how list fields are patched.</p>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
