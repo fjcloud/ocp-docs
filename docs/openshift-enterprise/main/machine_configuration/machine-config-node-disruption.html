@@ -3461,7 +3461,7 @@
 <p><strong>DaemonReload</strong>: The MCO reloads the systemd manager configuration.</p>
 </li>
 <li>
-<p><strong>Special</strong>: This is an internal MCO-only action and cannot be set by the user.</p>
+<p><strong>Special</strong>: This is an internal MCO-only action that is set by default for changes to the <code>/etc/containers/registries.conf</code> file. When this action is set, the MCO determines if a node cordon and drain is required, based on the changed content in the <code>registries.conf</code> file. You can override this setting. However, this is not recommended. You cannot set this action for another path or service.</p>
 </li>
 </ul>
 </div>
@@ -3494,8 +3494,8 @@
 <div class="sect1">
 <h2 id="machine-config-node-disruption-example_machine-configs-configure"><a class="anchor" href="#machine-config-node-disruption-example_machine-configs-configure"></a>Example node disruption policies</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The following example <code>MachineConfiguration</code> objects contain a node disruption policy.</p>
+<div class="paragraph _abstract">
+<p>You can use the following example <code>MachineConfiguration</code> objects to help you create a node disruption policy that can help reduce disruption to the workloads in your cluster.</p>
 </div>
 <div class="admonitionblock tip">
 <table>
@@ -3574,7 +3574,28 @@
 <p>The default node disruption policy does not contain a policy for changes to the <code>/etc/containers/registries.conf.d</code> file. This is because both OpenShift Container Platform and Red&#160;Hat Enterprise Linux (RHEL) use the <code>registries.conf.d</code> file to specify aliases for image short names. It is recommended that you always pull an image by its fully-qualified name. This is particularly important with public registries, because the image might not deploy if the public registry requires authentication. You can create a user-defined policy to use with the <code>/etc/containers/registries.conf.d</code> file, if you need to use image short names.</p>
 </div>
 <div class="paragraph">
-<p>In the following example, when changes are made to the SSH keys, the MCO drains the cluster nodes, reloads the <code>crio.service</code>, reloads the systemd configuration, and restarts the <code>crio-service</code>.</p>
+<p>In the following example, when changes are made to the <code>registries.conf.d</code> file, the MCO restarts the <code>crio-service</code>.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example node disruption policy for a change to the <code>registries.conf.d</code> file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfiguration</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-config-operator</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">nodeDisruptionPolicy</span><span class="pi">:</span>
+    <span class="na">files</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/containers/registries.conf.d</span>
+        <span class="na">actions</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Restart</span>
+            <span class="na">restart</span><span class="pi">:</span>
+              <span class="na">serviceName</span><span class="pi">:</span> <span class="s">crio.service</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the following example, when changes are made to the SSH keys, the MCO reloads the systemd manager configuration, and restarts the <code>crio-service</code>.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example node disruption policy for an SSH key change</div>
@@ -3588,14 +3609,11 @@
   <span class="na">nodeDisruptionPolicy</span><span class="pi">:</span>
     <span class="na">sshkey</span><span class="pi">:</span>
       <span class="na">actions</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Drain</span>
-      <span class="pi">-</span> <span class="na">reload</span><span class="pi">:</span>
-          <span class="na">serviceName</span><span class="pi">:</span> <span class="s">crio.service</span>
-        <span class="na">type</span><span class="pi">:</span> <span class="s">Reload</span>
       <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">DaemonReload</span>
-      <span class="pi">-</span> <span class="na">restart</span><span class="pi">:</span>
-          <span class="na">serviceName</span><span class="pi">:</span> <span class="s">crio.service</span>
-        <span class="na">type</span><span class="pi">:</span> <span class="s">Restart</span>
+      <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">Restart</span>
+          <span class="s">restart</span><span class="pi">:</span>
+            <span class="na">serviceName</span><span class="pi">:</span> <span class="s">crio.service</span>
+
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -3649,31 +3667,12 @@
               <span class="na">serviceName</span><span class="pi">:</span> <span class="s">crio.service</span></code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p>In the following example, when changes are made to the <code>registries.conf</code> file, such as by editing an <code>ImageContentSourcePolicy</code> (ICSP) object, the MCO does not drain or reboot the nodes and applies the changes with no further action.</p>
-</div>
-<div class="listingblock">
-<div class="title">Example node disruption policy for a registries.conf file change</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfiguration</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
-<span class="c1"># ...</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">nodeDisruptionPolicy</span><span class="pi">:</span>
-    <span class="na">files</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">actions</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">None</span>
-        <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/containers/registries.conf</span></code></pre>
-</div>
-</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="machine-config-node-disruption-config_machine-configs-configure"><a class="anchor" href="#machine-config-node-disruption-config_machine-configs-configure"></a>Configuring node restart behaviors upon machine config changes</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can create a node disruption policy to define the machine configuration changes that cause a disruption to your cluster, and which changes do not.</p>
 </div>
 <div class="paragraph">
@@ -3703,7 +3702,7 @@
 <p><strong>DaemonReload</strong>: The MCO reloads the systemd manager configuration.</p>
 </li>
 <li>
-<p><strong>Special</strong>: This is an internal MCO-only action and cannot be set by the user.</p>
+<p><strong>Special</strong>: This is an internal MCO-only action that is set by default for changes to the <code>/etc/containers/registries.conf</code> file. When this action is set, the MCO determines if a node cordon and drain is required, based on the changed content in the <code>registries.conf</code> file. You can override this setting. However, this is not recommended. You cannot set this action for another path or service.</p>
 </li>
 </ul>
 </div>
@@ -3779,7 +3778,7 @@
       <span class="pi">-</span> <span class="na">restart</span><span class="pi">:</span>
           <span class="na">serviceName</span><span class="pi">:</span> <span class="s">crio.service</span>
         <span class="na">type</span><span class="pi">:</span> <span class="s">Restart</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">test.service</span></code></pre>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">sshd.service</span></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -3871,7 +3870,7 @@
         <span class="pi">-</span> <span class="na">restart</span><span class="pi">:</span>
             <span class="na">serviceName</span><span class="pi">:</span> <span class="s">crio.service</span>
           <span class="na">type</span><span class="pi">:</span> <span class="s">Restart</span>
-        <span class="na">name</span><span class="pi">:</span> <span class="s">test.se</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">sshd.service</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>

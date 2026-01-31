@@ -3357,6 +3357,7 @@
 <li><a href="#installation-azure-arm-tested-machine-types_installing-azure-vnet">Tested instance types for Azure on 64-bit ARM infrastructures</a></li>
 <li><a href="#installation-azure-trusted-launch_installing-azure-vnet">Enabling trusted launch for Azure VMs</a></li>
 <li><a href="#installation-azure-confidential-vms_installing-azure-vnet">Enabling confidential VMs</a></li>
+<li><a href="#installation-azure-enabling-user-managed-DNS_installing-azure-vnet">Enabling a user-managed DNS</a></li>
 <li><a href="#installation-azure-config-yaml_installing-azure-vnet">Sample customized install-config.yaml file for Azure</a></li>
 <li><a href="#installation-configure-proxy_installing-azure-vnet">Configuring the cluster-wide proxy during installation</a></li>
 </ul>
@@ -3368,10 +3369,11 @@
 </ul>
 </li>
 <li><a href="#installation-launching-installer_installing-azure-vnet">Deploying the cluster</a></li>
+<li><a href="#installation-azure-provisioning-own-dns-records_installing-azure-vnet">Provisioning your own DNS records</a></li>
 <li><a href="#next-steps">Next steps</a></li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>In OpenShift Container Platform version Branch Build, you can install a cluster into an existing Azure Virtual Network (VNet) on Microsoft Azure. The installation program provisions the rest of the required infrastructure, which you can further customize. To customize the installation, you modify parameters in the <code>install-config.yaml</code> file before you install the cluster.</p>
 </div>
 </div>
@@ -4730,6 +4732,86 @@ you want to reuse the file, you must back it up now.</p>
 </div>
 </div>
 <div class="sect2">
+<h3 id="installation-azure-enabling-user-managed-DNS_installing-azure-vnet"><a class="anchor" href="#installation-azure-enabling-user-managed-DNS_installing-azure-vnet"></a>Enabling a user-managed DNS</h3>
+<div class="paragraph _abstract">
+<p>You can install a cluster with a domain name server (DNS) solution that you manage instead of the default cluster-provisioned DNS solution. As a result, you can manage the API and Ingress DNS records in your own system rather than adding the records to the DNS of the cloud. For example, your organization&#8217;s security policies might not allow the use of public DNS services such as Microsoft Azure. In such scenarios, you can use your own DNS service to bypass the public DNS service and manage your own DNS for the IP addresses of the API and Ingress services.</p>
+</div>
+<div class="paragraph">
+<p>If you enable user-managed DNS during installation, the installation program provisions DNS records for the API and Ingress services only within the cluster. To ensure access from outside the cluster, you must provision the DNS records in an external DNS service of your choice for the API and Ingress services after installation.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>User-provisioned DNS is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the <code>jq</code> package.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Before you deploy your cluster, use a text editor to open the <code>install-config.yaml</code> file  and add the following stanza:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>To enable user-managed DNS:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">featureSet</span><span class="pi">:</span> <span class="s">CustomNoUpgrade</span>
+<span class="na">featureGates</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">AzureClusterHostedDNSInstall=true"</span><span class="pi">]</span>
+
+<span class="c1"># ...</span>
+
+<span class="na">platform</span><span class="pi">:</span>
+  <span class="na">azure</span><span class="pi">:</span>
+    <span class="na">userProvisionedDNS</span><span class="pi">:</span> <span class="s">Enabled</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>userProvisionedDNS</code></dt>
+<dd>
+<p>Enables user-provisioned DNS management.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<div class="title">Next steps</div>
+<p>For information about provisioning your DNS records for the API server and the Ingress services, see "Provisioning your own DNS records".</p>
+</div>
+</div>
+<div class="sect2">
 <h3 id="installation-azure-config-yaml_installing-azure-vnet"><a class="anchor" href="#installation-azure-config-yaml_installing-azure-vnet"></a>Sample customized install-config.yaml file for Azure</h3>
 <div class="paragraph">
 <p>You can customize the <code>install-config.yaml</code> file to specify more details about your OpenShift Container Platform cluster&#8217;s platform or modify the values of the required parameters.</p>
@@ -5927,6 +6009,216 @@ INFO Time elapsed: 36m22s</span></code></pre>
 </td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="installation-azure-provisioning-own-dns-records_installing-azure-vnet"><a class="anchor" href="#installation-azure-provisioning-own-dns-records_installing-azure-vnet"></a>Provisioning your own DNS records</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Use the IP address of the API server to provision your own DNS record with the <code>api.&lt;cluster_name&gt;.&lt;base_domain&gt;.</code> hostname by using your cluster name and base cluster domain. Use the IP address of the Ingress service to provision your own DNS record with the <code>*.apps.&lt;cluster_name&gt;.&lt;base_domain&gt;.</code> hostname by using your cluster name and base cluster domain.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>User-provisioned DNS is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisite</div>
+<ul>
+<li>
+<p>You have installed the Azure CLI client <code>(az)</code>.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Add the <code>userProvisionedDNS</code> parameter to the <code>install-config.yaml</code> file and enable the parameter. For more information, see "Enabling a user-managed DNS".</p>
+</li>
+<li>
+<p>Install your cluster.</p>
+</li>
+<li>
+<p>If you are installing a private cluster, set the <code>lb_name</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">lb_name</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">infra_id</span><span class="k">}</span><span class="s2">-internal"</span></code></pre>
+</div>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set the <code>frontendipconfig_id</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendipconfig_id</span><span class="o">=</span><span class="si">$(</span>az network lb show <span class="nt">-n</span> <span class="k">${</span><span class="nv">lb_name</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">cluster_resource_group_name</span><span class="k">}</span> <span class="nt">-ojson</span> | jq <span class="nt">-r</span> <span class="s2">".loadBalancingRules[] | select(.frontendPort == 6443) | .frontendIPConfiguration.id"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the <code>frontendipconfig_name</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendipconfig_name</span><span class="o">=</span><span class="k">${</span><span class="nv">frontendipconfig_id</span><span class="p">##*/</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To retrieve the IP address of the API service, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az network lb frontend-ip show <span class="nt">-n</span> <span class="k">${</span><span class="nv">frontendipconfig_name</span><span class="k">}</span> <span class="nt">--lb-name</span> <span class="k">${</span><span class="nv">lb_name</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">cluster_resource_group_name</span><span class="k">}</span> <span class="nt">--query</span> <span class="s2">"privateIPAddress"</span> <span class="nt">-otsv</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>If you are installing a public cluster, set the <code>lb_name</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">lb_name</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">infra_id</span><span class="k">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set the <code>frontendipconfig_id</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendipconfig_id</span><span class="o">=</span><span class="si">$(</span>az network lb show <span class="nt">-n</span> <span class="k">${</span><span class="nv">lb_name</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">cluster_resource_group_name</span><span class="k">}</span> <span class="nt">-ojson</span> | jq <span class="nt">-r</span> <span class="s2">".loadBalancingRules[] | select(.frontendPort == 6443) | .frontendIPConfiguration.id"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the <code>frontendipconfig_name</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendipconfig_name</span><span class="o">=</span><span class="k">${</span><span class="nv">frontendipconfig_id</span><span class="p">##*/</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the <code>frontendpublicip_id</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendpublicip_id</span><span class="o">=</span><span class="si">$(</span>az network lb frontend-ip show <span class="nt">-n</span> <span class="k">${</span><span class="nv">frontendipconfig_name</span><span class="k">}</span> <span class="nt">--lb-name</span> <span class="k">${</span><span class="nv">lb_name</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">cluster_resource_group_name</span><span class="k">}</span> <span class="nt">--query</span> <span class="s2">"publicIPAddress.id"</span> <span class="nt">-otsv</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To retrieve the IP address of the API service, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az network public-ip show <span class="nt">--ids</span> <span class="k">${</span><span class="nv">frontendpublicip_id</span><span class="k">}</span> <span class="nt">--query</span> <span class="s1">'ipAddress'</span> <span class="nt">-otsv</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Use the IP address and your cluster name and base cluster domain to configure your own DNS record with the <code>api.&lt;cluster_name&gt;.&lt;base_domain&gt;.</code> hostname.</p>
+</li>
+<li>
+<p>If you are installing a private cluster, set the <code>lb_name</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">lb_name</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">infra_id</span><span class="k">}</span><span class="s2">-internal"</span></code></pre>
+</div>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set the <code>frontendipconfig_id</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendipconfig_id</span><span class="o">=</span><span class="si">$(</span>az network lb show <span class="nt">-n</span> <span class="k">${</span><span class="nv">lb_name</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">cluster_resource_group_name</span><span class="k">}</span> <span class="nt">-ojson</span> | jq <span class="nt">-r</span> <span class="s2">".loadBalancingRules[] | select(.frontendPort == 443) | .frontendIPConfiguration.id"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the <code>frontendipconfig_name</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendipconfig_name</span><span class="o">=</span><span class="k">${</span><span class="nv">frontendipconfig_id</span><span class="p">##*/</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To retrieve the IP address of the Ingress service, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az network lb frontend-ip show <span class="nt">-n</span> <span class="k">${</span><span class="nv">frontendipconfig_name</span><span class="k">}</span> <span class="nt">--lb-name</span> <span class="k">${</span><span class="nv">lb_name</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">cluster_resource_group_name</span><span class="k">}</span> <span class="nt">--query</span> <span class="s2">"privateIPAddress"</span> <span class="nt">-otsv</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>If you are installing a public cluster, set the <code>lb_name</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">lb_name</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">infra_id</span><span class="k">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set the <code>frontendipconfig_id</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendipconfig_id</span><span class="o">=</span><span class="si">$(</span>az network lb show <span class="nt">-n</span> <span class="k">${</span><span class="nv">lb_name</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">cluster_resource_group_name</span><span class="k">}</span> <span class="nt">-ojson</span> | jq <span class="nt">-r</span> <span class="s2">".loadBalancingRules[] | select(.frontendPort == 443) | .frontendIPConfiguration.id"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the <code>frontendipconfig_name</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendipconfig_name</span><span class="o">=</span><span class="k">${</span><span class="nv">frontendipconfig_id</span><span class="p">##*/</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the <code>frontendpublicip_id</code> variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">frontendpublicip_id</span><span class="o">=</span><span class="si">$(</span>az network lb frontend-ip show <span class="nt">-n</span> <span class="k">${</span><span class="nv">frontendipconfig_name</span><span class="k">}</span> <span class="nt">--lb-name</span> <span class="k">${</span><span class="nv">lb_name</span><span class="k">}</span> <span class="nt">-g</span> <span class="k">${</span><span class="nv">cluster_resource_group_name</span><span class="k">}</span> <span class="nt">--query</span> <span class="s2">"publicIPAddress.id"</span> <span class="nt">-otsv</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To retrieve the IP address of the Ingress service, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>az network public-ip show <span class="nt">--ids</span> <span class="k">${</span><span class="nv">frontendpublicip_id</span><span class="k">}</span> <span class="nt">--query</span> <span class="s1">'ipAddress'</span> <span class="nt">-otsv</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Use the IP address and your cluster name and base cluster domain to configure your own DNS record with the <code>*.apps.&lt;cluster_name&gt;.&lt;base_domain&gt;.</code> hostname.</p>
+</li>
+</ol>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>

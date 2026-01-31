@@ -3881,6 +3881,9 @@ The system is engineered to 3 CPUs (3000mc) at steady-state to allow for periodi
 <p>Use SR-IOV for high performance networking.</p>
 </li>
 <li>
+<p>For information on the decrease in the default maximum open files soft limit for containers, see the OpenShift Container Platform 4.21 release notes.</p>
+</li>
+<li>
 <p>Use exec probes sparingly and only when no other suitable options are available.</p>
 <div class="ulist">
 <ul>
@@ -4063,19 +4066,37 @@ Out-of-tree drivers are not supported.</p>
 </div>
 <div class="sect2">
 <h3 id="telco-ran-sysctls_telco-ran-du"><a class="anchor" href="#telco-ran-sysctls_telco-ran-du"></a>Kubelet Settings</h3>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">New in this release</dt>
+<dd>
+<p>Support for configuring <code>systemReserved</code> settings (cpu and memory).</p>
+</dd>
+</dl>
+</div>
 <div class="paragraph">
 <p>Some CNF workloads make use of sysctls which are not in the list of system-wide safe sysctls.
-Generally, network sysctls are namespaced and you can enable them using the <code>kubeletconfig.experimental</code> annotation in the <code>PerformanceProfile</code> Custom Resource (CR) as a string of JSON in the following form:</p>
+Generally, network sysctls are namespaced and you can enable them using the <code>kubeletconfig.experimental</code> annotation in the <code>PerformanceProfile</code> Custom Resource (CR).</p>
+</div>
+<div class="paragraph">
+<p>Additionally, the <code>systemReserved</code> memory can be configured through the same <code>kubeletconfig.experimental</code> annotation to reserve memory for system daemons and kernel processes. An example setting of these parameters as a string of JSON is shown here:
+.Example snippet showing allowedUnsafeSysctls and systemReserved</p>
 </div>
 <div class="listingblock">
-<div class="title">Example snippet showing allowedUnsafeSysctls</div>
+<div class="title">Example snippet showing allowedUnsafeSysctls and systemReserved</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">performance.openshift.io/v2</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">PerformanceProfile</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="pi">{{</span> <span class="nv">.metadata.name</span> <span class="pi">}}</span>
-  <span class="s">annotations:kubeletconfig.experimental: |</span>
-      <span class="s">{"allowedUnsafeSysctls":["net.ipv6.conf.all.accept_ra"]}</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="c1"># allowedUnsafeSysctls: some pods want the kernel stack to ignore IPv6 router Advertisement.</span>
+    <span class="c1"># systemReserved: when used, it should be tailored for each environment.</span>
+    <span class="s">kubeletconfig.experimental</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">{</span>
+       <span class="s">"allowedUnsafeSysctls":["net.ipv6.conf.all.accept_ra"],</span>
+       <span class="s">"systemReserved":{"memory":"11Gi"}</span>
+      <span class="s">}</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -4115,14 +4136,10 @@ You must ensure that these sysctls do not exhaust platform resources.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>The <code>PerformanceProfile</code> and <code>TunedPerformancePatch</code> objects have been updated to fully support the aarch64 architecture.</p>
-<div class="ulist">
-<ul>
-<li>
-<p>If you have previously applied additional patches to the <code>TunedPerformancePatch</code> object, you must convert those patches to a new performance profile that includes the <code>ran-du-performance</code> profile instead. See the "Engineering considerations" section.</p>
+<p>There is now optional support for <code>acpi_idle</code> CPUIdle driver.</p>
 </li>
-</ul>
-</div>
+<li>
+<p>Updates to <code>TunedPerformancePatch</code> to enable the triggering a kernel panic for system recovery and diagnostic purposes when x86_64 architecture nodes become unresponsive. The <code>TunedPerformancePatch</code> configures the <code>kernel.panic_on_unrecovered_nmi</code> sysctl parameter to enable triggering a kernel panic through BMC Non-Maskable Interrupt (NMI) on x86_64 architectures.</p>
 </li>
 </ul>
 </div>
@@ -4266,8 +4283,20 @@ To ensure that pods with guaranteed whole CPU QoS have full use of allocated CPU
 <p>To enable workload partitioning, set <code>cpuPartitioningMode</code> to <code>AllNodes</code> during deployment, and then use the <code>PerformanceProfile</code> CR to allocate enough CPUs to support the operating system, interrupts, and OpenShift Container Platform pods.</p>
 </li>
 <li>
-<p>Under x86_64, the <code>PerformanceProfile</code> CR includes additional kernel arguments settings for <code>vfio_pci</code>.
-These arguments are included for support of devices such as the FEC accelerator. You can omit them if they are not required for your workload.</p>
+<p>Tailor <code>systemReserved</code> memory for each cluster based on its size and application workload. The minimum recommended value is 11Gi.</p>
+</li>
+<li>
+<p>Under x86_64, the <code>PerformanceProfile</code> may be customized with the following optional arguments in the <code>additionalKernelargs</code> list:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>vcio_pci</code> arguments support devices such as the FEC accelerator. You can omit them if they are not required for your workload.</p>
+</li>
+<li>
+<p>To enable the <code>acpi_idle`</code> CPUIdle driver, for example, for Intel FlexRAN, add <code>intel_idle.max_cstate=0</code></p>
+</li>
+</ul>
+</div>
 </li>
 <li>
 <p>Under aarch64, the <code>PerformanceProfile</code> must be adjusted depending on the needs of the platform:</p>
@@ -4372,7 +4401,7 @@ Creating an additional tuned profile which includes the top-level tuned profile 
 <div class="ulist">
 <ul>
 <li>
-<p>No reference design updates in this release</p>
+<p>OpenShift Container Platform 4.20 introduced unassisted holdover for boundary clocks and time synchronous clocks as a Technology Preview feature. This feature is now Generally Available (GA).</p>
 </li>
 </ul>
 </div>
@@ -4469,7 +4498,7 @@ PTP ensures precise timing and reliability in the RAN environment, compared to o
 <div class="ulist">
 <ul>
 <li>
-<p>* Example RAN DU RDS configurations are provided for:</p>
+<p>Example RAN DU RDS configurations are provided for:</p>
 <div class="ulist">
 <ul>
 <li>
@@ -4488,7 +4517,7 @@ PTP ensures precise timing and reliability in the RAN environment, compared to o
 <p>Hierarchical event subscription as described in the O-RAN specification is not supported for PTP events.</p>
 </li>
 <li>
-<p>The PTP fast events REST API v1 is end of life.</p>
+<p>Cluster Node(s) must have proper NTP configuration to ensure correct time prior to PTP operator taking ownership of node timing.</p>
 </li>
 </ul>
 </div>
@@ -5057,8 +5086,7 @@ All workloads must now be compatible with cgroup v2. For more information, see <
 <div class="ulist">
 <ul>
 <li>
-<p>The CRI-O wipe disable <code>MachineConfig</code> CR assumes that images on disk are static other than during scheduled maintenance in defined maintenance windows.
-To ensure the images are static, do not set the pod <code>imagePullPolicy</code> field to <code>Always</code>.</p>
+<p>To ensure images are static, except during scheduled maintenance in defined maintenance windows, do not set the pod <code>imagePullPolicy</code> field to <code>Always</code>.</p>
 </li>
 <li>
 <p>The configuration CRs in this table are required components unless otherwise noted.</p>
@@ -5113,7 +5141,7 @@ The reference CRs that enable kdump have an increased memory reservation based o
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">One-shot time sync</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Runs a one-time NTP system time synchronization job for control plane or worker nodes.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Replaces <code>chrony-wait.service</code> with a one-time NTP system time synchronization job for control plane or worker nodes. This MachineConfig is required for nodes running PTP and should not be included for nodes which use NTP for time synchronization.</p></td>
 </tr>
 </tbody>
 </table>
@@ -5143,7 +5171,7 @@ The reference CRs that enable kdump have an increased memory reservation based o
 <div class="ulist">
 <ul>
 <li>
-<p>No reference design updates in this release</p>
+<p>The CRI-O wipe disable <code>MachineConfig</code> CR is no longer needed as cri-o now handles unclean shutdowns by performing a quick check and repair.</p>
 </li>
 </ul>
 </div>
@@ -5414,7 +5442,7 @@ Review the <a href="https://github.com/openshift-kni/cluster-group-upgrades-oper
 Cluster definitions and configurations are maintained as a declarative state in Git.
 You can apply <code>ClusterInstance</code> CRs to the hub cluster where the <code>SiteConfig</code> Operator renders them as installation CRs.
 In earlier releases, a GitOps ZTP plugin supported the generation of installation CRs from <code>SiteConfig</code> CRs.
-This plugin is now deprecated.
+This plugin is now removed.
 A separate GitOps ZTP plugin is available to enable automatic wrapping of configuration CRs into policies based on the <code>PolicyGenerator</code> or <code>PolicyGenTemplate</code> CR.</p>
 </div>
 <div class="paragraph">
@@ -5605,7 +5633,7 @@ See <a href="../edge_computing/ztp-preparing-the-hub-cluster.html#ztp-preparing-
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Cluster capabilities</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>example-sno.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Representative SiteConfig CR to install single-node OpenShift with the RAN DU profile</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Representative ClusterInstance CR to install single-node OpenShift with the RAN DU profile</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 <tr>
@@ -5896,6 +5924,30 @@ See <a href="../edge_computing/ztp-preparing-the-hub-cluster.html#ztp-preparing-
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">PTP Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptp-operator/configuration/PtpConfigTBCWpc.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures PTP as a Telecom boundary clock. Dependent on cluster role.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PTP Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptp-operator/configuration/PtpConfigDualCardTBCWpc.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures PTP as a Telecom boundary clock for hosts that have dual NICs. Dependent on cluster role.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PTP Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptp-operator/configuration/PtpConfigThreeCardTBCWpc.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures PTP as a Telecom boundary clock for hosts that have 3 NICs. Dependent on cluster role.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PTP Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptp-operator/configuration/PtpConfigTTSCWpc.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures PTP settings for a PTP Telecom Time Slave Clock with single interface. Dependent on cluster role.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PTP Operator</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptp-operator/PtpOperatorConfig.yaml</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Configures the PTP Operator settings, specifying node selection criteria for running PTP daemons in the openshift-ptp namespace.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
@@ -6028,18 +6080,6 @@ See <a href="../edge_computing/ztp-preparing-the-hub-cluster.html#ztp-preparing-
 <td class="tableblock halign-left valign-top"><p class="tableblock">Container runtime (crun)</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional-extra-manifest/enable-crun-worker.yaml</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Configures the container runtime (crun) for worker nodes.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">CRI-O wipe disable</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>extra-manifest/99-crio-disable-wipe-master.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Disables automatic CRI-O cache wipe following a reboot for on control plane nodes.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">CRI-O wipe disable</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>extra-manifest/99-crio-disable-wipe-worker.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Disables automatic CRI-O cache wipe following a reboot for on worker nodes.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 <tr>
@@ -6319,8 +6359,8 @@ No patched CRs <i class="conum" data-value="10"></i><b>(10)</b>
 </thead>
 <tbody>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Managed cluster version</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.19</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OpenShift Container Platform</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.21</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Cluster Logging Operator</p></td>
@@ -6347,11 +6387,19 @@ No patched CRs <i class="conum" data-value="10"></i><b>(10)</b>
 <td class="tableblock halign-left valign-top"><p class="tableblock">2.11</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Lifecycle Agent</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Lifecycle Agent Operator</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">4.21</p></td>
 </tr>
 </tbody>
 </table>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../scalability_and_performance/telco-hub-rds.html#telco-hub-software-stack_telco-hub">Telco hub reference configuration software specifications</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
       </div>
