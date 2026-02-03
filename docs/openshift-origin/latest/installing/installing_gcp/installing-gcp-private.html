@@ -5189,6 +5189,255 @@ openshift-machine-api-gcp-cloud-credentials-credentials.yaml</code></pre>
 </div>
 </div>
 <div class="sect3">
+<h4 id="restricting-sa-impersonation-compute-sa-gcp_installing-gcp-private"><a class="anchor" href="#restricting-sa-impersonation-compute-sa-gcp_installing-gcp-private"></a>Restricting service account impersonation to the compute nodes service account</h4>
+<div class="paragraph _abstract">
+<p>After the Cloud Credential Operator utility (<code>ccoctl</code>) creates the resources for the cluster, you can restrict the Google Cloud <code>iam.serviceAccounts.actAs</code> permission that the <code>ccoctl</code> utility granted to the Machine API controller service account to the compute nodes service account.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Restricting service account impersonation to the compute nodes service account is optional.
+If your organization does not require this change, you can continue to "Incorporating the Cloud Credential Operator utility manifests".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>When the <code>ccoctl</code> utility assigns custom and Google Cloud predefined roles to OKD components service accounts, it grants the <code>iam.serviceAccounts.actAs</code> permission to the Machine API controller service account at the Google Cloud project level.
+To reduce the scope of the <code>iam.serviceAccounts.actAs</code> permission, you identify the custom role of the Machine API controller service account and replace it with a role that has a more restricted set of permissions.
+To allow this component to work, you then grant the Machine API controller service account the Service Account User role on the service account of the compute nodes instead.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have configured an account with the cloud platform that hosts your cluster.</p>
+</li>
+<li>
+<p>You have used the <code>ccoctl</code> utility to create the cloud provider resources for your cluster.</p>
+</li>
+<li>
+<p>You have access to your <code>install-config.yaml</code> file.</p>
+</li>
+<li>
+<p>You have logged in to the Google Cloud CLI (<code>gcloud</code>) as a user with permissions to manage service accounts and roles.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Obtain the following values from your <code>install-config.yaml</code> file:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>The Google Cloud project name.
+In the YAML file, this is the value of the <code>platform.gcp.projectID</code> parameter.</p>
+</li>
+<li>
+<p>The cluster name.
+In the YAML file, this is the value of the <code>metadata.name</code> parameter.</p>
+</li>
+<li>
+<p>The service account for the compute nodes.
+In the YAML file, this is the value of the <code>compute[0].platform.gcp.serviceAccount</code> parameter.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Obtain the service account for the Machine API controller that the <code>ccoctl</code> utility created by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud iam service-accounts list <span class="se">\</span>
+  <span class="nt">--filter</span><span class="o">=</span><span class="s2">"displayName=&lt;cluster_name&gt;-openshift-machine-api-gcp"</span> <span class="se">\</span>
+  <span class="nt">--format</span><span class="o">=</span><span class="s1">'value(email)'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>&lt;cluster_name&gt;</code> is the value specified for the <code>metadata.name</code> parameter in your <code>install-config.yaml</code> file.</p>
+</div>
+</li>
+<li>
+<p>Obtain the role ID of the custom role for the Machine API controller service account by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud projects get-iam-policy &lt;project_name&gt; <span class="se">\</span>
+  <span class="nt">--flatten</span><span class="o">=</span><span class="s1">'bindings[].members'</span> <span class="se">\</span>
+  <span class="nt">--format</span><span class="o">=</span><span class="s1">'table(bindings.role)'</span> <span class="se">\</span>
+  <span class="nt">--filter</span><span class="o">=</span><span class="s2">"bindings.members:&lt;machine_api_controller_service_account&gt;"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>&lt;machine_api_controller_service_account&gt;</code> is the Machine API controller service account.</p>
+</div>
+</li>
+<li>
+<p>List the custom role permissions for the Machine API controller service account by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud iam roles describe &lt;machine_api_role&gt; <span class="se">\</span>
+  <span class="nt">--project</span> &lt;project_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>&lt;machine_api_role&gt;</code> is the role ID of the custom role for the Machine API controller service account.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">etag: &lt;etag_value&gt;
+includedPermissions:
+- compute.acceleratorTypes.get
+- compute.acceleratorTypes.list
+- compute.disks.create
+- compute.disks.createTagBinding
+...
+- compute.zones.get
+- compute.zones.list
+- iam.serviceAccounts.actAs
+- iam.serviceAccounts.get
+- iam.serviceAccounts.list
+- resourcemanager.tagValues.get
+- resourcemanager.tagValues.list
+- serviceusage.quotas.get
+- serviceusage.services.get
+- serviceusage.services.list
+name: projects/&lt;project_name&gt;/roles/&lt;machine_api_role&gt;
+stage: GA
+title: &lt;project_name&gt;-openshift-machine-api-gcp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>&lt;project_name&gt;</code> is the Google Cloud project name specified in the <code>install-config.yaml</code> file.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This truncated example output might not match the permissions list for your cluster.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a custom role that includes all of the permissions from your output except for the <code>iam.serviceAccounts.actAs</code> permission by running a command similar to the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud iam roles create &lt;machine_api_role&gt;_without_actas <span class="se">\</span>
+<span class="nt">--project</span><span class="o">=</span>&lt;project_name&gt; <span class="se">\</span>
+<span class="nt">--title</span><span class="o">=</span>&lt;machine_api_role&gt;_without_actas <span class="se">\</span>
+<span class="nt">--description</span><span class="o">=</span><span class="s2">"Required permissions for the Machine API controller without the iam.serviceAccounts.actAs permission"</span> <span class="se">\</span>
+<span class="nt">--permissions</span><span class="o">=</span>compute.acceleratorTypes.get,<span class="se">\</span>
+compute.acceleratorTypes.list,<span class="se">\</span>
+compute.disks.create,<span class="se">\</span>
+compute.disks.createTagBinding,<span class="se">\</span>
+...
+<span class="go">compute.zones.get,\
+compute.zones.list,\
+iam.serviceAccounts.get,\
+iam.serviceAccounts.list,\
+resourcemanager.tagValues.get,\
+resourcemanager.tagValues.list,\
+serviceusage.quotas.get,\
+serviceusage.services.get,\
+serviceusage.services.list</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In this example, the new role name is the original custom role name, <code>&lt;machine_api_role&gt;</code>, with a <code>_without_actas</code> string added to the end.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This truncated example command might not match the permissions list for your cluster.
+You must use the list of permissions from the output of the <code>gcloud iam roles describe &lt;machine_api_role&gt; --project &lt;project_name&gt;</code> command on your cluster.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Remove the custom role that includes the <code>iam.serviceAccounts.actAs</code> permission from the Machine API controller service account by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud projects remove-iam-policy-binding &lt;project_name&gt; <span class="se">\</span>
+  <span class="nt">--member</span> <span class="s2">"serviceAccount:&lt;machine_api_controller_service_account&gt;"</span> <span class="se">\</span>
+  <span class="nt">--role</span> <span class="s2">"projects/&lt;project_name&gt;/roles/&lt;machine_api_role&gt;"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>&lt;machine_api_role&gt;</code> is the original custom role.</p>
+</div>
+</li>
+<li>
+<p>Grant the custom role that excludes the <code>iam.serviceAccounts.actAs</code> permission to the Machine API controller service account by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud projects add-iam-policy-binding &lt;project_name&gt; <span class="se">\</span>
+  <span class="nt">--member</span> <span class="s2">"serviceAccount:&lt;machine_api_controller_service_account&gt;"</span> <span class="se">\</span>
+  <span class="nt">--role</span> <span class="s2">"projects/&lt;project_name&gt;/roles/&lt;machine_api_role&gt;_without_actas</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>&lt;machine_api_role&gt;_without_actas</code> is the new custom role.</p>
+</div>
+</li>
+<li>
+<p>Optional: To verify that the Machine API controller service account has the correct role, check the attached role ID by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud projects get-iam-policy &lt;project_name&gt; <span class="se">\</span>
+  <span class="nt">--flatten</span><span class="o">=</span><span class="s1">'bindings[].members'</span> <span class="se">\</span>
+  <span class="nt">--format</span><span class="o">=</span><span class="s1">'table(bindings.role)'</span> <span class="se">\</span>
+  <span class="nt">--filter</span><span class="o">=</span><span class="s2">"bindings.members:&lt;machine_api_controller_service_account&gt;"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">ROLE
+projects/&lt;project_name&gt;/roles/&lt;machine_api_role&gt;_without_actas</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Grant the Machine API controller service account the Service Account User role on the service account of the compute nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud iam service-accounts add-iam-policy-binding &lt;compute_nodes_service_account&gt; <span class="se">\</span>
+  <span class="nt">--member</span><span class="o">=</span><span class="s2">"serviceAccount:&lt;machine_api_controller_service_account&gt;"</span> <span class="se">\</span>
+  <span class="nt">--role</span><span class="o">=</span>roles/iam.serviceAccountUser</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>&lt;compute_nodes_service_account&gt;</code> is the service account for your compute nodes.
+This value is the <code>compute[0].platform.gcp.serviceAccount</code> parameter in your <code>install-config.yaml</code> file.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect3">
 <h4 id="cco-ccoctl-install-creating-manifests_installing-gcp-private"><a class="anchor" href="#cco-ccoctl-install-creating-manifests_installing-gcp-private"></a>Incorporating the Cloud Credential Operator utility manifests</h4>
 <div class="paragraph">
 <p>To implement short-term security credentials managed outside the cluster for individual components, you must move the manifest files that the Cloud Credential Operator utility (<code>ccoctl</code>) created to the correct directories for the installation program.</p>
