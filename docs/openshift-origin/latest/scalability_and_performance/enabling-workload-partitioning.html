@@ -2793,17 +2793,16 @@
 <ul class="sectlevel1">
 <li><a href="#enabling-workload-partitioning_enabling-workload-partitioning">Enabling workload partitioning</a></li>
 <li><a href="#performance-profile-workload-partitioning_enabling-workload-partitioning">Performance profiles and workload partitioning</a></li>
-<li><a href="#sample-performance-profile-configuration">Sample performance profile configuration</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>Workload partitioning separates compute node CPU resources into distinct CPU sets. The primary objective is to keep platform pods on the specified cores to avoid interrupting the CPUs the customer workloads are running on.</p>
+<div class="paragraph _abstract">
+<p>To prevent platform processes from interrupting your applications, configure workload partitioning. This isolates OKD services and infrastructure pods to a reserved set of CPUs, ensuring that the remaining compute resources are available exclusively for your customer workloads.</p>
 </div>
 <div class="paragraph">
-<p>Workload partitioning isolates OKD services, cluster management workloads, and infrastructure pods to run on a reserved set of CPUs. This ensures that the remaining CPUs in the cluster deployment are untouched and available exclusively for non-platform workloads. The minimum number of reserved CPUs required for the cluster management is four CPU Hyper-Threads (HTs).</p>
+<p>The minimum number of reserved CPUs required for the cluster management is four CPU Hyper-Threads (HTs).</p>
 </div>
 <div class="paragraph">
-<p>In the context of enabling workload partitioning and managing CPU resources effectively, nodes that are not configured correctly will not be permitted to join the cluster through a node admission webhook. When the workload partitioning feature is enabled, the machine config pools for control plane and worker will be supplied with configurations for nodes to use. Adding new nodes to these pools will make sure they are correctly configured before joining the cluster.</p>
+<p>In the context of enabling workload partitioning and managing CPU resources effectively, the cluster might not permit incorrectly configured nodes to join the cluster through a node admission webhook. When the workload partitioning feature is enabled, the machine config pools for control plane nodes and compute nodes get supplied with configurations for nodes to use. Adding new nodes to these pools ensures the pools correctly get configured before joining the cluster.</p>
 </div>
 <div class="paragraph">
 <p>Currently, nodes must have uniform configurations per machine config pool to ensure that correct CPU affinity is set across all nodes within that pool. After admission, nodes within the cluster identify themselves as supporting a new resource type called <code>management.workload.openshift.io/cores</code> and accurately report their CPU capacity. Workload partitioning can be enabled during cluster installation only by adding the additional field <code>cpuPartitioningMode</code> to the <code>install-config.yaml</code> file.</p>
@@ -2833,8 +2832,11 @@
 <div class="sect1">
 <h2 id="enabling-workload-partitioning_enabling-workload-partitioning"><a class="anchor" href="#enabling-workload-partitioning_enabling-workload-partitioning"></a>Enabling workload partitioning</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To partition cluster management pods into a specified CPU affinity, enable workload partitioning. This configuration ensures that management pods operate within the reserved CPU limits defined in your Performance Profile, preventing them from consuming resources intended for customer workloads.</p>
+</div>
 <div class="paragraph">
-<p>With workload partitioning, cluster management pods are annotated to correctly partition them into a specified CPU affinity. These pods operate normally within the minimum size CPU configuration specified by the reserved value in the Performance Profile. Additional Day 2 Operators that make use of workload partitioning should be taken into account when calculating how many reserved CPU cores should be set aside for the platform.</p>
+<p>Consider additional post-installation Operators that use workload partitioning when calculating how many reserved CPU cores to set aside for the platform.</p>
 </div>
 <div class="paragraph">
 <p>Workload partitioning isolates user workloads from platform workloads using standard Kubernetes scheduling capabilities.</p>
@@ -2847,14 +2849,14 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>You can enable workload partitioning during cluster installation only. You cannot disable workload partitioning postinstallation. However, you can change the CPU configuration for <code>reserved</code> and <code>isolated</code> CPUs postinstallation.</p>
+<p>You can enable workload partitioning only during cluster installation. You cannot disable workload partitioning post-installation. However, you can change the CPU configuration for <code>reserved</code> and <code>isolated</code> CPUs post-installation.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
 <div class="paragraph">
-<p>Use this procedure to enable workload partitioning cluster wide:</p>
+<p>The procedure demonstrates enabling workload partitioning cluster-wide.</p>
 </div>
 <div class="ulist">
 <div class="title">Procedure</div>
@@ -2865,7 +2867,7 @@
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">baseDomain</span><span class="pi">:</span> <span class="s">devcluster.openshift.com</span>
-<span class="na">cpuPartitioningMode</span><span class="pi">:</span> <span class="s">AllNodes</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">cpuPartitioningMode</span><span class="pi">:</span> <span class="s">AllNodes</span>
 <span class="na">compute</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
     <span class="na">hyperthreading</span><span class="pi">:</span> <span class="s">Enabled</span>
@@ -2880,13 +2882,12 @@
   <span class="na">replicas</span><span class="pi">:</span> <span class="s">3</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Sets up a cluster for CPU partitioning at install time. The default value is <code>None</code>.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>cpuPartitioningMode</code>: Specifies the cluster to set up for CPU partitioning at install time. The default value is <code>None</code>, which ensures that no CPU partitioning is enabled at install time.</p>
+</li>
+</ul>
 </div>
 </li>
 </ul>
@@ -2896,23 +2897,14 @@
 <div class="sect1">
 <h2 id="performance-profile-workload-partitioning_enabling-workload-partitioning"><a class="anchor" href="#performance-profile-workload-partitioning_enabling-workload-partitioning"></a>Performance profiles and workload partitioning</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To enable workload partitioning, apply a performance profile. This configuration specifies the isolated and reserved CPUs, ensuring that customer workloads run on dedicated cores without interruption from platform processes.</p>
+</div>
 <div class="paragraph">
-<p>Applying a performance profile allows you to make use of the workload partitioning feature. An appropriately configured performance profile specifies the <code>isolated</code> and <code>reserved</code> CPUs. The recommended way to create a performance profile is to use the Performance Profile Creator (PPC) tool to create the performance profile.</p>
+<p>An appropriately configured performance profile specifies the <code>isolated</code> and <code>reserved</code> CPUs. Create a performance profile by using the Performance Profile Creator (PPC) tool.</p>
 </div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="../scalability_and_performance/cnf-tuning-low-latency-nodes-with-perf-profile.html#cnf-about-the-profile-creator-tool_cnf-low-latency-perf-profile">About the Performance Profile Creator</a></p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="sample-performance-profile-configuration"><a class="anchor" href="#sample-performance-profile-configuration"></a>Sample performance profile configuration</h2>
-<div class="sectionbody">
 <div class="listingblock">
+<div class="title">Sample performance profile configuration</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">performance.openshift.io/v2</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">PerformanceProfile</span>
@@ -3043,6 +3035,14 @@ The example configuration configures the cluster for low latency and high perfor
 </tr>
 </tbody>
 </table>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../scalability_and_performance/cnf-tuning-low-latency-nodes-with-perf-profile.html#cnf-about-the-profile-creator-tool_cnf-low-latency-perf-profile">About the Performance Profile Creator</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
       </div>
