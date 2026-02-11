@@ -2795,12 +2795,15 @@
 <li><a href="#nodes-nodes-rebooting-affinity_nodes-nodes-rebooting">Rebooting a node using pod anti-affinity</a></li>
 <li><a href="#nodes-nodes-rebooting-router_nodes-nodes-rebooting">Understanding how to reboot nodes running routers</a></li>
 <li><a href="#nodes-nodes-rebooting-gracefully_nodes-nodes-rebooting">Rebooting a node gracefully</a></li>
+<li><a href="#additional-resources_nodes-nodes-rebooting">Additional resources</a></li>
 </ul>
 </div>
+<div class="paragraph _abstract">
+<p>Review the following information to learn about rebooting a node without causing an outage for applications running on the
+platform by first evacuating the pods on the node.</p>
+</div>
 <div class="paragraph">
-<p>To reboot a node without causing an outage for applications running on the
-platform, it is important to first evacuate the pods. For pods that are
-made highly available by the routing tier, nothing
+<p>For pods that are made highly available by the routing tier, nothing
 else needs to be done. For other pods needing storage, typically databases, it
 is critical to ensure that they can remain in operation with one pod
 temporarily going offline. While implementing resiliency for stateful pods
@@ -2818,7 +2821,7 @@ process applies, though it is important to understand certain edge cases.</p>
 <div class="sect1">
 <h2 id="nodes-nodes-rebooting-infrastructure_nodes-nodes-rebooting"><a class="anchor" href="#nodes-nodes-rebooting-infrastructure_nodes-nodes-rebooting"></a>About rebooting nodes running critical infrastructure</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>When rebooting nodes that host critical OKD infrastructure components, such as router pods, registry pods, and monitoring pods, ensure that there are at least three nodes available to run these components.</p>
 </div>
 <div class="paragraph">
@@ -2843,21 +2846,16 @@ process applies, though it is important to understand certain edge cases.</p>
 <div class="paragraph">
 <p>When using three nodes for infrastructure components, this process does not result in a service disruption. However, due to pod scheduling, the last node that is evacuated and brought back into rotation does not have a registry pod. One of the other nodes has two registry pods. To schedule the third registry pod on the last node, use pod anti-affinity to prevent the scheduler from locating two registry pods on the same node.</p>
 </div>
-<div class="ulist">
-<div class="title">Additional information</div>
-<ul>
-<li>
-<p>For more information on pod anti-affinity, see <a href="../../nodes/scheduling/nodes-scheduler-pod-affinity.html#nodes-scheduler-pod-affinity">Placing pods relative to other pods using affinity and anti-affinity rules</a>.</p>
-</li>
-</ul>
-</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="nodes-nodes-rebooting-affinity_nodes-nodes-rebooting"><a class="anchor" href="#nodes-nodes-rebooting-affinity_nodes-nodes-rebooting"></a>Rebooting a node using pod anti-affinity</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can use pod anti-affinity to spread the workloads on a node to other nodes before performing a graceful node restart.</p>
+</div>
 <div class="paragraph">
-<p>Pod anti-affinity is slightly different than node anti-affinity. Node anti-affinity can be
+<p>Pod anti-affinity is slightly different from node anti-affinity. Node anti-affinity can be
 violated if there are no other suitable locations to deploy a pod. Pod
 anti-affinity can be set to either required or preferred.</p>
 </div>
@@ -2867,10 +2865,10 @@ pod is prevented from running on the other node. <code><strong>oc get pods</stro
 Once a node is available and all pods are back in ready state, the next node can be restarted.</p>
 </div>
 <div class="paragraph">
-<div class="title">Procedure</div>
-<p>To reboot a node using pod anti-affinity:</p>
+<p>The following procedure demonstrates how to reboot a node by using pod anti-affinity.</p>
 </div>
 <div class="olist arabic">
+<div class="title">Procedure</div>
 <ol class="arabic">
 <li>
 <p>Edit the node specification to configure pod anti-affinity:</p>
@@ -2882,48 +2880,51 @@ Once a node is available and all pods are back in ready state, the next node can
   <span class="na">name</span><span class="pi">:</span> <span class="s">with-pod-antiaffinity</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">affinity</span><span class="pi">:</span>
-    <span class="na">podAntiAffinity</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-      <span class="na">preferredDuringSchedulingIgnoredDuringExecution</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
-      <span class="pi">-</span> <span class="na">weight</span><span class="pi">:</span> <span class="s">100</span> <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="na">podAntiAffinity</span><span class="pi">:</span>
+      <span class="na">preferredDuringSchedulingIgnoredDuringExecution</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">weight</span><span class="pi">:</span> <span class="m">100</span>
         <span class="na">podAffinityTerm</span><span class="pi">:</span>
           <span class="na">labelSelector</span><span class="pi">:</span>
             <span class="na">matchExpressions</span><span class="pi">:</span>
-            <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">registry</span> <i class="conum" data-value="4"></i><b>(4)</b>
-              <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span> <i class="conum" data-value="5"></i><b>(5)</b>
+            <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">registry</span>
+              <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
               <span class="na">values</span><span class="pi">:</span>
               <span class="pi">-</span> <span class="s">default</span>
           <span class="na">topologyKey</span><span class="pi">:</span> <span class="s">kubernetes.io/hostname</span>
 <span class="c1">#...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Stanza to configure pod anti-affinity.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Defines a preferred rule.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specifies a weight for a preferred rule. The node with the highest weight is preferred.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Description of the pod label that determines when the anti-affinity rule applies. Specify a key and value for the label.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>The operator represents the relationship between the label on the existing pod and the set of values in the <code>matchExpression</code> parameters in the specification for the new pod. Can be <code>In</code>, <code>NotIn</code>, <code>Exists</code>, or <code>DoesNotExist</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.affinity.podAntiAffinity</code></dt>
+<dd>
+<p>Specifies the stanza to configure pod anti-affinity.</p>
+</dd>
+<dt class="hdlist1"><code>spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution</code></dt>
+<dd>
+<p>Specifies a preferred rule.</p>
+</dd>
+<dt class="hdlist1"><code>spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution.weight</code></dt>
+<dd>
+<p>Specifies a weight for a preferred rule. The node with the highest weight is preferred.</p>
+</dd>
+<dt class="hdlist1"><code>spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.labelSelector.matchExpressions.key</code></dt>
+<dd>
+<p>Specifies a pod label that determines when the anti-affinity rule applies. Define a key and value for the label.</p>
+</dd>
+<dt class="hdlist1"><code>spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution.podAffinityTerm.labelSelector.matchExpressions.operator</code></dt>
+<dd>
+<p>Specifies the relationship between the label on the existing pod and the set of values in the <code>matchExpression</code> parameters in the specification for the new pod. Can be <code>In</code>, <code>NotIn</code>, <code>Exists</code>, or <code>DoesNotExist</code>.</p>
 <div class="paragraph">
 <p>This example assumes the container image registry pod has a label of
 <code>registry=default</code>. Pod anti-affinity can use any Kubernetes match
 expression.</p>
+</div>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -2939,6 +2940,9 @@ expression.</p>
 <div class="sect1">
 <h2 id="nodes-nodes-rebooting-router_nodes-nodes-rebooting"><a class="anchor" href="#nodes-nodes-rebooting-router_nodes-nodes-rebooting"></a>Understanding how to reboot nodes running routers</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Review the following information to learn how to reboot a node that hosts a router pod.</p>
+</div>
 <div class="paragraph">
 <p>In most cases, a pod running an OKD router exposes a host port.</p>
 </div>
@@ -2960,6 +2964,9 @@ it is important to follow the recommended restart process for infrastructure nod
 <div class="sect1">
 <h2 id="nodes-nodes-rebooting-gracefully_nodes-nodes-rebooting"><a class="anchor" href="#nodes-nodes-rebooting-gracefully_nodes-nodes-rebooting"></a>Rebooting a node gracefully</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can perform a graceful restart of a node, where all workloads are moved to other nodes, without data loss or service disruption.</p>
+</div>
 <div class="paragraph">
 <p>Before rebooting a node, it is recommended to backup etcd data to avoid any data loss on the node.</p>
 </div>
@@ -2981,10 +2988,10 @@ it is important to follow the recommended restart process for infrastructure nod
 </table>
 </div>
 <div class="paragraph">
-<div class="title">Procedure</div>
-<p>To perform a graceful restart of a node:</p>
+<p>The following procedure demonstrates how to perform a graceful restart of a node.</p>
 </div>
 <div class="olist arabic">
+<div class="title">Procedure</div>
 <ol class="arabic">
 <li>
 <p>Mark the node as unschedulable:</p>
@@ -3119,9 +3126,20 @@ it is important to follow the recommended restart process for infrastructure nod
 </li>
 </ol>
 </div>
-<div class="paragraph">
-<div class="title">Additional information</div>
-<p>For information on etcd data backup, see <a href="../../backup_and_restore/control_plane_backup_and_restore/backing-up-etcd.html#backup-etcd">Backing up etcd data</a>.</p>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources_nodes-nodes-rebooting"><a class="anchor" href="#additional-resources_nodes-nodes-rebooting"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="../../nodes/scheduling/nodes-scheduler-pod-affinity.html#nodes-scheduler-pod-affinity">Placing pods relative to other pods using affinity and anti-affinity rules</a></p>
+</li>
+<li>
+<p><a href="../../backup_and_restore/control_plane_backup_and_restore/backing-up-etcd.html#backup-etcd">Backing up etcd data</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
