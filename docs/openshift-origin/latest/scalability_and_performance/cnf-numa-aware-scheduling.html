@@ -2937,8 +2937,11 @@ A CPU processing a workload using memory that is outside its NUMA zone is slower
 <div class="sect1">
 <h2 id="cnf-numa-resource-scheduling-strategies_numa-aware"><a class="anchor" href="#cnf-numa-resource-scheduling-strategies_numa-aware"></a>NUMA resource scheduling strategies</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The secondary scheduler optimizes the placement of high-performance workloads by using NUMA-aware scoring strategies to select the most suitable worker nodes. This process assigns workloads to nodes with sufficient resources while allowing local node managers to handle final resource pinning.</p>
+</div>
 <div class="paragraph">
-<p>When scheduling high-performance workloads, the secondary scheduler can employ different strategies to determine which NUMA node within a chosen worker node will handle the workload. The supported strategies in OKD include <code>LeastAllocated</code>, <code>MostAllocated</code>, and <code>BalancedAllocation</code>. Understanding these strategies helps optimize workload placement for performance and resource utilization.</p>
+<p>When scheduling high-performance workloads, the secondary scheduler determines which worker node is best suited for the task based on its internal NUMA resource distribution. While the scheduler uses NUMA-level data to score and select a worker node, the actual resource pinning within that node is managed by the local Topology Manager and CPU Manager.</p>
 </div>
 <div class="paragraph">
 <p>When a high-performance workload is scheduled in a NUMA-aware cluster, the following steps occur:</p>
@@ -2946,21 +2949,18 @@ A CPU processing a workload using memory that is outside its NUMA zone is slower
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>The scheduler first selects a suitable worker node based on cluster-wide criteria. For example taints, labels, or resource availability.</p>
+<p><strong>Node filtering</strong>: The scheduler first filters the entire cluster to find a shortlist of <em>feasible</em> nodes. A node is only kept if it meets all requirements, such as matching labels, respecting taints and tolerations, and, importantly, having sufficient available resources within its specific NUMA zones. If a node cannot satisfy the workload&#8217;s NUMA affinity, it is filtered out at this stage.</p>
 </li>
 <li>
-<p>After a worker node is selected, the scheduler evaluates its NUMA nodes and applies a scoring strategy to decide which NUMA node will handle the workload.</p>
+<p><strong>Node selection</strong>: Once a shortlist of suitable nodes is established, the scheduler evaluates them to find the best fit. It applies a NUMA-aware scoring strategy to rank these candidates based on their resource distribution. The node with the highest score is then selected for the workload.</p>
 </li>
 <li>
-<p>After a workload is scheduled, the selected NUMA node’s resources are updated to reflect the allocation.</p>
+<p><strong>Local Allocation</strong>: Once the pod is assigned to a worker node, the node-level components (CPU, memory, device, and topology managers) perform the authoritative allocation of specific CPUs and memory. The scheduler does not influence this final selection.</p>
 </li>
 </ol>
 </div>
 <div class="paragraph">
-<p>The default strategy applied is the <code>LeastAllocated</code> strategy. This assigns workloads to the NUMA node with the most available resources that is the least utilized NUMA node. The goal of this strategy is to spread workloads across NUMA nodes to reduce contention and avoid hotspots.</p>
-</div>
-<div class="paragraph">
-<p>The following table summarizes the different strategies and their outcomes:</p>
+<p>The following table summarizes the different OKD strategies and their outcomes:</p>
 </div>
 <h3 id="cnf-scoringstrategy-summary_numa-aware" class="discrete">Scoring strategy summary</h3>
 <table class="tableblock frame-all grid-all stretch">
@@ -2980,112 +2980,21 @@ A CPU processing a workload using memory that is outside its NUMA zone is slower
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>LeastAllocated</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Favors NUMA nodes with the most available resources.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Spreads workloads to reduce contention and ensure headroom for high-priority tasks.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Favors worker nodes that contain NUMA zones with the most available resources.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Distributes workloads across the cluster to nodes with the highest available headroom.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>MostAllocated</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Favors NUMA nodes with the least available resources.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Consolidates workloads on fewer NUMA nodes, freeing others for energy efficiency.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Favors worker nodes where the requested resources fit into NUMA zones that are already highly utilized.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Consolidates workloads on already utilized nodes, potentially leaving other nodes idle.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>BalancedAllocation</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Favors NUMA nodes with balanced CPU and memory usage.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Ensures even resource utilization, preventing skewed usage patterns.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Favors worker nodes with the most balanced CPU and memory usage across NUMA zones.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Prevents skewed usage patterns where one resource type, such as CPU, is exhausted while another, such as memory, remains idle.</p></td>
 </tr>
 </tbody>
 </table>
-<h3 id="cnf-leastallocated-example_numa-aware" class="discrete">LeastAllocated strategy example</h3>
-<div class="paragraph">
-<p>The <code>LeastAllocated</code> is the default strategy. This strategy assigns workloads to the NUMA node with the most available resources, minimizing resource contention and spreading workloads across NUMA nodes. This reduces hotspots and ensures sufficient headroom for high-priority tasks. Assume a worker node has two NUMA nodes, and the workload requires 4 vCPUs and 8 GB of memory:</p>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 2. Example initial NUMA nodes state</caption>
-<colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 13.3333%;">
-<col style="width: 13.3333%;">
-<col style="width: 13.3333%;">
-<col style="width: 13.3333%;">
-<col style="width: 13.3335%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">NUMA node</th>
-<th class="tableblock halign-left valign-top">Total CPUs</th>
-<th class="tableblock halign-left valign-top">Used CPUs</th>
-<th class="tableblock halign-left valign-top">Total memory (GB)</th>
-<th class="tableblock halign-left valign-top">Used memory (GB)</th>
-<th class="tableblock halign-left valign-top">Available resources</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">NUMA 1</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">16</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">12</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">64</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">56</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4 CPUs, 8 GB memory</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">NUMA 2</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">16</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">6</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">64</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">24</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">10 CPUs, 40 GB memory</p></td>
-</tr>
-</tbody>
-</table>
-<div class="paragraph">
-<p>Because NUMA 2 has more available resources compared to NUMA 1, the workload is assigned to NUMA 2.</p>
-</div>
-<h3 id="cnf-mostallocated-example_numa-aware" class="discrete">MostAllocated strategy example</h3>
-<div class="paragraph">
-<p>The <code>MostAllocated</code> strategy consolidates workloads by assigning them to the NUMA node with the least available resources, which is the most utilized NUMA node. This approach helps free other NUMA nodes for energy efficiency or critical workloads requiring full isolation. This example uses the "Example initial NUMA nodes state" values listed in the <code>LeastAllocated</code> section.</p>
-</div>
-<div class="paragraph">
-<p>The workload again requires 4 vCPUs and 8 GB memory. NUMA 1 has fewer available resources compared to NUMA 2, so the scheduler assigns the workload to NUMA 1, further utilizing its resources while leaving NUMA 2 idle or minimally loaded.</p>
-</div>
-<h3 id="cnf-balanceallocated-example_numa-aware" class="discrete">BalancedAllocation strategy example</h3>
-<div class="paragraph">
-<p>The <code>BalancedAllocation</code> strategy assigns workloads to the NUMA node with the most balanced resource utilization across CPU and memory. The goal is to prevent imbalanced usage, such as high CPU utilization with underutilized memory. Assume a worker node has the following NUMA node states:</p>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 3. Example NUMA nodes initial state for <code>BalancedAllocation</code></caption>
-<colgroup>
-<col style="width: 25%;">
-<col style="width: 25%;">
-<col style="width: 25%;">
-<col style="width: 25%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">NUMA node</th>
-<th class="tableblock halign-left valign-top">CPU usage</th>
-<th class="tableblock halign-left valign-top">Memory usage</th>
-<th class="tableblock halign-left valign-top"><code>BalancedAllocation</code> score</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">NUMA 1</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">60%</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">55%</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">High (more balanced)</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">NUMA 2</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">80%</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">20%</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Low (less balanced)</p></td>
-</tr>
-</tbody>
-</table>
-<div class="paragraph">
-<p>NUMA 1 has a more balanced CPU and memory utilization compared to NUMA 2 and therefore, with the <code>BalancedAllocation</code> strategy in place, the workload is assigned to NUMA 1.</p>
-</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
