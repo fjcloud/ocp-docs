@@ -2868,11 +2868,22 @@ expanded after creation.</td>
 <div class="sect1">
 <h2 id="expanding-csi-volumes_expanding-persistent-volumes"><a class="anchor" href="#expanding-csi-volumes_expanding-persistent-volumes"></a>Expanding CSI volumes</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can use the Container Storage Interface (CSI) to expand storage volumes after they have already been created.</p>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
 <div class="paragraph">
 <p>Shrinking persistent volumes (PVs) is <em>not</em> supported.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -2969,7 +2980,7 @@ expanded after creation.</td>
 <div class="sect1">
 <h2 id="expanding-local-volumes_expanding-persistent-volumes"><a class="anchor" href="#expanding-local-volumes_expanding-persistent-volumes"></a>Expanding local volumes</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can manually expand persistent volumes (PVs) and persistent volume claims (PVCs) created by using the local storage operator (LSO).</p>
 </div>
 <div class="olist arabic">
@@ -2982,22 +2993,22 @@ expanded after creation.</td>
 <p>Update the corresponding PV objects to match the new device sizes by editing the <code>.spec.capacity</code> field of the PV.</p>
 </li>
 <li>
-<p>For the storage class that is used for binding the PVC to PVet, set <code>allowVolumeExpansion:true</code>.</p>
+<p>For the storage class that is used for binding the PVC to PV, set the <code>allowVolumeExpansion</code> field to <code>true</code>.</p>
 </li>
 <li>
-<p>For the PVC, set <code>.spec.resources.requests.storage</code> to match the new size.</p>
+<p>For the PVC, set the <code>.spec.resources.requests.storage</code> field to match the new size.</p>
+<div class="paragraph">
+<p>Kubelet automatically expands the underlying file system on the volume, if necessary, and updates the status field of the PVC to reflect the new size.</p>
+</div>
 </li>
 </ol>
-</div>
-<div class="paragraph">
-<p>Kubelet should automatically expand the underlying file system on the volume, if necessary, and update the status field of the PVC to reflect the new size.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="expanding-pvc-filesystem_expanding-persistent-volumes"><a class="anchor" href="#expanding-pvc-filesystem_expanding-persistent-volumes"></a>Expanding persistent volume claims (PVCs) with a file system</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>Expanding PVCs based on volume types that need file system resizing, such as GCE, EBS, and Cinder, is a two-step process. First, expand the volume objects in the cloud provider. Second, expand the file system on the node.</p>
 </div>
 <div class="paragraph">
@@ -3028,16 +3039,15 @@ expanded after creation.</td>
     <span class="pi">-</span> <span class="s">ReadWriteOnce</span>
   <span class="na">resources</span><span class="pi">:</span>
     <span class="na">requests</span><span class="pi">:</span>
-      <span class="na">storage</span><span class="pi">:</span> <span class="s">8Gi</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+      <span class="na">storage</span><span class="pi">:</span> <span class="s">8Gi</span></code></pre>
 </div>
 </div>
-<div class="colist arabic small">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Updating <code>spec.resources.requests</code> to a larger amount expands the PVC.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>requests.storage</code>: Specifies the size for the PVC.</p>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3049,7 +3059,7 @@ expanded after creation.</td>
 </div>
 </li>
 <li>
-<p>When the cloud provider object has finished resizing, the <code>PersistentVolume</code> object reflects the newly requested size in <code>PersistentVolume.Spec.Capacity</code>. At this point, you can create or recreate a new pod from the PVC to finish the file system resizing. Once the pod is running, the newly requested size is available and the <code>FileSystemResizePending</code> condition is removed from the PVC.</p>
+<p>When the cloud provider object has finished resizing, the <code>PersistentVolume</code> object reflects the newly requested size in <code>PersistentVolume.Spec.Capacity</code>. At this point, you can create or re-create a pod from the PVC to finish the file system resizing. Once the pod is running, the newly requested size is available and the <code>FileSystemResizePending</code> condition is removed from the PVC.</p>
 </li>
 </ol>
 </div>
@@ -3058,29 +3068,26 @@ expanded after creation.</td>
 <div class="sect1">
 <h2 id="expanding-recovering-from-failure_expanding-persistent-volumes"><a class="anchor" href="#expanding-recovering-from-failure_expanding-persistent-volumes"></a>Recovering from failure when expanding volumes</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>If a resize request fails or remains in a pending state, you can try again by entering a different resize value in <code>.spec.resources.requests.storage</code> for the persistent volume claim (PVC). The new value must be larger than the original volume size.</p>
+<div class="paragraph _abstract">
+<p>To retry a failed or pending resize request, update the <code>spec.resources.requests.storage</code> field in the persistent volume claim (PVC). You must specify a value larger than the original volume size to successfully retrigger the operation.</p>
 </div>
 <div class="paragraph">
-<p>If you are still having issues, use the following procedure to recover.</p>
-</div>
-<div class="paragraph">
-<div class="title">Procedure</div>
-<p>If entering another smaller resize value in <code>.spec.resources.requests.storage</code> for the PVC does not work, do the following:</p>
+<p>Entering a smaller resize value in the <code>.spec.resources.requests.storage</code> field for the existing PVC does not work.</p>
 </div>
 <div class="olist arabic">
+<div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Mark the persistent volume (PV) that is bound to the PVC with the <code>Retain</code> reclaim policy. Change <code>persistentVolumeReclaimPolicy</code> to <code>Retain</code>.</p>
+<p>Mark the persistent volume (PV) that is bound to the PVC with the <code>Retain</code> reclaim policy. Change the <code>persistentVolumeReclaimPolicy</code> field to <code>Retain</code>.</p>
 </li>
 <li>
 <p>Delete the PVC.</p>
 </li>
 <li>
-<p>Manually edit the PV and delete the <code>claimRef</code> entry from the PV specs to ensure that the newly created PVC can bind to the PV marked <code>Retain</code>. This marks the PV as <code>Available</code>.</p>
+<p>Manually edit the PV and delete the <code>claimRef</code> entry from the PV specification to ensure that the newly created PVC can bind to the PV marked <code>Retain</code>. This marks the PV as <code>Available</code>.</p>
 </li>
 <li>
-<p>Re-create the PVC in a smaller size, or a size that can be allocated by the underlying storage provider.</p>
+<p>Recreate the PVC in a smaller size, or a size that can be allocated by the underlying storage provider.</p>
 </li>
 <li>
 <p>Set the <code>volumeName</code> field of the PVC to the name of the PV. This binds the PVC to the provisioned PV only.</p>
@@ -3128,10 +3135,7 @@ expanded after creation.</td>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="../storage/expanding-persistent-volumes.html#add-volume-expansion_expanding-persistent-volumes">Enabling volume expansion support</a></p>
-</li>
-<li>
-<p><a href="../storage/container_storage_interface/persistent-storage-csi.html#csi-drivers-supported_persistent-storage-csi">CSI drivers supported by OKD</a></p>
+<p><a href="https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/storage/using-container-storage-interface-csi#csi-drivers-supported_persistent-storage-csi">CSI drivers supported by OKD</a></p>
 </li>
 </ul>
 </div>
