@@ -372,10 +372,10 @@
       <ul id="topicGroup8" class="collapse  list-unstyled">
             <li><a class="" href="../../rosa_install_access_delete_clusters/rosa-sts-creating-a-cluster-quickly.html">Creating a ROSA cluster with STS using the default options</a></li>
             <li><a class="" href="../../rosa_install_access_delete_clusters/rosa-sts-creating-a-cluster-with-customizations.html">Creating a ROSA cluster with STS using customizations</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-8-2"><span id="sgSpan-8-2" class="fa fa-caret-right"></span>&nbsp;Creating a ROSA (classic architecture) cluster using Terraform</a>
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-8-2"><span id="sgSpan-8-2" class="fa fa-caret-right"></span>&nbsp;Creating a Red Hat OpenShift Service on AWS (classic architecture) cluster with Terraform</a>
               <ul id="topicSubGroup-8-2" class="nav-tertiary list-unstyled collapse">
 
-                  <li><a class="" href="../../rosa_install_access_delete_clusters/terraform/rosa-classic-creating-a-cluster-quickly-terraform.html">Creating a default ROSA (classic architecture) cluster using Terraform</a></li>              </ul>
+                  <li><a class="" href="../../rosa_install_access_delete_clusters/terraform/rosa-classic-creating-a-cluster-quickly-terraform.html">Creating a default Red Hat OpenShift Service on AWS (classic architecture) cluster with Terraform</a></li>              </ul>
             </li>
             <li><a class="" href="../../rosa_install_access_delete_clusters/rosa-sts-interactive-mode-reference.html">Interactive cluster creation mode reference</a></li>
             <li><a class="" href="../../rosa_install_access_delete_clusters/rosa-aws-privatelink-creating-cluster.html">Creating an AWS PrivateLink cluster on ROSA</a></li>
@@ -541,7 +541,7 @@
             <li><a class="" href="../../authentication/index.html">Authentication and authorization overview</a></li>
             <li><a class="" href="../../authentication/understanding-authentication.html">Understanding authentication</a></li>
             <li><a class="" href="../../authentication/managing-oauth-access-tokens.html">Managing user-owned OAuth access tokens</a></li>
-            <li><a class="" href="../../authentication/sd-configuring-identity-providers.html">Configuring identity providers</a></li>
+            <li><a class="" href="../../authentication/sd-configuring-identity-providers.html">Identity providers overview</a></li>
             <li><a class="" href="../../authentication/using-rbac.html">Using RBAC to define and apply permissions</a></li>
             <li><a class="" href="../../authentication/understanding-and-creating-service-accounts.html">Understanding and creating service accounts</a></li>
             <li><a class="" href="../../authentication/using-service-accounts-in-applications.html">Using service accounts in applications</a></li>
@@ -1457,11 +1457,110 @@ authentication mechanism. Unauthenticated users do not have access to non-public
 </li>
 </ol>
 </div>
+</div>
+<div class="sect3">
+<h4 id="third-party-cluster-webhook-failure_triggering-builds-build-hooks"><a class="anchor" href="#third-party-cluster-webhook-failure_triggering-builds-build-hooks"></a>Prevent cluster failure due to webhooks</h4>
+<div class="paragraph _abstract">
+<p>To prevent potential cluster failure and ensure pods can always start, you must configure third-party admission webhooks to exclude infrastructure namespaces. Implementing specific selectors and adopting a <code>ValidatingAdmissionPolicy</code> resource provides a more stable environment for cluster recovery and management.</p>
+</div>
+<div class="paragraph">
+<p>When possible, use a <code>ValidatingAdmissionPolicy</code> resource instead of an admission webhook. It does not require an external service, has no timeout limitations, and cannot cause cluster-wide failures.</p>
+</div>
+<div class="paragraph">
+<p>If you use admission webhooks take the following precautions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Configure the webhook to exclude Red Hat OpenShift Service on AWS (classic architecture) and Kubernetes infrastructure namespaces.</p>
+</li>
+<li>
+<p>Configure webhook timeouts to 10 seconds or less to provide a safety buffer for the system-enforced 13-second limit.</p>
+</li>
+<li>
+<p>Set the <code>failurePolicy</code> value to <code>Ignore</code> for non-critical webhooks so that requests can proceed if the webhook is unavailable.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="third-party-cluster-webhook-failures_triggering-builds-build-hooks"><a class="anchor" href="#third-party-cluster-webhook-failures_triggering-builds-build-hooks"></a>Recovering an unstable cluster due to admission webhooks</h4>
+<div class="paragraph _abstract">
+<p>If a misconfigured admission webhook causes your cluster to fail, you must delete the webhook configuration to restore functionality.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Back up the webhook configuration. Choose either <code>ValidatingWebhookConfiguration</code> or <code>MutatingWebhookConfiguration</code> for the <code>&lt;webhook_configuration&gt;</code> value.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">oc get &lt;webhook_configuration&gt;</span><span class="w"> </span>&lt;webhook_name&gt; <span class="nt">-o</span> yaml <span class="o">&gt;</span> webhook-backup.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the webhook.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">oc delete &lt;webhook_configuration&gt;</span><span class="w"> </span>&lt;webhook_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Fix the webhook configuration to exclude infrastructure namespaces when you reapply it.</p>
+<div class="listingblock">
+<div class="title">Example</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">admissionregistration.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MutatingWebhookConfiguration</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">machine-api</span>
+<span class="na">webhooks</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default.machine.machine.openshift.io</span>
+    <span class="na">rules</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">"</span><span class="pi">]</span>
+        <span class="na">apiVersions</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">v1"</span><span class="pi">]</span>
+        <span class="na">operations</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">CREATE"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">UPDATE"</span><span class="pi">]</span>
+        <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">pods"</span><span class="pi">]</span>
+        <span class="na">scope</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span>
+    <span class="na">clientConfig</span><span class="pi">:</span>
+      <span class="na">service</span><span class="pi">:</span>
+        <span class="na">namespace</span><span class="pi">:</span> <span class="s">machine-api-operator-webhook</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/validate"</span>
+    <span class="na">admissionReviewVersions</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">v1"</span><span class="pi">]</span>
+    <span class="na">sideEffects</span><span class="pi">:</span> <span class="s">None</span>
+    <span class="na">timeoutSeconds</span><span class="pi">:</span> <span class="m">5</span>
+    <span class="na">namespaceSelector</span><span class="pi">:</span>
+      <span class="na">matchExpressions</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">kubernetes.io/metadata.name</span>
+          <span class="na">operator</span><span class="pi">:</span> <span class="s">NotIn</span>
+          <span class="na">values</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s">openshift</span>
+            <span class="pi">-</span> <span class="s">openshift-apiserver</span>
+            <span class="pi">-</span> <span class="s">openshift-authentication</span>
+            <span class="pi">-</span> <span class="s">openshift-monitoring</span>
+            <span class="pi">-</span> <span class="s">kube-system</span>
+            <span class="pi">-</span> <span class="s">kube-public</span>
+            <span class="pi">-</span> <span class="s">kube-node-lease</span>
+            <span class="pi">-</span> <span class="s">default</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Where <code>kind</code> is the type of webhook configuration you are using. Valid values are <code>ValidatingWebhookConfiguration</code> or <code>MutatingWebhookConfiguration</code>.</p>
+</div>
+</li>
+</ol>
+</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
 <li>
 <p><a href="../../authentication/using-rbac.html#unauthenticated-users-cluster-role-bindings-concept_using-rbac">Cluster role bindings for unauthenticated groups</a></p>
+</li>
+<li>
+<p><a href="../../architecture/admission-plug-ins.html#admission-webhooks-about_admission-plug-ins">Webhook admission plugins</a></p>
 </li>
 </ul>
 </div>
