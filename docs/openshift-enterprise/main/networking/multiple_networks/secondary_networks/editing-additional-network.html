@@ -3362,6 +3362,7 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#nw-multus-edit-network_edit-additional-network">Modifying a NetworkAttachmentDefinition custom resource</a></li>
+<li><a href="#nw-multus-edit-network-additional-vlans_edit-additional-network">Using an OVN-Kubernetes localnet topology to map VLANs to a secondary interface</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -3423,6 +3424,113 @@
 "master": "ens5",
 "mode": "bridge",
 "ipam":       {"type":"static","routes":[{"dst":"0.0.0.0/0","gw":"10.128.2.1"}],"addresses":[{"address":"10.128.2.100/23","gateway":"10.128.2.1"}],"dns":{"nameservers":["172.30.0.10"],"domain":"us-west-2.compute.internal","search":["us-west-2.compute.internal"]}} }</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-multus-edit-network-additional-vlans_edit-additional-network"><a class="anchor" href="#nw-multus-edit-network-additional-vlans_edit-additional-network"></a>Using an OVN-Kubernetes localnet topology to map VLANs to a secondary interface</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can use OVN-Kubernetes localnet topology in a <code>NetworkAttachmentDefinition</code> (NAD) to map a specific VLAN ID from the physical network to the secondary interface of a pod.</p>
+</div>
+<div class="paragraph">
+<p>To provide multiple VLANs for cluster workloads in OpenShift Container Platform, define additional VLANs in the <code>NetworkAttachmentDefinition</code> custom resource (CR). Configuring trunk ports ensures that the physical network associates correctly with your virtual infrastructure for reliable traffic management.</p>
+</div>
+<div class="paragraph">
+<p>The example in the procedure demonstrates the following configurations:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Physical switch ports connect to OpenShift Container Platform nodes by using VLAN trunking. The trunk carries tagged traffic for the VLANs you define in NADs.</p>
+</li>
+<li>
+<p>The <code>br-ex</code> acts as the OVS bridge that connects virtual workloads to the physical workloads.</p>
+</li>
+<li>
+<p>Multiple NADs with specific VLAN tags get created by using the <code>localnet</code> topology. This configuration defines specific VLAN IDs for traffic isolation.</p>
+</li>
+<li>
+<p>Pods or virtual machines (VMs) attach to the NAD CRs for the purposes of improved network connectivity.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You installed the NMState Operator.</p>
+</li>
+<li>
+<p>You configured the <code>br-ex</code> bridge interface during cluster installation.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create an <code>NetworkAttachmentDefinition</code> CR for each VLAN, such as <code>nad-cvlan100.yaml</code>. OVN-Kubernetes uses the NAD files to tag and untag Ethernet frames for pods or VMs.</p>
+<div class="listingblock">
+<div class="title">Example configuration</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.cni.cncf.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkAttachmentDefinition</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">vlan-100</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span> <span class="pi">|-</span>
+    <span class="s">{</span>
+      <span class="s">"cniVersion": "0.4.0",</span>
+      <span class="s">"name": "localnet-vlan-100",</span>
+      <span class="s">"type": "ovn-k8s-cni-overlay",</span>
+      <span class="s">"physicalNetworkName": "physnet",</span>
+      <span class="s">"topology": "localnet",</span>
+      <span class="s">"vlanID": 100,</span>
+      <span class="s">"mtu": 1500,</span>
+      <span class="s">"netAttachDefName": "default/vlan-100"</span>
+    <span class="s">}</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Attach pods or VMs to the VLANs by referencing the NAD in the configuration for the pod or VM:</p>
+<div class="listingblock">
+<div class="title">Example pod configuration</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">k8s.v1.cni.cncf.io/networks</span><span class="pi">:</span> <span class="s">vlan-100</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example VM configuration</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubevirt.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualMachine</span>
+<span class="na">spec</span><span class="pi">:</span>
+    <span class="na">template</span><span class="pi">:</span>
+        <span class="na">spec</span><span class="pi">:</span>
+        <span class="na">networks</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">multus</span><span class="pi">:</span>
+            <span class="na">networkName</span><span class="pi">:</span> <span class="s">vlan-100</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">secondary-vlan</span>
+<span class="c1"># ...</span></code></pre>
 </div>
 </div>
 </li>
