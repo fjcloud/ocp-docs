@@ -2807,7 +2807,8 @@
 </li>
 <li><a href="#private-clusters-setting-dns-private_configuring-private-cluster">Configuring DNS records to be published in a private zone</a></li>
 <li><a href="#private-clusters-setting-ingress-private_configuring-private-cluster">Setting the Ingress Controller to private</a></li>
-<li><a href="#private-clusters-setting-api-private_configuring-private-cluster">Restricting the API server to private</a></li>
+<li><a href="#private-clusters-setting-api-private-aws_configuring-private-cluster">Restricting the API server to private for an Amazon Web Services cluster</a></li>
+<li><a href="#private-clusters-setting-api-private-azure_configuring-private-cluster">Restricting the API server to private for an Microsoft Azure cluster</a></li>
 <li><a href="#registry-configuring-private-storage-endpoint-azure_configuring-private-cluster">Configuring a private storage endpoint on Azure</a>
 <ul class="sectlevel2">
 <li><a href="#limitations-configuring-private-storage-endpoint-azure">Limitations for configuring a private storage endpoint on Azure</a></li>
@@ -3043,73 +3044,12 @@ ingresscontroller.operator.openshift.io/default replaced</span></code></pre>
 </div>
 </div>
 <div class="sect1">
-<h2 id="private-clusters-setting-api-private_configuring-private-cluster"><a class="anchor" href="#private-clusters-setting-api-private_configuring-private-cluster"></a>Restricting the API server to private</h2>
+<h2 id="private-clusters-setting-api-private-aws_configuring-private-cluster"><a class="anchor" href="#private-clusters-setting-api-private-aws_configuring-private-cluster"></a>Restricting the API server to private for an Amazon Web Services cluster</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>After you deploy a cluster to
-Amazon Web Services (AWS) or
-Microsoft Azure,
-you can reconfigure the API server to use only the private zone.</p>
+<div class="paragraph _abstract">
+<p>If the security posture of your organization does not allow clusters to use an open API endpoint, you can restrict the API server to use only internal load balancers.
+To implement this API server restriction, use the Amazon Web Services (AWS) console and OpenShift CLI (<code>oc</code>) to delete the external load balancer components.</p>
 </div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>Install the OpenShift CLI (<code>oc</code>).</p>
-</li>
-<li>
-<p>Have access to the web console as a user with <code>admin</code> privileges.</p>
-</li>
-</ul>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>In the web portal or console for your cloud provider, take the following actions:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Locate and delete the appropriate load balancer component:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>AWS clusters: Delete the external load balancer. The API DNS entry in the private zone already points to the internal load balancer, which uses an identical configuration, so you do not need to modify the internal load balancer.</p>
-</li>
-<li>
-<p>Azure: Delete the following resources:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>The <code>api-v4</code> rule for the public load balancer.</p>
-</li>
-<li>
-<p>The <code>frontendIPConfiguration</code> parameter that is associated with the <code>api-v4</code> rule for the public load balancer.</p>
-</li>
-<li>
-<p>The public IP that is specified in the <code>frontendIPConfiguration</code> parameter.</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Azure clusters: Configure the Ingress Controller endpoint publishing scope to <code>Internal</code>.
-For more information, see "Configuring the Ingress Controller endpoint publishing scope to Internal".</p>
-</li>
-<li>
-<p>Delete the
-<code>api.$clustername.$yourdomain</code> or
-<code>api.$clustername</code>
-DNS entry in the public zone.</p>
-</li>
-</ol>
-</div>
-</li>
-<li>
-<p>AWS clusters: Remove the external load balancers:</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -3118,41 +3058,123 @@ DNS entry in the public zone.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>You can run the following steps only for an installer-provisioned infrastructure (IPI) cluster. For a user-provisioned infrastructure (UPI) cluster, you must manually remove or disable the external load balancers.</p>
+<p>The OpenShift CLI (<code>oc</code>) steps that remove the external load balancers require the Machine API.
+For clusters that cannot use the Machine API, you must manually remove the external load balancers.</p>
+</div>
+<div class="paragraph">
+<p>Clusters with the infrastructure platform type <code>none</code> cannot use the Machine API.
+To view the platform type for your cluster, run the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get infrastructure cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.platform}'</span></code></pre>
+</div>
 </div>
 </td>
 </tr>
 </table>
 </div>
 <div class="ulist">
+<div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>If your cluster uses a control plane machine set, delete the lines in the control plane machine set custom resource that configure your public or external load balancer:</p>
+<p>You have installed an OKD cluster on AWS.</p>
+</li>
+<li>
+<p>You have access to the AWS console as a user with administrator privileges.</p>
+</li>
+<li>
+<p>You have access to the OpenShift CLI (<code>oc</code>) as a user with administrator privileges.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Log in to the AWS console as a user with administrator privileges.</p>
+</li>
+<li>
+<p>Delete the external load balancer.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The API DNS entry in the private zone already points to the internal load balancer, which uses an identical configuration, so you do not need to modify the internal load balancer.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Delete the <code>api.&lt;cluster_name&gt;.&lt;domain_name&gt;</code> DNS entry in the public zone.</p>
+<div class="paragraph">
+<p>where <code>&lt;cluster_name&gt;</code> is the name of the cluster and <code>&lt;domain_name&gt;</code> is the base domain for the cluster.</p>
+</div>
+</li>
+<li>
+<p>To remove the external load balancers, log in to the OpenShift CLI (<code>oc</code>) as a user with administrator privileges.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If your cluster uses a control plane machine set, remove the external load balancers by editing the <code>ControlPlaneMachineSet</code> custom resource (CR).</p>
+<div class="openblock">
+<div class="content">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Edit the <code>ControlPlaneMachineSet</code> CR by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
-<span class="na">providerSpec</span><span class="pi">:</span>
-  <span class="na">value</span><span class="pi">:</span>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit controlplanemachineset.machine.openshift.io cluster <span class="se">\</span>
+  <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Remove the external load balancers by deleting the corresponding lines in the control plane machine set custom resource (CR).</p>
+<div class="paragraph">
+<p>In the <code>spec.template.spec.providerSpec.value.loadBalancers</code> section of the CR, the <code>name</code> value for the external load balancer ends in <code>-ext</code>.
+Delete the line with the external load balancer <code>name</code> value and the the line with the external load balancer <code>type</code> value that accompanies it.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machine.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ControlPlaneMachineSet</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
+<span class="na">spec</span><span class="pi">:</span>
 <span class="c1"># ...</span>
-    <span class="na">loadBalancers</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">lk4pj-ext</span> <i class="conum" data-value="1"></i><b>(1)</b>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">network</span> <i class="conum" data-value="2"></i><b>(2)</b>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">lk4pj-int</span>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">network</span>
+  <span class="na">template</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+      <span class="na">spec</span><span class="pi">:</span>
+        <span class="na">providerSpec</span><span class="pi">:</span>
+          <span class="na">value</span><span class="pi">:</span>
+            <span class="na">loadBalancers</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cluster_id&gt;-ext</span>
+              <span class="na">type</span><span class="pi">:</span> <span class="s">network</span>
+            <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cluster_id&gt;-int</span>
+              <span class="na">type</span><span class="pi">:</span> <span class="s">network</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Delete the <code>name</code> value for the external load balancer, which ends in <code>-ext</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Delete the <code>type</code> value for the external load balancer.</td>
-</tr>
-</table>
+</li>
+<li>
+<p>Save your changes and exit the object specification.</p>
+<div class="paragraph">
+<p>When you save an update to the control plane machine set, the Control Plane Machine Set Operator updates the control plane machines according to your configured update strategy.
+For more information, see "Updating the control plane configuration".</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
 </div>
 </li>
 <li>
@@ -3160,7 +3182,7 @@ DNS entry in the public zone.</p>
 <div class="olist lowerroman">
 <ol class="lowerroman" type="i">
 <li>
-<p>From your terminal, list the cluster machines by running the following command:</p>
+<p>List the cluster machines by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machine <span class="nt">-n</span> openshift-machine-api</code></pre>
@@ -3169,17 +3191,17 @@ DNS entry in the public zone.</p>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                            STATE     TYPE        REGION      ZONE         AGE
-lk4pj-master-0                  running   m4.xlarge   us-east-1   us-east-1a   17m
-lk4pj-master-1                  running   m4.xlarge   us-east-1   us-east-1b   17m
-lk4pj-master-2                  running   m4.xlarge   us-east-1   us-east-1a   17m
-lk4pj-worker-us-east-1a-5fzfj   running   m4.xlarge   us-east-1   us-east-1a   15m
-lk4pj-worker-us-east-1a-vbghs   running   m4.xlarge   us-east-1   us-east-1a   15m
-lk4pj-worker-us-east-1b-zgpzg   running   m4.xlarge   us-east-1   us-east-1b   15m</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="text">NAME                                        STATE     TYPE        REGION      ZONE         AGE
+&lt;cluster_id&gt;-master-0                       running   m4.xlarge   us-east-1   us-east-1a   17m
+&lt;cluster_id&gt;-master-1                       running   m4.xlarge   us-east-1   us-east-1b   17m
+&lt;cluster_id&gt;-master-2                       running   m4.xlarge   us-east-1   us-east-1a   17m
+&lt;cluster_id&gt;-worker-us-east-1a-&lt;zone_tag&gt;   running   m4.xlarge   us-east-1   us-east-1a   15m
+&lt;cluster_id&gt;-worker-us-east-1a-&lt;zone_tag&gt;   running   m4.xlarge   us-east-1   us-east-1a   15m
+&lt;cluster_id&gt;-worker-us-east-1b-&lt;zone_tag&gt;   running   m4.xlarge   us-east-1   us-east-1b   15m</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The control plane machines contain <code>master</code> in the name.</p>
+<p>The control plane machines contain the <code>master</code> string in their names.</p>
 </div>
 </li>
 <li>
@@ -3190,52 +3212,43 @@ lk4pj-worker-us-east-1b-zgpzg   running   m4.xlarge   us-east-1   us-east-1b   1
 <p>Edit a control plane machine object to by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit machines <span class="nt">-n</span> openshift-machine-api &lt;control_plane_name&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit machines <span class="nt">-n</span> openshift-machine-api &lt;control_plane_machine_name&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the name of the control plane machine object to modify.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where <code>&lt;control_plane_machine_name&gt;</code> is the name of the control plane machine object to modify.</p>
 </div>
 </li>
 <li>
-<p>Remove the lines that describe the external load balancer, which are marked in the following example:</p>
+<p>Remove the lines that describe the external load balancer.</p>
+<div class="paragraph">
+<p>In the <code>spec.providerSpec.value.loadBalancers</code> section of the CR, the <code>name</code> value for the external load balancer ends in <code>-ext</code>.
+Delete the line with the external load balancer <code>name</code> value and the the line with the external load balancer <code>type</code> value that accompanies it.</p>
+</div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
-<span class="na">providerSpec</span><span class="pi">:</span>
-  <span class="na">value</span><span class="pi">:</span>
-<span class="c1"># ...</span>
-    <span class="na">loadBalancers</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">lk4pj-ext</span> <i class="conum" data-value="1"></i><b>(1)</b>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">network</span> <i class="conum" data-value="2"></i><b>(2)</b>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">lk4pj-int</span>
-      <span class="na">type</span><span class="pi">:</span> <span class="s">network</span>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machine.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Machine</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;control_plane_machine_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">providerSpec</span><span class="pi">:</span>
+    <span class="na">value</span><span class="pi">:</span>
+      <span class="na">loadBalancers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cluster_id&gt;-ext</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">network</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cluster_id&gt;-int</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">network</span>
 <span class="c1"># ...</span></code></pre>
 </div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Delete the <code>name</code> value for the external load balancer, which ends in <code>-ext</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Delete the <code>type</code> value for the external load balancer.</td>
-</tr>
-</table>
 </div>
 </li>
 <li>
 <p>Save your changes and exit the object specification.</p>
 </li>
 <li>
-<p>Repeat this process for each of the control plane machines.</p>
+<p>Repeat this process for each control plane machine.</p>
 </li>
 </ol>
 </div>
@@ -3244,6 +3257,68 @@ lk4pj-worker-us-east-1b-zgpzg   running   m4.xlarge   us-east-1   us-east-1b   1
 </div>
 </li>
 </ul>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../machine_management/control_plane_machine_management/cpmso-managing-machines.html#cpmso-feat-config-update_cpmso-managing-machines">Updating the control plane configuration</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="private-clusters-setting-api-private-azure_configuring-private-cluster"><a class="anchor" href="#private-clusters-setting-api-private-azure_configuring-private-cluster"></a>Restricting the API server to private for an Microsoft Azure cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>If the security posture of your organization does not allow clusters to use an open API endpoint, you can restrict the API server to use only internal load balancers.
+To implement this API server restriction, use the Microsoft Azure console to delete the external load balancer component.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed an OKD cluster on Azure.</p>
+</li>
+<li>
+<p>You have access to the Azure console as a user with administrator privileges.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Log in to the Azure console as a user with administrator privileges.</p>
+</li>
+<li>
+<p>Delete the following resources:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>api-v4</code> rule for the public load balancer.</p>
+</li>
+<li>
+<p>The <code>frontendIPConfiguration</code> parameter that is associated with the <code>api-v4</code> rule for the public load balancer.</p>
+</li>
+<li>
+<p>The public IP address that is specified in the <code>frontendIPConfiguration</code> parameter.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Configure the Ingress Controller endpoint publishing scope to <code>Internal</code>.
+For more information, see "Configuring the Ingress Controller endpoint publishing scope to Internal".</p>
+</li>
+<li>
+<p>Delete the <code>api.&lt;cluster_name&gt;</code> DNS entry in the public zone.</p>
+<div class="paragraph">
+<p>where <code>&lt;cluster_name&gt;</code> is the name of the cluster.</p>
 </div>
 </li>
 </ol>
