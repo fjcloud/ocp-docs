@@ -3364,16 +3364,19 @@
 <li><a href="#nodes-containers-dev-fuse-configuring_nodes-containers-dev-fuse">Configuring /dev/fuse for unprivileged builds in pods</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>You can configure your pods with the <code>/dev/fuse</code> device to enable faster and more efficient container image builds, particularly for unprivileged users. This device allows unprivileged pods to mount overlay filesystems, which can be leveraged by tools like Podman.</p>
+<div class="paragraph _abstract">
+<p>You can configure your pods with the <code>/dev/fuse</code> device to enable faster and more efficient container image builds, particularly for unprivileged users. This device allows unprivileged pods to mount overlay filesystems, which can be leveraged by tools such as Podman.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="nodes-containers-dev-fuse-configuring_nodes-containers-dev-fuse"><a class="anchor" href="#nodes-containers-dev-fuse-configuring_nodes-containers-dev-fuse"></a>Configuring /dev/fuse for unprivileged builds in pods</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can grant an unprivileged pod the capability to perform Filesystem in Userspace (FUSE) mounts by exposing the <code>/dev/fuse</code> device. With this setup, an unprivileged user within the pod can use tools such as <code>podman</code> with storage drivers such as <code>fuse-overlayfs</code> by mimicking privileged build capabilities in a secure and efficient manner without granting full privileged access to the pod.</p>
+</div>
 <div class="paragraph">
-<p>By exposing the <code>/dev/fuse</code> device to an unprivileged pod, you grant it the capability to perform Filesystem in Userspace (FUSE) mounts. This is achieved by adding the <code>io.kubernetes.cri-o.Devices: "/dev/fuse"</code> annotation to your pod definition. This setup allows an unprivileged user within the pod to use tools like <code>podman</code> with storage drivers such as <code>fuse-overlayfs</code> by mimicking privileged build capabilities in a secure and efficient manner without granting full privileged access to the pod.</p>
+<p>You expose the <code>/dev/fuse</code> device by adding the <code>io.kubernetes.cri-o.Devices: "/dev/fuse"</code> annotation to your pod definition.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3407,21 +3410,21 @@
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><code>io.kubernetes.cri-o.Devices</code></dt>
+<dt class="hdlist1"><code>metadata.annotations</code></dt>
 <dd>
-<p>The <code>io.kubernetes.cri-o.Devices: "/dev/fuse"</code> annotation makes the FUSE device available.</p>
+<p>Specifies that the <code>io.kubernetes.cri-o.Devices: "/dev/fuse"</code> annotation makes the FUSE device available.</p>
 </dd>
-<dt class="hdlist1"><code>image</code></dt>
+<dt class="hdlist1"><code>spec.containers.image</code></dt>
 <dd>
-<p>This annotation specifies a container that uses an image that includes <code>podman</code> (for example, <code>quay.io/podman/stable</code>).</p>
+<p>Specifies a container that uses an image that includes <code>podman</code> (for example, <code>quay.io/podman/stable</code>).</p>
 </dd>
-<dt class="hdlist1"><code>args</code></dt>
+<dt class="hdlist1"><code>spec.containers.args</code></dt>
 <dd>
-<p>This command keeps the container running so you can <code>exec</code> into it.</p>
+<p>Specifies a command to keep the container running so you can <code>exec</code> into it.</p>
 </dd>
-<dt class="hdlist1"><code>securityContext</code></dt>
+<dt class="hdlist1"><code>spec.containers.securityContext</code></dt>
 <dd>
-<p>This annotation specifies a <code>securityContext</code> that runs the container as an unprivileged user (for example, <code>runAsUser: 1000</code>).</p>
+<p>Specifies a <code>securityContext</code> that runs the container as an unprivileged user (for example, <code>runAsUser: 1000</code>).</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3452,7 +3455,7 @@
 </div>
 </li>
 <li>
-<p>Verify that the pod is running:</p>
+<p>Verify that the pod is running by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods fuse-builder-pod</code></pre>
@@ -3461,17 +3464,21 @@
 </li>
 <li>
 <p>Access the pod and prepare the build environment:</p>
-<div class="paragraph">
-<p>After the <code>fuse-builder-pod</code> pod is in the <code>Running</code> state, open a shell session into the <code>build-container</code> environment:</p>
-</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>After the <code>fuse-builder-pod</code> pod is in the <code>Running</code> state, open a shell session into the <code>build-container</code> environment by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-ti</span> fuse-builder-pod <span class="nt">--</span> /bin/bash</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>You are now inside the container. Because the default working directory might not be writable by the unprivileged user, change to a writable directory like <code>/tmp</code>:</p>
+<p>You are now inside the container.</p>
 </div>
+</li>
+<li>
+<p>Because the default working directory might not be writable by an unprivileged user, change to a writable directory such as <code>/tmp</code> by running the following commands:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cd</span> /tmp</code></pre>
@@ -3488,8 +3495,11 @@
 </div>
 </div>
 </li>
+</ol>
+</div>
+</li>
 <li>
-<p>Create a dockerfile and build an image using Podman:</p>
+<p>Create a dockerfile and build an image by using Podman:</p>
 <div class="paragraph">
 <p>Inside the pod&#8217;s shell and within the <code>/tmp</code> directory, you can now create a <code>Dockerfile</code> and use <code>podman</code> to build a container image. If <code>fuse-overlayfs</code> is the default or configured storage driver, Podman is able to leverage <code>fuse-overlayfs</code> because of the available <code>/dev/fuse</code> device.</p>
 </div>
@@ -3511,7 +3521,7 @@ EOF</span></code></pre>
 </div>
 </li>
 <li>
-<p>Build the image using <code>podman</code>. The <code>-t</code> flag tags the image:</p>
+<p>Build the image by running the following command. The <code>-t</code> flag tags the image.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>podman build <span class="nt">-t</span> my-fuse-built-image:latest .</code></pre>
@@ -3527,7 +3537,7 @@ EOF</span></code></pre>
 <li>
 <p>Optional: Test the built image:</p>
 <div class="paragraph">
-<p>Still inside the <code>fuse-builder-pod</code>, you can run a container from the image you just built to test it:</p>
+<p>Still inside the <code>fuse-builder-pod</code>, you can run a container from the image you just built to test it by running the following command:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -3543,7 +3553,7 @@ EOF</span></code></pre>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>After you are done, exit the shell session in the pod:</p>
+<p>After you are done, exit the shell session in the pod by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">exit</span></code></pre>
@@ -3551,7 +3561,7 @@ EOF</span></code></pre>
 </div>
 </li>
 <li>
-<p>Delete the pod if it&#8217;s no longer needed:</p>
+<p>Delete the pod if it is no longer needed by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete pod fuse-builder-pod</code></pre>
@@ -3559,7 +3569,7 @@ EOF</span></code></pre>
 </div>
 </li>
 <li>
-<p>Remove the local YAML file:</p>
+<p>Remove the local YAML file by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">rm </span>fuse-builder-pod.yaml</code></pre>
