@@ -1290,6 +1290,7 @@
 <li><a href="#jobs-set-max_nodes-nodes-jobs">Understanding how to set a maximum duration for jobs</a></li>
 <li><a href="#jobs-set-backoff_nodes-nodes-jobs">Understanding how to set a job back off policy for pod failure</a></li>
 <li><a href="#jobs-artifacts_nodes-nodes-jobs">Understanding how to configure a cron job to remove artifacts</a></li>
+<li><a href="#jobs-ttl_nodes-nodes-jobs">Understanding how to automatically remove completed jobs</a></li>
 <li><a href="#jobs-limits_nodes-nodes-jobs">Known limitations</a></li>
 </ul>
 </li>
@@ -1318,7 +1319,8 @@ with <code>oc</code> commands like other object types.</p>
   <span class="na">completions</span><span class="pi">:</span> <span class="s">1</span>    <i class="conum" data-value="2"></i><b>(2)</b>
   <span class="na">activeDeadlineSeconds</span><span class="pi">:</span> <span class="s">1800</span> <i class="conum" data-value="3"></i><b>(3)</b>
   <span class="na">backoffLimit</span><span class="pi">:</span> <span class="s">6</span>   <i class="conum" data-value="4"></i><b>(4)</b>
-  <span class="na">template</span><span class="pi">:</span>         <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="na">ttlSecondsAfterFinished</span><span class="pi">:</span> <span class="s">100</span> <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="na">template</span><span class="pi">:</span>         <i class="conum" data-value="6"></i><b>(6)</b>
     <span class="na">metadata</span><span class="pi">:</span>
       <span class="na">name</span><span class="pi">:</span> <span class="s">pi</span>
     <span class="na">spec</span><span class="pi">:</span>
@@ -1326,7 +1328,7 @@ with <code>oc</code> commands like other object types.</p>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">pi</span>
         <span class="na">image</span><span class="pi">:</span> <span class="s">perl</span>
         <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">perl"</span><span class="pi">,</span>  <span class="s2">"</span><span class="s">-Mbignum=bpi"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">-wle"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">print</span><span class="nv"> </span><span class="s">bpi(2000)"</span><span class="pi">]</span>
-      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>    <i class="conum" data-value="6"></i><b>(6)</b>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>    <i class="conum" data-value="7"></i><b>(7)</b>
 <span class="c1">#...</span></code></pre>
 </div>
 </div>
@@ -1350,10 +1352,14 @@ with <code>oc</code> commands like other object types.</p>
 </tr>
 <tr>
 <td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>The template for the pod the controller creates.</td>
+<td>The period of time in seconds after which the job should be automatically deleted upon completion.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>The template for the pod the controller creates.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
 <td>The restart policy of the pod.</td>
 </tr>
 </table>
@@ -1562,6 +1568,21 @@ to configure history limits so that old jobs and their pods are properly cleaned
 </div>
 </div>
 <div class="sect2">
+<h3 id="jobs-ttl_nodes-nodes-jobs"><a class="anchor" href="#jobs-ttl_nodes-nodes-jobs"></a>Understanding how to automatically remove completed jobs</h3>
+<div class="paragraph">
+<p>You can specify that Red Hat OpenShift Service on AWS (classic architecture) should delete jobs when they are finished, either <code>Complete</code> or <code>Failed</code>, in order to limit the number of objects in your cluster.</p>
+</div>
+<div class="paragraph">
+<p>By default, for jobs that are not associated with a cron job or other controlling object, Red Hat OpenShift Service on AWS (classic architecture) does not delete the job or its related pods when the job is finished. If you keep these artifacts in your cluster, you can view the status of finished jobs or view job logs for errors, warnings, or other diagnostic output.</p>
+</div>
+<div class="paragraph">
+<p>However, having too many of these objects in the cluster can lead to etcd issues, latency issues, performance degradation, and other problems.</p>
+</div>
+<div class="paragraph">
+<p>You can configure a time-to-live (TTL) duration for jobs without a controlling object by setting the <code>ttlSecondsAfterFinished</code> parameter in the job spec. When set, Red Hat OpenShift Service on AWS (classic architecture) deletes the jobs and any related pods immediately after the job is finished or after a specified period of time in seconds.</p>
+</div>
+</div>
+<div class="sect2">
 <h3 id="jobs-limits_nodes-nodes-jobs"><a class="anchor" href="#jobs-limits_nodes-nodes-jobs"></a>Known limitations</h3>
 <div class="paragraph">
 <p>The job specification restart policy only applies to the <em>pods</em>, and not the <em>job controller</em>. However, the job controller is hard-coded to keep retrying jobs to completion.</p>
@@ -1603,7 +1624,8 @@ to configure history limits so that old jobs and their pods are properly cleaned
   <span class="na">completions</span><span class="pi">:</span> <span class="s">1</span>    <i class="conum" data-value="2"></i><b>(2)</b>
   <span class="na">activeDeadlineSeconds</span><span class="pi">:</span> <span class="s">1800</span> <i class="conum" data-value="3"></i><b>(3)</b>
   <span class="na">backoffLimit</span><span class="pi">:</span> <span class="s">6</span>   <i class="conum" data-value="4"></i><b>(4)</b>
-  <span class="na">template</span><span class="pi">:</span>         <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="na">ttlSecondsAfterFinished</span><span class="pi">:</span> <span class="s">100</span> <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="na">template</span><span class="pi">:</span>         <i class="conum" data-value="6"></i><b>(6)</b>
     <span class="na">metadata</span><span class="pi">:</span>
       <span class="na">name</span><span class="pi">:</span> <span class="s">pi</span>
     <span class="na">spec</span><span class="pi">:</span>
@@ -1611,7 +1633,7 @@ to configure history limits so that old jobs and their pods are properly cleaned
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">pi</span>
         <span class="na">image</span><span class="pi">:</span> <span class="s">perl</span>
         <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">perl"</span><span class="pi">,</span>  <span class="s2">"</span><span class="s">-Mbignum=bpi"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">-wle"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">print</span><span class="nv"> </span><span class="s">bpi(2000)"</span><span class="pi">]</span>
-      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>    <i class="conum" data-value="6"></i><b>(6)</b>
+      <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">OnFailure</span>    <i class="conum" data-value="7"></i><b>(7)</b>
 <span class="c1">#...</span></code></pre>
 </div>
 </div>
@@ -1655,10 +1677,14 @@ to configure history limits so that old jobs and their pods are properly cleaned
 </tr>
 <tr>
 <td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Specify the template for the pod the controller creates.</td>
+<td>Optional: Specify the period of time in seconds after which the job should be automatically deleted upon completion. If set to '0', the job is immediately deleted after completion. If this field is not included, the job is not automatically deleted.</td>
 </tr>
 <tr>
 <td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Specify the template for the pod the controller creates.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
 <td>Specify the restart policy of the pod:
 <div class="ulist">
 <ul>
