@@ -2798,7 +2798,7 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#nodes-nodes-resources-configuring-about_nodes-nodes-resources-configuring">Understanding how to allocate resources for nodes</a>
+<li><a href="#nodes-nodes-resources-configuring-about_nodes-nodes-resources-configuring">Understanding how resources are allocated to nodes</a>
 <ul class="sectlevel2">
 <li><a href="#computing-allocated-resources_nodes-nodes-resources-configuring">How OKD computes allocated resources</a></li>
 <li><a href="#allocate-node-enforcement_nodes-nodes-resources-configuring">How nodes enforce resource constraints</a></li>
@@ -2838,37 +2838,13 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="nodes-nodes-resources-configuring-about_nodes-nodes-resources-configuring"><a class="anchor" href="#nodes-nodes-resources-configuring-about_nodes-nodes-resources-configuring"></a>Understanding how to allocate resources for nodes</h2>
+<h2 id="nodes-nodes-resources-configuring-about_nodes-nodes-resources-configuring"><a class="anchor" href="#nodes-nodes-resources-configuring-about_nodes-nodes-resources-configuring"></a>Understanding how resources are allocated to nodes</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>CPU and memory resources reserved for node components in OKD are based on two node settings: <code>kube-reserved</code> and <code>system-reserved</code>. These settings are automatically configured upon node start up, or you can manually set these values as needed.</p>
+<p>OKD uses a script to determine optimal CPU and memory resources for the node and system components on your nodes. Or, you can manually set these values as needed. Ensuring proper resources for these services can help ensure that your cluster is operating efficiently.</p>
 </div>
-<table class="tableblock frame-all grid-all stretch">
-<colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 66.6667%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Setting</th>
-<th class="tableblock halign-left valign-top">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kube-reserved</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">This setting is not used with OKD. Add the CPU and memory resources that you planned to reserve to the <code>system-reserved</code> setting.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>system-reserved</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">This setting identifies the resources to reserve for the node components and system components, such as CRI-O and Kubelet. The default settings depend on the OKD and Machine Config Operator versions. Confirm the default <code>systemReserved</code> parameter on the <code>machine-config-operator</code> repository.</p></td>
-</tr>
-</tbody>
-</table>
 <div class="paragraph">
-<p>If a flag is not set, the defaults are used. If none of the flags are set, the
-allocated resource is set to the node&#8217;s capacity as it was before the
-introduction of allocatable resources.</p>
+<p>These resource calculations are based on the installed CPU and memory capacity on each node and assigned upon node start up. These resources are reserved for the node and system components in the systemd <code>system.slice</code> cgroup, such as CRI-O and kubelet. By default, before the scripts runs, OKD reserves 500m for CPU and 1 Gi of memory for the node and system components.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -2878,14 +2854,14 @@ introduction of allocatable resources.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Any CPUs specifically reserved using the <code>reservedSystemCPUs</code> parameter are not available for allocation using <code>kube-reserved</code> or <code>system-reserved</code>.</p>
+<p>The Kubernetes <code>kubeReserved</code> parameter is not supported in OKD.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
 <div class="paragraph">
-<p>By default, OKD uses a script on each worker node to automatically determine the optimal <code>system-reserved</code> CPU and memory resources for nodes. The script runs on node start up and uses the following calculations by default.</p>
+<p>The script uses the following calculations by default.</p>
 </div>
 <div class="dlist">
 <dl>
@@ -2945,15 +2921,15 @@ introduction of allocatable resources.</p>
 <div class="paragraph">
 <p>For example, on a 4-core node, 0.5 vCPU is reserved for node and system components, leaving 3.5 vCPUs for workloads. Note that 1000 millicores is equal to 1CPU/vCPU.</p>
 </div>
-<div class="admonitionblock important">
+<div class="admonitionblock note">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-important" title="Important"></i>
+<i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If you updated your cluster from a version earlier than 4.21, automatic allocation of system resources is disabled by default. To enable the feature, delete the <code>50-worker-auto-sizing-disabled</code> machine config.</p>
+<p>Any CPUs specifically reserved using the <code>reservedSystemCPUs</code> parameter in a <code>KubeletConfig</code> object are not available for allocation using <code>system-reserved</code>.</p>
 </div>
 </td>
 </tr>
@@ -2961,6 +2937,9 @@ introduction of allocatable resources.</p>
 </div>
 </dd>
 </dl>
+</div>
+<div class="paragraph">
+<p>You can manually manage CPU and memory reservations for the node and system components by configuring the <code>system-reserved</code> parameter in a <code>MachineConfig</code> object, as described in "Manually allocating resources for nodes".</p>
 </div>
 <div class="sect2">
 <h3 id="computing-allocated-resources_nodes-nodes-resources-configuring"><a class="anchor" href="#computing-allocated-resources_nodes-nodes-resources-configuring"></a>How OKD computes allocated resources</h3>
