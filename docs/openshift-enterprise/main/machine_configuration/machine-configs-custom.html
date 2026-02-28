@@ -1022,6 +1022,7 @@
                   <li><a class="" href="../security/security_profiles_operator/spo-seccomp.html">Managing seccomp profiles</a></li>
                   <li><a class="" href="../security/security_profiles_operator/spo-selinux.html">Managing SELinux profiles</a></li>
                   <li><a class="" href="../security/security_profiles_operator/spo-advanced.html">Advanced Security Profiles Operator tasks</a></li>
+                  <li><a class="" href="../security/security_profiles_operator/spo-logging.html">Advanced Audit Logging Framework</a></li>
                   <li><a class="" href="../security/security_profiles_operator/spo-troubleshooting.html">Troubleshooting the Security Profiles Operator</a></li>
                   <li><a class="" href="../security/security_profiles_operator/spo-uninstalling.html">Uninstalling the Security Profiles Operator</a></li>              </ul>
             </li>
@@ -3340,8 +3341,10 @@
 <ul class="sectlevel1">
 <li><a href="#create-a-kubeletconfig-crd-to-edit-kubelet-parameters_machine-configs-custom">Creating a KubeletConfig CR to edit kubelet parameters</a></li>
 <li><a href="#create-a-containerruntimeconfig_machine-configs-custom">Creating a ContainerRuntimeConfig CR to edit CRI-O parameters</a></li>
+<li><a href="#config-container-runtime_machine-configs-custom">Configuring the container runtime</a></li>
 <li><a href="#set-the-default-max-container-root-partition-size-for-overlay-with-crio_machine-configs-custom">Setting the default maximum container root partition size for Overlay with CRI-O</a></li>
 <li><a href="#create-crio-default-capabilities_machine-configs-custom">Creating a drop-in file for the default CRI-O capabilities</a></li>
+<li><a href="#additional-resources_machine-configs-custom">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -4073,6 +4076,139 @@ worker  rendered-worker-169  False    True      False     3             1       
 </div>
 </div>
 <div class="sect1">
+<h2 id="config-container-runtime_machine-configs-custom"><a class="anchor" href="#config-container-runtime_machine-configs-custom"></a>Configuring the container runtime</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure the container runtime used with new workloads on your nodes, based on which runtime you or your organization prefers. You can use either crun, which is considered a faster and more lightweight runtime, or runc, which is more widely used than crun.</p>
+</div>
+<div class="paragraph">
+<p>For information on crun and runc, see "About the container engine and container runtime".</p>
+</div>
+<div class="paragraph">
+<p>Starting in OpenShift Container Platform 4.18, crun is the default container runtime for new installations. You can change between the runtimes by using a <code>ContainerRuntimeConfig</code> object, as described in the following procedure. Changing the container runtime affects new workloads only. Existing workloads continue to use their existing container runtime.</p>
+</div>
+<div class="paragraph">
+<p>If you updated your cluster from OpenShift Container Platform 4.17, the runc container runtime remains unchanged as the default. During the upgrade, two <code>MachineConfig</code> objects, one for the control plane nodes and one for the worker nodes, were created to override the new default runtime. You can migrate the container runtime to crun, on a schedule of your choosing, by removing either or both of the <code>MachineConfig</code> objects.</p>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>If your cluster is updated from OpenShift Container Platform 4.17, you can use the crun container runtime by deleting the following <code>MachineConfig</code> objects:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Migrate your worker nodes to crun by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete machineconfig 00-override-worker-generated-crio-default-container-runtime</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Migrate your control plane nodes to crun by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete machineconfig 00-override-master-generated-crio-default-container-runtime</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>For any OpenShift Container Platform 4.18 or greater cluster, you can configure crun or runc as the container runtime for specific nodes by creating a container runtime configuration:</p>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Create a YAML file for the <code>ContainerRuntimeConfig</code> CR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ContainerRuntimeConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+ <span class="na">name</span><span class="pi">:</span> <span class="s">configure-runc</span>
+<span class="na">spec</span><span class="pi">:</span>
+ <span class="na">machineConfigPoolSelector</span><span class="pi">:</span>
+   <span class="na">matchLabels</span><span class="pi">:</span>
+     <span class="s">pools.operator.machineconfiguration.openshift.io/worker</span><span class="pi">:</span> <span class="s1">'</span><span class="s">'</span>
+ <span class="na">containerRuntimeConfig</span><span class="pi">:</span>
+   <span class="na">defaultRuntime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">runc"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p><code>spec.machineConfigPoolSelector.matchLabels</code>:: Specifies a label for the machine config pool that you want you want to modify.</p>
+</li>
+<li>
+<p><code>spec.containerRuntimeConfig.defaultRuntime</code>:: Specifies the container runtime to use with new workloads on the nodes in the specified machine config pool, either <code>crun</code> or <code>runc</code>.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Create the <code>ContainerRuntimeConfig</code> CR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;file_name&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>After the nodes return to a ready state, open an <code>oc debug</code> session to a node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set <code>/host</code> as the root directory within the debug shell by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the container runtime by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span>crio status config | <span class="nb">grep </span>default_runtime</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">INFO[2026-01-27 23:09:18.413462914Z] Starting CRI-O, version: 1.30.14-6.rhaos4.17.gitfa27f6f.el9, git: unknown(clean)
+    default_runtime = "runc"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>default_runtime</code> parameter specifies the container runtime that OpenShift Container Platform uses for new workloads on this node, either <code>crun</code> or <code>runc</code>, depending on what you have configured.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="set-the-default-max-container-root-partition-size-for-overlay-with-crio_machine-configs-custom"><a class="anchor" href="#set-the-default-max-container-root-partition-size-for-overlay-with-crio_machine-configs-custom"></a>Setting the default maximum container root partition size for Overlay with CRI-O</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -4268,6 +4404,18 @@ ctr-level    5m45s</span></code></pre>
 <td>Replace <code>&lt;decode_CapBnd_value&gt;</code> with the specific value you want to decode.</td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources_machine-configs-custom"><a class="anchor" href="#additional-resources_machine-configs-custom"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="../nodes/containers/nodes-containers-using.html#nodes-containers-runtimes">About the container engine and container runtime</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
