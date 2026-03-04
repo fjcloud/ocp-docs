@@ -3285,7 +3285,6 @@
 
                   <li><a class="" href="../virt/monitoring/virt-monitoring-overview.html">Monitoring overview</a></li>
                   <li><a class="" href="../virt/monitoring/virt-running-cluster-checkups.html">Cluster checkup framework</a></li>
-                  <li><a class="" href="../virt/monitoring/virt-latency-checkups.html">Latency checkups</a></li>
                   <li><a class="" href="../virt/monitoring/virt-storage-checkups.html">Storage checkups</a></li>
                   <li><a class="" href="../virt/monitoring/virt-prometheus-queries.html">Prometheus queries for virtual resources</a></li>
                   <li><a class="" href="../virt/monitoring/virt-exposing-custom-metrics-for-vms.html">Virtual machine custom metrics</a></li>
@@ -3339,25 +3338,462 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#hcp-custom-ovn-subnets_hcp-networking">Configuring internal OVN IPv4 subnets for hosted clusters</a></li>
+<li><a href="#hcp-proxy-overview_hcp-networking">Proxy support for hosted control planes</a>
+<ul class="sectlevel2">
 <li><a href="#hcp-proxy-cp-workloads_hcp-networking">Control plane workloads that need to access external services</a></li>
 <li><a href="#hcp-proxy-ignition_hcp-networking">Compute nodes that need to access an ignition endpoint</a></li>
 <li><a href="#hcp-proxy-api_hcp-networking">Compute nodes that need to access the API server</a></li>
 <li><a href="#hcp-proxy-mgmt-cluster_hcp-networking">Management clusters that need external access</a></li>
 <li><a href="#hcp-proxy-addl-network_hcp-networking">Management cluster that uses a proxy and a hosted cluster with a secondary network and no default pod network</a></li>
-<li><a href="#additional-resources_hcp-networking">Additional resources</a></li>
+</ul>
+</li>
+<li><a href="#additional-resources-hcp-proxy_hcp-networking">Additional resources</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>For standalone OpenShift Container Platform, proxy support is mainly about ensuring that workloads in the cluster are configured to use the HTTP or HTTPS proxy to access external services, honoring the <code>NO_PROXY</code> setting if one is configured, and accepting any trust bundle that is configured for the proxy.</p>
-</div>
-<div class="paragraph">
-<p>For hosted control planes, proxy support involves the following additional use cases.</p>
+<div class="paragraph _abstract">
+<p>Ensure optimal performance with hosted control planes by configuring network settings. Those settings include internal subnets and proxy support for control-plane workloads, compute nodes, management clusters, and hosted clusters.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="hcp-proxy-cp-workloads_hcp-networking"><a class="anchor" href="#hcp-proxy-cp-workloads_hcp-networking"></a>Control plane workloads that need to access external services</h2>
+<h2 id="hcp-custom-ovn-subnets_hcp-networking"><a class="anchor" href="#hcp-custom-ovn-subnets_hcp-networking"></a>Configuring internal OVN IPv4 subnets for hosted clusters</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>In hosted clusters, you can configure internal OVN subnets to avoid routing conflicts, customize network architecture, or enable virtual private cloud (VPC) peering.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Avoid CIDR conflicts</dt>
+<dd>
+<p>Connect VPCs that host Red&#160;Hat OpenShift Service on AWS clusters with other VPCs that use the default OVN internal subnets of 100.88.0.0/16 and 100.64.0.0/16.</p>
+</dd>
+<dt class="hdlist1">Customize network architecture</dt>
+<dd>
+<p>Configure internal OVN subnets to align with your corporate network policies.</p>
+</dd>
+<dt class="hdlist1">Enable VPC peering</dt>
+<dd>
+<p>Deploy hosted clusters in environments where default subnets conflict with peered networks.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>To configure OVN-internal subnets, you expose two OVN-Kubernetes internal subnet configuration options:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>internalJoinSubnet</code></dt>
+<dd>
+<p>Internal subnet used by OVN-Kubernetes for the join network (default: <code>100.64.0.0/16</code>)</p>
+</dd>
+<dt class="hdlist1"><code>internalTransitSwitchSubnet</code></dt>
+<dd>
+<p>Internal subnet used for the distributed transit switch in OVN Interconnect architecture (default: <code>100.88.0.0/16</code>)</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>You can configure internal OVN subnets in an existing hosted cluster or configure the subnets while you create a hosted cluster.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Your hosted cluster version must be OpenShift Container Platform 4.20 or later.</p>
+</li>
+<li>
+<p>For the network type, your hosted cluster must use <code>networkType: OVNKubernetes</code>.</p>
+</li>
+<li>
+<p>Custom subnets must not overlap with the following subnets:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Machine CIDRs</p>
+</li>
+<li>
+<p>Service CIDRs</p>
+</li>
+<li>
+<p>Cluster network CIDRs</p>
+</li>
+<li>
+<p>Any other networks in your infrastructure</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>To configure internal OVN subnets while you create a hosted cluster, in the configuration file for the hosted cluster, include the following section:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hypershift.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HostedCluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;hosted_cluster_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;hosted_control_plane_namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">networking</span><span class="pi">:</span>
+    <span class="na">networkType</span><span class="pi">:</span> <span class="s">OVNKubernetes</span>
+    <span class="na">machineCIDR</span><span class="pi">:</span> <span class="s">10.0.0.0/16</span>
+    <span class="na">serviceCIDR</span><span class="pi">:</span> <span class="s">172.30.0.0/16</span>
+    <span class="na">clusterNetwork</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">cidr</span><span class="pi">:</span> <span class="s">10.128.0.0/14</span>
+  <span class="na">operatorConfiguration</span><span class="pi">:</span>
+    <span class="na">clusterNetworkOperator</span><span class="pi">:</span>
+      <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+        <span class="na">ipv4</span><span class="pi">:</span>
+          <span class="na">internalJoinSubnet</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100.99.0.0/16"</span>
+          <span class="na">internalTransitSwitchSubnet</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100.69.0.0/16"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>metadata</code></dt>
+<dd>
+<p>Specifies the name of the hosted cluster and the name of the hosted control plane namespace.</p>
+</dd>
+<dt class="hdlist1"><code>spec.operatorConfiguration.clusterNetworkOperator.ovnKubernetesConfig.ipv4</code></dt>
+<dd>
+<p>Specifies the subnets to use. Both subnet fields in this section must be in a valid IPv4 CIDR notation, such as <code>192.168.1.0/24</code>. The prefix range is <code>/0</code> to <code>/30</code>, inclusive. The first octet cannot be 0, and the string length must be 9-18 characters. The subnet fields cannot use the same value. The subnet must be large enough to accommodate one IP address per node in the cluster. When you plan subnet size, consider future cluster growth. If you omit these fields, the default value for the <code>internalJoinSubnet</code> field is <code>100.64.0.0/16</code>, and the default value for the <code>internalTransitSwitchSubnet</code> field is <code>100.88.0.0/16</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>For full details about creating a hosted cluster, see "Creating a hosted cluster by using the CLI".</p>
+</div>
+</li>
+<li>
+<p>To configure internal OVN subnets in an existing hosted cluster, enter the following command:</p>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When you make this change to an existing hosted cluster, the <code>ovnkube-node</code> DaemonSet is rolled out and the OVN components on compute nodes are restarted. During this process, you might experience brief network disruptions.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hostedcluster &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">-n</span> &lt;hosted_control_plane_namespace&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{
+</span><span class="go">    "spec": {
+      "operatorConfiguration": {
+        "clusterNetworkOperator": {
+          "ovnKubernetesConfig": {
+            "ipv4": {
+              "internalJoinSubnet": "100.99.0.0/16",
+              "internalTransitSwitchSubnet": "100.69.0.0/16"
+            }
+          }
+        }
+      }
+    }
+  }'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>metadata</code></dt>
+<dd>
+<p>Specifies the name of the hosted cluster and the name of the hosted control plane namespace.</p>
+</dd>
+<dt class="hdlist1"><code>spec.operatorConfiguration.clusterNetworkOperator.ovnKubernetesConfig.ipv4</code></dt>
+<dd>
+<p>Specifies the subnets to use. Both subnet fields in this section must be in a valid IPv4 CIDR notation, such as <code>192.168.1.0/24</code>. The prefix range is <code>/0</code> to <code>/30</code>, inclusive. The first octet cannot be 0, and the string length must be 9-18 characters. The subnet fields cannot use the same value. The subnet must be large enough to accommodate one IP address per node in the cluster. When you plan subnet size, consider future cluster growth. If you omit these fields, the default value for the <code>internalJoinSubnet</code> field is <code>100.64.0.0/16</code>, and the default value for the <code>internalTransitSwitchSubnet</code> field is <code>100.88.0.0/16</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the hosted configuration is correct by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hostedcluster &lt;hosted_cluster_name&gt; <span class="nt">-n</span> &lt;hosted_control_plane_namespace&gt; <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.operatorConfiguration.clusterNetworkOperator.ovnKubernetesConfig}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+  "ipv4": {
+    "internalJoinSubnet": "100.99.0.0/16",
+    "internalTransitSwitchSubnet": "100.69.0.0/16"
+  }
+}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the Network Operator configuration in the hosted cluster:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Extract the hosted cluster kubeconfig file by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc extract secret/&lt;hosted_cluster_name&gt;-admin-kubeconfig <span class="se">\</span>
+  <span class="nt">-n</span> &lt;hosted_control_plane_namespace&gt; <span class="nt">--to</span><span class="o">=</span>- <span class="o">&gt;</span> &lt;hosted_cluster_kubeconfig_file&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify the Network Operator configuration by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get network.operator.openshift.io cluster <span class="se">\</span>
+  <span class="nt">--kubeconfig</span><span class="o">=</span>&lt;hosted_cluster_kubeconfig_file&gt; <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.defaultNetwork.ovnKubernetesConfig.ipv4}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+  "internalJoinSubnet": "100.99.0.0/16",
+  "internalTransitSwitchSubnet": "100.69.0.0/16"
+}</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Create 2 test pods by completing the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>In node 1, create pod 1, as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+  <span class="s">metadata</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;pod_1&gt;"</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;hosted_control_plane_namespace&gt;"</span>
+    <span class="na">labels</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pod_name&gt;</span>
+  <span class="na">spec</span><span class="pi">:</span>
+    <span class="na">securityContext</span><span class="pi">:</span>
+      <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">seccompProfile</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+    <span class="na">containers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;image_url&gt;"</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pod_name&gt;</span>
+      <span class="na">securityContext</span><span class="pi">:</span>
+        <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
+        <span class="na">capabilities</span><span class="pi">:</span>
+          <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ALL"</span><span class="pi">]</span>
+    <span class="na">nodeName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">${NODE1}"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>In node 2, create pod 2, as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+  <span class="s">metadata</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;pod_2&gt;"</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;hosted_control_plane_namespace&gt;"</span>
+    <span class="na">labels</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pod_name&gt;</span>
+  <span class="na">spec</span><span class="pi">:</span>
+    <span class="na">securityContext</span><span class="pi">:</span>
+      <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">seccompProfile</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+    <span class="na">containers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;image_url&gt;"</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pod_name&gt;</span>
+      <span class="na">securityContext</span><span class="pi">:</span>
+        <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
+        <span class="na">capabilities</span><span class="pi">:</span>
+          <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">ALL"</span><span class="pi">]</span>
+    <span class="na">nodeName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">${NODE2}"</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Create a test service that backs up both pods, as shown in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+  <span class="s">metadata</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;test_service_name"</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;hosted_control_plane_namespace&gt;"</span>
+    <span class="na">labels</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">test-service</span>
+  <span class="na">spec</span><span class="pi">:</span>
+    <span class="na">internalTrafficPolicy</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Cluster"</span>
+    <span class="na">externalTrafficPolicy</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+    <span class="na">ipFamilyPolicy</span><span class="pi">:</span> <span class="s2">"</span><span class="s">SingleStack"</span>
+    <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="s">&lt;service_test_port_number&gt;</span>
+      <span class="na">protocol</span><span class="pi">:</span> <span class="s2">"</span><span class="s">TCP"</span>
+      <span class="na">targetPort</span><span class="pi">:</span> <span class="m">8080</span>
+    <span class="na">selector</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;pod_name&gt;"</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s2">"</span><span class="s">ClusterIP"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the OVN pods are running:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rollout status daemonset/ovnkube-node <span class="se">\</span>
+  <span class="nt">-n</span> openshift-ovn-kubernetes <span class="se">\</span>
+  <span class="nt">--kubeconfig</span><span class="o">=</span>&lt;hosted_cluster_kubeconfig_file&gt; <span class="se">\</span>
+  <span class="nt">--timeout</span><span class="o">=</span>5m</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-ovn-kubernetes <span class="nt">--kubeconfig</span><span class="o">=</span>&lt;hosted_cluster_kubeconfig_file&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>All <code>ovnkube-node</code> pods should be in <code>Running</code> state with all containers ready.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Make sure that the changes synchronized to the Network Operator by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get network.operator.openshift.io/cluster <span class="se">\</span>
+  <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.spec.defaultNetwork.ovnKubernetesConfig.ipv4}'</span> <span class="se">\</span>
+  <span class="nt">--kubeconfig</span><span class="o">=</span>&lt;clusters-hostedclustername&gt; | jq .</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Get the IP address of pod 2 and transfer it from pod 1:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">pod2_ip</span><span class="o">=</span>oc get pod <span class="nt">-n</span> e2e-test-networking-ovnkubernetes-xxt8s &lt;pod_2&gt; <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">={</span>.status.podIPs[0].ip<span class="o">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> &lt;pod_1&gt; <span class="nt">--</span> /bin/sh <span class="nt">-x</span> <span class="nt">-c</span> curl <span class="nt">--connect-timeout</span> 5 <span class="nt">-s</span> &lt;pod2_ip&gt;:8080</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Get the service IP address and verify that the pod can be visited externally from a service:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">SERVICE_IP</span><span class="o">=</span>oc get service test-service-o<span class="o">=</span><span class="nv">jsonpath</span><span class="o">={</span>.spec.clusterIPs[0]<span class="o">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> &lt;pod_1&gt; <span class="nt">--</span> /bin/sh <span class="nt">-x</span> <span class="nt">-c</span> curl <span class="nt">--connect-timeout</span> 5 <span class="nt">-s</span> <span class="nv">$SERVICE_IP</span>:&lt;service_test_port_number&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../hosted_control_planes/hcp-troubleshooting.html#hcp-ts-internal-subnets_hcp-troubleshooting">Troubleshooting internal subnets for hosted clusters</a></p>
+</li>
+<li>
+<p><a href="../hosted_control_planes/hcp-deploy/hcp-deploy-bm.html#hcp-bm-hc_hcp-deploy-bm">Creating a hosted cluster by using the CLI</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-proxy-overview_hcp-networking"><a class="anchor" href="#hcp-proxy-overview_hcp-networking"></a>Proxy support for hosted control planes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To ensure that control-plane workloads, compute nodes, management clusters, and hosted clusters have the access they need for optimal performance, you can configure proxy support.</p>
+</div>
+<div class="paragraph">
+<p>In standalone OpenShift Container Platform, the primary purposes of proxy support are ensuring that workloads in the cluster are configured to use the HTTP or HTTPS proxy to access external services, honoring the <code>NO_PROXY</code> setting if one is configured, and accepting any trust bundle that is configured for the proxy.</p>
+</div>
+<div class="paragraph">
+<p>In hosted control planes, proxy support includes use cases beyond those in standalone OpenShift Container Platform.</p>
+</div>
+<div class="sect2">
+<h3 id="hcp-proxy-cp-workloads_hcp-networking"><a class="anchor" href="#hcp-proxy-cp-workloads_hcp-networking"></a>Control plane workloads that need to access external services</h3>
 <div class="paragraph">
 <p>Operators that run in the control plane need to access external services through the proxy that is configured for the hosted cluster. The proxy is usually accessible only through the data plane. The control plane workloads are as follows:</p>
 </div>
@@ -3398,10 +3834,8 @@
 </table>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="hcp-proxy-ignition_hcp-networking"><a class="anchor" href="#hcp-proxy-ignition_hcp-networking"></a>Compute nodes that need to access an ignition endpoint</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="hcp-proxy-ignition_hcp-networking"><a class="anchor" href="#hcp-proxy-ignition_hcp-networking"></a>Compute nodes that need to access an ignition endpoint</h3>
 <div class="paragraph">
 <p>When compute nodes need a proxy to access the ignition endpoint, you must configure the proxy in the user-data stub that is configured on the compute node when it is created. For cases where machines need a proxy to access the ignition URL, the proxy configuration is included in the stub.</p>
 </div>
@@ -3416,10 +3850,8 @@
 </div>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="hcp-proxy-api_hcp-networking"><a class="anchor" href="#hcp-proxy-api_hcp-networking"></a>Compute nodes that need to access the API server</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="hcp-proxy-api_hcp-networking"><a class="anchor" href="#hcp-proxy-api_hcp-networking"></a>Compute nodes that need to access the API server</h3>
 <div class="paragraph">
 <p>This use case is relevant to self-managed hosted control planes, not to Red&#160;Hat OpenShift Service on AWS with hosted control planes.</p>
 </div>
@@ -3427,28 +3859,34 @@
 <p>For communication with the control plane, hosted control planes uses a local proxy in every compute node that listens on IP address 172.20.0.1 and forwards traffic to the API server. If an external proxy is required to access the API server, that local proxy needs to use the external proxy to send traffic out. When a proxy is not needed, hosted control planes uses <code>haproxy</code> for the local proxy, which only forwards packets via TCP. When a proxy is needed, hosted control planes uses a custom proxy, <code>control-plane-operator-kubernetes-default-proxy</code>, to send traffic through the external proxy.</p>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="hcp-proxy-mgmt-cluster_hcp-networking"><a class="anchor" href="#hcp-proxy-mgmt-cluster_hcp-networking"></a>Management clusters that need external access</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="hcp-proxy-mgmt-cluster_hcp-networking"><a class="anchor" href="#hcp-proxy-mgmt-cluster_hcp-networking"></a>Management clusters that need external access</h3>
 <div class="paragraph">
 <p>The HyperShift Operator has a controller that monitors the OpenShift global proxy configuration of the management cluster and sets the proxy environment variables on its own deployment. Control plane deployments that need external access are configured with the proxy environment variables of the management cluster.</p>
 </div>
 </div>
-</div>
-<div class="sect1">
-<h2 id="hcp-proxy-addl-network_hcp-networking"><a class="anchor" href="#hcp-proxy-addl-network_hcp-networking"></a>Management cluster that uses a proxy and a hosted cluster with a secondary network and no default pod network</h2>
-<div class="sectionbody">
+<div class="sect2">
+<h3 id="hcp-proxy-addl-network_hcp-networking"><a class="anchor" href="#hcp-proxy-addl-network_hcp-networking"></a>Management cluster that uses a proxy and a hosted cluster with a secondary network and no default pod network</h3>
 <div class="paragraph">
 <p>If a management cluster uses a proxy configuration and you are configuring a hosted cluster with a secondary network but are not attaching the default pod network, add the CIDR of the secondary network to the proxy configuration. Specifically, you need to add the CIDR of the secondary network to the <code>noProxy</code> section of the proxy configuration for the management cluster. Otherwise, the Kubernetes API server will route some API requests through the proxy. In the hosted cluster configuration, the CIDR of the secondary network is automatically added to the <code>noProxy</code> section.</p>
 </div>
 </div>
 </div>
+</div>
 <div class="sect1 _additional-resources">
-<h2 id="additional-resources_hcp-networking"><a class="anchor" href="#additional-resources_hcp-networking"></a>Additional resources</h2>
+<h2 id="additional-resources-hcp-proxy_hcp-networking"><a class="anchor" href="#additional-resources-hcp-proxy_hcp-networking"></a>Additional resources</h2>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
+<li>
+<p><a href="../hosted_control_planes/hcp-troubleshooting.html#hcp-ts-internal-subnets_hcp-troubleshooting">Troubleshooting internal subnets for hosted clusters</a></p>
+</li>
+<li>
+<p><a href="../hosted_control_planes/hcp-deploy/hcp-deploy-bm.html#hcp-bm-hc_hcp-deploy-bm">Creating a hosted cluster by using the CLI</a></p>
+</li>
+<li>
+<p><a href="../networking/ovn_kubernetes_network_provider/about-ovn-kubernetes.html">About the OVN-Kubernetes network plugin</a></p>
+</li>
 <li>
 <p><a href="../networking/configuring_network_settings/enable-cluster-wide-proxy.html#enable-cluster-wide-proxy">Configuring the cluster-wide proxy</a></p>
 </li>
