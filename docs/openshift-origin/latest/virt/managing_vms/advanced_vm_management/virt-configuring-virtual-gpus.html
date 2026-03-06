@@ -2810,11 +2810,9 @@
 <li><a href="#virt-label-nodes-with-mig-backed-profile_virt-configuring-virtual-gpus">Labeling nodes with a MIG-backed vGPU profile</a></li>
 </ul>
 </li>
-<li><a href="#how-vgpus-are-assigned-to-nodes_virt-configuring-virtual-gpus">How vGPUs are assigned to nodes</a></li>
 <li><a href="#managing-mediated-devices_virt-configuring-virtual-gpus">Managing mediated devices</a>
 <ul class="sectlevel2">
 <li><a href="#virt-creating-exposing-mediated-devices_virt-configuring-virtual-gpus">Creating and exposing mediated devices</a></li>
-<li><a href="#about-changing-removing-mediated-devices_virt-configuring-virtual-gpus">About changing and removing mediated devices</a></li>
 <li><a href="#virt-removing-mediated-device-from-cluster-cli_virt-configuring-virtual-gpus">Removing mediated devices from the cluster</a></li>
 </ul>
 </li>
@@ -2828,7 +2826,7 @@
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>If you have graphics processing unit (GPU) cards, OKD Virtualization can automatically create virtual GPUs (vGPUs) that you can assign to virtual machines (VMs).</p>
+<p>Use the NVIDIA GPU operator to create virtual GPUs (vGPUs) and assign them to virtual machines (VMs) in OKD Virtualization.</p>
 </div>
 </div>
 </div>
@@ -2836,10 +2834,7 @@
 <h2 id="virt-about-using-virtual-gpus_virt-configuring-virtual-gpus"><a class="anchor" href="#virt-about-using-virtual-gpus_virt-configuring-virtual-gpus"></a>About using virtual GPUs with OKD Virtualization</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Some graphics processing unit (GPU) cards support the creation of virtual GPUs (vGPUs). OKD Virtualization can automatically create vGPUs and other mediated devices if an administrator provides configuration details in the <code>HyperConverged</code> custom resource (CR).</p>
-</div>
-<div class="paragraph">
-<p>This automation is especially useful for large clusters.</p>
+<p>You can create vGPUs for your VMs using supported GPU cards. You can use the NVIDIA GPU Operator to manage the lifecycle and creation of these vGPUs on the cluster nodes. You must add these devices to the <code>HyperConverged</code> custom resource (CR) so that OKD Virtualization can discover and make them available to virtual machines.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3174,95 +3169,6 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
 </div>
 </div>
 <div class="sect1">
-<h2 id="how-vgpus-are-assigned-to-nodes_virt-configuring-virtual-gpus"><a class="anchor" href="#how-vgpus-are-assigned-to-nodes_virt-configuring-virtual-gpus"></a>How vGPUs are assigned to nodes</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>For each physical device, OKD Virtualization configures the following values:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>A single mdev type.</p>
-</li>
-<li>
-<p>The maximum number of instances of the selected <code>mdev</code> type.</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>The cluster architecture affects how devices are created and assigned to nodes.</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">Large cluster with multiple cards per node</dt>
-<dd>
-<p>On nodes with multiple cards that can support similar vGPU types, the relevant device types are created in a round-robin manner.
-For example:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
-<span class="na">mediatedDevicesConfiguration</span><span class="pi">:</span>
-  <span class="na">mediatedDeviceTypes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">nvidia-222</span>
-  <span class="pi">-</span> <span class="s">nvidia-228</span>
-  <span class="pi">-</span> <span class="s">nvidia-105</span>
-  <span class="pi">-</span> <span class="s">nvidia-108</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>In this scenario, each node has two cards, both of which support the following vGPU types:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="s">nvidia-105</span>
-<span class="c1"># ...</span>
-<span class="s">nvidia-108</span>
-<span class="s">nvidia-217</span>
-<span class="s">nvidia-299</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>On each node, OKD Virtualization creates the following vGPUs:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>16 vGPUs of type nvidia-105 on the first card.</p>
-</li>
-<li>
-<p>2 vGPUs of type nvidia-108 on the second card.</p>
-</li>
-</ul>
-</div>
-</dd>
-<dt class="hdlist1">One node has a single card that supports more than one requested vGPU type</dt>
-<dd>
-<p>OKD Virtualization uses the supported type that comes first on the <code>mediatedDeviceTypes</code> list.</p>
-<div class="paragraph">
-<p>For example, the card on a node card supports <code>nvidia-223</code> and <code>nvidia-224</code>. The following <code>mediatedDeviceTypes</code> list is configured:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
-<span class="na">mediatedDevicesConfiguration</span><span class="pi">:</span>
-  <span class="na">mediatedDeviceTypes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">nvidia-22</span>
-  <span class="pi">-</span> <span class="s">nvidia-223</span>
-  <span class="pi">-</span> <span class="s">nvidia-224</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>In this example, OKD Virtualization uses the <code>nvidia-223</code> type.</p>
-</div>
-</dd>
-</dl>
-</div>
-</div>
-</div>
-<div class="sect1">
 <h2 id="managing-mediated-devices_virt-configuring-virtual-gpus"><a class="anchor" href="#managing-mediated-devices_virt-configuring-virtual-gpus"></a>Managing mediated devices</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -3382,9 +3288,6 @@ nvidia-743  nvidia-745	nvidia-747  nvidia-749	nvidia-751  nvidia-753</span></cod
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Create mediated devices by adding them to the <code>spec.mediatedDevicesConfiguration</code> stanza.</p>
-</li>
-<li>
 <p>Expose the mediated devices to the cluster by adding the <code>mdevNameSelector</code> and <code>resourceName</code> values to the <code>spec.permittedHostDevices.mediatedDevices</code> stanza. The <code>resourceName</code> value is based on the <code>mdevNameSelector</code> value, but you use underscores instead of spaces.</p>
 <div class="paragraph">
 <p>Example <code>HyperConverged</code> CR:</p>
@@ -3397,14 +3300,6 @@ nvidia-743  nvidia-745	nvidia-747  nvidia-749	nvidia-751  nvidia-753</span></cod
   <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt-hyperconverged</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">kubevirt-hyperconverged</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">mediatedDevicesConfiguration</span><span class="pi">:</span>
-    <span class="na">mediatedDeviceTypes</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">nvidia-745</span>
-    <span class="na">nodeMediatedDeviceTypes</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">mediatedDeviceTypes</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">nvidia-746</span>
-      <span class="na">nodeSelector</span><span class="pi">:</span>
-        <span class="s">kubernetes.io/hostname</span><span class="pi">:</span> <span class="s">node-11.redhat.com</span>
   <span class="na">permittedHostDevices</span><span class="pi">:</span>
     <span class="na">mediatedDevices</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">mdevNameSelector</span><span class="pi">:</span> <span class="s">NVIDIA A2-2Q</span>
@@ -3421,22 +3316,6 @@ nvidia-743  nvidia-745	nvidia-747  nvidia-749	nvidia-751  nvidia-753</span></cod
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><code>mediatedDeviceTypes</code></dt>
-<dd>
-<p>Specifies global settings for the cluster and is required.</p>
-</dd>
-<dt class="hdlist1"><code>nodeMediatedDeviceTypes</code></dt>
-<dd>
-<p>Specifies global configuration overrides for a specific node or group of nodes and is optional. Must be used with the global <code>mediatedDeviceTypes</code> configuration.</p>
-</dd>
-<dt class="hdlist1"><code>mediatedDeviceTypes</code></dt>
-<dd>
-<p>Specifies an override to the global <code>mediatedDeviceTypes</code> configuration for the specified nodes. Required if you use <code>nodeMediatedDeviceTypes</code>.</p>
-</dd>
-<dt class="hdlist1"><code>nodeSelector</code></dt>
-<dd>
-<p>Specifies the node selector and must include a <code>key:value</code> pair. Required if you use <code>nodeMediatedDeviceTypes</code>.</p>
-</dd>
 <dt class="hdlist1"><code>mdevNameSelector</code></dt>
 <dd>
 <p>Specifies the mediated devices that map to this value on the host.</p>
@@ -3444,6 +3323,10 @@ nvidia-743  nvidia-745	nvidia-747  nvidia-749	nvidia-751  nvidia-753</span></cod
 <dt class="hdlist1"><code>resourceName</code></dt>
 <dd>
 <p>Specifies the matching resource name that is allocated on the node.</p>
+</dd>
+<dt class="hdlist1"><code>externalResourceProvider</code></dt>
+<dd>
+<p>Specifies that the device is handled by an external provider, such as the NVIDIA GPU Operator.</p>
 </dd>
 </dl>
 </div>
@@ -3474,45 +3357,9 @@ nvidia-743  nvidia-745	nvidia-747  nvidia-749	nvidia-751  nvidia-753</span></cod
 </div>
 </div>
 <div class="sect2">
-<h3 id="about-changing-removing-mediated-devices_virt-configuring-virtual-gpus"><a class="anchor" href="#about-changing-removing-mediated-devices_virt-configuring-virtual-gpus"></a>About changing and removing mediated devices</h3>
-<div class="paragraph _abstract">
-<p>As an administrator, you can change or remove mediated devices by editing the <code>HyperConverged</code> custom resource (CR).</p>
-</div>
-<div class="paragraph">
-<p>You can reconfigure or remove mediated devices in several ways:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Edit the <code>HyperConverged</code> CR and change the contents of the <code>mediatedDeviceTypes</code> stanza.</p>
-</li>
-<li>
-<p>Change the node labels that match the <code>nodeMediatedDeviceTypes</code> node selector.</p>
-</li>
-<li>
-<p>Remove the device information from the <code>spec.mediatedDevicesConfiguration</code> and <code>spec.permittedHostDevices</code> stanzas of the <code>HyperConverged</code> CR.</p>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If you remove the device information from the <code>spec.permittedHostDevices</code> stanza without also removing it from the <code>spec.mediatedDevicesConfiguration</code> stanza, you cannot create a new mediated device type on the same node. To properly remove mediated devices, remove the device information from both stanzas.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect2">
 <h3 id="virt-removing-mediated-device-from-cluster-cli_virt-configuring-virtual-gpus"><a class="anchor" href="#virt-removing-mediated-device-from-cluster-cli_virt-configuring-virtual-gpus"></a>Removing mediated devices from the cluster</h3>
 <div class="paragraph _abstract">
-<p>To remove a mediated device from the cluster, delete the information for that device from the <code>HyperConverged</code> custom resource (CR).</p>
+<p>As a cluster administrator you can remove mediated devices from the cluster so that you can reallocate GPU hardware. To remove a mediated device from the cluster, delete the information for that device from the <code>HyperConverged</code> CR.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3534,7 +3381,7 @@ nvidia-743  nvidia-745	nvidia-747  nvidia-749	nvidia-751  nvidia-753</span></cod
 </div>
 </li>
 <li>
-<p>Remove the device information from the <code>spec.mediatedDevicesConfiguration</code> and <code>spec.permittedHostDevices</code> stanzas of the <code>HyperConverged</code> CR. Removing both entries ensures that you can later create a new mediated device type on the same node. For example:</p>
+<p>Remove the device information from the <code>spec.permittedHostDevices</code> stanza of the <code>HyperConverged</code> CR. For example:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hco.kubevirt.io/v1</span>
@@ -3543,20 +3390,15 @@ nvidia-743  nvidia-745	nvidia-747  nvidia-749	nvidia-751  nvidia-753</span></cod
   <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt-hyperconverged</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">kubevirt-hyperconverged</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">mediatedDevicesConfiguration</span><span class="pi">:</span>
-    <span class="na">mediatedDeviceTypes</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="s">nvidia-231</span>
   <span class="na">permittedHostDevices</span><span class="pi">:</span>
     <span class="na">mediatedDevices</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">mdevNameSelector</span><span class="pi">:</span> <span class="s">GRID T4-2Q</span>
-      <span class="na">resourceName</span><span class="pi">:</span> <span class="s">nvidia.com/GRID_T4-2Q</span></code></pre>
+      <span class="na">resourceName</span><span class="pi">:</span> <span class="s">nvidia.com/GRID_T4-2Q</span>
+      <span class="na">externalResourceProvider</span><span class="pi">:</span> <span class="no">true</span></code></pre>
 </div>
 </div>
 <div class="ulist">
 <ul>
-<li>
-<p>To remove the <code>nvidia-231</code> device type, delete it from the <code>mediatedDeviceTypes</code> array.</p>
-</li>
 <li>
 <p>To remove the <code>GRID T4-2Q</code> device, delete the <code>mdevNameSelector</code> field and its corresponding <code>resourceName</code> field.</p>
 </li>
