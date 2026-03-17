@@ -3651,7 +3651,7 @@
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Configure the <code>SpireServer</code> custom resource on each cluster to enable federation with the <code>https_spiffe</code> profile. The <code>https_spiffe</code> profile uses SPIFFE-based TLS authentication, where SPIRE servers authenticate to each other using their own SVIDs (SPIFFE Verifiable Identity Documents).</p>
+<p>Configure the <code>SpireServer</code> custom resource on each cluster to enable federation with the <code>https_spiffe</code> profile. The <code>https_spiffe</code> profile uses SPIFFE-based TLS authentication, where SPIRE servers authenticate to each other using their own SPIFFE Verifiable Identity Documents (SVIDs).</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1alpha1</span>
@@ -3670,16 +3670,16 @@
 <div class="ulist">
 <ul>
 <li>
-<p>The <code>trustDomain</code> field sets a unique trust domain for each cluster.</p>
+<p>The <code>spec.trustDomain</code> field sets a unique trust domain for each cluster.</p>
 </li>
 <li>
-<p>The <code>profile</code> field uses the <code>https_spiffe</code> profile for SPIFFE-based TLS authentication.</p>
+<p>The <code>spec.federation.bundleEnpoint.profile</code> field uses the <code>https_spiffe</code> profile for SPIFFE-based TLS authentication.</p>
 </li>
 <li>
-<p>The <code>refreshHint</code> field suggests intervals (in seconds) for remote servers to refresh the trust bundle. Range: 60-3600 seconds.</p>
+<p>The <code>spec.federation.bundleEndpoint.refreshHint</code> field suggests intervals (in seconds) for remote servers to refresh the trust bundle. Range: 60-3600 seconds.</p>
 </li>
 <li>
-<p>The <code>managedRoute</code> field enables automatic route creation by the Operator.</p>
+<p>The <code>spec.federation.managedRoute</code> field enables automatic route creation by the Operator.</p>
 </li>
 </ul>
 </div>
@@ -3730,7 +3730,7 @@ spire-server-federation   federation.apps.cluster1.example.com               spi
 </td>
 <td class="content">
 <div class="paragraph">
-<p>For <code>https_spiffe</code> profile, you might need to use <code>-k</code> flag if the certificate is not trusted by your system&#8217;s CA bundle:</p>
+<p>For <code>https_spiffe</code> profile, you might need to use the <code>-k</code> flag if the certificate is not trusted by your system&#8217;s CA bundle:</p>
 </div>
 </td>
 </tr>
@@ -3769,13 +3769,14 @@ spire-server-federation   federation.apps.cluster1.example.com               spi
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">spire.spiffe.io/v1alpha1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterFederatedTrustDomain</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster2-federation</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">federation-to-cluster2</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">trustDomain</span><span class="pi">:</span> <span class="s">cluster2.example.com</span>
-  <span class="na">bundleEndpointURL</span><span class="pi">:</span> <span class="s">https://federation.apps.cluster2.example.com</span>
+  <span class="na">trustDomain</span><span class="pi">:</span> <span class="s">&lt;CLUSTER2_APPS_DOMAIN&gt;</span>
+  <span class="na">bundleEndpointURL</span><span class="pi">:</span> <span class="s">https://federation.&lt;CLUSTER2_APPS_DOMAIN&gt;</span>
   <span class="na">bundleEndpointProfile</span><span class="pi">:</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">https_spiffe</span>
-    <span class="na">endpointSPIFFEID</span><span class="pi">:</span> <span class="s">spiffe://cluster2.example.com/spire/server</span>
+    <span class="na">endpointSPIFFEID</span><span class="pi">:</span> <span class="s">spiffe://&lt;CLUSTER2_APPS_DOMAIN&gt;/spire/server</span>
+  <span class="na">className</span><span class="pi">:</span> <span class="s">zero-trust-workload-identity-manager-spire</span>
   <span class="na">trustDomainBundle</span><span class="pi">:</span> <span class="pi">|</span>
     <span class="s">{</span>
       <span class="s">"keys": [</span>
@@ -3791,15 +3792,28 @@ spire-server-federation   federation.apps.cluster1.example.com               spi
     <span class="s">}</span></code></pre>
 </div>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p>The <code>endpointSPIFFEID</code> field contains the SPIFFE ID of the remote SPIRE server. Required for <code>https_spiffe</code> profile to validate the remote server&#8217;s identity.</p>
-</li>
-<li>
-<p>The <code>trustDomainBundle</code> contains the complete trust bundle JSON that you fetched in the previous step.</p>
-</li>
-</ul>
+<div class="paragraph">
+<p>where</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;CLUSTER2_APPS_DOMAIN&gt;</code></dt>
+<dd>
+<p>Specifies the trust domain of the external cluster you are federating with.</p>
+</dd>
+<dt class="hdlist1"><code>spec.bundleEndpointProfile.endpointSPIFFEID</code></dt>
+<dd>
+<p>Specifies the SPIFFE ID of the remote SPIRE server. Required for <code>https_spiffe</code> profile to validate the remote server&#8217;s identity.</p>
+</dd>
+<dt class="hdlist1"><code>spec.trustDomainBundle</code></dt>
+<dd>
+<p>Specifies the complete trust bundle JSON that you fetched in the previous step.</p>
+</dd>
+<dt class="hdlist1"><code>spec.className</code></dt>
+<dd>
+<p>Specifies the name of a class to watch CRs for. Spire-controller-manager watches the resource only if <code>spec.className</code> is set to <code>zero-trust-workload-identity-manager-spire</code>.</p>
+</dd>
+</dl>
 </div>
 </li>
 </ol>
@@ -3845,7 +3859,7 @@ spire-server-federation   federation.apps.cluster1.example.com               spi
 <div class="ulist">
 <ul>
 <li>
-<p>The <code>federatesWith</code> field lists all remote trust domains this cluster should federate with.</p>
+<p>The <code>spec.federation.federatesWith</code> field lists all remote trust domains this cluster should federate with.</p>
 </li>
 </ul>
 </div>
@@ -3975,25 +3989,25 @@ cluster3-federation   cluster3.example.com   https://federation.apps.cluster3.ex
 <div class="ulist">
 <ul>
 <li>
-<p>The <code>trustDomain</code> field sets a unique trust domain for each cluster (for example, <code>cluster1.example.com</code>, <code>cluster2.example.com</code>).</p>
+<p>The <code>spec.trustDomain</code> field sets a unique trust domain for each cluster (for example, <code>cluster1.example.com</code>, <code>cluster2.example.com</code>).</p>
 </li>
 <li>
-<p>The <code>profile</code> field uses the <code>https_web</code> profile for ACME-based certificate management.</p>
+<p>The <code>spec.federation.bundleEndpoint.profile</code> field uses the <code>https_web</code> profile for ACME-based certificate management.</p>
 </li>
 <li>
-<p>The <code>directoryUrl</code> field contains the Let&#8217;s Encrypt production directory URL. For testing, use: <code><a href="https://acme-staging-v02.api.letsencrypt.org/directory" class="bare">https://acme-staging-v02.api.letsencrypt.org/directory</a></code>.</p>
+<p>The <code>spec.federation.bundleEndpoint.httpsWeb.acme.directoryUrl</code> field contains the Let&#8217;s Encrypt production directory URL. For testing, use: <code><a href="https://acme-staging-v02.api.letsencrypt.org/directory" class="bare">https://acme-staging-v02.api.letsencrypt.org/directory</a></code>.</p>
 </li>
 <li>
-<p>The <code>domainName</code> field is the domain name where your federation endpoint is accessible. This automatically sets to <code>federation.&lt;cluster-apps-domain&gt;</code> if <code>managedRoute</code> is set to "true".</p>
+<p>The <code>spec.federation.bundleEndpoint.httpsWeb.acme.domainName</code> field is the domain name where your federation endpoint is accessible. This automatically sets to <code>federation.&lt;cluster-apps-domain&gt;</code> if <code>managedRoute</code> is set to "true".</p>
 </li>
 <li>
-<p>The <code>email</code> field is your email address for ACME account registration and certificate expiration notifications.</p>
+<p>The <code>spec.federation.bundleEndpoint.httpsWeb.acme.email</code> field is your email address for ACME account registration and certificate expiration notifications.</p>
 </li>
 <li>
-<p>The <code>tosAccepted</code> field accepts the Let&#8217;s Encrypt Terms of Service.</p>
+<p>The <code>spec.federation.bundleEndpoint.httpsWeb.acme.tosAccepted</code> field accepts the Let&#8217;s Encrypt Terms of Service.</p>
 </li>
 <li>
-<p>The <code>managedRoute</code> field enables an automatic route creation by the operator for the federation bundle endpoint.</p>
+<p>The <code>spec.federation.managedRoute</code> field enables an automatic route creation by the operator for the federation bundle endpoint.</p>
 </li>
 </ul>
 </div>
@@ -4082,6 +4096,7 @@ spire-server-federation   federation.apps.cluster1.example.com                  
   <span class="na">bundleEndpointURL</span><span class="pi">:</span> <span class="s">https://federation.apps.cluster2.example.com</span>
   <span class="na">bundleEndpointProfile</span><span class="pi">:</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">https_web</span>
+  <span class="na">className</span><span class="pi">:</span> <span class="s">zero-trust-workload-identity-manager-spire</span>
   <span class="na">trustDomainBundle</span><span class="pi">:</span> <span class="pi">|</span>
     <span class="s">{</span>
       <span class="s">"keys": [...],</span>
@@ -4097,6 +4112,7 @@ spire-server-federation   federation.apps.cluster1.example.com                  
   <span class="na">bundleEndpointURL</span><span class="pi">:</span> <span class="s">https://federation.apps.cluster3.example.com</span>
   <span class="na">bundleEndpointProfile</span><span class="pi">:</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">https_web</span>
+   <span class="na">className</span><span class="pi">:</span> <span class="s">zero-trust-workload-identity-manager-spire</span>
   <span class="na">trustDomainBundle</span><span class="pi">:</span> <span class="pi">|</span>
     <span class="s">{</span>
       <span class="s">"keys": [...],</span>
@@ -4107,7 +4123,10 @@ spire-server-federation   federation.apps.cluster1.example.com                  
 <div class="ulist">
 <ul>
 <li>
-<p>The <code>trustDomainBundle</code> field contains the complete trust bundle JSON that you fetched using <code>curl</code> in step 5.</p>
+<p>The <code>spec.trustDomainBundle</code> field contains the complete trust bundle JSON that you fetched using <code>curl</code> in step 5.</p>
+</li>
+<li>
+<p>The <code>spec.className</code> field contains the name of a class to watch CRs for. Spire-controller-manager watches the resource only if <code>spec.className</code> is set to <code>zero-trust-workload-identity-manager-spire</code>.</p>
 </li>
 </ul>
 </div>
@@ -4152,7 +4171,7 @@ spire-server-federation   federation.apps.cluster1.example.com                  
 <div class="ulist">
 <ul>
 <li>
-<p>The <code>federatesWith</code> field lists all remote trust domains this cluster should federate with.</p>
+<p>The <code>spec.federation.federatesWith</code> field lists all remote trust domains this cluster should federate with.</p>
 </li>
 </ul>
 </div>
@@ -4641,6 +4660,7 @@ spire-server-federation   federation.apps.cluster1.example.com              spir
   <span class="na">bundleEndpointURL</span><span class="pi">:</span> <span class="s">https://federation.apps.cluster1.example.com</span>
   <span class="na">bundleEndpointProfile</span><span class="pi">:</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">https_web</span>
+  <span class="na">className</span><span class="pi">:</span> <span class="s">zero-trust-workload-identity-manager-spire</span>
   <span class="na">trustDomainBundle</span><span class="pi">:</span> <span class="pi">|</span>
     <span class="s">{</span>
       <span class="s">"keys": [</span>
@@ -4664,6 +4684,7 @@ spire-server-federation   federation.apps.cluster1.example.com              spir
   <span class="na">bundleEndpointURL</span><span class="pi">:</span> <span class="s">https://federation.apps.cluster2.example.com</span>
   <span class="na">bundleEndpointProfile</span><span class="pi">:</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">https_web</span>
+  <span class="na">className</span><span class="pi">:</span> <span class="s">zero-trust-workload-identity-manager-spire</span>
   <span class="na">trustDomainBundle</span><span class="pi">:</span> <span class="pi">|</span>
     <span class="s">{</span>
       <span class="s">"keys": [...],</span>
@@ -4675,6 +4696,9 @@ spire-server-federation   federation.apps.cluster1.example.com              spir
 <ul>
 <li>
 <p>The <code>trustDomainBundle</code> field contains the complete trust bundle JSON that you fetched in the previous step.</p>
+</li>
+<li>
+<p>The <code>spec.className</code> field contains the name of a class to watch CRs for. Spire-controller-manager watches the resource only if <code>spec.className</code> is set to <code>zero-trust-workload-identity-manager-spire</code>.</p>
 </li>
 </ul>
 </div>
