@@ -337,6 +337,7 @@
 </ul>
 </li>
 <li><a href="#telco-hub-rds-container_telco-hub">Extracting the telco hub reference design configuration CRs</a></li>
+<li><a href="#using-cluster-compare-telco_hub_telco-hub">Comparing a cluster with the telco hub reference configuration</a></li>
 <li><a href="#hub-cluster-ref-config-crs_telco-hub">Hub cluster reference configuration CRs</a></li>
 <li><a href="#advanced-cluster-management-crs_telco-hub">Advanced Cluster Management reference CRs</a></li>
 <li><a href="#storage-crs_telco-hub">Storage reference CRs</a></li>
@@ -2591,6 +2592,194 @@ The container image has both the required CRs, and the optional CRs, for the tel
 </div>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="using-cluster-compare-telco_hub_telco-hub"><a class="anchor" href="#using-cluster-compare-telco_hub_telco-hub"></a>Comparing a cluster with the telco hub reference configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>After you deploy a telco hub cluster, you can use the <code>cluster-compare</code> plugin to assess the cluster&#8217;s compliance with the telco hub reference design specifications (RDS). The <code>cluster-compare</code> plugin is an OpenShift CLI (<code>oc</code>) plugin. The plugin uses a telco hub reference configuration to validate the cluster with the telco hub custom resources (CRs).</p>
+</div>
+<div class="paragraph">
+<p>The plugin-specific reference configuration for telco hub is packaged in a container image with the telco hub CRs.</p>
+</div>
+<div class="paragraph">
+<p>For further information about the <code>cluster-compare</code> plugin, see "Understanding the cluster-compare plugin".</p>
+</div>
+<div class="paragraph">
+<p>The following example shows how to compare the configuration of a cluster to the telco hub reference configuration by using <code>must-gather</code> data.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When comparing a cluster to the telco hub reference configuration by using <code>must-gather</code> data, you must use the <code>--all-images</code> flag when generating the <code>must-gather</code> data. You must also collect cluster-scoped resource information, as well as Operator and registry configurations. Without this data, the plugin might report false positives.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have credentials to access the <code>registry.redhat.io</code> container image registry.</p>
+</li>
+<li>
+<p>You installed the <code>cluster-compare</code> plugin.</p>
+</li>
+<li>
+<p>You extracted the telco hub reference configuration from the <code>openshift-telco-hub-rds-rhel9</code> container image.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Collect data about your cluster by running the <code>must-gather</code> command with the <code>--all-images</code> flag:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm must-gather <span class="nt">--all-images</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>--all-images</code> flag ensures that the <code>must-gather</code> command collects all the data required by the telco hub reference configuration.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Collect cluster-scoped resource information by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm inspect clusterroles,clusterrolebindings,namespaces,nodes <span class="nt">--dest-dir</span><span class="o">=</span>./cluster-scoped</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Collect Operator and registry configurations by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm inspect imagedigestmirrorset,imagetagmirrorset,catalogsource,clusterserviceversion,customresourcedefinition,operatorhub <span class="nt">--dest-dir</span><span class="o">=</span>./cluster-config</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Compare the collected data to a reference configuration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc cluster-compare <span class="nt">-r</span> &lt;path_to_reference_config&gt;/metadata.yaml <span class="nt">-f</span> <span class="s2">"must-gather*/*/cluster-scoped-resources"</span>,<span class="s2">"must-gather*/*/namespaces"</span>,<span class="s2">"cluster-scoped"</span>,<span class="s2">"cluster-config"</span> <span class="nt">-R</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>-r</code> specifies a path to the <code>metadata.yaml</code> file of the reference configuration. You can specify a local directory or a URI.</p>
+</li>
+<li>
+<p><code>-f</code> specifies the path to the <code>must-gather</code> data directory. You can specify a local directory or a URI. This example restricts the comparison to the relevant cluster configuration directories in the <code>must-gather</code> data, and also the <code>cluster-config</code> and <code>cluster-scoped</code> directories you created.</p>
+</li>
+<li>
+<p><code>-R</code> searches the target directories recursively.</p>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">W0309 13:08:01.564387   29400 compare.go:476] Reference Contains Templates With Types (kind) Not Supported By Cluster: AgentServiceConfig, AppProject, Application, Certificate, ClusterIssuer, ClusterLogForwarder, LocalVolume, ManagedClusterSetBinding, MultiClusterEngine, MultiClusterHub, MultiClusterObservability, ObjectBucketClaim, Placement, PlacementBinding, Policy, StorageCluster
+</span><span class="c">...
+</span><span class="go">
+**********************************
+
+Cluster CR: operator.openshift.io/v1_IngressController_openshift-ingress-operator_default
+Reference File: optional/cert-manager/ingressControllerConfig.yaml
+Diff Output: diff -u -N /tmp/MERGED-3542158379/operator-openshift-io-v1_ingresscontroller_openshift-ingress-operator_default /tmp/LIVE-285048405/operator-openshift-io-v1_ingresscontroller_openshift-ingress-operator_default
+--- /tmp/MERGED-3542158379/operator-openshift-io-v1_ingresscontroller_openshift-ingress-operator_default	2026-03-09 13:09:32.985703558 +0000
++++ /tmp/LIVE-285048405/operator-openshift-io-v1_ingresscontroller_openshift-ingress-operator_default	2026-03-09 13:09:32.985703558 +0000
+@@ -4,5 +4,17 @@
+   name: default
+   namespace: openshift-ingress-operator
+ spec:
+-  defaultCertificate:
+-    name: ingress-wildcard-cert
++  clientTLS:
++    clientCA:
++      name: ""
++    clientCertificatePolicy: ""
++  closedClientConnectionPolicy: Continue
++  httpCompression: {}
++  httpEmptyRequestsPolicy: Respond
++  httpErrorCodePages:
++    name: ""
++  idleConnectionTerminationPolicy: Immediate
++  replicas: 2
++  tuningOptions:
++    reloadInterval: 0s
++  unsupportedConfigOverrides: null
+
+**********************************
+
+Summary
+CRs with diffs: 5/5
+CRs in reference missing from the cluster: 43
+optional-cert-manager:
+  cert-manager-apiserver:
+    Missing CRs:
+    - optional/cert-manager/apiServerCertificate.yaml
+  cert-manager-ingress:
+    Missing CRs:
+    - optional/cert-manager/ingressCertificate.yaml
+
+</span><span class="c">...
+</span><span class="go">
+No CRs are unmatched to reference CRs
+Metadata Hash: 6297bc738df2373467cc6f5acc3a6aa23f3c3d0b0ce2ac23887d7914a6241d92
+No patched CRs
+</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>Cluster CR</code> shows the CR with a difference from the corresponding template.</p>
+</li>
+<li>
+<p><code>Reference File</code> shows the template file that the tool uses in its comparison with the cluster CR. The output in Linux diff format shows the difference between the template and the cluster CR.</p>
+</li>
+<li>
+<p><code>CRs with diffs</code> shows the number of CRs in the comparison with differences from the corresponding templates.</p>
+</li>
+<li>
+<p><code>CRs in reference missing from the cluster</code> shows the number of CRs represented in the reference configuration, but missing from the live cluster.</p>
+</li>
+<li>
+<p><code>Missing CRs</code> shows the list of CRs represented in the reference configuration, but missing from the live cluster.</p>
+</li>
+<li>
+<p><code>No CRs are unmatched to reference CRs</code> indicates that all CRs in the cluster matched to a corresponding template in the reference configuration.</p>
+</li>
+<li>
+<p><code>Metadata Hash</code> shows the metadata hash that identifies the reference configuration.</p>
+</li>
+<li>
+<p><code>No patched CRs</code> indicates that there are no patched CRs in the cluster.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>

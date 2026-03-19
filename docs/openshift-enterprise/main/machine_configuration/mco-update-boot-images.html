@@ -3336,7 +3336,11 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#mco-update-boot-images_machine-configs-configure">About boot image management</a></li>
-<li><a href="#mco-update-boot-images-configuring_machine-configs-configure">Enabling boot image management</a></li>
+<li><a href="#mco-update-boot-images-configuring_machine-configs-configure">Enabling boot image management</a>
+<ul class="sectlevel2">
+<li><a href="#mco-update-boot-images-openstack_machine-configs-configure">Manually updating the boot image on an RHOSP cluster</a></li>
+</ul>
+</li>
 <li><a href="#mco-update-boot-images-disable_machine-configs-configure">Disabling boot image management</a></li>
 </ul>
 </div>
@@ -3955,6 +3959,422 @@
 </div>
 </li>
 </ol>
+</div>
+<div class="sect2">
+<h3 id="mco-update-boot-images-openstack_machine-configs-configure"><a class="anchor" href="#mco-update-boot-images-openstack_machine-configs-configure"></a>Manually updating the boot image on an RHOSP cluster</h3>
+<div class="paragraph _abstract">
+<p>For a Red&#160;Hat OpenStack Platform (RHOSP) cluster, you can manually update the boot image for your cluster by configuring your machine sets to use the latest OpenShift Container Platform image as the boot image to help ensure any new nodes can scale up properly.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The standard boot image management feature is not supported for RHOSP clusters.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following procedure, which includes steps to create environment variables that facilitate running the required commands, shows how to obtain RHOSP authentication credentials, download a boot image, upload that image to the RHOSP image service (Glance), and modify your worker machine sets to use the new boot image.</p>
+</div>
+<div class="paragraph">
+<p>This procedure requires the <code>clouds.yaml</code> file, which is needed by the OpenStackClient CLI to connect to your RHOSP cloud. If you need to re-create this file, you can get the RHOSP credentials from an OpenShift Container Platform secret, the name of which you can find in the default compute machine set. You can decrypt this secret and export the credentials to create the <code>clouds.yaml</code> file, as described in the following procedure.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Updating control plane machine sets is not supported in RHOSP.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have completed the general boot image prerequisites as described in the Prerequisites section of <a href="https://access.redhat.com/articles/7053165#prerequisites-2">OpenShift Container Platform Boot Image Updates</a>.</p>
+</li>
+<li>
+<p>You have downloaded the latest version of the OpenShift Container Platform installation program, openshift-install, from the <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>. For more information, see "Obtaining the installation program."</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>) installed.</p>
+</li>
+<li>
+<p>You have installed the <a href="https://docs.openstack.org/python-openstackclient/latest/">OpenStackClient (RHCOS documentation)</a>.</p>
+</li>
+<li>
+<p>You have installed the <a href="https://stedolan.github.io/jq/"><code>jq</code></a> program.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>If you need to re-create the <code>clouds.yaml</code> file, perform the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of the secret that contains your credentials by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> yaml | <span class="nb">grep </span>cloudsSecret <span class="nt">-A</span> 1</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">cloudsSecret:
+  name: openstack-cloud-credentials</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Decrypt the secret and add the contents to the <code>clouds.yaml</code> file by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secret &lt;secret_name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.clouds\.yaml}'</span> | <span class="nb">base64</span> <span class="nt">-d</span> <span class="o">&gt;</span> &lt;file_path&gt;/clouds.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;secret_name&gt;</code> with the name of the secret, which you obtained in the previous step, and <code>&lt;file_path&gt;</code> with the path to the <code>clouds.yaml</code> file.</p>
+</div>
+</li>
+<li>
+<p>Optional: Verify the contents of the <code>clouds.yaml</code> file by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> &lt;file_path&gt;/clouds.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;file_path&gt;</code> with the path to the <code>clouds.yaml</code> file.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">clouds:
+  openstack:
+    auth:
+      auth_url: https://your-openstack-url:13000
+      username: "your-username"
+      password: "your-password"
+      project_name: "your-project"
+      user_domain_name: "Default"
+      project_domain_name: "Default"</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Set an environment variable for the location of the <code>clouds.yaml</code> file by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">OS_CLIENT_CONFIG_FILE</span><span class="o">=</span>&lt;file_path&gt;/clouds.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;file_path&gt;</code> with the path to the <code>clouds.yaml</code> file.</p>
+</div>
+<div class="paragraph">
+<p>The OpenStackClient CLI uses this environment variable to locate the <code>clouds.yaml</code> file.</p>
+</div>
+</li>
+<li>
+<p>Obtain the name of your RHOSP cloud from the default compute machine set and set the name in an environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">CLOUD_NAME</span><span class="o">=</span><span class="si">$(</span>oc get machineset <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].spec.template.spec.providerSpec.value.cloudName}'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Obtain the URL of the RHCOS image you want to use as the boot image and set the location in an environment variable by running one of the following commands, based on cluster architecture:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Linux (x86_64, amd64):</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">RHCOS_URL</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="se">\</span>
+  <span class="s1">'.architectures.x86_64.artifacts.openstack.formats."qcow2.gz".disk.location'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Linux on IBM Z&#174; and IBM&#174; LinuxONE (s390x):</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">RHCOS_URL</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="se">\</span>
+  <span class="s1">'.architectures.s390x.artifacts.openstack.formats."qcow2.gz".disk.location'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Linux on ARM (aarch64, arm64)</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">RHCOS_URL</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="se">\</span>
+  <span class="s1">'.architectures.aarch64.artifacts.openstack.formats."qcow2.gz".disk.location'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Obtain the boot image and upload the image to the RHOSP image service (Glance):</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Download the image by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-L</span> <span class="nt">-o</span> /tmp/rhcos-new.qcow2.gz <span class="s2">"</span><span class="k">${</span><span class="nv">RHCOS_URL</span><span class="k">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>RHCOS_URL</code> is the URL environment variables you created in a previous step.</p>
+</div>
+</li>
+<li>
+<p>Decompress the downloaded image by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">gunzip</span> &lt;file_path&gt;/rhcos-new.qcow2.gz</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;file_path&gt;</code> with the path to the location for the image.</p>
+</div>
+</li>
+<li>
+<p>Set an environment variable to create a descriptive name for your boot image in Glance by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">IMAGE_NAME</span><span class="o">=</span><span class="s2">"&lt;descriptive_image_name&gt;"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Setting a descriptive name for your boot image, such as using the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) version number in the image name, makes it easier to track which version is currently deployed if you update the cluster in the future.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">IMAGE_NAME</span><span class="o">=</span><span class="s2">"rhcos 9.6 boot image"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Upload the image to Glance by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openstack <span class="nt">--os-cloud</span> <span class="s2">"</span><span class="k">${</span><span class="nv">CLOUD_NAME</span><span class="k">}</span><span class="s2">"</span> image create <span class="s2">"</span><span class="k">${</span><span class="nv">IMAGE_NAME</span><span class="k">}</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--disk-format</span> qcow2 <span class="se">\</span>
+  <span class="nt">--container-format</span> bare <span class="se">\</span>
+  <span class="nt">--file</span> &lt;file_path&gt;/rhcos-new.qcow2 <span class="se">\</span>
+  <span class="nt">--property</span> <span class="nv">os_type</span><span class="o">=</span>linux <span class="se">\</span>
+  <span class="nt">--property</span> <span class="nv">os_distro</span><span class="o">=</span>rhcos</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;file_path&gt;</code> with the path to the location for the image.</p>
+</div>
+<div class="paragraph">
+<p><code>CLOUD_NAME</code> and <code>IMAGE_NAME</code> are environment variables you created in previous steps.</p>
+</div>
+<div class="paragraph">
+<p>It might take several minutes for the image to upload. When the upload is complete, details on the image displays, similar to the following example:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">+------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Field            | Value                                                                                                                                                                               |
++------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| checksum         | 469fa549f706617ff15b41bd2a919679                                                                                                                                                    |
+</span><span class="gp">#</span><span class="w"> </span>...                                                                                                                                                         |
+<span class="go">| disk_format      | qcow2                                                                                                                                                                               |
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">| name             | rhcos 9.6 boot image</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: Verify that the image has uploaded and is in active state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openstack <span class="nt">--os-cloud</span> <span class="s2">"</span><span class="k">${</span><span class="nv">CLOUD_NAME</span><span class="k">}</span><span class="s2">"</span> image show <span class="s2">"</span><span class="k">${</span><span class="nv">IMAGE_NAME</span><span class="k">}</span><span class="s2">"</span> <span class="nt">-f</span> json | jq <span class="s1">'{name: .name, status: .status}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+  "name": "rhcos 9.6 boot image",
+  "status": "active"
+}</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Update each of your compute machine sets to include the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of your machine sets for use in the following step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                 DESIRED   CURRENT   READY   AVAILABLE   AGE
+rhhdrbk-b5564-4pcm9-worker-0         3         3         3       3           123m
+ci-ln-xj96skb-72292-48nm5-worker-d   1         1         1       1           27m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit a machine set to update the <code>image</code> field in the <code>providerSpec</code> stanza to add your boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">--type</span> merge <span class="nt">-p</span> <span class="se">\</span>
+  <span class="s1">'{"spec":{"template":{"spec":{"providerSpec":{"value":{"image":"'</span><span class="k">${</span><span class="nv">IMAGE_NAME</span><span class="k">}</span><span class="s1">'"}}}}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;machineset_name&gt;</code> with the name of your machine set.</p>
+</div>
+<div class="paragraph">
+<p><code>IMAGE_NAME</code> is the environment variable you created in a previous step.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Scale up a machine set to check that the new node is using the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Increase the machine set replicas by one to trigger a new machine by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc scale <span class="nt">--replicas</span><span class="o">=</span>&lt;count&gt; machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;count&gt;</code></dt>
+<dd>
+<p>Specifies the total number of replicas, including any existing replicas, that you want for this machine set.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;machineset_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the machine set to scale.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Optional: View the status of the machine set as it provisions by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines.machine.openshift.io <span class="nt">-n</span> openshift-machine-api <span class="nt">-w</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It can take several minutes for the machine set to achieve the <code>Running</code> state.</p>
+</div>
+</li>
+<li>
+<p>Verify that the new node has been created and is in the <code>Ready</code> state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the new node is using the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;new_node&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">cat</span> /sysroot/.coreos-aleph-version.json</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;new_node&gt;</code> with the name of your new node.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">    "ref": "docker://ostree-image-signed:oci-archive:/rhcos-9.6.20251212-1-ostree.x86_64.ociarchive",
+    "version": "9.6.20251212-1"
+}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>version</code></dt>
+<dd>
+<p>Specifies the boot image version.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>After you migrate all machine sets to the new boot image, you can remove the old boot image from Glance.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../installing/installing_aws/ipi/ipi-aws-preparing-to-install.html#installation-obtaining-installer_ipi-aws-preparing-to-install">Obtaining the installation program</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
