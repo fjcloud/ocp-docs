@@ -3335,45 +3335,107 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#prerequisites">Prerequisites</a></li>
-<li><a href="#machine-health-checks-pausing_updating-cluster-cli">Pausing a MachineHealthCheck resource</a></li>
 <li><a href="#update-single-node-openshift_updating-cluster-cli">About updating single node OpenShift Container Platform</a></li>
+<li><a href="#updating-cli-prereqs_updating-cluster-cli">Prerequisites for a cluster update</a></li>
+<li><a href="#machine-health-checks-pausing_updating-cluster-cli">Pausing a MachineHealthCheck resource</a></li>
 <li><a href="#update-upgrading-cli_updating-cluster-cli">Updating a cluster by using the CLI</a></li>
 <li><a href="#update-upgrading-oc-adm-upgrade-status_updating-cluster-cli">Cluster update status using oc adm upgrade status</a></li>
 <li><a href="#update-changing-update-server-cli_updating-cluster-cli">Changing the update server by using the CLI</a></li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can perform minor version and patch updates on an OpenShift Container Platform cluster by using the OpenShift CLI (<code>oc</code>).</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="prerequisites"><a class="anchor" href="#prerequisites"></a>Prerequisites</h2>
+<h2 id="update-single-node-openshift_updating-cluster-cli"><a class="anchor" href="#update-single-node-openshift_updating-cluster-cli"></a>About updating single node OpenShift Container Platform</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can update a single-node OpenShift Container Platform cluster by using either the console or CLI.</p>
+</div>
+<div class="paragraph">
+<p>However, note the following limitations:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The prerequisite to pause the <code>MachineHealthCheck</code> resources is not required because there is no other node to perform the health check.</p>
+</li>
+<li>
+<p>Restoring a single-node OpenShift Container Platform cluster using an etcd backup is not officially supported. However, it is good practice to perform the etcd backup in case your update fails. If your control plane is healthy, you might be able to restore your cluster to a previous state by using the backup.</p>
+</li>
+<li>
+<p>Updating a single-node OpenShift Container Platform cluster requires downtime and can include an automatic reboot. The amount of downtime depends on the update payload, as described in the following scenarios:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If the update payload contains an operating system update, which requires a reboot, the downtime is significant and impacts cluster management and user workloads.</p>
+</li>
+<li>
+<p>If the update contains machine configuration changes that do not require a reboot, the downtime is less, and the impact on the cluster management and user workloads is lessened. In this case, the node draining step is skipped with single-node OpenShift Container Platform because there is no other node in the cluster to reschedule the workloads to.</p>
+</li>
+<li>
+<p>If the update payload does not contain an operating system update or machine configuration changes, a short API outage occurs and resolves quickly.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>There are conditions, such as bugs in an updated package, that can cause the single node to not restart after a reboot. In this case, the update does not rollback automatically.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../architecture/control-plane.html#about-machine-config-operator_control-plane">About the Machine Config Operator</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="updating-cli-prereqs_updating-cluster-cli"><a class="anchor" href="#updating-cli-prereqs_updating-cluster-cli"></a>Prerequisites for a cluster update</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You must satisfy the following prerequisites before updating a cluster using the CLI.</p>
+</div>
 <div class="ulist">
 <ul>
 <li>
 <p>Have access to the cluster as a user with <code>admin</code> privileges.
-See <a href="../../authentication/using-rbac.html#using-rbac">Using RBAC to define and apply permissions</a>.</p>
+See "Using RBAC to define and apply permissions" for more information.</p>
 </li>
 <li>
-<p>Have a recent <a href="../../backup_and_restore/control_plane_backup_and_restore/backing-up-etcd.html#backup-etcd">etcd backup</a> in case your update fails and you must restore your cluster to a previous state.</p>
+<p>Have a recent etcd backup in case your update fails and you must restore your cluster to a previous state.</p>
 </li>
 <li>
-<p>Have a recent <a href="../../backup_and_restore/application_backup_and_restore/installing/oadp-backup-restore-csi-snapshots.html">Container Storage Interface (CSI) volume snapshot</a> in case you need to restore persistent volumes due to a pod failure.</p>
+<p>Have a recent Container Storage Interface (CSI) volume snapshot in case you need to restore persistent volumes due to a pod failure.</p>
 </li>
 <li>
 <p>Your RHEL7 workers are replaced with RHEL8 or RHCOS workers. Red&#160;Hat does not support in-place RHEL7 to RHEL8 updates for RHEL workers; those hosts must be replaced with a clean operating system install.</p>
 </li>
 <li>
-<p>You have updated all Operators previously installed through Operator Lifecycle Manager (OLM) to a version that is compatible with your target release. Updating the Operators ensures they have a valid update path when the default software catalogs switch from the current minor version to the next during a cluster update. See <a href="../../operators/admin/olm-upgrading-operators.html#olm-upgrading-operators">Updating installed Operators</a> for more information on how to check compatibility and, if necessary, update the installed Operators.</p>
+<p>You have updated all Operators previously installed through Operator Lifecycle Manager (OLM) to a version that is compatible with your target release. Updating the Operators ensures they have a valid update path when the default software catalogs switch from the current minor version to the next during a cluster update. See "Updating installed Operators" for more information on how to check compatibility and, if necessary, update the installed Operators.</p>
 </li>
 <li>
 <p>Ensure that all machine config pools (MCPs) are running and not paused. Nodes associated with a paused MCP are skipped during the update process. You can pause the MCPs if you are performing a canary rollout update strategy.</p>
 </li>
 <li>
-<p>If your cluster uses manually maintained credentials, update the cloud provider resources for the new release. For more information, including how to determine if this is a requirement for your cluster, see <a href="../../updating/preparing_for_updates/preparing-manual-creds-update.html#preparing-manual-creds-update">Preparing to update a cluster with manually maintained credentials</a>.</p>
+<p>If your cluster uses manually maintained credentials, update the cloud provider resources for the new release. For more information, including how to determine if this is a requirement for your cluster, see "Preparing to update a cluster with manually maintained credentials".</p>
 </li>
 <li>
 <p>Ensure that you address all <code>Upgradeable=False</code> conditions so the cluster allows an update to the next minor version. An alert displays at the top of the <strong>Cluster Settings</strong> page when you have one or more cluster Operators that cannot be updated. You can still update to the next available patch update for the minor release you are currently on.</p>
@@ -3410,6 +3472,21 @@ See <a href="../../authentication/using-rbac.html#using-rbac">Using RBAC to defi
 <li>
 <p><a href="../../architecture/architecture-installation.html#unmanaged-operators_architecture-installation">Support policy for unmanaged Operators</a></p>
 </li>
+<li>
+<p><a href="../../authentication/using-rbac.html#using-rbac">Using RBAC to define and apply permissions</a></p>
+</li>
+<li>
+<p><a href="../../backup_and_restore/control_plane_backup_and_restore/backing-up-etcd.html#backup-etcd">Backing up etcd</a></p>
+</li>
+<li>
+<p><a href="../../backup_and_restore/application_backup_and_restore/installing/oadp-backup-restore-csi-snapshots.html#oadp-1-3-backing-csi-snapshots_oadp-backup-restore-csi-snapshots">Backing up persistent volumes with CSI snapshots</a></p>
+</li>
+<li>
+<p><a href="../../operators/admin/olm-upgrading-operators.html#olm-upgrading-operators">Updating installed Operators</a></p>
+</li>
+<li>
+<p><a href="../../updating/preparing_for_updates/preparing-manual-creds-update.html#preparing-manual-creds-update">Preparing to update a cluster with manually maintained credentials</a></p>
+</li>
 </ul>
 </div>
 </div>
@@ -3417,8 +3494,8 @@ See <a href="../../authentication/using-rbac.html#using-rbac">Using RBAC to defi
 <div class="sect1">
 <h2 id="machine-health-checks-pausing_updating-cluster-cli"><a class="anchor" href="#machine-health-checks-pausing_updating-cluster-cli"></a>Pausing a MachineHealthCheck resource</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>During the update process, nodes in the cluster might become temporarily unavailable. In the case of worker nodes, the <code>MachineHealthCheck</code> resources might identify such nodes as unhealthy and reboot them. To avoid rebooting such nodes, pause all the <code>MachineHealthCheck</code> resources before updating the cluster.</p>
+<div class="paragraph _abstract">
+<p>During the update process, nodes in the cluster might become temporarily unavailable. For worker nodes, the <code>MachineHealthCheck</code> resources might identify such nodes as unhealthy and reboot them. To avoid rebooting worker nodes, you must pause all the <code>MachineHealthCheck</code> resources before updating the cluster.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3438,7 +3515,7 @@ See <a href="../../authentication/using-rbac.html#using-rbac">Using RBAC to defi
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Install the OpenShift CLI (<code>oc</code>).</p>
+<p>You installed the OpenShift CLI (<code>oc</code>).</p>
 </li>
 </ul>
 </div>
@@ -3446,7 +3523,7 @@ See <a href="../../authentication/using-rbac.html#using-rbac">Using RBAC to defi
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>To list all the available <code>MachineHealthCheck</code> resources that you want to pause, run the following command:</p>
+<p>List all of the available <code>MachineHealthCheck</code> resources that you want to pause by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machinehealthcheck <span class="nt">-n</span> openshift-machine-api</code></pre>
@@ -3454,10 +3531,10 @@ See <a href="../../authentication/using-rbac.html#using-rbac">Using RBAC to defi
 </div>
 </li>
 <li>
-<p>To pause the machine health checks, add the <code>cluster.x-k8s.io/paused=""</code> annotation to the <code>MachineHealthCheck</code> resource. Run the following command:</p>
+<p>For each <code>MachineHealthCheck</code> resource, pause the machine health check by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-machine-api annotate mhc &lt;mhc-name&gt; cluster.x-k8s.io/paused<span class="o">=</span><span class="s2">""</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-machine-api annotate mhc &lt;mhc_name&gt; cluster.x-k8s.io/paused<span class="o">=</span><span class="s2">""</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3514,68 +3591,9 @@ See <a href="../../authentication/using-rbac.html#using-rbac">Using RBAC to defi
 </div>
 </div>
 <div class="sect1">
-<h2 id="update-single-node-openshift_updating-cluster-cli"><a class="anchor" href="#update-single-node-openshift_updating-cluster-cli"></a>About updating single node OpenShift Container Platform</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>You can update, or upgrade, a single-node OpenShift Container Platform cluster by using either the console or CLI.</p>
-</div>
-<div class="paragraph">
-<p>However, note the following limitations:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>The prerequisite to pause the <code>MachineHealthCheck</code> resources is not required because there is no other node to perform the health check.</p>
-</li>
-<li>
-<p>Restoring a single-node OpenShift Container Platform cluster using an etcd backup is not officially supported. However, it is good practice to perform the etcd backup in case your update fails. If your control plane is healthy, you might be able to restore your cluster to a previous state by using the backup.</p>
-</li>
-<li>
-<p>Updating a single-node OpenShift Container Platform cluster requires downtime and can include an automatic reboot. The amount of downtime depends on the update payload, as described in the following scenarios:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>If the update payload contains an operating system update, which requires a reboot, the downtime is significant and impacts cluster management and user workloads.</p>
-</li>
-<li>
-<p>If the update contains machine configuration changes that do not require a reboot, the downtime is less, and the impact on the cluster management and user workloads is lessened. In this case, the node draining step is skipped with single-node OpenShift Container Platform because there is no other node in the cluster to reschedule the workloads to.</p>
-</li>
-<li>
-<p>If the update payload does not contain an operating system update or machine configuration changes, a short API outage occurs and resolves quickly.</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>There are conditions, such as bugs in an updated package, that can cause the single node to not restart after a reboot. In this case, the update does not rollback automatically.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p>For information on which machine configuration changes require a reboot, see the note in <a href="../../architecture/control-plane.html#about-machine-config-operator_control-plane">About the Machine Config Operator</a>.</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
 <h2 id="update-upgrading-cli_updating-cluster-cli"><a class="anchor" href="#update-upgrading-cli_updating-cluster-cli"></a>Updating a cluster by using the CLI</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can use the OpenShift CLI (<code>oc</code>) to review and request cluster updates.</p>
 </div>
 <div class="paragraph">
@@ -3587,13 +3605,13 @@ of the Customer Portal.</p>
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Install the OpenShift CLI (<code>oc</code>) that matches the version for your updated version.</p>
+<p>You installed the OpenShift CLI (<code>oc</code>) that matches the version for your updated version.</p>
 </li>
 <li>
-<p>Log in to the cluster as user with <code>cluster-admin</code> privileges.</p>
+<p>You are logged in to the cluster as user with <code>cluster-admin</code> privileges.</p>
 </li>
 <li>
-<p>Pause all <code>MachineHealthCheck</code> resources.</p>
+<p>You have paused all <code>MachineHealthCheck</code> resources.</p>
 </li>
 </ul>
 </div>
@@ -3601,8 +3619,7 @@ of the Customer Portal.</p>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>View the available updates and note the version number of the update that
-you want to apply:</p>
+<p>View the available updates and note the version number of the update that you want to apply by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade recommend</code></pre>
@@ -3639,7 +3656,7 @@ And 2 older 4.16 updates you can see with '--show-outdated-releases' or '--versi
 <p>You can use the <code>--version</code> flag to determine whether a specific version is recommended for your update. If there are no recommended updates, updates that have known issues might still be available.</p>
 </li>
 <li>
-<p>For details and information on how to perform a <code>Control Plane Only</code> update, please refer to the <em>Preparing to perform a Control Plane Only update</em> page, listed in the Additional resources section.</p>
+<p>For details and information on how to perform a <em>Control Plane Only</em> update, see "Performing a Control Plane Only update".</p>
 </li>
 </ul>
 </div>
@@ -3649,16 +3666,14 @@ And 2 older 4.16 updates you can see with '--show-outdated-releases' or '--versi
 </div>
 </li>
 <li>
-<p>Based on your organization requirements, set the appropriate update channel. For example, you can set your channel to <code>stable-4.13</code> or <code>fast-4.13</code>. For more information about channels, refer to <em>Understanding update channels and releases</em> listed in the Additional resources section.</p>
+<p>Based on your organization requirements, set the appropriate update channel by running the following command. For example, you can set your channel to <code>stable-4.13</code> or <code>fast-4.13</code>. For more information about channels, see "Understanding update channels and releases".</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade channel &lt;channel&gt;</code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p>For example, to set the channel to <code>stable-Branch Build</code>:</p>
-</div>
 <div class="listingblock">
+<div class="title">Example command</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade channel stable-Branch Build</code></pre>
 </div>
@@ -3686,7 +3701,7 @@ And 2 older 4.16 updates you can see with '--show-outdated-releases' or '--versi
 <td class="content">
 <div class="paragraph">
 <p>When you are ready to move to the next minor version, choose the channel that corresponds to that minor version.
-The sooner the update channel is declared, the more effectively the cluster can recommend update paths to your target version.
+The sooner you declare the update channel, the more effectively the cluster can recommend update paths to your target version.
 The cluster might take some time to evaluate all the possible updates that are available and offer the best update recommendations to choose from.
 Update recommendations can change over time, as they are based on what update options are available at the time.</p>
 </div>
@@ -3703,7 +3718,7 @@ Update recommendations can change over time, as they are based on what update op
 <div class="ulist">
 <ul>
 <li>
-<p>To update to the latest version:</p>
+<p>To update to the latest version, run the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade <span class="nt">--to-latest</span><span class="o">=</span><span class="nb">true</span></code></pre>
@@ -3711,20 +3726,14 @@ Update recommendations can change over time, as they are based on what update op
 </div>
 </li>
 <li>
-<p>To update to a specific version:</p>
+<p>To update to a specific version, run the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade <span class="nt">--to</span><span class="o">=</span>&lt;version&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade <span class="nt">--to</span><span class="o">=</span>&lt;version&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>&lt;version&gt;</code> is the update version that you obtained from the output of the
-<code>oc adm upgrade recommend</code> command.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>Replace <code>&lt;version&gt;</code> with the update version that you obtained from the output of the <code>oc adm upgrade recommend</code> command.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3734,7 +3743,7 @@ Update recommendations can change over time, as they are based on what update op
 </td>
 <td class="content">
 <div class="paragraph">
-<p>When using <code>oc adm upgrade --help</code>, there is a listed option for <code>--force</code>. This is <em>heavily discouraged</em>, because using the <code>--force</code> option bypasses cluster-side guards, including release verification and precondition checks. Using <code>--force</code> does not guarantee a successful update. Bypassing guards puts the cluster at risk.</p>
+<p>When using the <code>oc adm upgrade --help</code> command, there is a listed option for the <code>--force</code> flag. This is <em>heavily discouraged</em>, because using the <code>--force</code> option bypasses cluster-side guards, including release verification and precondition checks. Using the <code>--force</code> flag does not guarantee a successful update. Bypassing guards puts the cluster at risk.</p>
 </div>
 </td>
 </tr>
@@ -3775,8 +3784,8 @@ Update recommendations can change over time, as they are based on what update op
 </div>
 </li>
 <li>
-<p>After the update completes, you can confirm that the cluster version has
-updated to the new version:</p>
+<p>After the update completes, confirm that the cluster version has
+updated to the new version by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm upgrade</code></pre>
@@ -3795,7 +3804,7 @@ No updates available. You may force an update to a specific release image, but d
 </div>
 </li>
 <li>
-<p>If you are updating your cluster to the next minor version, such as version X.y to X.(y+1), it is recommended to confirm that your nodes are updated before deploying workloads that rely on a new feature:</p>
+<p>If you are updating your cluster to the next minor version, such as version X.y to X.(y+1), confirm that your nodes are updated before deploying workloads that rely on a new feature. Run the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
@@ -3816,38 +3825,52 @@ ip-10-0-250-100.ec2.internal   Ready    worker   69m   v1.34.2</span></code></pr
 </li>
 </ol>
 </div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../updating/updating_a_cluster/control-plane-only-update.html#control-plane-only-update">Performing a Control Plane Only update</a></p>
+</li>
+<li>
+<p><a href="../../updating/understanding_updates/understanding-update-channels-release.html#understanding-update-channels-releases">Understanding update channels and releases</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="update-upgrading-oc-adm-upgrade-status_updating-cluster-cli"><a class="anchor" href="#update-upgrading-oc-adm-upgrade-status_updating-cluster-cli"></a>Cluster update status using oc adm upgrade status</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>When updating your cluster, the <code>oc adm upgrade</code> command returns limited information about the status of your update. The cluster administrator can use the <code>oc adm upgrade status</code> command to decouple status information from the <code>oc adm upgrade</code> command and return specific information regarding a cluster update, including the status of the control plane and worker node updates. Worker is also known as compute.</p>
+<div class="paragraph _abstract">
+<p>When updating your cluster, the <code>oc adm upgrade</code> command returns limited information about the status of your update. The cluster administrator can use the <code>oc adm upgrade status</code> command to return specific information regarding a cluster update, including the status of the control plane and worker node updates. Worker is also known as compute.</p>
 </div>
 <div class="paragraph">
 <p>The <code>oc adm upgrade status</code> command is read-only and does not alter any state in your cluster.</p>
 </div>
 <div class="paragraph">
-<p>The <code>oc adm upgrade status</code> command can be used for clusters from version 4.12 up to the latest supported release.</p>
+<p>The <code>oc adm upgrade status</code> command can be used for clusters on versions 4.12 or later.</p>
 </div>
 <div class="paragraph">
 <p>The <code>oc adm upgrade status</code> command will output three sections, control plane update, worker nodes update, and health insights.</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><strong>Control Plane Update</strong>: Displays details about the updating cluster control plane, contains a high-level assessment, completion status, duration estimate, or cluster operator health. The section also shows a table with control plane node update information.</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Control Plane Update</dt>
+<dd>
+<p>Displays details about the updating cluster control plane, contains a high-level assessment, completion status, duration estimate, or cluster Operator health. The section also shows a table with control plane node update information.</p>
 <div class="paragraph">
-<p>The control plane update section can also show an additional table that lists cluster operators being updated if the <code>--details=operators</code> or <code>--details-all</code> flags are used. Please note that due the asynchronous distributed nature of OpenShift Container Platform, an operator may appear in this section more than once during the update, or not at all. The section is only shown when a Cluster Operator is observed to be updating. It is normal during an update to observe no updating Cluster Operator at certain periods; not every performed action can be assigned to an observable updating Cluster Operator.</p>
+<p>The control plane update section can also show an additional table that lists cluster Operators being updated if the <code>--details=operators</code> or <code>--details-all</code> flags are used. Please note that due the asynchronous distributed nature of OpenShift Container Platform, an operator may appear in this section more than once during the update, or not at all. The section is only shown when a cluster Operator is observed to be updating. It is normal during an update to observe no updating cluster Operator at certain periods; not every performed action can be assigned to an observable updating cluster Operator.</p>
 </div>
-</li>
-<li>
-<p><strong>Worker Notes Update</strong>: Displays the worker node update information. The worker nodes section starts with a table that displays a summary of information about each worker pool configured in the cluster. Each non-empty worker pool output will show a dedicated table listing update information about nodes that belong to that pool. If a cluster does not have any worker nodes the output will not contain the worker node section. You can make the node tables show all lines by using <code>--details=nodes</code> or <code>--details=all</code>.</p>
-</li>
-<li>
-<p><strong>Health Insights</strong>: displays insights about states and events present in the cluster that may be relevant for the ongoing update. You can use <code>--details=health</code> to expand the items in this section into a more verbose form with more content such as documentation links, longer form descriptions, or cluster resources involved in the insight.</p>
-</li>
-</ul>
+</dd>
+<dt class="hdlist1">Worker Notes Update</dt>
+<dd>
+<p>Displays the worker node update information. The worker nodes section starts with a table that displays a summary of information about each worker pool configured in the cluster. Each non-empty worker pool output will show a dedicated table listing update information about nodes that belong to that pool. If a cluster does not have any worker nodes, the output will not contain the worker node section. You can make the node tables show all lines by using the <code>--details=nodes</code> or <code>--details=all</code> flags.</p>
+</dd>
+<dt class="hdlist1">Health Insights</dt>
+<dd>
+<p>Displays insights about states and events present in the cluster that may be relevant for the ongoing update. You can use the <code>--details=health</code> flag to expand the items in this section into a more verbose form with more content such as documentation links, longer form descriptions, or cluster resources involved in the insight.</p>
+</dd>
+</dl>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3904,30 +3927,14 @@ SINCE   LEVEL   IMPACT   MESSAGE
 54m4s   Info    None     Update is proceeding well</span></code></pre>
 </div>
 </div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="../../updating/updating_a_cluster/control-plane-only-update.html#control-plane-only-update">Performing a Control Plane Only update</a></p>
-</li>
-<li>
-<p><a href="../../updating/understanding_updates/understanding-update-channels-release.html#understanding-update-channels-releases">Understanding update channels and releases</a></p>
-</li>
-</ul>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="../../updating/understanding_updates/understanding-update-channels-release.html#understanding-update-channels-releases">Understanding update channels and releases</a></p>
-</li>
-</ul>
-</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="update-changing-update-server-cli_updating-cluster-cli"><a class="anchor" href="#update-changing-update-server-cli_updating-cluster-cli"></a>Changing the update server by using the CLI</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can change the update server your cluster uses to retrieve information about update paths.</p>
+</div>
 <div class="paragraph">
 <p>Changing the update server is optional. If you have an OpenShift Update Service (OSUS) installed and configured locally, you must set the URL for the server as the <code>upstream</code> to use the local server during updates. The default value for <code>upstream</code> is <code>https://api.openshift.com/api/upgrades_info/v1/graph</code>.</p>
 </div>
@@ -3935,14 +3942,14 @@ SINCE   LEVEL   IMPACT   MESSAGE
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>Change the <code>upstream</code> parameter value in the cluster version:</p>
+<p>Change the <code>upstream</code> parameter value in the cluster version by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch clusterversion/version <span class="nt">--patch</span> <span class="s1">'{"spec":{"upstream":"&lt;update-server-url&gt;"}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch clusterversion/version <span class="nt">--patch</span> <span class="s1">'{"spec":{"upstream":"&lt;update_server_url&gt;"}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The <code>&lt;update-server-url&gt;</code> variable specifies the URL for the update server.</p>
+<p>Replace <code>&lt;update_server_url&gt;</code> with the URL for the update server.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>

@@ -3344,6 +3344,9 @@
 <li><a href="#nw-ingress-gateway-api-implementation_ingress-gateway-api">Gateway API implementation for OpenShift Container Platform</a></li>
 <li><a href="#nw-ingress-gateway-api-enable_ingress-gateway-api">Getting started with Gateway API for the Ingress Operator</a></li>
 <li><a href="#nw-ingress-gateway-api-deployment_ingress-gateway-api">Gateway API deployment topologies</a></li>
+<li><a href="#gwapi-configuring-internal-lb_ingress-gateway-api">Provisioning an internal load balancer for a gateway</a></li>
+<li><a href="#gwapi-internal-lb-annotations_ingress-gateway-api">Cloud provider annotations for internal gateway load balancers</a></li>
+<li><a href="#nw-gateway-api-verifying-infrastructure-status_ingress-gateway-api">Verifying gateway infrastructure status</a></li>
 <li><a href="#nw-ingress-gateway-api-troubleshooting-degraded_ingress-gateway-api">Removing conflicts between the Gateway API and the OSSM v2.x</a></li>
 </ul>
 </div>
@@ -4008,6 +4011,262 @@ object restricts routes to a particular application namespace. This is the defau
 </div>
 <div class="paragraph">
 <p>With a shared gateway topology, the routes must specify the namespace of the <code>Gateway</code> object it wants to attach to. Multiple <code>Gateway</code> objects can be deployed and shared across namespaces. When there are multiple shared gateways, this topology becomes conceptually similar to Ingress Controller sharding.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="gwapi-configuring-internal-lb_ingress-gateway-api"><a class="anchor" href="#gwapi-configuring-internal-lb_ingress-gateway-api"></a>Provisioning an internal load balancer for a gateway</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>By default, the Gateway API provisions an external load balancer. You can configure the Gateway API to provision an internal load balancer by adding a cloud-specific annotation to your <code>Gateway</code> custom resource (CR).</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have configured a <code>GatewayClass</code> object.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create or edit your <code>Gateway</code> CR to include the cloud-specific annotation under <code>spec.infrastructure.annotations</code>.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For a complete list of supported annotations and values, see "Cloud provider annotations for internal gateway load balancers".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following example provisions an internal load balancer for an AWS cluster:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>Gateway</code> CR for an AWS internal load balancer</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">gateway.networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Gateway</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">mygateway</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ingress</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">gatewayClassName</span><span class="pi">:</span> <span class="s">openshift-default</span>
+  <span class="na">infrastructure</span><span class="pi">:</span>
+    <span class="na">annotations</span><span class="pi">:</span>
+    <span class="c1"># Specifies the cloud provider annotation and value required to provision an internal load balancer:</span>
+      <span class="s">service.beta.kubernetes.io/aws-load-balancer-internal</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+  <span class="na">listeners</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">https</span>
+    <span class="na">hostname</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*.example.com"</span>
+    <span class="na">port</span><span class="pi">:</span> <span class="m">443</span>
+    <span class="na">protocol</span><span class="pi">:</span> <span class="s">HTTPS</span>
+    <span class="na">tls</span><span class="pi">:</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="s">Terminate</span>
+      <span class="na">certificateRefs</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">gateway-tls-secret</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the updated <code>Gateway</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;gateway_filename&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the load balancer service is provisioned and has an internal IP address by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-ingress get svc</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="gwapi-internal-lb-annotations_ingress-gateway-api"><a class="anchor" href="#gwapi-internal-lb-annotations_ingress-gateway-api"></a>Cloud provider annotations for internal gateway load balancers</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The Gateway API supports provisioning internal load balancers for clusters deployed in private environments on Amazon Web Services (AWS), Microsoft Azure, Google Cloud, Red&#160;Hat OpenStack Platform (RHOSP), and IBM Cloud.</p>
+</div>
+<div class="paragraph">
+<p>The following table details the cloud-specific annotations and corresponding values required in the <code>spec.infrastructure.annotations</code> field of a <code>Gateway</code> custom resource (CR) to enable an internal load balancer.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Internal load balancer annotations by cloud provider</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 50%;">
+<col style="width: 25%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Cloud Provider</th>
+<th class="tableblock halign-left valign-top">Annotation</th>
+<th class="tableblock halign-left valign-top">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">AWS</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>service.beta.kubernetes.io/aws-load-balancer-internal</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"true"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Azure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>service.beta.kubernetes.io/azure-load-balancer-internal</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"true"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Google Cloud</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>cloud.google.com/load-balancer-type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"Internal"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RHOSP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>service.beta.kubernetes.io/openstack-internal-load-balancer</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"true"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IBM Cloud/ IBM Power Virtual Server</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>service.kubernetes.io/ibm-load-balancer-cloud-provider-ip-type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"private"</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-gateway-api-verifying-infrastructure-status_ingress-gateway-api"><a class="anchor" href="#nw-gateway-api-verifying-infrastructure-status_ingress-gateway-api"></a>Verifying gateway infrastructure status</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can verify the status of the load balancer and DNS records assigned to your managed gateway by inspecting the <code>.status</code> field of the <code>Gateway</code> resource. OpenShift Container Platform provides a <code>LoadBalancerReady</code> condition at the overall gateway level and a <code>DNSReady</code> condition at the individual listener level.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Your gateway must be deployed in the <code>openshift-ingress</code> namespace.</p>
+</li>
+<li>
+<p>Your gateway must be managed by the gateway controller (<code>openshift.io/gateway-controller/v1</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Query the gateway to output the configuration and status in YAML format by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get gateway &lt;gateway_name&gt; <span class="nt">-n</span> openshift-ingress <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Inspect the gateway-level conditions in the <code>status.conditions</code> block to view the aggregate status:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Look for the <code>LoadBalancerReady</code> condition to verify if the cloud load balancer service is functioning correctly for the entire gateway.</p>
+</li>
+<li>
+<p>Look for the <code>DNSReady</code> condition to verify the aggregate DNS state across all listeners. This condition will only report <code>True</code> (with the reason <code>AllListenersReady</code>) if all listeners with hostnames have their DNS successfully provisioned.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>If the gateway-level <code>DNSReady</code> condition reports <code>False</code> (with the reason <code>SomeListenersNotReady</code>), locate the <code>status.listeners[].conditions</code> block to identify the specific failing listener:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Look for the <code>DNSReady</code> condition under each listener to verify the state of its specific DNS record provisioning.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Listeners without a configured hostname will not have DNS conditions added to their status.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>Gateway</code> status output showing a DNS failure on one listener</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">status</span><span class="pi">:</span>
+  <span class="c1"># Gateway-level conditions (LoadBalancer and aggregate DNS status)</span>
+  <span class="na">conditions</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">LoadBalancerReady</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">LoadBalancerProvisioned</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">The</span><span class="nv"> </span><span class="s">LoadBalancer</span><span class="nv"> </span><span class="s">service</span><span class="nv"> </span><span class="s">is</span><span class="nv"> </span><span class="s">provisioned"</span>
+    <span class="na">observedGeneration</span><span class="pi">:</span> <span class="m">1</span>
+    <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-01-12T10:00:00Z"</span>
+  <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">DNSReady</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">False"</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">SomeListenersNotReady</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">One</span><span class="nv"> </span><span class="s">or</span><span class="nv"> </span><span class="s">more</span><span class="nv"> </span><span class="s">listeners</span><span class="nv"> </span><span class="s">have</span><span class="nv"> </span><span class="s">DNS</span><span class="nv"> </span><span class="s">provisioning</span><span class="nv"> </span><span class="s">issues"</span>
+    <span class="na">observedGeneration</span><span class="pi">:</span> <span class="m">1</span>
+    <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-01-12T10:00:00Z"</span>
+
+  <span class="c1"># Listener-level conditions (DNS status per listener)</span>
+  <span class="na">listeners</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">stage-http</span>
+    <span class="na">conditions</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">DNSReady</span>
+      <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
+      <span class="na">reason</span><span class="pi">:</span> <span class="s">NoFailedZones</span>
+      <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">The</span><span class="nv"> </span><span class="s">record</span><span class="nv"> </span><span class="s">is</span><span class="nv"> </span><span class="s">provisioned</span><span class="nv"> </span><span class="s">in</span><span class="nv"> </span><span class="s">all</span><span class="nv"> </span><span class="s">reported</span><span class="nv"> </span><span class="s">zones."</span>
+      <span class="na">observedGeneration</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-01-12T10:00:00Z"</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">prod-https</span>
+    <span class="na">conditions</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">type</span><span class="pi">:</span> <span class="s">DNSReady</span>
+      <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">False"</span>
+      <span class="na">reason</span><span class="pi">:</span> <span class="s">FailedZones</span>
+      <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">The</span><span class="nv"> </span><span class="s">record</span><span class="nv"> </span><span class="s">failed</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">provision</span><span class="nv"> </span><span class="s">in</span><span class="nv"> </span><span class="s">some</span><span class="nv"> </span><span class="s">zones:</span><span class="nv"> </span><span class="s">[prod.example.com]"</span>
+      <span class="na">observedGeneration</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-01-12T10:00:00Z"</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
