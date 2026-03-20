@@ -3338,6 +3338,7 @@
 <li><a href="#mco-update-boot-images_machine-configs-configure">About boot image management</a></li>
 <li><a href="#mco-update-boot-images-configuring_machine-configs-configure">Enabling boot image management</a>
 <ul class="sectlevel2">
+<li><a href="#mco-update-boot-images-nutanix_machine-configs-configure">Manually updating the boot image on a Nutanix cluster</a></li>
 <li><a href="#mco-update-boot-images-openstack_machine-configs-configure">Manually updating the boot image on an RHOSP cluster</a></li>
 </ul>
 </li>
@@ -3959,6 +3960,367 @@
 </div>
 </li>
 </ol>
+</div>
+<div class="sect2">
+<h3 id="mco-update-boot-images-nutanix_machine-configs-configure"><a class="anchor" href="#mco-update-boot-images-nutanix_machine-configs-configure"></a>Manually updating the boot image on a Nutanix cluster</h3>
+<div class="paragraph _abstract">
+<p>You can manually update the boot image for your Nutanix cluster by configuring your machine sets to use the latest OpenShift Container Platform image as the boot image to ensure that new nodes can scale up properly.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The standard boot image management feature is not supported for Nutanix clusters.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following procedure, which includes steps to create environment variables that facilitate running the required commands, shows how to obtain Nutanix authentication credentials, download a boot image, upload that image to the Nutanix Prism Central, and modify your compute machine sets to use the new boot image.</p>
+</div>
+<div class="paragraph">
+<p>This procedure requires Nutanix authentication credentials, which you need to access Prism Central. If you need to recover your credentials, you can get them from an OpenShift Container Platform secret, the name of which you can find in the default compute machine set. You can decrypt this secret and export the credentials to create the <code>clouds.yaml</code> file, as described in the following procedure.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have completed the general boot image prerequisites as described in the "Prerequisites" section of the <a href="https://access.redhat.com/articles/7053165#prerequisites-2">OpenShift Container Platform Boot Image Updates knowledgebase article</a>.</p>
+</li>
+<li>
+<p>You have downloaded the latest version of the OpenShift Container Platform installation program, openshift-install, from the <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>. For more information, see "Obtaining the installation program."</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have installed the <a href="https://stedolan.github.io/jq/"><code>jq</code></a> program.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>If you need to recover your Nutanix authentication credentials, perform the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of the secret that contains your credentials by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> yaml | <span class="nb">grep </span>credentialsSecret <span class="nt">-A</span> 1</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">    credentialsSecret:
+      name: nutanix-credentials</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Decrypt the secret by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secret &lt;secret_name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.credentials}'</span> | <span class="nb">base64</span> <span class="nt">-d</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;secret_name&gt;</code> with the name of the secret, which you obtained in the previous step.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">[{"type":"basic_auth","data":{"prismCentral":{"username":"","password":""},"prismElements":null}}]</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Set an environment variable for the Nutanix username by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">USER</span><span class="o">=</span><span class="s2">"&lt;username&gt;"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set an environment variable for the Nutanix password by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">PASS</span><span class="o">=</span><span class="s2">"&lt;password&gt;"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If you need to recover your IP address for Prism Central, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configmap cloud-provider-config <span class="nt">-n</span> openshift-config <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.config}'</span> | <span class="nb">grep </span>prismCentral <span class="nt">-A</span> 8</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">    "prismCentral": {
+        "address": "",
+        "port": 9440,
+        "credentialRef": {
+            "kind": "Secret",
+            "name": "nutanix-credentials",
+            "namespace": "openshift-cloud-controller-manager"
+        }
+    },</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>prismCentral.address</code></dt>
+<dd>
+<p>Specifies the Prism Central IP address.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Set an environment variables for the Prism Central IP address by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">PC_IP</span><span class="o">=</span><span class="s2">"&lt;prism_central_ip_address&gt;"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Obtain the boot image and upload the image to Prism Central:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the URL of the RHCOS image you want to use as the boot image and set the location in an environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">RHCOS_URL</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s1">'.architectures.x86_64.artifacts.nutanix.formats.qcow2.disk.location'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set an environment variable to create a descriptive name for your boot image in Prism Central by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">IMAGE_NAME</span><span class="o">=</span><span class="s2">"&lt;descriptive_image_name&gt;"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Setting a descriptive name for your boot image in Prism Central, such as using the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) version number in the image name, makes it easier to track which version is currently deployed if you update the cluster in the future.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">IMAGE_NAME</span><span class="o">=</span><span class="s2">"rhcos-9.6-boot-image"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Upload the image to Prism Central by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-k</span> <span class="nt">-u</span> <span class="s2">"</span><span class="nv">$USER</span><span class="s2">:</span><span class="nv">$PASS</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">-X</span> POST <span class="s2">"https://</span><span class="nv">$PC_IP</span><span class="s2">:9440/api/nutanix/v3/images"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s1">'{
+</span><span class="go">    "spec": {
+</span><span class="gp">      "name": "'"$</span>IMAGE_NAME<span class="s2">"'"</span>,
+<span class="go">      "resources": {
+        "image_type": "DISK_IMAGE",
+</span><span class="gp">        "source_uri": "'"$</span>RHCOS_URL<span class="s2">"'"</span>
+<span class="go">      }
+    },
+    "metadata": {
+      "kind": "image"
+    }
+  }'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>USER</code>,<code>PASS</code>, <code>IMAGE_NAME</code>, and <code>RHCOS_URL</code> are environment variables you created in previous steps.</p>
+</div>
+</li>
+<li>
+<p>Optional: Verify that the image is uploaded by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-k</span> <span class="nt">-u</span> <span class="s2">"</span><span class="nv">$USER</span><span class="s2">:</span><span class="nv">$PASS</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">-X</span> POST <span class="s2">"https://</span><span class="nv">$PC_IP</span><span class="s2">:9440/api/nutanix/v3/images/list"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s1">'{
+</span><span class="go">    "kind": "image",
+</span><span class="gp">    "filter": "name=='"$</span>IMAGE_NAME<span class="s2">"'"</span>
+<span class="go">  }'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+</span><span class="gp">  "name": "&lt;image-name&gt;</span><span class="s2">",
+</span><span class="go">  "state": "COMPLETE"
+}</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Update each of your compute machine sets to include the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of your machine sets for use in the following step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                 DESIRED   CURRENT   READY   AVAILABLE   AGE
+rhhdrbk-b5564-4pcm9-worker-0         3         3         3       3           123m
+ci-ln-xj96skb-72292-48nm5-worker-d   1         1         1       1           27m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit a machine set to update the <code>image</code> field in the <code>providerSpec</code> stanza to add your boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">--type</span> merge <span class="nt">-p</span> <span class="s1">'{"spec":{"template":{"spec":{"providerSpec":{"value":{"image":{"type":"name","name":"'</span><span class="k">${</span><span class="nv">IMAGE_NAME</span><span class="k">}</span><span class="s1">'"}}}}}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;machineset_name&gt;</code> with the name of your machine set.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Scale up a machine set to check that the new node is using the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Increase the machine set replicas by one to trigger a new machine by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc scale <span class="nt">--replicas</span><span class="o">=</span>&lt;count&gt; machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;count&gt;</code></dt>
+<dd>
+<p>Specifies the total number of replicas, including any existing replicas, that you want for this machine set.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;machineset_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the machine set to scale.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Optional: View the status of the machine set as it provisions by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines.machine.openshift.io <span class="nt">-n</span> openshift-machine-api <span class="nt">-w</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It can take several minutes for the machine set to achieve the <code>Running</code> state.</p>
+</div>
+</li>
+<li>
+<p>Verify that the new node has been created and is in the <code>Ready</code> state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the new node is using the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;new_node&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">cat</span> /sysroot/.coreos-aleph-version.json</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;new_node&gt;</code> with the name of your new node.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">    "ref": "docker://ostree-image-signed:oci-archive:/rhcos-9.6.20251212-1-ostree.x86_64.ociarchive",
+    "version": "9.6.20251212-1"
+}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>version</code></dt>
+<dd>
+<p>Specifies the boot image version.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Verify that the boot image is the same version as the image you uploaded in a previous step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="k">${</span><span class="nv">RHCOS_URL</span><span class="k">}</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">https://rhcos.mirror.openshift.com/art/storage/prod/streams/rhel-9.6/builds/9.6.20251212-1/x86_64/rhcos-9.6.20251212-1-nutanix.x86_64.qcow2</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>After you migrate all machine sets to the new boot image, you can remove the old boot image from Prism Central.</p>
+</div>
+</li>
+</ol>
+</div>
 </div>
 <div class="sect2">
 <h3 id="mco-update-boot-images-openstack_machine-configs-configure"><a class="anchor" href="#mco-update-boot-images-openstack_machine-configs-configure"></a>Manually updating the boot image on an RHOSP cluster</h3>
