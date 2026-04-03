@@ -3236,7 +3236,7 @@
                   <li><a class="" href="../virt/live_migration/virt-initiating-live-migration.html">Initiating and canceling live migration</a></li>
                   <li><a class="" href="../virt/live_migration/virt-enabling-cclm-for-vms.html">Enabling cross-cluster live migration for virtual machines</a></li>
                   <li><a class="" href="../virt/live_migration/virt-configuring-cross-cluster-live-migration-network.html">Configuring a cross-cluster live migration network</a></li>
-                  <li><a class="" href="../virt/live_migration/virt-about-mtv-providers.html">About Migration Toolkit for Virtualization providers</a></li>              </ul>
+                  <li><a class="" href="../virt/live_migration/virt-about-mtv-providers.html">About Migration Toolkit for Virtualization (MTV) providers</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-40-12"><span id="sgSpan-40-12" class="fa fa-caret-right"></span>&nbsp;Nodes</a>
               <ul id="topicSubGroup-40-12" class="nav-tertiary list-unstyled collapse">
@@ -3307,11 +3307,13 @@
 <ul class="sectlevel1">
 <li><a href="#hcp-custom-cert_hcp-certificates">Configuring a custom API server certificate in a hosted cluster</a></li>
 <li><a href="#hcp-kube-api-server-cert_hcp-certificates">Configuring the Kubernetes API server for a hosted cluster</a></li>
+<li><a href="#hcp-oauth-server-cert-about_hcp-certificates">OAuth server certificates for hosted control planes</a></li>
+<li><a href="#hcp-oauth-server-cert_hcp-certificates">Configuring OAuth server certificates for a hosted cluster</a></li>
 <li><a href="#hcp-ts-custom-dns_hcp-certificates">Troubleshooting accessing a hosted cluster by using a custom DNS</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>With hosted control planes, the steps to configure certificates differ from those of standalone OpenShift Container Platform.</p>
+<div class="paragraph _abstract">
+<p>To establish secure and encrypted communication between your clients and the hosted control plane, you must configure a server certificate for your hosted cluster. With hosted control planes, the steps to configure certificates differ from those of standalone OpenShift Container Platform.</p>
 </div>
 </div>
 </div>
@@ -3555,6 +3557,346 @@
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-oauth-server-cert-about_hcp-certificates"><a class="anchor" href="#hcp-oauth-server-cert-about_hcp-certificates"></a>OAuth server certificates for hosted control planes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>In hosted control planes, the OAuth server shares its serving certificate configuration with the Kubernetes API server. To configure a custom serving certificate for the OAuth server, you modify the <code>spec.configuration.apiServer</code> section in the <code>HostedCluster</code> resource.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This configuration method deviates from the standard OpenShift Container Platform behavior. In OpenShift Container Platform, OAuth certificates are configured separately through the <code>componentRoute</code> properties of the Ingress Operator. In hosted control planes, the <code>namedCertificates</code> configuration in the API server settings applies to both the Kubernetes API server and the OAuth server.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>In hosted control planes, the Control Plane Operator reads serving certificates through the shared <code>GetNamedCertificates()</code> function. Certificates are not configured in an OAuth-specific section of the <code>HostedCluster</code> resource. In addition, OAuth server certificates are not provided through an OAuth custom resource definition (CRD) configuration. Instead, hosted control planes automatically injects the selected certificates into the OAuth server deployment.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. OAuth certificate differences between OpenShift Container Platform and hosted control planes</caption>
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Area</th>
+<th class="tableblock halign-left valign-top">OpenShift Container Platform</th>
+<th class="tableblock halign-left valign-top">hosted control planes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Certificate source</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ingress Operator generates and maps certificates through component routes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OAuth uses <code>apiServer.servingCerts.namedCertificates</code> settings</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Certificate selection</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Based on ingress-managed routes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Based on host name match in <code>namedCertificates</code> property</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">User responsibility</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No need to manually provide OAuth certificates</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">User must supply certificates if custom behavior is needed</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Code path</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ingress Operator manages the OAuth route</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Control Plane Operator manages the OAuth server container runtime arguments</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-oauth-server-cert_hcp-certificates"><a class="anchor" href="#hcp-oauth-server-cert_hcp-certificates"></a>Configuring OAuth server certificates for a hosted cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>If you want to use certificates from a trusted certificate authority (CA) to access a hosted cluster, you can configure OAuth server certificates.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have a running hosted cluster.</p>
+</li>
+<li>
+<p>You have <code>cluster-admin</code> access to the management cluster.</p>
+</li>
+<li>
+<p>You have access to modify the <code>HostedCluster</code> resource.</p>
+</li>
+<li>
+<p>You have a TLS secret that contains your signed certificate and private key in the hosted cluster namespace with the following keys:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>tls.crt</code></p>
+</li>
+<li>
+<p><code>tls.key</code></p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Identify your hosted cluster namespace:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Export the namespace where your hosted cluster is running by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">HC_NAMESPACE</span><span class="o">=</span>&lt;hosted_cluster_namespace&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Export the hosted cluster name by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">CLUSTER_NAME</span><span class="o">=</span>&lt;hosted_cluster_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Generate a quick test certificate by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openssl req <span class="nt">-x509</span> <span class="nt">-nodes</span> <span class="nt">-days</span> 365 <span class="nt">-newkey</span> rsa:2048 <span class="se">\</span>
+  <span class="nt">-keyout</span> tls.key <span class="se">\</span>
+  <span class="nt">-out</span> tls.crt <span class="se">\</span>
+  <span class="nt">-subj</span> <span class="s2">"/CN=openshift-oauth"</span> <span class="se">\</span>
+  <span class="nt">-addext</span> <span class="s2">"subjectAltName=DNS:oauth-</span><span class="k">${</span><span class="nv">HC_NAMESPACE</span><span class="k">}</span><span class="s2">-</span><span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span><span class="s2">.api-custom-cert-sample-hosted.sample-hosted.example.com"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>api-custom-cert-sample-hosted.sample-hosted.example.com</code> value is used in the command and throughout the rest of this procedure as an example.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This example uses a placeholder hostname. After you discover your OAuth route later in this procedure, you must regenerate this certificate with the correct hostname before you edit the <code>HostedCluster</code> resource.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Confirm that the file exists by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">ls </span>tls.crt tls.key</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If you have not already created the TLS secret in the hosted cluster namespace, create the secret by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret tls my-oauth-cert-secret <span class="se">\</span>
+  <span class="nt">--cert</span><span class="o">=</span>path/to/tls.crt <span class="se">\</span>
+  <span class="nt">--key</span><span class="o">=</span>path/to/tls.key <span class="se">\</span>
+  <span class="nt">-n</span> <span class="nv">$HC_NAMESPACE</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">secret/my-oauth-cert-secret created</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Although the OAuth server runs in the hosted control plane namespace, the serving certificate must exist in the hosted cluster namespace. Secrets that are created in the hosted control plane namespace are not picked up.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Discover the correct OAuth route:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Use the management cluster <code>kubconfig</code> file to enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get routes <span class="nt">-n</span> <span class="k">${</span><span class="nv">HC_NAMESPACE</span><span class="k">}</span>-<span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If the route name is <code>oauth</code>, confirm it by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get route oauth <span class="nt">-n</span> <span class="k">${</span><span class="nv">HC_NAMESPACE</span><span class="k">}</span>-<span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span> <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Prepare to extract the OAuth route host by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">OAUTH_HOST=$</span><span class="o">(</span>oc get route oauth <span class="se">\</span>
+  <span class="nt">-n</span> <span class="k">${</span><span class="nv">HC_NAMESPACE</span><span class="k">}</span>-<span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span> <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.host}'</span><span class="o">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Extract the OAuth route host by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="s2">"</span><span class="k">${</span><span class="nv">OAUTH_HOST</span><span class="k">}</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">oauth-$</span><span class="o">{</span>HC_NAMESPACE<span class="o">}</span>-<span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span>.api-custom-cert-sample-hosted.sample-hosted.example.com</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Edit the <code>HostedCluster</code> resource:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Open the <code>HostedCluster</code> resource for editing by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit hostedcluster <span class="nv">$CLUSTER_NAME</span> <span class="nt">-n</span> <span class="nv">$HC_NAMESPACE</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>In the resource, configure the named certificates by adding the <code>servingCerts.namedCertificates</code> stanza to the <code>spec.configuration.apiServer</code> section:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hypershift.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HostedCluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;hosted_cluster_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;hosted_cluster_namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">apiServer</span><span class="pi">:</span>
+      <span class="na">audit</span><span class="pi">:</span>
+        <span class="na">profile</span><span class="pi">:</span> <span class="s">Default</span>
+      <span class="na">servingCerts</span><span class="pi">:</span>
+        <span class="na">namedCertificates</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">names</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s">api-custom-cert-sample-hosted.sample-hosted.example.com</span>
+          <span class="na">servingCertificate</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">my-oauth-cert-secret</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.configuration.apiServer.servingCerts.namedCertificates.names</code></dt>
+<dd>
+<p>Specifies the actual host name of your OAuth route.</p>
+</dd>
+<dt class="hdlist1"><code>spec.configuration.apiServer.servingCerts.servingCertificate.name</code></dt>
+<dd>
+<p>Specifies the name of your TLS secret. This secret must exist in the hosted cluster namespace.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Save and apply the changes. The Control Plane Operator reconciles the changes, the configuration propagates to the control plane, and the OAuth server begins serving the new certificate.</p>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>No separate OAuth certificate configuration field exists for a hosted cluster.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify the certificate being served by the route by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> | openssl s_client <span class="se">\</span>
+  <span class="nt">-connect</span> <span class="s2">"</span><span class="k">${</span><span class="nv">OAUTH_HOST</span><span class="k">}</span><span class="s2">:443"</span> <span class="se">\</span>
+  <span class="nt">-servername</span> <span class="s2">"</span><span class="k">${</span><span class="nv">OAUTH_HOST</span><span class="k">}</span><span class="s2">"</span> <span class="se">\</span>
+  2&gt;/dev/null <span class="se">\</span>
+  | openssl x509 <span class="nt">-noout</span> <span class="nt">-subject</span> <span class="nt">-issuer</span> <span class="nt">-ext</span> subjectAltName</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">subject=CN=openshift-oauth
+issuer=CN=openshift-oauth
+X509v3 Subject Alternative Name:
+</span><span class="gp">    DNS:oauth-$</span><span class="o">{</span>HC_NAMESPACE<span class="o">}</span>-<span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span>.api-custom-cert-sample-hosted.sample-hosted.example.com</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows that the OAuth route is serving the custom certificate and the certificate comes from the <code>my-oauth-cert-secret</code> secret.</p>
+</div>
+</li>
+</ul>
 </div>
 </div>
 </div>
