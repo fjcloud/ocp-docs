@@ -1601,7 +1601,7 @@ Using a dedicated project helps you to establish centralized governance over the
 <li>
 <p>Optional: Cluster creation generates a domain prefix as a subdomain for your provisioned cluster on <code>openshiftapps.com</code>. If the cluster name is less than or equal to 15 characters, that name is used for the domain prefix. If the cluster name is longer than 15 characters, the domain prefix is randomly generated as a 15-character string.</p>
 <div class="paragraph">
-<p>To customize the subdomain prefix, select the <strong>Create custom domain prefix</strong> checkbox, and enter your domain prefix name in the <strong>Domain prefix</strong> field. The domain prefix cannot be longer than 15 characters, must be unique within your organization, and cannot be changed after cluster creation.</p>
+<p>To customize the subdomain prefix, select the <strong>Create custom domain prefix</strong> checkbox, and enter your domain prefix name in the <strong>Domain prefix</strong> field. The domain prefix cannot be longer than 15 characters, must be unique within your organization, and cannot be changed after cluster creation. If you plan to install the cluster into a Shared VPC and select a managed DNS zone in a later step, the <strong>DNS Zone</strong> list is filtered to show only zones that begin with this domain prefix; ensure the prefix matches the managed DNS zones you have created or intend to use.</p>
 </div>
 </li>
 <li>
@@ -1848,37 +1848,7 @@ With this option, the etcd key values are encrypted, but not the keys. This opti
 </tr>
 </table>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The VPC owner of the host project must enable a project as a host project in their Google Cloud console and add the <strong>Computer Network Administrator</strong>, <strong>Compute Security Administrator</strong>, and <strong>DNS Administrator</strong> roles to the following service accounts before cluster installation:</p>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><strong>osd-deployer</strong></p>
-</li>
-<li>
-<p><strong>osd-control-plane</strong></p>
-</li>
-<li>
-<p><strong>openshift-machine-api-gcp</strong></p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>Failure to do so will cause the cluster go into the "Installation Waiting" state. If this occurs, you must contact the VPC owner of the host project to assign the roles to the service accounts listed above.
-The VPC owner of the host project has 30 days to grant the listed permissions before the cluster creation fails.
-For more information, see <a href="https://cloud.google.com/vpc/docs/provisioning-shared-vpc#set-up-shared-vpc">Enable a host project</a> and <a href="https://cloud.google.com/vpc/docs/provisioning-shared-vpc#migs-service-accounts">Provision Shared VPC</a>.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
@@ -1887,10 +1857,71 @@ For more information, see <a href="https://cloud.google.com/vpc/docs/provisionin
 </li>
 <li>
 <p>Specify the <strong>Host project ID</strong>. If the specified host project ID is incorrect, cluster creation fails.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In a typical Shared VPC deployment, the following Google Cloud roles are required on the project hosting the VPC:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>roles/compute.networkAdmin</code></p>
+</li>
+<li>
+<p><code>roles/compute.securityAdmin</code></p>
+</li>
+<li>
+<p><code>roles/dns.admin</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If you use a managed DNS zone (by selecting a zone from the <strong>DNS Zone</strong> list), the <code>roles/dns.admin</code> role is not required on the host project.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Optional. To use a pre-created DNS zone and reduce host project permissions, complete the following actions:</p>
+<div class="olist lowerroman">
+<ol class="lowerroman" type="i">
+<li>
+<p>View the provided CLI command instructions to create a zone if you have not already done so. For more information about creating a DNS zone using the ocm CLI, see <em>Creating a managed DNS zone</em> in the <em>Additional resources</em> section.</p>
+</li>
+<li>
+<p>Click the <strong>Refresh</strong> button to update the list of available zones.</p>
+</li>
+<li>
+<p>Select your preferred zone from the <strong>DNS Zone</strong> list. The list displays the zone ID alongside the Google Cloud project and managed zone ID for easy identification.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>A custom domain prefix must be specified on a previous step  on the <strong>Details</strong> page before zones appear in the <strong>DNS Zone</strong> list. The <strong>DNS Zone</strong> list is filtered to show only zones that begin with the domain prefix you specified. The list may be empty if no matching DNS zones exist, or if the domain prefix was entered incorrectly. If the list is empty, verify your domain prefix and ensure you have created a managed DNS zone with a matching prefix.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>If no zone is selected, the installer will attempt to create one automatically, which requires higher-level permissions in the host project.</p>
+</div>
 </li>
 </ol>
 </div>
-</div>
+</li>
+</ol>
 </div>
 </li>
 <li>
@@ -2092,7 +2123,7 @@ By default, clusters are created with the delete protection feature disabled.</p
 </div>
 <div class="paragraph">
 <div class="title">Procedure</div>
-<p>You can create a WIF cluster using the <code>interactive</code> mode or the <code>non-interactive</code> mode.</p>
+<p>You can create a WIF cluster using the <code>interactive</code> or the <code>non-interactive</code> mode.</p>
 </div>
 <div class="paragraph">
 <p>In <code>interactive</code> mode, cluster attributes are displayed automatically as prompts during the creation of the cluster. You enter the values for those prompts based on specified requirements in the fields provided.</p>
@@ -2126,27 +2157,15 @@ By default, clusters are created with the delete protection feature disabled.</p
 </div>
 </li>
 <li>
-<p>Create a cluster in non-interactive mode by running the following command:</p>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The following example is made up optional and required parameters and may differ from your <code>non-interactive</code> mode command. Parameters not identified as optional are required. For additional details about these and other parameters, run the <code>ocm create cluster --help flag</code> command in you terminal window.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
+<p>Create a cluster in non-interactive mode by running the following command.
+The following example is made up of optional and required parameters and might differ from your <code>non-interactive</code> mode command. Parameters not identified as optional are required. For additional details about these and other parameters, run the <code>ocm create cluster --help flag</code> command in you terminal window.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ocm create cluster &lt;cluster_name&gt; <span class="se">\</span>
 <span class="nt">--provider</span><span class="o">=</span>gcp <span class="se">\</span>
 <span class="nt">--ccs</span><span class="o">=</span><span class="nb">true</span> <span class="se">\</span>
 <span class="nt">--wif-config</span> &lt;wif_name&gt; <span class="se">\</span>
+<span class="nt">--dns-zone-id</span> &lt;dns_zone_id&gt; <span class="se">\</span>
 <span class="nt">--region</span> &lt;gcp_region&gt; <span class="se">\</span>
 <span class="nt">--subscription-type</span><span class="o">=</span>marketplace-gcp <span class="se">\</span>
 <span class="nt">--marketplace-gcp-terms</span><span class="o">=</span><span class="nb">true</span> <span class="se">\</span>
@@ -2180,13 +2199,17 @@ By default, clusters are created with the delete protection feature disabled.</p
 <dd>
 <p>Specifies the name of the WIF configuration to assign to the cluster. Replace <code>&lt;wif_name&gt;</code> with the name of your WIF configuration.</p>
 </dd>
+<dt class="hdlist1"><code>--dns-zone-id &lt;dns_zone_id&gt;</code></dt>
+<dd>
+<p>Optional. Specifies the DNS zone ID to use for the cluster. Replace <code>&lt;dns_zone_id&gt;</code> with the ID of your DNS zone. For more information about this parameter, see <em>Creating a managed DNS zone</em> in the <em>Additional resources</em> section.</p>
+</dd>
 <dt class="hdlist1"><code>--region &lt;gcp_region&gt;</code></dt>
 <dd>
 <p>Specifies the Google Cloud region where the new cluster will be deployed. Replace <code>&lt;gcp_region&gt;</code> with the desired Google Cloud region.</p>
 </dd>
 <dt class="hdlist1"><code>--subscription-type=marketplace-gcp</code></dt>
 <dd>
-<p>Specifies the subscription billing model for the cluster. This parameter is optional.</p>
+<p>Optional. Specifies the subscription billing model for the cluster.</p>
 </dd>
 <dt class="hdlist1"><code>--marketplace-gcp-terms=true</code></dt>
 <dd>
@@ -2580,6 +2603,9 @@ exit status 1.</span></code></pre>
 </li>
 <li>
 <p><a href="../authentication/osd-revoking-cluster-privileges.html#osd-revoking-cluster-privileges">Revoking privileges and access to an OpenShift Dedicated cluster</a></p>
+</li>
+<li>
+<p><a href="../osd_planning/gcp-ccs.html#ocm-cli-create-managed-dns-zone_gcp-ccs">Creating a managed DNS zone</a></p>
 </li>
 </ul>
 </div>
