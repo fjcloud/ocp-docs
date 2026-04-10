@@ -3317,8 +3317,12 @@
 <li><a href="#cnf-image-based-upgrade-troubleshooting_cnf-non-gitops">Troubleshooting image-based upgrades with Lifecycle Agent</a>
 <ul class="sectlevel2">
 <li><a href="#cnf-image-based-upgrade-troubleshooting-must-gather_cnf-non-gitops">Collecting logs</a></li>
-<li><a href="#cnf-image-based-upgrade-troubleshooting-manual-cleanup_cnf-non-gitops">AbortFailed or FinalizeFailed error</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-manual-cleanup_cnf-non-gitops"><code>AbortFailed</code> or <code>FinalizeFailed</code> error</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-stateroot_cnf-non-gitops">Cleaning up stateroot manually</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-oadp-resources_cnf-non-gitops">Cleaning up OADP resources manually</a></li>
 <li><a href="#cnf-image-based-upgrade-troubleshooting-lvms_cnf-non-gitops">LVM Storage volume contents not restored</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-lvms-backup_cnf-non-gitops">Missing LVM Storage-related fields in Backup CR</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-lvms-restore_cnf-non-gitops">Missing LVM Storage-related fields in Restore CR</a></li>
 <li><a href="#cnf-image-based-upgrade-troubleshooting-debugging-oadp-crs_cnf-non-gitops">Debugging failed Backup and Restore CRs</a></li>
 </ul>
 </li>
@@ -3336,11 +3340,11 @@ You update this CR to specify the image repository of the seed image and to move
 <div class="sect1">
 <h2 id="ztp-image-based-upgrade-prep_cnf-non-gitops"><a class="anchor" href="#ztp-image-based-upgrade-prep_cnf-non-gitops"></a>Moving to the Prep stage of the image-based upgrade with Lifecycle Agent</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>When you deploy the Lifecycle Agent on a cluster, an <code>ImageBasedUpgrade</code> custom resource (CR) is automatically created.</p>
+<div class="paragraph _abstract">
+<p>When you deploy the Lifecycle Agent on a cluster, the Lifecycle Agent automatically creates an <code>ImageBasedUpgrade</code> custom resource (CR).</p>
 </div>
 <div class="paragraph">
-<p>After you created all the resources that you need during the upgrade, you can move on to the <code>Prep</code> stage.
+<p>After you create all the resources that you need during the upgrade, you can move on to the <code>Prep</code> stage.
 For more information, see the "Creating ConfigMap objects for the image-based upgrade with Lifecycle Agent" section.</p>
 </div>
 <div class="admonitionblock note">
@@ -3387,48 +3391,51 @@ For more information, see the "Creating ConfigMap objects for the image-based up
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">stage</span><span class="pi">:</span> <span class="s">Idle</span>
   <span class="na">seedImageRef</span><span class="pi">:</span>
-    <span class="na">version</span><span class="pi">:</span> <span class="s">4.15.2</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;seed_container_image&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
-    <span class="na">pullSecretRef</span><span class="pi">:</span> <span class="s">&lt;seed_pull_secret&gt;</span> <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="na">version</span><span class="pi">:</span> <span class="s">&lt;target_version&gt;</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;seed_container_image&gt;</span>
+    <span class="na">pullSecretRef</span><span class="pi">:</span> <span class="s">&lt;seed_pull_secret&gt;</span>
   <span class="na">autoRollbackOnFailure</span><span class="pi">:</span> <span class="pi">{}</span>
-<span class="c1">#    initMonitorTimeoutSeconds: 1800 </span><i class="conum" data-value="4"></i><b>(4)</b>
-  <span class="na">extraManifests</span><span class="pi">:</span> <i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="na">initMonitorTimeoutSeconds</span><span class="pi">:</span> <span class="s">&lt;initMonitorTimeoutSeconds&gt;</span>
+  <span class="na">extraManifests</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">example-extra-manifests-cm</span>
     <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-lifecycle-agent</span>
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">example-catalogsources-cm</span>
     <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-lifecycle-agent</span>
-  <span class="na">oadpContent</span><span class="pi">:</span> <i class="conum" data-value="6"></i><b>(6)</b>
+  <span class="na">oadpContent</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">oadp-cm-example</span>
     <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Target platform version. The value must match the version of the seed image.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Repository where the target cluster can pull the seed image from.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Reference to a secret with credentials to pull container images if the images are in a private registry.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Optional: Time frame in seconds to roll back if the upgrade does not complete within that time frame after the first reboot. If not defined or set to <code>0</code>, the default value of <code>1800</code> seconds (30 minutes) is used.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Optional: List of <code>ConfigMap</code> resources that contain your custom catalog sources to retain after the upgrade and your extra manifests to apply to the target cluster that are not part of the seed image.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>List of <code>ConfigMap</code> resources that contain the OADP <code>Backup</code> and <code>Restore</code> CRs.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;target_version&gt;</code></dt>
+<dd>
+<p>Target platform version. The value must match the version of the seed image.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;seed_container_image&gt;</code></dt>
+<dd>
+<p>Repository where the target cluster can pull the seed image from.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;seed_pull_secret&gt;</code></dt>
+<dd>
+<p>Reference to a secret with credentials to pull container images if the images are in a private registry.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;initMonitorTimeoutSeconds&gt;</code></dt>
+<dd>
+<p>Optional: Time frame in seconds to roll back if the upgrade does not complete within that time frame after the first reboot. If not defined or set to <code>0</code>, the Lifecycle Agent uses the default value of <code>1800</code> seconds (30 minutes).</p>
+</dd>
+<dt class="hdlist1"><code>extraManifests</code></dt>
+<dd>
+<p>Optional: List of <code>ConfigMap</code> resources. These resources contain your custom catalog sources to retain after the upgrade and any extra manifests that the seed image does not include.</p>
+</dd>
+<dt class="hdlist1"><code>oadpContent</code></dt>
+<dd>
+<p>List of <code>ConfigMap</code> resources that contain the OADP <code>Backup</code> and <code>Restore</code> CRs.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3441,8 +3448,10 @@ For more information, see the "Creating ConfigMap objects for the image-based up
 </div>
 </div>
 <div class="paragraph">
-<p>If you provide <code>ConfigMap</code> objects for OADP resources and extra manifests, Lifecycle Agent validates the specified <code>ConfigMap</code> objects during the <code>Prep</code> stage.
-You might encounter the following issues:</p>
+<p>If you include <code>ConfigMap</code> objects for OADP resources and extra manifests, Lifecycle Agent validates the specified <code>ConfigMap</code> objects during the <code>Prep</code> stage.</p>
+</div>
+<div class="paragraph">
+<p>The following issues might occur:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -3456,10 +3465,9 @@ You might encounter the following issues:</p>
 </div>
 <div class="paragraph">
 <p>Validation warnings do not block the <code>Upgrade</code> stage but you must decide if it is safe to proceed with the upgrade.
-These warnings, for example missing CRDs, namespaces, or dry run failures, update the <code>status.conditions</code> for the <code>Prep</code> stage and <code>annotation</code> fields in the <code>ImageBasedUpgrade</code> CR with details about the warning.</p>
+These warnings, for example missing custom resource definitions (CRDs), namespaces, or dry run failures, update the <code>status.conditions</code> for the <code>Prep</code> stage and <code>annotation</code> fields in the <code>ImageBasedUpgrade</code> CR with details about the warning. The following example shows these details:</p>
 </div>
 <div class="listingblock">
-<div class="title">Example validation warning</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
 <span class="na">metadata</span><span class="pi">:</span>
@@ -3473,7 +3481,7 @@ These warnings, for example missing CRDs, namespaces, or dry run failures, updat
 </div>
 <div class="paragraph">
 <p>When the validations pass, the cluster creates a new <code>ostree</code> stateroot, which involves pulling and unpacking the seed image, and running host-level commands.
-Finally, all the required images are precached on the target cluster.</p>
+Finally, the Lifecycle Agent precaches all the required images on the target cluster.</p>
 </div>
 </div>
 </div>
@@ -3492,8 +3500,10 @@ Finally, all the required images are precached on the target cluster.</p>
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ibu <span class="nt">-o</span> yaml</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example shows a successful <code>Prep</code> stage:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml">  <span class="na">conditions</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2024-01-01T09:00:00Z"</span>
@@ -3541,13 +3551,13 @@ Finally, all the required images are precached on the target cluster.</p>
 <div class="sect1">
 <h2 id="cnf-image-based-upgrade-with-backup_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-with-backup_cnf-non-gitops"></a>Moving to the Upgrade stage of the image-based upgrade with Lifecycle Agent</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>After you generate the seed image and complete the <code>Prep</code> stage, you can upgrade the target cluster.
 During the upgrade process, the OADP Operator creates a backup of the artifacts specified in the OADP custom resources (CRs), then the Lifecycle Agent upgrades the cluster.</p>
 </div>
 <div class="paragraph">
-<p>If the upgrade fails or stops, an automatic rollback is initiated.
-If you have an issue after the upgrade, you can initiate a manual rollback.
+<p>If the upgrade fails or stops, the Lifecycle Agent initiates an automatic rollback.
+If you have an issue after the upgrade, you can perform a manual rollback.
 For more information about manual rollback, see "Moving to the Rollback stage of the image-based upgrade with Lifecycle Agent".</p>
 </div>
 <div class="ulist">
@@ -3578,8 +3588,10 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ibu <span class="nt">-o</span> yaml</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example shows an upgrade in progress:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">status</span><span class="pi">:</span>
   <span class="na">conditions</span><span class="pi">:</span>
@@ -3632,7 +3644,7 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 </div>
 </li>
 <li>
-<p>If you are satisfied with the upgrade, finalize the changes by patching the value of the <code>stage</code> field to <code>Idle</code> in the <code>ImageBasedUpgrade</code> CR by running the following command:</p>
+<p>After the upgrade, complete the changes by patching the value of the <code>stage</code> field to <code>Idle</code> in the <code>ImageBasedUpgrade</code> CR by running the following command:</p>
 <div class="openblock">
 <div class="content">
 <div class="listingblock">
@@ -3677,8 +3689,10 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ibu <span class="nt">-o</span> yaml</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example shows a completed upgrade:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">status</span><span class="pi">:</span>
   <span class="na">conditions</span><span class="pi">:</span>
@@ -3731,20 +3745,28 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get restores <span class="nt">-n</span> openshift-adp <span class="nt">-o</span> custom-columns<span class="o">=</span>NAME:.metadata.name,Status:.status.phase,Reason:.status.failureReason</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example shows completed restores:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME             Status      Reason
-</span><span class="gp">acm-klusterlet   Completed   &lt;none&gt;</span><span class="w"> <i class="conum" data-value="1"></i><b>(1)</b>
+</span><span class="gp">acm-klusterlet   Completed   &lt;none&gt;</span><span class="w">
 </span><span class="gp">apache-app       Completed   &lt;none&gt;</span><span class="w">
 </span><span class="gp">localvolume      Completed   &lt;none&gt;</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
+<div class="admonitionblock note">
 <table>
 <tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The <code>acm-klusterlet</code> is specific to RHACM environments only.</td>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>acm-klusterlet</code> is specific to RHACM environments only.</p>
+</div>
+</td>
 </tr>
 </table>
 </div>
@@ -3769,11 +3791,10 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 <div class="sect1">
 <h2 id="cnf-image-based-upgrade-rollback_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-rollback_cnf-non-gitops"></a>Moving to the Rollback stage of the image-based upgrade with Lifecycle Agent</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>An automatic rollback is initiated if the upgrade does not complete within the time frame specified in the <code>initMonitorTimeoutSeconds</code> field after rebooting.</p>
+<div class="paragraph _abstract">
+<p>The Lifecycle Agent initiates an automatic rollback if the upgrade does not complete within the time frame specified in the <code>initMonitorTimeoutSeconds</code> field after rebooting, as shown in the following example:</p>
 </div>
 <div class="listingblock">
-<div class="title">Example ImageBasedUpgrade CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">lca.openshift.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ImageBasedUpgrade</span>
@@ -3785,20 +3806,23 @@ For more information about manual rollback, see "Moving to the Rollback stage of
     <span class="na">version</span><span class="pi">:</span> <span class="s">4.15.2</span>
     <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;seed_container_image&gt;</span>
   <span class="na">autoRollbackOnFailure</span><span class="pi">:</span> <span class="pi">{}</span>
-<span class="c1">#    initMonitorTimeoutSeconds: 1800 </span><i class="conum" data-value="1"></i><b>(1)</b>
+<span class="c1">#    initMonitorTimeoutSeconds: &lt;initMonitorTimeoutSeconds&gt;</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Optional: The time frame in seconds to roll back if the upgrade does not complete within that time frame after the first reboot. If not defined or set to <code>0</code>, the default value of <code>1800</code> seconds (30 minutes) is used.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;initMonitorTimeoutSeconds&gt;</code></dt>
+<dd>
+<p>Optional: The time frame in seconds to roll back if the upgrade does not complete within that time frame after the first reboot. If not defined or set to <code>0</code>, the Lifecycle Agent uses the default value of <code>1800</code> seconds (30 minutes).</p>
+</dd>
+</dl>
 </div>
 <div class="paragraph">
-<p>You can manually roll back the changes if you encounter unresolvable issues after an upgrade.</p>
+<p>You can manually roll back the changes if you see unresolvable issues after an upgrade.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3819,7 +3843,7 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If you choose to upgrade a recently installed single-node OpenShift cluster for example, for testing purposes, you have a limited rollback timeframe of 24 hours or less. You can verify the rollback time by checking the <code>rollbackAvailabilityExpiration</code> field of the <code>ImageBasedUpgrade</code> custom resource.</p>
+<p>If you choose to upgrade a recently installed single-node OpenShift cluster for example, for testing purposes, you have a limited rollback time frame of 24 hours or less. You can verify the rollback time by checking the <code>rollbackAvailabilityExpiration</code> field of the <code>ImageBasedUpgrade</code> custom resource.</p>
 </div>
 </td>
 </tr>
@@ -3844,7 +3868,7 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 </div>
 </li>
 <li>
-<p>If you are satisfied with the changes, finalize the rollback by patching the value of the <code>stage</code> field to <code>Idle</code> in the <code>ImageBasedUpgrade</code> CR by running the following command:</p>
+<p>After reviewing the changes, complete the rollback by patching the value of the <code>stage</code> field to <code>Idle</code> in the <code>ImageBasedUpgrade</code> CR by running the following command:</p>
 <div class="openblock">
 <div class="content">
 <div class="listingblock">
@@ -3860,7 +3884,7 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If you move to the <code>Idle</code> stage after a rollback, the Lifecycle Agent cleans up resources that can be used to troubleshoot a failed upgrade.</p>
+<p>If you move to the <code>Idle</code> stage after a rollback, the Lifecycle Agent cleans up resources that you can use to troubleshoot a failed upgrade.</p>
 </div>
 </td>
 </tr>
@@ -3884,8 +3908,8 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 <div class="sect1">
 <h2 id="cnf-image-based-upgrade-troubleshooting_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting_cnf-non-gitops"></a>Troubleshooting image-based upgrades with Lifecycle Agent</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>Perform troubleshooting steps on the managed clusters that are affected by an issue.</p>
+<div class="paragraph _abstract">
+<p>Perform troubleshooting steps on the managed clusters to resolve any issues.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3895,7 +3919,7 @@ For more information about manual rollback, see "Moving to the Rollback stage of
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If you are using the <code>ImageBasedGroupUpgrade</code> CR to upgrade your clusters, ensure that the <code>lcm.openshift.io/ibgu-&lt;stage&gt;-completed</code> or <code>lcm.openshift.io/ibgu-&lt;stage&gt;-failed</code> cluster labels are updated properly after performing troubleshooting or recovery steps on the managed clusters.
+<p>If you are using the <code>ImageBasedGroupUpgrade</code> CR to upgrade your clusters, ensure that you update the <code>lcm.openshift.io/ibgu-&lt;stage&gt;-completed</code> or <code>lcm.openshift.io/ibgu-&lt;stage&gt;-failed</code> cluster labels properly after performing troubleshooting or recovery steps on the managed clusters.
 This ensures that the TALM continues to manage the image-based upgrade for the cluster.</p>
 </div>
 </td>
@@ -3907,39 +3931,36 @@ This ensures that the TALM continues to manage the image-based upgrade for the c
 <div class="paragraph">
 <p>You can use the <code>oc adm must-gather</code> CLI to collect information for debugging and troubleshooting.</p>
 </div>
-<div class="ulist">
-<div class="title">Procedure</div>
-<ul>
-<li>
-<p>Collect data about the Operators by running the following command:</p>
+<div class="paragraph">
+<p>To collect data about the Operators, run the following command:</p>
+</div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w">  </span>oc adm must-gather <span class="se">\</span>
   <span class="nt">--dest-dir</span><span class="o">=</span>must-gather/tmp <span class="se">\</span>
   <span class="nt">--image</span><span class="o">=</span><span class="si">$(</span>oc <span class="nt">-n</span> openshift-lifecycle-agent get deployment.apps/lifecycle-agent-controller-manager <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.template.spec.containers[?(@.name == "manager")].image}'</span><span class="si">)</span> <span class="se">\</span>
-  <span class="nt">--image</span><span class="o">=</span>quay.io/konveyor/oadp-must-gather:latest <span class="se">\/</span>/ <i class="conum" data-value="1"></i><b>(1)</b>
-<span class="go">  --image=quay.io/openshift/origin-must-gather:latest <i class="conum" data-value="2"></i><b>(2)</b>
-</span></code></pre>
+  <span class="nt">--image</span><span class="o">=</span>&lt;oadp_must_gather_image&gt; <span class="se">\</span>
+  <span class="nt">--image</span><span class="o">=</span>&lt;origin_must_gather_image&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Optional: Add this option if you need to gather more information from the OADP Operator.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Optional: Add this option if you need to gather more information from the SR-IOV Operator.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
-</li>
-</ul>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;oadp_must_gather_image&gt;</code></dt>
+<dd>
+<p>Optional: Add this option, for example <code>quay.io/konveyor/oadp-must-gather:latest</code>, if you need to gather more information from the OADP Operator.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;origin_must_gather_image&gt;</code></dt>
+<dd>
+<p>Optional: Add this option, for example <code>quay.io/openshift/origin-must-gather:latest</code>, if you need to gather more information from the SR-IOV Operator.</p>
+</dd>
+</dl>
 </div>
 </div>
 <div class="sect2">
-<h3 id="cnf-image-based-upgrade-troubleshooting-manual-cleanup_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-manual-cleanup_cnf-non-gitops"></a>AbortFailed or FinalizeFailed error</h3>
+<h3 id="cnf-image-based-upgrade-troubleshooting-manual-cleanup_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-manual-cleanup_cnf-non-gitops"></a><code>AbortFailed</code> or <code>FinalizeFailed</code> error</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
@@ -3947,7 +3968,7 @@ This ensures that the TALM continues to manage the image-based upgrade for the c
 <div class="openblock">
 <div class="content">
 <div class="paragraph">
-<p>During the finalize stage or when you stop the process at the <code>Prep</code> stage, Lifecycle Agent cleans up the following resources:</p>
+<p>During the finalization stage or when you stop the process at the <code>Prep</code> stage, Lifecycle Agent cleans up the following resources:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -3966,11 +3987,10 @@ This ensures that the TALM continues to manage the image-based upgrade for the c
 </ul>
 </div>
 <div class="paragraph">
-<p>If the Lifecycle Agent fails to perform the above steps, it transitions to the <code>AbortFailed</code> or <code>FinalizeFailed</code> states.
-The condition message and log show which steps failed.</p>
+<p>If the Lifecycle Agent fails to clean up these resources, it transitions to the <code>AbortFailed</code> or <code>FinalizeFailed</code> states.
+The condition message and log show the steps that failed, as shown in the following example:</p>
 </div>
 <div class="listingblock">
-<div class="title">Example error message</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">message</span><span class="pi">:</span> <span class="s">failed to delete all the backup CRs. Perform cleanup manually then add 'lca.openshift.io/manual-cleanup-done' annotation to ibu CR to transition back to Idle</span>
       <span class="s">observedGeneration</span><span class="pi">:</span> <span class="m">5</span>
@@ -3989,7 +4009,7 @@ The condition message and log show which steps failed.</p>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Inspect the logs to determine why the failure occurred.</p>
+<p>Inspect the logs to find the reason for failure.</p>
 </li>
 <li>
 <p>To prompt Lifecycle Agent to retry the cleanup, add the <code>lca.openshift.io/manual-cleanup-done</code> annotation to the <code>ImageBasedUpgrade</code> CR.</p>
@@ -4007,14 +4027,15 @@ The condition message and log show which steps failed.</p>
 </dd>
 </dl>
 </div>
-<div class="sect3">
-<h4 id="cnf-image-based-upgrade-troubleshooting-stateroot_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-stateroot_cnf-non-gitops"></a>Cleaning up stateroot manually</h4>
+</div>
+<div class="sect2">
+<h3 id="cnf-image-based-upgrade-troubleshooting-stateroot_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-stateroot_cnf-non-gitops"></a>Cleaning up stateroot manually</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
 <dd>
 <p>Stopping at the <code>Prep</code> stage, Lifecycle Agent cleans up the new stateroot. When finalizing after a successful upgrade or a rollback, Lifecycle Agent cleans up the old stateroot.
-If this step fails, it is recommended that you inspect the logs to determine why the failure occurred.</p>
+If this step fails, you must inspect the logs to decide why the failure occurred.</p>
 </dd>
 <dt class="hdlist1">Resolution</dt>
 <dd>
@@ -4073,8 +4094,8 @@ If this step fails, it is recommended that you inspect the logs to determine why
 </dl>
 </div>
 </div>
-<div class="sect3">
-<h4 id="cnf-image-based-upgrade-troubleshooting-oadp-resources_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-oadp-resources_cnf-non-gitops"></a>Cleaning up OADP resources manually</h4>
+<div class="sect2">
+<h3 id="cnf-image-based-upgrade-troubleshooting-oadp-resources_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-oadp-resources_cnf-non-gitops"></a>Cleaning up OADP resources manually</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
@@ -4095,8 +4116,10 @@ If this step fails, it is recommended that you inspect the logs to determine why
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get backupstoragelocations.velero.io <span class="nt">-n</span> openshift-adp</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example shows successful backend connectivity:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                          PHASE       LAST VALIDATED   AGE   DEFAULT
 dataprotectionapplication-1   Available   33s              8d    true</span></code></pre>
@@ -4111,20 +4134,20 @@ dataprotectionapplication-1   Available   33s              8d    true</span></co
 </div>
 </div>
 </div>
-</div>
 <div class="sect2">
 <h3 id="cnf-image-based-upgrade-troubleshooting-lvms_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms_cnf-non-gitops"></a>LVM Storage volume contents not restored</h3>
 <div class="paragraph">
-<p>When LVM Storage is used to provide dynamic persistent volume storage, LVM Storage might not restore the persistent volume contents if it is configured incorrectly.</p>
+<p>When you use LVM Storage to configure dynamic persistent volume storage, LVM Storage might not restore the persistent volume contents if you have configured it incorrectly.</p>
 </div>
-<div class="sect3">
-<h4 id="cnf-image-based-upgrade-troubleshooting-lvms-backup_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms-backup_cnf-non-gitops"></a>Missing LVM Storage-related fields in Backup CR</h4>
+</div>
+<div class="sect2">
+<h3 id="cnf-image-based-upgrade-troubleshooting-lvms-backup_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms-backup_cnf-non-gitops"></a>Missing LVM Storage-related fields in Backup CR</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
 <dd>
-<p>Your <code>Backup</code> CRs might be missing fields that are needed to restore your persistent volumes.
-You can check for events in your application pod to determine if you have this issue by running the following:</p>
+<p>Your <code>Backup</code> CRs might be missing fields that you need to restore your persistent volumes.
+You can check for events in your application pod to decide if you have this issue by running the following:</p>
 <div class="openblock">
 <div class="content">
 <div class="listingblock">
@@ -4132,8 +4155,10 @@ You can check for events in your application pod to determine if you have this i
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe pod &lt;your_app_name&gt;</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example output shows a pod failing due to missing LVM Storage-related fields in the <code>Backup</code> CR:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output showing missing LVM Storage-related fields in Backup CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Events:
   Type     Reason            Age                From               Message
@@ -4149,9 +4174,8 @@ You can check for events in your application pod to determine if you have this i
 <dt class="hdlist1">Resolution</dt>
 <dd>
 <p>You must include <code>logicalvolumes.topolvm.io</code> in the application <code>Backup</code> CR.
-Without this resource, the application restores its persistent volume claims and persistent volume manifests correctly, however, the <code>logicalvolume</code> associated with this persistent volume is not restored properly after pivot.</p>
+Without this resource, the application restores its persistent volume claims and persistent volume manifests correctly, however, the <code>logicalvolume</code> associated with this persistent volume is not restored properly after pivot. The following example shows a correctly configured <code>Backup</code> CR:</p>
 <div class="listingblock">
-<div class="title">Example Backup CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">velero.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Backup</span>
@@ -4168,31 +4192,26 @@ Without this resource, the application restores its persistent volume claims and
   <span class="pi">-</span> <span class="s">persistentvolumeclaims</span>
   <span class="pi">-</span> <span class="s">deployments</span>
   <span class="pi">-</span> <span class="s">statefulsets</span>
-  <span class="na">includedClusterScopedResources</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">includedClusterScopedResources</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="s">persistentVolumes</span>
   <span class="pi">-</span> <span class="s">volumesnapshotcontents</span>
   <span class="pi">-</span> <span class="s">logicalvolumes.topolvm.io</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>To restore the persistent volumes for your application, you must configure this section as shown.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>To restore the persistent volumes for your application, you must configure the <code>includedClusterScopedResources</code> section as shown.</p>
 </div>
 </dd>
 </dl>
 </div>
 </div>
-<div class="sect3">
-<h4 id="cnf-image-based-upgrade-troubleshooting-lvms-restore_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms-restore_cnf-non-gitops"></a>Missing LVM Storage-related fields in Restore CR</h4>
+<div class="sect2">
+<h3 id="cnf-image-based-upgrade-troubleshooting-lvms-restore_cnf-non-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms-restore_cnf-non-gitops"></a>Missing LVM Storage-related fields in Restore CR</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
 <dd>
-<p>The expected resources for the applications are restored but the persistent volume contents are not preserved after upgrading.</p>
+<p>LVM Storage restores the expected resources for the applications but it does not preserve the persistent volume contents after upgrading.</p>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
@@ -4204,8 +4223,10 @@ Without this resource, the application restores its persistent volume claims and
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pv,pvc,logicalvolumes.topolvm.io <span class="nt">-A</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following shows the output before pivot:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output before pivot</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                        CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM            STORAGECLASS   REASON   AGE
 persistentvolume/pvc-1234   1Gi        RWO            Retain           Bound    default/pvc-db   lvms-vg1                4h45m
@@ -4229,8 +4250,10 @@ NAMESPACE   NAME                                AGE
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pv,pvc,logicalvolumes.topolvm.io <span class="nt">-A</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following shows the output after pivot:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output after pivot</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                        CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM            STORAGECLASS   REASON   AGE
 persistentvolume/pvc-1234   1Gi        RWO            Delete           Bound    default/pvc-db   lvms-vg1                19s
@@ -4251,10 +4274,9 @@ NAMESPACE   NAME                                AGE
 <dt class="hdlist1">Resolution</dt>
 <dd>
 <p>The reason for this issue is that the <code>logicalvolume</code> status is not preserved in the <code>Restore</code> CR.
-This status is important because it is required for Velero to reference the volumes that must be preserved after pivoting.
-You must include the following fields in the application <code>Restore</code> CR:</p>
+This status is important because Velero requires this status to reference the volumes that you must preserve after pivoting.
+You must include the following fields in the application <code>Restore</code> CR, as shown in the following example:</p>
 <div class="listingblock">
-<div class="title">Example Restore CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">velero.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Restore</span>
@@ -4268,27 +4290,25 @@ You must include the following fields in the application <code>Restore</code> CR
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">backupName</span><span class="pi">:</span>
     <span class="s">sample-vote-app</span>
-  <span class="na">restorePVs</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="na">restoreStatus</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">restorePVs</span><span class="pi">:</span> <span class="s">&lt;restore_pvs&gt;</span>
+  <span class="na">restoreStatus</span><span class="pi">:</span>
     <span class="na">includedResources</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="s">logicalvolumes</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>To preserve the persistent volumes for your application, you must set <code>restorePVs</code> to <code>true</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>To preserve the persistent volumes for your application, you must configure this section as shown.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
 </dd>
+<dt class="hdlist1"><code>&lt;restore_pvs&gt;</code></dt>
+<dd>
+<p>To preserve the persistent volumes for your application, you must set <code>restorePVs</code> to <code>true</code>.</p>
+</dd>
+<dt class="hdlist1"><code>restoreStatus</code></dt>
+<dd>
+<p>To preserve the persistent volumes for your application, you must configure this field as shown.</p>
+</dd>
 </dl>
-</div>
 </div>
 </div>
 <div class="sect2">
@@ -4302,11 +4322,11 @@ You must include the following fields in the application <code>Restore</code> CR
 <dt class="hdlist1">Resolution</dt>
 <dd>
 <p>You can debug <code>Backup</code> and <code>Restore</code> CRs and retrieve logs with the Velero CLI tool.
-The Velero CLI tool provides more detailed information than the OpenShift CLI tool.</p>
+The Velero CLI tool offers more detailed information than the OpenShift CLI tool.</p>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Describe the <code>Backup</code> CR that contains errors by running the following command:</p>
+<p>Describe the <code>Backup</code> CR that has errors by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-adp velero-7c87d58c7b-sw6fc <span class="nt">-c</span> velero <span class="nt">--</span> ./velero describe backup <span class="nt">-n</span> openshift-adp backup-acm-klusterlet <span class="nt">--details</span></code></pre>
@@ -4314,7 +4334,7 @@ The Velero CLI tool provides more detailed information than the OpenShift CLI to
 </div>
 </li>
 <li>
-<p>Describe the <code>Restore</code> CR that contains errors by running the following command:</p>
+<p>Describe the <code>Restore</code> CR that has errors by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-adp velero-7c87d58c7b-sw6fc <span class="nt">-c</span> velero <span class="nt">--</span> ./velero describe restore <span class="nt">-n</span> openshift-adp restore-acm-klusterlet <span class="nt">--details</span></code></pre>

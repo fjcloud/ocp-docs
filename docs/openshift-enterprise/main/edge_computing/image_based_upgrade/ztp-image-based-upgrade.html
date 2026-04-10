@@ -3325,8 +3325,12 @@
 <li><a href="#cnf-image-based-upgrade-troubleshooting_ztp-gitops">Troubleshooting image-based upgrades with Lifecycle Agent</a>
 <ul class="sectlevel2">
 <li><a href="#cnf-image-based-upgrade-troubleshooting-must-gather_ztp-gitops">Collecting logs</a></li>
-<li><a href="#cnf-image-based-upgrade-troubleshooting-manual-cleanup_ztp-gitops">AbortFailed or FinalizeFailed error</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-manual-cleanup_ztp-gitops"><code>AbortFailed</code> or <code>FinalizeFailed</code> error</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-stateroot_ztp-gitops">Cleaning up stateroot manually</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-oadp-resources_ztp-gitops">Cleaning up OADP resources manually</a></li>
 <li><a href="#cnf-image-based-upgrade-troubleshooting-lvms_ztp-gitops">LVM Storage volume contents not restored</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-lvms-backup_ztp-gitops">Missing LVM Storage-related fields in Backup CR</a></li>
+<li><a href="#cnf-image-based-upgrade-troubleshooting-lvms-restore_ztp-gitops">Missing LVM Storage-related fields in Restore CR</a></li>
 <li><a href="#cnf-image-based-upgrade-troubleshooting-debugging-oadp-crs_ztp-gitops">Debugging failed Backup and Restore CRs</a></li>
 </ul>
 </li>
@@ -4400,8 +4404,8 @@ You need to create a separate <code>ImageBasedGroupUpgrade</code> CR and define 
 <div class="sect1">
 <h2 id="cnf-image-based-upgrade-troubleshooting_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting_ztp-gitops"></a>Troubleshooting image-based upgrades with Lifecycle Agent</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>Perform troubleshooting steps on the managed clusters that are affected by an issue.</p>
+<div class="paragraph _abstract">
+<p>Perform troubleshooting steps on the managed clusters to resolve any issues.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -4411,7 +4415,7 @@ You need to create a separate <code>ImageBasedGroupUpgrade</code> CR and define 
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If you are using the <code>ImageBasedGroupUpgrade</code> CR to upgrade your clusters, ensure that the <code>lcm.openshift.io/ibgu-&lt;stage&gt;-completed</code> or <code>lcm.openshift.io/ibgu-&lt;stage&gt;-failed</code> cluster labels are updated properly after performing troubleshooting or recovery steps on the managed clusters.
+<p>If you are using the <code>ImageBasedGroupUpgrade</code> CR to upgrade your clusters, ensure that you update the <code>lcm.openshift.io/ibgu-&lt;stage&gt;-completed</code> or <code>lcm.openshift.io/ibgu-&lt;stage&gt;-failed</code> cluster labels properly after performing troubleshooting or recovery steps on the managed clusters.
 This ensures that the TALM continues to manage the image-based upgrade for the cluster.</p>
 </div>
 </td>
@@ -4423,39 +4427,36 @@ This ensures that the TALM continues to manage the image-based upgrade for the c
 <div class="paragraph">
 <p>You can use the <code>oc adm must-gather</code> CLI to collect information for debugging and troubleshooting.</p>
 </div>
-<div class="ulist">
-<div class="title">Procedure</div>
-<ul>
-<li>
-<p>Collect data about the Operators by running the following command:</p>
+<div class="paragraph">
+<p>To collect data about the Operators, run the following command:</p>
+</div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w">  </span>oc adm must-gather <span class="se">\</span>
   <span class="nt">--dest-dir</span><span class="o">=</span>must-gather/tmp <span class="se">\</span>
   <span class="nt">--image</span><span class="o">=</span><span class="si">$(</span>oc <span class="nt">-n</span> openshift-lifecycle-agent get deployment.apps/lifecycle-agent-controller-manager <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.template.spec.containers[?(@.name == "manager")].image}'</span><span class="si">)</span> <span class="se">\</span>
-  <span class="nt">--image</span><span class="o">=</span>quay.io/konveyor/oadp-must-gather:latest <span class="se">\/</span>/ <i class="conum" data-value="1"></i><b>(1)</b>
-<span class="go">  --image=quay.io/openshift/origin-must-gather:latest <i class="conum" data-value="2"></i><b>(2)</b>
-</span></code></pre>
+  <span class="nt">--image</span><span class="o">=</span>&lt;oadp_must_gather_image&gt; <span class="se">\</span>
+  <span class="nt">--image</span><span class="o">=</span>&lt;origin_must_gather_image&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Optional: Add this option if you need to gather more information from the OADP Operator.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Optional: Add this option if you need to gather more information from the SR-IOV Operator.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
-</li>
-</ul>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;oadp_must_gather_image&gt;</code></dt>
+<dd>
+<p>Optional: Add this option, for example <code>quay.io/konveyor/oadp-must-gather:latest</code>, if you need to gather more information from the OADP Operator.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;origin_must_gather_image&gt;</code></dt>
+<dd>
+<p>Optional: Add this option, for example <code>quay.io/openshift/origin-must-gather:latest</code>, if you need to gather more information from the SR-IOV Operator.</p>
+</dd>
+</dl>
 </div>
 </div>
 <div class="sect2">
-<h3 id="cnf-image-based-upgrade-troubleshooting-manual-cleanup_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-manual-cleanup_ztp-gitops"></a>AbortFailed or FinalizeFailed error</h3>
+<h3 id="cnf-image-based-upgrade-troubleshooting-manual-cleanup_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-manual-cleanup_ztp-gitops"></a><code>AbortFailed</code> or <code>FinalizeFailed</code> error</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
@@ -4463,7 +4464,7 @@ This ensures that the TALM continues to manage the image-based upgrade for the c
 <div class="openblock">
 <div class="content">
 <div class="paragraph">
-<p>During the finalize stage or when you stop the process at the <code>Prep</code> stage, Lifecycle Agent cleans up the following resources:</p>
+<p>During the finalization stage or when you stop the process at the <code>Prep</code> stage, Lifecycle Agent cleans up the following resources:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -4482,11 +4483,10 @@ This ensures that the TALM continues to manage the image-based upgrade for the c
 </ul>
 </div>
 <div class="paragraph">
-<p>If the Lifecycle Agent fails to perform the above steps, it transitions to the <code>AbortFailed</code> or <code>FinalizeFailed</code> states.
-The condition message and log show which steps failed.</p>
+<p>If the Lifecycle Agent fails to clean up these resources, it transitions to the <code>AbortFailed</code> or <code>FinalizeFailed</code> states.
+The condition message and log show the steps that failed, as shown in the following example:</p>
 </div>
 <div class="listingblock">
-<div class="title">Example error message</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">message</span><span class="pi">:</span> <span class="s">failed to delete all the backup CRs. Perform cleanup manually then add 'lca.openshift.io/manual-cleanup-done' annotation to ibu CR to transition back to Idle</span>
       <span class="s">observedGeneration</span><span class="pi">:</span> <span class="m">5</span>
@@ -4505,7 +4505,7 @@ The condition message and log show which steps failed.</p>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Inspect the logs to determine why the failure occurred.</p>
+<p>Inspect the logs to find the reason for failure.</p>
 </li>
 <li>
 <p>To prompt Lifecycle Agent to retry the cleanup, add the <code>lca.openshift.io/manual-cleanup-done</code> annotation to the <code>ImageBasedUpgrade</code> CR.</p>
@@ -4523,14 +4523,15 @@ The condition message and log show which steps failed.</p>
 </dd>
 </dl>
 </div>
-<div class="sect3">
-<h4 id="cnf-image-based-upgrade-troubleshooting-stateroot_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-stateroot_ztp-gitops"></a>Cleaning up stateroot manually</h4>
+</div>
+<div class="sect2">
+<h3 id="cnf-image-based-upgrade-troubleshooting-stateroot_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-stateroot_ztp-gitops"></a>Cleaning up stateroot manually</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
 <dd>
 <p>Stopping at the <code>Prep</code> stage, Lifecycle Agent cleans up the new stateroot. When finalizing after a successful upgrade or a rollback, Lifecycle Agent cleans up the old stateroot.
-If this step fails, it is recommended that you inspect the logs to determine why the failure occurred.</p>
+If this step fails, you must inspect the logs to decide why the failure occurred.</p>
 </dd>
 <dt class="hdlist1">Resolution</dt>
 <dd>
@@ -4589,8 +4590,8 @@ If this step fails, it is recommended that you inspect the logs to determine why
 </dl>
 </div>
 </div>
-<div class="sect3">
-<h4 id="cnf-image-based-upgrade-troubleshooting-oadp-resources_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-oadp-resources_ztp-gitops"></a>Cleaning up OADP resources manually</h4>
+<div class="sect2">
+<h3 id="cnf-image-based-upgrade-troubleshooting-oadp-resources_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-oadp-resources_ztp-gitops"></a>Cleaning up OADP resources manually</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
@@ -4611,8 +4612,10 @@ If this step fails, it is recommended that you inspect the logs to determine why
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get backupstoragelocations.velero.io <span class="nt">-n</span> openshift-adp</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example shows successful backend connectivity:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                          PHASE       LAST VALIDATED   AGE   DEFAULT
 dataprotectionapplication-1   Available   33s              8d    true</span></code></pre>
@@ -4627,20 +4630,20 @@ dataprotectionapplication-1   Available   33s              8d    true</span></co
 </div>
 </div>
 </div>
-</div>
 <div class="sect2">
 <h3 id="cnf-image-based-upgrade-troubleshooting-lvms_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms_ztp-gitops"></a>LVM Storage volume contents not restored</h3>
 <div class="paragraph">
-<p>When LVM Storage is used to provide dynamic persistent volume storage, LVM Storage might not restore the persistent volume contents if it is configured incorrectly.</p>
+<p>When you use LVM Storage to configure dynamic persistent volume storage, LVM Storage might not restore the persistent volume contents if you have configured it incorrectly.</p>
 </div>
-<div class="sect3">
-<h4 id="cnf-image-based-upgrade-troubleshooting-lvms-backup_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms-backup_ztp-gitops"></a>Missing LVM Storage-related fields in Backup CR</h4>
+</div>
+<div class="sect2">
+<h3 id="cnf-image-based-upgrade-troubleshooting-lvms-backup_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms-backup_ztp-gitops"></a>Missing LVM Storage-related fields in Backup CR</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
 <dd>
-<p>Your <code>Backup</code> CRs might be missing fields that are needed to restore your persistent volumes.
-You can check for events in your application pod to determine if you have this issue by running the following:</p>
+<p>Your <code>Backup</code> CRs might be missing fields that you need to restore your persistent volumes.
+You can check for events in your application pod to decide if you have this issue by running the following:</p>
 <div class="openblock">
 <div class="content">
 <div class="listingblock">
@@ -4648,8 +4651,10 @@ You can check for events in your application pod to determine if you have this i
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe pod &lt;your_app_name&gt;</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example output shows a pod failing due to missing LVM Storage-related fields in the <code>Backup</code> CR:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output showing missing LVM Storage-related fields in Backup CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Events:
   Type     Reason            Age                From               Message
@@ -4665,9 +4670,8 @@ You can check for events in your application pod to determine if you have this i
 <dt class="hdlist1">Resolution</dt>
 <dd>
 <p>You must include <code>logicalvolumes.topolvm.io</code> in the application <code>Backup</code> CR.
-Without this resource, the application restores its persistent volume claims and persistent volume manifests correctly, however, the <code>logicalvolume</code> associated with this persistent volume is not restored properly after pivot.</p>
+Without this resource, the application restores its persistent volume claims and persistent volume manifests correctly, however, the <code>logicalvolume</code> associated with this persistent volume is not restored properly after pivot. The following example shows a correctly configured <code>Backup</code> CR:</p>
 <div class="listingblock">
-<div class="title">Example Backup CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">velero.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Backup</span>
@@ -4684,31 +4688,26 @@ Without this resource, the application restores its persistent volume claims and
   <span class="pi">-</span> <span class="s">persistentvolumeclaims</span>
   <span class="pi">-</span> <span class="s">deployments</span>
   <span class="pi">-</span> <span class="s">statefulsets</span>
-  <span class="na">includedClusterScopedResources</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">includedClusterScopedResources</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="s">persistentVolumes</span>
   <span class="pi">-</span> <span class="s">volumesnapshotcontents</span>
   <span class="pi">-</span> <span class="s">logicalvolumes.topolvm.io</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>To restore the persistent volumes for your application, you must configure this section as shown.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>To restore the persistent volumes for your application, you must configure the <code>includedClusterScopedResources</code> section as shown.</p>
 </div>
 </dd>
 </dl>
 </div>
 </div>
-<div class="sect3">
-<h4 id="cnf-image-based-upgrade-troubleshooting-lvms-restore_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms-restore_ztp-gitops"></a>Missing LVM Storage-related fields in Restore CR</h4>
+<div class="sect2">
+<h3 id="cnf-image-based-upgrade-troubleshooting-lvms-restore_ztp-gitops"><a class="anchor" href="#cnf-image-based-upgrade-troubleshooting-lvms-restore_ztp-gitops"></a>Missing LVM Storage-related fields in Restore CR</h3>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Issue</dt>
 <dd>
-<p>The expected resources for the applications are restored but the persistent volume contents are not preserved after upgrading.</p>
+<p>LVM Storage restores the expected resources for the applications but it does not preserve the persistent volume contents after upgrading.</p>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
@@ -4720,8 +4719,10 @@ Without this resource, the application restores its persistent volume claims and
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pv,pvc,logicalvolumes.topolvm.io <span class="nt">-A</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following shows the output before pivot:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output before pivot</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                        CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM            STORAGECLASS   REASON   AGE
 persistentvolume/pvc-1234   1Gi        RWO            Retain           Bound    default/pvc-db   lvms-vg1                4h45m
@@ -4745,8 +4746,10 @@ NAMESPACE   NAME                                AGE
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pv,pvc,logicalvolumes.topolvm.io <span class="nt">-A</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following shows the output after pivot:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output after pivot</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                        CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM            STORAGECLASS   REASON   AGE
 persistentvolume/pvc-1234   1Gi        RWO            Delete           Bound    default/pvc-db   lvms-vg1                19s
@@ -4767,10 +4770,9 @@ NAMESPACE   NAME                                AGE
 <dt class="hdlist1">Resolution</dt>
 <dd>
 <p>The reason for this issue is that the <code>logicalvolume</code> status is not preserved in the <code>Restore</code> CR.
-This status is important because it is required for Velero to reference the volumes that must be preserved after pivoting.
-You must include the following fields in the application <code>Restore</code> CR:</p>
+This status is important because Velero requires this status to reference the volumes that you must preserve after pivoting.
+You must include the following fields in the application <code>Restore</code> CR, as shown in the following example:</p>
 <div class="listingblock">
-<div class="title">Example Restore CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">velero.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Restore</span>
@@ -4784,27 +4786,25 @@ You must include the following fields in the application <code>Restore</code> CR
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">backupName</span><span class="pi">:</span>
     <span class="s">sample-vote-app</span>
-  <span class="na">restorePVs</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="na">restoreStatus</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">restorePVs</span><span class="pi">:</span> <span class="s">&lt;restore_pvs&gt;</span>
+  <span class="na">restoreStatus</span><span class="pi">:</span>
     <span class="na">includedResources</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="s">logicalvolumes</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>To preserve the persistent volumes for your application, you must set <code>restorePVs</code> to <code>true</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>To preserve the persistent volumes for your application, you must configure this section as shown.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
 </dd>
+<dt class="hdlist1"><code>&lt;restore_pvs&gt;</code></dt>
+<dd>
+<p>To preserve the persistent volumes for your application, you must set <code>restorePVs</code> to <code>true</code>.</p>
+</dd>
+<dt class="hdlist1"><code>restoreStatus</code></dt>
+<dd>
+<p>To preserve the persistent volumes for your application, you must configure this field as shown.</p>
+</dd>
 </dl>
-</div>
 </div>
 </div>
 <div class="sect2">
@@ -4818,11 +4818,11 @@ You must include the following fields in the application <code>Restore</code> CR
 <dt class="hdlist1">Resolution</dt>
 <dd>
 <p>You can debug <code>Backup</code> and <code>Restore</code> CRs and retrieve logs with the Velero CLI tool.
-The Velero CLI tool provides more detailed information than the OpenShift CLI tool.</p>
+The Velero CLI tool offers more detailed information than the OpenShift CLI tool.</p>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Describe the <code>Backup</code> CR that contains errors by running the following command:</p>
+<p>Describe the <code>Backup</code> CR that has errors by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-adp velero-7c87d58c7b-sw6fc <span class="nt">-c</span> velero <span class="nt">--</span> ./velero describe backup <span class="nt">-n</span> openshift-adp backup-acm-klusterlet <span class="nt">--details</span></code></pre>
@@ -4830,7 +4830,7 @@ The Velero CLI tool provides more detailed information than the OpenShift CLI to
 </div>
 </li>
 <li>
-<p>Describe the <code>Restore</code> CR that contains errors by running the following command:</p>
+<p>Describe the <code>Restore</code> CR that has errors by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-adp velero-7c87d58c7b-sw6fc <span class="nt">-c</span> velero <span class="nt">--</span> ./velero describe restore <span class="nt">-n</span> openshift-adp restore-acm-klusterlet <span class="nt">--details</span></code></pre>
