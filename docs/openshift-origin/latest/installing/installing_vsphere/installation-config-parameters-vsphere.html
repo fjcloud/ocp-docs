@@ -94,25 +94,10 @@
             </a>
             <select id="version-selector" onchange="versionSelector(this);">
               <option value="latest">latest</option>
+              <option value="4.21">4.21</option>
+              <option value="4.20">4.20</option>
               <option value="4.19">4.19</option>
               <option value="4.18">4.18</option>
-              <option value="4.17">4.17</option>
-              <option value="4.16">4.16</option>
-              <option value="4.15">4.15</option>
-              <option value="4.14">4.14</option>
-              <option value="4.13">4.13</option>
-              <option value="4.12">4.12</option>
-              <option value="4.11">4.11</option>
-              <option value="4.10">4.10</option>
-              <option value="4.9">4.9</option>
-              <option value="4.8">4.8</option>
-              <option value="4.7">4.7</option>
-              <option value="4.6">4.6</option>
-              <option value="3.11">3.11</option>
-              <option value="3.10">3.10</option>
-              <option value="3.9">3.9</option>
-              <option value="3.7">3.7</option>
-              <option value="3.6">3.6</option>
             </select>
         
       </li>
@@ -3473,6 +3458,9 @@ Supported values are <code>3</code>, or <code>1</code> when deploying single-nod
 <div class="paragraph">
 <p>This parameter applies only to installer-provisioned infrastructure without an external load balancer configured. You must not specify this parameter in user-provisioned infrastructure.</p>
 </div>
+<div class="paragraph">
+<p>The <code>apiVIP</code> and <code>ingressVIP</code> parameters must come from the same network segment as the <code>networking.machineNetwork</code> parameter. If the <code>networking.machineNetwork</code> parameter is set to <code>10.0.0.0/16</code> then the API and Ingress VIPs must be in one of the <code>10.0.0.0/16</code> machine networks.</p>
+</div>
 </td>
 </tr>
 </table>
@@ -3681,6 +3669,23 @@ The list of data centers must match the list of data centers specified in the <c
 <td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
 <p>Specifies the path to a vSphere datastore that stores virtual machines files for a failure domain. You must apply the <code>datastore</code> role to the vSphere vCenter datastore location.</p>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can specify the path of any datastore that exists in a datastore cluster. By default, Storage vMotion is automatically enabled for a datastore cluster. Red Hat does not support Storage vMotion, so you must disable Storage vMotion to avoid data loss issues for your OKD cluster.</p>
+</div>
+<div class="paragraph">
+<p>If you must specify VMs across multiple datastores, use a <code>datastore</code> object to specify a failure domain in your cluster&#8217;s <code>install-config.yaml</code> configuration file. For more information, see "VMware vSphere region and zone enablement".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p><strong>Value:</strong> String</p>
 </div></div></td>
@@ -3760,7 +3765,20 @@ If you do not specify a value, the installation program installs the resources i
 <td class="tableblock halign-left valign-middle"><div class="literal"><pre>platform:
   vsphere:
     failureDomains:
-      topology
+      topology:
+        tagIDs:</pre></div></td>
+<td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
+<p>Optional: Specifies the ID of the tag to be associated by the installation program. Each VM created by OKD is assigned a unique tag that is specific to the cluster. The assigned tag enables the installation program to identify and remove the associated VMs when a cluster is decommissioned. You can list up to ten additional tag IDs to be attached to the VMs provisioned by the installation program. For more information about determining the tag ID, see the <a href="https://docs.vmware.com/en/VMware-vSphere/7.0/com.vmware.vsphere.vcenterhost.doc/GUID-E8E854DD-AA97-4E0C-8419-CE84F93C4058.html">vSphere Tags and Attributes documentation</a>.</p>
+</div>
+<div class="paragraph">
+<p><strong>Value:</strong> String, for example <code>urn:vmomi:InventoryServiceTag:208e713c-cae3-4b7f-918e-4051ca7d1f97:GLOBAL</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-middle"><div class="literal"><pre>platform:
+  vsphere:
+    failureDomains:
+      topology:
         template:</pre></div></td>
 <td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
 <p>Specifies the absolute path to a pre-existing Fedora CoreOS (FCOS) image template or virtual machine. The installation program can use the image template or virtual machine to quickly install FCOS on vSphere hosts. Consider using this parameter as an alternative to uploading an FCOS image on vSphere hosts. This parameter is available for use only on installer-provisioned infrastructure.</p>
@@ -3785,6 +3803,9 @@ If you do not specify a value, the installation program installs the resources i
 <td class="content">
 <div class="paragraph">
 <p>This parameter applies only to installer-provisioned infrastructure without an external load balancer configured. You must not specify this parameter in user-provisioned infrastructure.</p>
+</div>
+<div class="paragraph">
+<p>The <code>apiVIP</code> and <code>ingressVIP</code> parameters must come from the same network segment as the <code>networking.machineNetwork</code> parameter. If the <code>networking.machineNetwork</code> parameter is set to <code>10.0.0.0/16</code> then the API and Ingress VIPs must be in one of the <code>10.0.0.0/16</code> machine networks.</p>
 </div>
 </td>
 </tr>
@@ -4067,7 +4088,7 @@ in vSphere.</p>
   vsphere:
     clusterOSImage:</pre></div></td>
 <td class="tableblock halign-left valign-middle"><div class="content"><div class="paragraph">
-<p>The location from which the installation program downloads the Fedora CoreOS (FCOS) image. Before setting a path value for this parameter, ensure that the default FCOS boot image in the OKD release matches the FCOS image template or virtual machine version; otherwise, cluster installation might fail.</p>
+<p>The location from which the installation program downloads the Fedora CoreOS (FCOS) image. Before setting a path value for this parameter, ensure that the default FCOS boot image in the OKD release matches the FCOS image template or virtual machine version; otherwise, cluster installation might fail. As an alternative to this configuration, you can use the <code>topology.template</code> parameter to point to the path in your vCenter environment that includes an FCOS image in Open Virtual Appliance (OVA) format.</p>
 </div>
 <div class="paragraph">
 <p><strong>Value:</strong> An HTTP or HTTPS URL, optionally with a SHA-256 checksum. For example, <code>https://mirror.openshift.com/images/rhcos-&lt;version&gt;-vmware.&lt;architecture&gt;.ova</code>.</p>
