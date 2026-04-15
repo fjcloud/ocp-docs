@@ -16,7 +16,7 @@
   
   
 
-  <title>Deleting a failed node to trigger VM failover - Nodes | Virtualization | OKD 4</title>
+  <title>Configure eviction and run strategies - Nodes | Virtualization | OKD 4</title>
   <link href="https://assets.openshift.net/content/subdomain.css" rel="stylesheet" type="text/css"/>
   <link href="https://docs.okd.io/latest/_stylesheets/search.css" rel="stylesheet" media="screen"/>
   <link href="https://docs.okd.io/latest/_stylesheets/autumn.css" rel="stylesheet"  media="screen"/>
@@ -107,7 +107,7 @@
       <li class="hidden-xs active"><a href="../../virt/nodes/virt-node-maintenance.html">Nodes</a></li>
       
       <li class="hidden-xs active">
-        Deleting a failed node to trigger VM failover
+        Configure eviction and run strategies
       </li>
       
     </ol>
@@ -2699,10 +2699,10 @@
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-34-11"><span id="sgSpan-34-11" class="fa fa-caret-down"></span>&nbsp;Nodes</a>
               <ul id="topicSubGroup-34-11" class="nav-tertiary list-unstyled collapse in">
 
-                  <li><a class="" href="../../virt/nodes/virt-node-maintenance.html">Node maintenance</a></li>
+                  <li><a class="" href="../../virt/nodes/virt-node-maintenance.html">Node maintenance mode</a></li>
+                  <li><a class=" active" href="../../virt/nodes/virt-eviction-strategies.html">Configure eviction and run strategies</a></li>
                   <li><a class="" href="../../virt/nodes/virt-managing-node-labeling-obsolete-cpu-models.html">Managing node labeling for obsolete CPU models</a></li>
                   <li><a class="" href="../../virt/nodes/virt-preventing-node-reconciliation.html">Preventing node reconciliation</a></li>
-                  <li><a class=" active" href="../../virt/nodes/virt-triggering-vm-failover-resolving-failed-node.html">Deleting a failed node to trigger VM failover</a></li>
                   <li><a class="" href="../../virt/nodes/virt-activating-ksm.html">Activating kernel samepage merging (KSM)</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-34-12"><span id="sgSpan-34-12" class="fa fa-caret-right"></span>&nbsp;Monitoring</a>
@@ -2752,7 +2752,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            Deleting a failed node to trigger virtual machine failover
+            Configure eviction and run strategies
           </h1>
         </div>
         
@@ -2762,27 +2762,341 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#prerequisites_virt-triggering-vm-failover-resolving-failed-node">Prerequisites</a></li>
-<li><a href="#nodes-nodes-working-deleting-bare-metal_virt-triggering-vm-failover-resolving-failed-node">Deleting nodes from a bare metal cluster</a></li>
-<li><a href="#verifying-vm-failover_virt-triggering-vm-failover-resolving-failed-node">Verifying virtual machine failover</a>
-<ul class="sectlevel2">
-<li><a href="#virt-listing-vmis-cli_virt-triggering-vm-failover-resolving-failed-node">Listing all virtual machine instances using the CLI</a></li>
-</ul>
-</li>
+<li><a href="#virt-configuring-vm-eviction-strategy-cli_virt-eviction-strategies">Configuring a VM eviction strategy using the CLI</a></li>
+<li><a href="#virt-configuring-cluster-eviction-strategy-cli_virt-eviction-strategies">Configuring a cluster eviction strategy by using the CLI</a></li>
+<li><a href="#virt-runstrategies-vms_virt-eviction-strategies">Run strategies</a></li>
+<li><a href="#virt-configuring-runstrategy-vm_virt-eviction-strategies">Configuring a VM run strategy by using the CLI</a></li>
+<li><a href="#virt-delete-failed-node-vm-failover_virt-eviction-strategies">Delete a failed node to trigger virtual machine failover</a></li>
+<li><a href="#additional-resources">Additional resources</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>If a node fails and <a href="https://access.redhat.com/articles/7057929">node health checks</a> are not deployed on your cluster, virtual machines (VMs) with <code>runStrategy: Always</code> configured are not automatically relocated to healthy nodes.</p>
+<div class="paragraph _abstract">
+<p>You can configure eviction strategies for virtual machines (VMs) or for the cluster.
+The default eviction strategy is <code>LiveMigrate</code>. The VM <code>LiveMigrate</code> eviction strategy ensures that a virtual machine instance (VMI) is not interrupted if the node is placed into maintenance or drained. VMIs with this eviction strategy are live migrated to another node.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Cluster eviction strategies</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 40%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Eviction strategy</th>
+<th class="tableblock halign-left valign-top">Description</th>
+<th class="tableblock halign-left valign-top">Interrupts workflow</th>
+<th class="tableblock halign-left valign-top">Blocks upgrades</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>LiveMigrate</code> <sup>1</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Prioritizes workload continuity over upgrades.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes <sup>2</sup></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>LiveMigrateIfPossible</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Prioritizes upgrades over workload continuity to ensure that the environment is updated.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>None</code> <sup>3</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Shuts down VMs with no eviction strategy.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+</tr>
+</tbody>
+</table>
+<div class="openblock small">
+<div class="content">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Default eviction strategy for multi-node clusters.</p>
+</li>
+<li>
+<p>If a VM blocks an upgrade, you must shut down the VM manually.</p>
+</li>
+<li>
+<p>Default eviction strategy for single-node OpenShift.</p>
+</li>
+</ol>
+</div>
+</div>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="prerequisites_virt-triggering-vm-failover-resolving-failed-node"><a class="anchor" href="#prerequisites_virt-triggering-vm-failover-resolving-failed-node"></a>Prerequisites</h2>
+<h2 id="virt-configuring-vm-eviction-strategy-cli_virt-eviction-strategies"><a class="anchor" href="#virt-configuring-vm-eviction-strategy-cli_virt-eviction-strategies"></a>Configuring a VM eviction strategy using the CLI</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure an eviction strategy for a virtual machine (VM) by using the command line.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The default eviction strategy is <code>LiveMigrate</code>. A non-migratable VM with a <code>LiveMigrate</code> eviction strategy might prevent nodes from draining or block an infrastructure upgrade because the VM is not evicted from the node. This situation causes a migration to remain in a <code>Pending</code> or <code>Scheduling</code> state unless you shut down the VM manually.</p>
+</div>
+<div class="paragraph">
+<p>You must set the eviction strategy of non-migratable VMs to <code>LiveMigrateIfPossible</code>, which does not block an upgrade, or to <code>None</code>, for VMs that should not be migrated.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the <code>VirtualMachine</code> resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit vm &lt;vm_name&gt; <span class="nt">-n</span> &lt;namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example eviction strategy:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubevirt.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualMachine</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;vm_name&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">evictionStrategy</span><span class="pi">:</span> <span class="s">LiveMigrateIfPossible</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
 <div class="ulist">
 <ul>
 <li>
-<p>A node where a virtual machine was running has the <code>NotReady</code> <a href="../../nodes/nodes/nodes-nodes-viewing.html#nodes-nodes-viewing-listing_nodes-nodes-viewing">condition</a>.</p>
+<p><code>spec.template.spec.evictionStrategy</code> defines the eviction strategy. The default value is <code>LiveMigrate</code>.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Restart the VM to apply the changes:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>virtctl restart &lt;vm_name&gt; <span class="nt">-n</span> &lt;namespace&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-configuring-cluster-eviction-strategy-cli_virt-eviction-strategies"><a class="anchor" href="#virt-configuring-cluster-eviction-strategy-cli_virt-eviction-strategies"></a>Configuring a cluster eviction strategy by using the CLI</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure an eviction strategy for a cluster by using the command line.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the <code>hyperconverged</code> resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit hyperconvergeds.v1beta1.hco.kubevirt.io kubevirt-hyperconverged <span class="nt">-n</span> kubevirt-hyperconverged</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set the cluster eviction strategy as shown in the following example:</p>
+<div class="paragraph">
+<p>Example cluster eviction strategy:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hco.kubevirt.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HyperConverged</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt-hyperconverged</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">evictionStrategy</span><span class="pi">:</span> <span class="s">LiveMigrate</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-runstrategies-vms_virt-eviction-strategies"><a class="anchor" href="#virt-runstrategies-vms_virt-eviction-strategies"></a>Run strategies</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The <code>spec.runStrategy</code> key determines how a VM behaves under certain conditions.
+This key has four possible values: <code>Always</code>, <code>RerunOnFailure</code>, <code>Manual</code>, and <code>Halted</code>.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>Always</code></dt>
+<dd>
+<p>The virtual machine instance (VMI) is always present when a virtual machine (VM) is created on another node. A new VMI is created if the original stops for any reason.</p>
+</dd>
+<dt class="hdlist1"><code>RerunOnFailure</code></dt>
+<dd>
+<p>The VMI is re-created on another node if the previous instance fails. The instance is not re-created if the VM stops successfully, such as when it is shut down.</p>
+</dd>
+<dt class="hdlist1"><code>Manual</code></dt>
+<dd>
+<p>You control the VMI state manually with the <code>start</code>, <code>stop</code>, and <code>restart</code> virtctl client commands. The VM is not automatically restarted.</p>
+</dd>
+<dt class="hdlist1"><code>Halted</code></dt>
+<dd>
+<p>No VMI is present when a VM is created.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Different combinations of the <code>virtctl start</code>, <code>stop</code> and <code>restart</code> commands affect the run strategy.</p>
+</div>
+<div class="paragraph">
+<p>The following table describes a VM&#8217;s transition between states. The first column shows the VM&#8217;s initial run strategy. The remaining columns show a virtctl command and the new run strategy after that command is run.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. Run strategy before and after <code>virtctl</code> commands</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Initial run strategy</th>
+<th class="tableblock halign-left valign-top">Start</th>
+<th class="tableblock halign-left valign-top">Stop</th>
+<th class="tableblock halign-left valign-top">Restart</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Always</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Halted</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Always</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RerunOnFailure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RerunOnFailure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RerunOnFailure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RerunOnFailure</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Manual</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Manual</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Manual</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Manual</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Halted</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Always</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If a node in a cluster installed by using installer-provisioned infrastructure fails the machine health check and is unavailable, VMs with <code>runStrategy: Always</code> or <code>runStrategy: RerunOnFailure</code> are rescheduled on a new node.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-configuring-runstrategy-vm_virt-eviction-strategies"><a class="anchor" href="#virt-configuring-runstrategy-vm_virt-eviction-strategies"></a>Configuring a VM run strategy by using the CLI</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure a run strategy for a virtual machine (VM) by using the command line.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Edit the <code>VirtualMachine</code> resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit vm &lt;vm_name&gt; <span class="nt">-n</span> &lt;namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example run strategy:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubevirt.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualMachine</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">runStrategy</span><span class="pi">:</span> <span class="s">Always</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-delete-failed-node-vm-failover_virt-eviction-strategies"><a class="anchor" href="#virt-delete-failed-node-vm-failover_virt-eviction-strategies"></a>Delete a failed node to trigger virtual machine failover</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>If a node fails and machine health checks are not deployed on your cluster, virtual machines (VMs) with <code>runStrategy: Always</code> configured are not automatically relocated to healthy nodes. To trigger VM failover, you must manually delete the <code>Node</code> object. The following procedure deletes a node from an OKD cluster running on bare metal.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>A node where a virtual machine was running has the <code>NotReady</code> condition.</p>
 </li>
 <li>
 <p>The virtual machine that was running on the failed node has <code>runStrategy</code> set to <code>Always</code>.</p>
@@ -2791,24 +3105,6 @@
 <p>You have installed the OpenShift CLI (<code>oc</code>).</p>
 </li>
 </ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="nodes-nodes-working-deleting-bare-metal_virt-triggering-vm-failover-resolving-failed-node"><a class="anchor" href="#nodes-nodes-working-deleting-bare-metal_virt-triggering-vm-failover-resolving-failed-node"></a>Deleting nodes from a bare metal cluster</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>You can delete a node from a OKD cluster that does not use machine sets by using the <code>oc delete node</code> command and decommissioning the node.</p>
-</div>
-<div class="paragraph">
-<p>When you delete a node using the CLI, the node object is deleted in Kubernetes,
-but the pods that exist on the node are not deleted. Any bare pods not backed by
-a replication controller become inaccessible to OKD. Pods backed by
-replication controllers are rescheduled to other available nodes. You must
-delete local manifest pods.</p>
-</div>
-<div class="paragraph">
-<p>The following procedure deletes a node from an OKD cluster running on bare metal.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -2840,10 +3136,7 @@ delete local manifest pods.</p>
 </div>
 </div>
 <div class="paragraph">
-<p>Although the node object is now deleted from the cluster, it can still rejoin
-the cluster after reboot or if the kubelet service is restarted. To permanently
-delete the node and all its data, you must
-<a href="https://access.redhat.com/solutions/84663">decommission the node</a>.</p>
+<p>Although the node object is now deleted from the cluster, it can still rejoin the cluster after reboot or if the kubelet service is restarted. To permanently delete the node and all its data, you must decommission the node.</p>
 </div>
 </li>
 <li>
@@ -2851,40 +3144,40 @@ delete the node and all its data, you must
 </li>
 </ol>
 </div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>After all resources are terminated on the unhealthy node, a new virtual machine instance (VMI) is automatically created on a healthy node for each relocated VM. To confirm that the VMI was created, view all VMIs by using the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
 </div>
 </div>
-<div class="sect1">
-<h2 id="verifying-vm-failover_virt-triggering-vm-failover-resolving-failed-node"><a class="anchor" href="#verifying-vm-failover_virt-triggering-vm-failover-resolving-failed-node"></a>Verifying virtual machine failover</h2>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources"><a class="anchor" href="#additional-resources"></a>Additional resources</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>After all resources are terminated on the unhealthy node, a new virtual machine instance (VMI) is automatically created on a healthy node for each relocated VM. To confirm that the VMI was created, view all VMIs by using the <code>oc</code> CLI.</p>
-</div>
-<div class="sect2">
-<h3 id="virt-listing-vmis-cli_virt-triggering-vm-failover-resolving-failed-node"><a class="anchor" href="#virt-listing-vmis-cli_virt-triggering-vm-failover-resolving-failed-node"></a>Listing all virtual machine instances using the CLI</h3>
-<div class="paragraph _abstract">
-<p>You can list all virtual machine instances (VMIs) in your cluster, including standalone VMIs and those owned by virtual machines, by using the <code>oc</code> command-line interface (CLI).</p>
-</div>
 <div class="ulist">
-<div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+<p><a href="../../virt/live_migration/virt-configuring-live-migration.html#virt-live-migration-policies_virt-configuring-live-migration">Live migration policies</a></p>
 </li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Procedure</div>
-<ul>
 <li>
-<p>List all VMIs by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get vmis <span class="nt">-A</span></code></pre>
-</div>
-</div>
+<p><a href="../../nodes/nodes/nodes-nodes-viewing.html#nodes-nodes-viewing-listing_nodes-nodes-viewing">About listing all the nodes in a cluster</a></p>
+</li>
+<li>
+<p><a href="https://access.redhat.com/articles/7057929">OpenShift Virtualization - Fencing and VM High Availability Guide</a></p>
+</li>
+<li>
+<p><a href="https://access.redhat.com/solutions/84663">How to destroy all the data from server for decommission?</a></p>
+</li>
+<li>
+<p><a href="../../virt/managing_vms/virt-manage-vmis.html#virt-listing-vmis-cli_virt-manage-vmis">Listing all virtual machine instances using the CLI</a></p>
+</li>
+<li>
+<p><a href="../../nodes/nodes/nodes-nodes-working.html#nodes-nodes-working-deleting-bare-metal_nodes-nodes-working">Deleting nodes from a bare-metal cluster</a></p>
 </li>
 </ul>
-</div>
 </div>
 </div>
 </div>
