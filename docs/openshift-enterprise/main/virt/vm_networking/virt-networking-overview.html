@@ -3314,20 +3314,19 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#virt-networking-glossary_virt-networking-overview">OpenShift Virtualization networking glossary</a></li>
-<li><a href="#default-network-config">Using the default pod network</a></li>
-<li><a href="#primary-udn-config">Configuring a primary user-defined network</a></li>
-<li><a href="#secondary-network-config">Configuring VM secondary network interfaces</a>
+<li><a href="#virt-nw-overview-manage-overlay-nw_virt-networking-overview">Manage overlay networks</a></li>
+<li><a href="#virt-nw-overview-connect-vm-to-physical-nw_virt-networking-overview">Connect to the provider&#8217;s physical network</a>
 <ul class="sectlevel2">
-<li><a href="#comparing-bridge-localnet">Comparing Linux bridge CNI and OVN-Kubernetes localnet topology</a></li>
+<li><a href="#virt-nw-overview-comparing-localnet-linuxbridge_virt-networking-overview">Comparing Linux bridge CNI and OVN-Kubernetes localnet topology</a></li>
 </ul>
 </li>
-<li><a href="#service-mesh-integration">Integrating with Red&#160;Hat OpenShift Service Mesh</a></li>
-<li><a href="#managing-mac-address-pools">Managing MAC address pools</a></li>
-<li><a href="#vm-ssh-access">Configuring SSH access</a></li>
+<li><a href="#virt-nw-overview-manage-vm-nw-config_virt-networking-overview">Manage VM network interface configuration</a></li>
+<li><a href="#virt-nw-overview-vm-ssh-config_virt-networking-overview">Configure VM SSH access</a></li>
+<li><a href="#additional-resources_virt-networking-overview">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>To connect Virtual Machines (VMs) to cluster networks, configure default and user-defined networking options in OpenShift Virtualization.</p>
+<p>To connect virtual machines (VMs) to cluster networks, configure default and user-defined networking options in OpenShift Virtualization.</p>
 </div>
 <div class="paragraph">
 <p>OpenShift Virtualization support for single-stack IPv6 clusters is limited to the OVN-Kubernetes localnet and Linux bridge Container Network Interface (CNI) plugins.</p>
@@ -3447,7 +3446,7 @@ API resource that allows you to define custom resources, or an object defined by
 <dd>
 <p>A cluster-scoped CRD introduced by the user-defined network API that cluster administrators can use to create a shared network across multiple namespaces.</p>
 </dd>
-<dt class="hdlist1">Node network configuration policy (NNCP)</dt>
+<dt class="hdlist1"><code>NodeNetworkConfigurationPolicy</code></dt>
 <dd>
 <p>A CRD introduced by the nmstate project, describing the requested network configuration on nodes.
 You update the node network configuration, including adding and removing interfaces, by applying a <code>NodeNetworkConfigurationPolicy</code> manifest to the cluster.</p>
@@ -3457,82 +3456,76 @@ You update the node network configuration, including adding and removing interfa
 </div>
 </div>
 <div class="sect1">
-<h2 id="default-network-config"><a class="anchor" href="#default-network-config"></a>Using the default pod network</h2>
+<h2 id="virt-nw-overview-manage-overlay-nw_virt-networking-overview"><a class="anchor" href="#virt-nw-overview-manage-overlay-nw_virt-networking-overview"></a>Manage overlay networks</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To ensure your virtual machines (VMs) connect reliably by using the standard OpenShift Container Platform networking model, configure the default pod network for cluster-wide connectivity.</p>
+</div>
 <div class="paragraph">
-<p>To ensure your virtual machines connect reliably using the standard OpenShift Container Platform networking model, configure the default pod network for cluster-wide connectivity.</p>
+<p>Overlay networks provide a flexible, software-defined layer of connectivity on top of a physical network, enabling services like network segmentation, custom routing, and simplified management without altering the underlying hardware.</p>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-connecting-vm-to-default-pod-network.html#virt-connecting-vm-to-default-pod-network">Connecting a virtual machine to the default pod network</a></dt>
+<dt class="hdlist1">Connect a VM to the default pod network</dt>
 <dd>
 <p>Each VM is connected by default to the default internal pod network. You can add or remove network interfaces by editing the VM specification.</p>
+<div class="paragraph">
+<p>You can access a virtual machine (VM) that is connected to the default internal pod network on a stable fully qualified domain name (FQDN) by using headless services.</p>
+</div>
 </dd>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-exposing-vm-with-service.html#virt-exposing-vm-with-service">Exposing a virtual machine as a service</a></dt>
+<dt class="hdlist1">Connect a VM to a custom primary overlay network</dt>
 <dd>
-<p>You can expose a VM within the cluster or outside the cluster by creating a <code>Service</code> object. For on-premise clusters, you can configure a load balancing service by using the MetalLB Operator. You can <a href="../../networking/networking_operators/metallb-operator/metallb-operator-install.html#metallb-operator-install_metallb-operator-install">install the MetalLB Operator</a> by using the OpenShift Container Platform web console or the CLI.</p>
+<p>Configure a primary user-defined network (UDN) that supports multi-namespace connectivity to provide isolated and flexible traffic paths for your workloads.</p>
+<div class="paragraph">
+<p>Cluster administrators can configure a primary <code>UserDefinedNetwork</code> CRD to create a tenant network that isolates the tenant namespace from other namespaces without requiring network policies. Additionally, cluster administrators can use the <code>ClusterUserDefinedNetwork</code> CRD to create a shared OVN layer 2 network across multiple namespaces.</p>
+</div>
+<div class="paragraph">
+<p>User-defined networks with the layer 2 overlay topology are useful for VM workloads, and a good alternative to secondary networks in environments where physical network access is limited, such as the public cloud. The layer 2 topology enables seamless migration of VMs without the need for Network Address Translation (NAT), and also provides persistent IP addresses that are preserved between reboots and during live migration.</p>
+</div>
+</dd>
+<dt class="hdlist1">Connect a VM to a custom secondary overlay network</dt>
+<dd>
+<p>Configure a secondary UDN with layer 2 topology to create a private isolated communication channel between a group of VMs across different nodes. A layer 2 topology connects workloads by a cluster-wide logical switch. The OVN-Kubernetes CNI plugin uses the Geneve (Generic Network Virtualization Encapsulation) protocol to create an overlay network between nodes. You can use this overlay network to connect VMs on different nodes, without having to configure any additional physical networking infrastructure.</p>
+</dd>
+<dt class="hdlist1">Configure external ingress by exposing a VM as a service</dt>
+<dd>
+<p>You can expose a VM within the cluster or outside the cluster by creating a <code>Service</code> object. For on-premise clusters, you can configure a load balancing service by using the MetalLB Operator. You can install the MetalLB Operator by using the OpenShift Container Platform web console or the CLI.</p>
+</dd>
+<dt class="hdlist1">Add a VM to a Service Mesh</dt>
+<dd>
+<p>OpenShift Virtualization is integrated with Red&#160;Hat OpenShift Service Mesh. You can monitor, visualize, and control traffic between pods and virtual machines on the default pod network with IPv4.</p>
 </dd>
 </dl>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="primary-udn-config"><a class="anchor" href="#primary-udn-config"></a>Configuring a primary user-defined network</h2>
+<h2 id="virt-nw-overview-connect-vm-to-physical-nw_virt-networking-overview"><a class="anchor" href="#virt-nw-overview-connect-vm-to-physical-nw_virt-networking-overview"></a>Connect to the provider&#8217;s physical network</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>To provide isolated and flexible traffic paths for your workloads, configure a primary user-defined network (UDN) that supports multi-namespace connectivity.</p>
+<div class="paragraph _abstract">
+<p>To give virtual machines (VMs) access to the internet or other physical devices, you configure the node network, define the secondary network, and attach the VM to the secondary network.</p>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-connecting-vm-to-primary-udn.html#virt-connecting-vm-to-primary-udn">Connecting a virtual machine to a primary user-defined network</a></dt>
+<dt class="hdlist1">Connect a VM to the physical network by using an Open vSwitch bridge</dt>
 <dd>
-<p>You can connect a virtual machine (VM) to a user-defined network (UDN) on the primary interface of the VM. The primary UDN replaces the default pod network to connect pods and VMs in selected namespaces.</p>
+<p>You can connect a VM to the physical network infrastructure by configuring an OVN-Kubernetes secondary user-defined network (UDN) with the localnet topology.</p>
 <div class="paragraph">
-<p>Cluster administrators can configure a primary <code>UserDefinedNetwork</code> CRD to create a tenant network that isolates the tenant namespace from other namespaces without requiring network policies. Additionally, cluster administrators can use the <code>ClusterUserDefinedNetwork</code> CRD to create a shared OVN <code>layer2</code> network across multiple namespaces.</p>
-</div>
-<div class="paragraph">
-<p>User-defined networks with the <code>layer2</code> overlay topology are useful for VM workloads, and a good alternative to secondary networks in environments where physical network access is limited, such as the public cloud. The <code>layer2</code> topology enables seamless migration of VMs without the need for Network Address Translation (NAT), and also provides persistent IP addresses that are preserved between reboots and during live migration.</p>
-</div>
-</dd>
-</dl>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="secondary-network-config"><a class="anchor" href="#secondary-network-config"></a>Configuring VM secondary network interfaces</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>You can connect a virtual machine to a secondary network by using Linux bridge, SR-IOV and OVN-Kubernetes CNI plugins. You can list multiple secondary networks and interfaces in the VM specification. It is not required to specify the primary pod network in the VM specification when connecting to a secondary network interface.</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-connecting-vm-to-ovn-secondary-network.html#virt-connecting-vm-to-ovn-secondary-network">Connecting a virtual machine to an OVN-Kubernetes secondary network</a></dt>
-<dd>
-<p>You can connect a VM to an OVN-Kubernetes secondary network. OpenShift Virtualization supports the <code>layer2</code> and <code>localnet</code> topologies for OVN-Kubernetes. The <code>localnet</code> topology is the recommended way of exposing VMs to the underlying physical network, with or without VLAN encapsulation.</p>
-<div class="openblock">
-<div class="content">
-<div class="ulist">
-<ul>
-<li>
-<p>A <code>layer2</code> topology connects workloads by a cluster-wide logical switch. The OVN-Kubernetes CNI plugin uses the Geneve (Generic Network Virtualization Encapsulation) protocol to create an overlay network between nodes. You can use this overlay network to connect VMs on different nodes, without having to configure any additional physical networking infrastructure.</p>
-</li>
-<li>
-<p>A <code>localnet</code> topology connects the secondary network to the physical underlay. This enables both east-west cluster traffic and access to services running outside the cluster, but it requires additional configuration of the underlying Open vSwitch (OVS) system on cluster nodes.</p>
-</li>
-</ul>
-</div>
-</div>
+<p>A localnet topology connects the secondary network to the physical underlay. This enables both east-west cluster traffic and access to services running outside the cluster, but it requires additional configuration of the underlying Open vSwitch (OVS) bridge on cluster nodes.</p>
 </div>
 <div class="paragraph">
-<p>To configure an OVN-Kubernetes secondary network and attach a VM to that network, perform the following steps:</p>
+<p>Cluster administrators can use the following steps to configure the localnet UDN:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Define the secondary network</p>
+<p>Install the Kubernetes NMState Operator which provides a state-driven network configuration across cluster nodes.</p>
 </li>
 <li>
-<p>Attach the VM to the secondary network</p>
+<p>Use the <code>NodeNetworkConfigurationPolicy</code> custom resource (CR) to configure OVS bridges and add the appropriate bridge mappings on the nodes.</p>
+</li>
+<li>
+<p>Use the <code>ClusterUserDefinedNetwork</code> CR from the UDN API to attach their workload to the underlay network through the OVS bridges configured in the previous step.</p>
 </li>
 </ol>
 </div>
@@ -3541,36 +3534,9 @@ You update the node network configuration, including adding and removing interfa
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-connecting-vm-to-sriov.html#virt-connecting-vm-to-sriov">Connecting a virtual machine to an SR-IOV network</a></dt>
+<dt class="hdlist1">Connect a VM to the physical network by using a Linux bridge</dt>
 <dd>
-<p>You can use Single Root I/O Virtualization (SR-IOV) network devices with additional networks on your OpenShift Container Platform cluster installed on bare metal or Red Hat OpenStack Platform (RHOSP) infrastructure for applications that require high bandwidth or low latency.</p>
-<div class="paragraph">
-<p>You must <a href="../../networking/networking_operators/sr-iov-operator/installing-sriov-operator.html#installing-sriov-operator">install the SR-IOV Network Operator</a> on your cluster to manage SR-IOV network devices and network attachments.</p>
-</div>
-<div class="paragraph">
-<p>You can connect a VM to an SR-IOV network by performing the following steps:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p><a href="../../virt/vm_networking/virt-connecting-vm-to-sriov.html#nw-sriov-configuring-device_virt-connecting-vm-to-sriov">Configure an SR-IOV network device</a> by creating a <code>SriovNetworkNodePolicy</code> CRD.</p>
-</li>
-<li>
-<p><a href="../../virt/vm_networking/virt-connecting-vm-to-sriov.html#nw-sriov-additional-network_virt-connecting-vm-to-sriov">Configure an SR-IOV network</a> by creating an <code>SriovNetwork</code> object.</p>
-</li>
-<li>
-<p><a href="../../virt/vm_networking/virt-connecting-vm-to-sriov.html#virt-attaching-vm-to-sriov-network_virt-connecting-vm-to-sriov">Connect the VM to the SR-IOV network</a> by including the network details in the VM configuration.</p>
-</li>
-</ol>
-</div>
-</dd>
-</dl>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-connecting-vm-to-linux-bridge.html#virt-connecting-vm-to-linux-bridge">Connecting a virtual machine to a Linux bridge network</a></dt>
-<dd>
-<p><a href="../../networking/networking_operators/k8s-nmstate-about-the-k8s-nmstate-operator.html#k8s-nmstate-about-the-k8s-nmstate-operator">Install the Kubernetes NMState Operator</a> to configure Linux bridges, VLANs, and bonding for your secondary networks. The OVN-Kubernetes <code>localnet</code> topology is the recommended way of connecting a VM to the underlying physical network, but OpenShift Virtualization also supports Linux bridge networks.</p>
+<p>Install the Kubernetes NMState Operator to configure Linux bridges, VLANs, and bonding for your secondary networks. The OVN-Kubernetes <code>localnet</code> topology is the recommended way of connecting a VM to the underlying physical network, but OpenShift Virtualization also supports Linux bridge networks.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3606,40 +3572,56 @@ You update the node network configuration, including adding and removing interfa
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-hot-plugging-network-interfaces.html#virt-hot-plugging-network-interfaces">Hot plugging secondary network interfaces</a></dt>
+<dt class="hdlist1">Connect a VM to the physical network by using an SR-IOV device</dt>
 <dd>
-<p>You can add or remove secondary network interfaces without stopping your VM. OpenShift Virtualization supports hot plugging and hot unplugging for secondary interfaces that use bridge binding and the VirtIO device driver. OpenShift Virtualization also supports hot plugging secondary interfaces that use the SR-IOV binding.</p>
+<p>You can use Single Root I/O Virtualization (SR-IOV) network devices with additional networks on your OpenShift Container Platform cluster installed on bare metal or Red&#160;Hat OpenStack Platform (RHOSP) infrastructure for applications that require high bandwidth or low latency.</p>
+<div class="paragraph">
+<p>You must install the SR-IOV Network Operator on your cluster to manage SR-IOV network devices and network attachments.</p>
+</div>
+<div class="paragraph">
+<p>You can connect a VM to an SR-IOV network by performing the following steps:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Configure an SR-IOV physical network device by creating a <code>SriovNetworkNodePolicy</code> CR.</p>
+</li>
+<li>
+<p>Define the SR-IOV secondary network by creating an <code>SriovNetwork</code> object.</p>
+</li>
+<li>
+<p>Connect the VM to the SR-IOV network by including the network details in the VM configuration.</p>
+</li>
+</ol>
+</div>
 </dd>
 </dl>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-using-dpdk-with-sriov.html#virt-using-dpdk-with-sriov">Using DPDK with SR-IOV</a></dt>
+<dt class="hdlist1">Connect a VM to the physical network by using DPDK drivers with SR-IOV hardware</dt>
 <dd>
-<p>The Data Plane Development Kit (DPDK) provides a set of libraries and drivers for fast packet processing. You can configure clusters and VMs to run DPDK workloads over SR-IOV networks.</p>
-</dd>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-dedicated-network-live-migration.html#virt-dedicated-network-live-migration">Configuring a dedicated network for live migration</a></dt>
-<dd>
-<p>You can configure a dedicated <a href="../../virt/vm_networking/virt-connecting-vm-to-linux-bridge.html#virt-connecting-vm-to-linux-bridge">Multus network</a> for live migration. A dedicated network minimizes the effects of network saturation on tenant workloads during live migration.</p>
-</dd>
-</dl>
+<p>The Data Plane Development Kit (DPDK) provides a set of libraries and drivers for fast packet processing. You can configure clusters and VMs to run DPDK workloads over SR-IOV networks by performing the following steps:</p>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Configure the node hardware.</p>
+</li>
+<li>
+<p>Configure the VM namespace for DPDK.</p>
+</li>
+<li>
+<p>Configure the VM and guest OS to run DPDK applications.</p>
+</li>
+</ol>
 </div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-accessing-vm-secondary-network-fqdn.html#virt-accessing-vm-secondary-network-fqdn">Accessing a virtual machine by using the cluster FQDN</a></dt>
-<dd>
-<p>You can access a VM that is attached to a secondary network interface from outside the cluster by using its fully qualified domain name (FQDN).</p>
-</dd>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-configuring-viewing-ips-for-vms.html#virt-configuring-viewing-ips-for-vms">Configuring and viewing IP addresses</a></dt>
-<dd>
-<p>You can configure an IP address of a secondary network interface when you create a VM. The IP address is provisioned with cloud-init. You can view the IP address of a VM by using the OpenShift Container Platform web console or the command line. The network information is collected by the QEMU guest agent.</p>
 </dd>
 </dl>
 </div>
 <div class="sect2">
-<h3 id="comparing-bridge-localnet"><a class="anchor" href="#comparing-bridge-localnet"></a>Comparing Linux bridge CNI and OVN-Kubernetes localnet topology</h3>
-<div class="paragraph">
-<p>The following table provides a comparison of features available when using the Linux bridge CNI compared to the <code>localnet</code> topology for an OVN-Kubernetes plugin:</p>
+<h3 id="virt-nw-overview-comparing-localnet-linuxbridge_virt-networking-overview"><a class="anchor" href="#virt-nw-overview-comparing-localnet-linuxbridge_virt-networking-overview"></a>Comparing Linux bridge CNI and OVN-Kubernetes localnet topology</h3>
+<div class="paragraph _abstract">
+<p>The following table provides a comparison of features available when using the Linux bridge CNI compared to the localnet topology for an OVN-Kubernetes plugin.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <caption class="title">Table 1. Linux bridge CNI compared to an OVN-Kubernetes localnet topology</caption>
@@ -3687,72 +3669,155 @@ You update the node network configuration, including adding and removing interfa
 </div>
 </div>
 <div class="sect1">
-<h2 id="service-mesh-integration"><a class="anchor" href="#service-mesh-integration"></a>Integrating with Red&#160;Hat OpenShift Service Mesh</h2>
+<h2 id="virt-nw-overview-manage-vm-nw-config_virt-networking-overview"><a class="anchor" href="#virt-nw-overview-manage-vm-nw-config_virt-networking-overview"></a>Manage VM network interface configuration</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Manage virtual machine (VM) network configuration to scale connectivity without incurring application downtime, troubleshoot network latency, define and automate management of MAC address pools, configure IP addresses, and isolate live migration traffic.</p>
+</div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-connecting-vm-to-service-mesh.html#virt-connecting-vm-to-service-mesh">Connecting a virtual machine to a service mesh</a></dt>
+<dt class="hdlist1">Hot plug secondary network interfaces</dt>
 <dd>
-<p>OpenShift Virtualization is integrated with Service Mesh. You can monitor, visualize, and control traffic between pods and virtual machines.</p>
+<p>You can add or remove secondary network interfaces without stopping your VM. OpenShift Virtualization supports hot plugging and hot unplugging for secondary interfaces that use bridge binding and the VirtIO device driver. OpenShift Virtualization also supports hot plugging secondary interfaces that use the SR-IOV binding.</p>
 </dd>
-</dl>
+<dt class="hdlist1">Access a VM by using its external FQDN</dt>
+<dd>
+<p>You can access a virtual machine (VM) that is attached to a secondary network interface from outside the cluster by using its fully qualified domain name (FQDN). To connect to a VM by using its external FQDN, you must configure the DNS server, retrieve the cluster FQDN, and then connect to the VM by using the <code>ssh</code> command.</p>
+</dd>
+<dt class="hdlist1">Manage the link state of a VM network interface</dt>
+<dd>
+<p>You can manage the link state of a primary or secondary VM network interface by using the OpenShift Container Platform web console or the command line. By specifying the link state, you can logically connect or disconnect the virtual network interface controller (vNIC) from a network.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>OpenShift Virtualization does not support link state management for Single Root I/O Virtualization (SR-IOV) secondary network interfaces and their link states are not reported.</p>
 </div>
+</td>
+</tr>
+</table>
 </div>
-</div>
-<div class="sect1">
-<h2 id="managing-mac-address-pools"><a class="anchor" href="#managing-mac-address-pools"></a>Managing MAC address pools</h2>
-<div class="sectionbody">
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><a href="../../virt/vm_networking/virt-using-mac-address-pool-for-vms.html#virt-using-mac-address-pool-for-vms">Managing MAC address pools for network interfaces</a></dt>
+</dd>
+<dt class="hdlist1">Configure and view VM IP address</dt>
+<dd>
+<p>You can configure the IP address of a secondary network interface when you create a VM. The IP address is provisioned with cloud-init. You can view the IP address of a VM by using the OpenShift Container Platform web console or the command line. The network information is collected by the QEMU guest agent.</p>
+</dd>
+<dt class="hdlist1">Manage MAC address pools for VM network interfaces</dt>
 <dd>
 <p>The KubeMacPool component allocates MAC addresses for VM network interfaces from a shared MAC address pool. This ensures that each network interface is assigned a unique MAC address. A virtual machine instance created from that VM retains the assigned MAC address across reboots.</p>
 </dd>
+<dt class="hdlist1">Configure a dedicated network for live migration</dt>
+<dd>
+<p>You can configure a dedicated Multus network for live migration. A dedicated network minimizes the effects of network saturation on tenant workloads during live migration.</p>
+</dd>
 </dl>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="vm-ssh-access"><a class="anchor" href="#vm-ssh-access"></a>Configuring SSH access</h2>
+<h2 id="virt-nw-overview-vm-ssh-config_virt-networking-overview"><a class="anchor" href="#virt-nw-overview-vm-ssh-config_virt-networking-overview"></a>Configure VM SSH access</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can use SSH to securely access your virtual machines (VMs) from the command line.</p>
+</div>
+<div class="paragraph">
+<p>To set up your SSH configuration, use one of the following methods:</p>
+</div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><a href="../../virt/managing_vms/virt-accessing-vm-ssh.html#virt-accessing-vm-ssh">Configuring SSH access to virtual machines</a></dt>
+<dt class="hdlist1">Use the <code>virtctl ssh</code> command</dt>
 <dd>
-<p>You can configure SSH access to VMs by using the following methods:</p>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="../../virt/managing_vms/virt-accessing-vm-ssh.html#using-virtctl-ssh_virt-accessing-vm-ssh"><code>virtctl ssh</code> command</a></p>
-<div class="paragraph">
 <p>You create an SSH key pair, add the public key to a VM, and connect to the VM by running the <code>virtctl ssh</code> command with the private key.</p>
-</div>
 <div class="paragraph">
 <p>You can add public SSH keys to Red&#160;Hat Enterprise Linux (RHEL) 9 VMs at runtime or at first boot to VMs with guest operating systems that can be configured by using a cloud-init data source.</p>
 </div>
-</li>
-<li>
-<p><a href="../../virt/managing_vms/virt-accessing-vm-ssh.html#virt-using-virtctl-port-forward-command_virt-accessing-vm-ssh"><code>virtctl port-forward</code> command</a></p>
-<div class="paragraph">
+</dd>
+<dt class="hdlist1">Use the <code>virtctl port-forward</code> command</dt>
+<dd>
 <p>You add the <code>virtctl port-foward</code> command to your <code>.ssh/config</code> file and connect to the VM by using OpenSSH.</p>
-</div>
-</li>
-<li>
-<p><a href="../../virt/managing_vms/virt-accessing-vm-ssh.html#using-services-ssh_virt-accessing-vm-ssh">Service</a></p>
-<div class="paragraph">
+</dd>
+<dt class="hdlist1">Service</dt>
+<dd>
 <p>You create a service, associate the service with the VM, and connect to the IP address and port exposed by the service.</p>
-</div>
-</li>
-<li>
-<p><a href="../../virt/managing_vms/virt-accessing-vm-ssh.html#using-secondary-networks-ssh_virt-accessing-vm-ssh">Secondary network</a></p>
-<div class="paragraph">
+</dd>
+<dt class="hdlist1">Secondary network</dt>
+<dd>
 <p>You configure a secondary network, attach a VM to the secondary network interface, and connect to its allocated IP address.</p>
-</div>
-</li>
-</ul>
-</div>
 </dd>
 </dl>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources_virt-networking-overview"><a class="anchor" href="#additional-resources_virt-networking-overview"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="../../virt/vm_networking/virt-connecting-vm-to-default-pod-network.html#virt-connecting-vm-to-default-pod-network">Connect a virtual machine to the default pod network</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-connecting-vm-to-primary-udn.html#virt-connecting-vm-to-primary-udn">Connect a virtual machine to a custom primary overlay network</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-connecting-vm-to-ovn-secondary-network.html#virt-connecting-vm-to-ovn-secondary-network">Connect a VM to a custom secondary overlay network</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-exposing-vm-with-service.html#virt-exposing-vm-with-service">Configure external ingress by exposing a VM as a service</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-connecting-vm-to-service-mesh.html#virt-connecting-vm-to-service-mesh">Add a VM to a Service Mesh</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-connecting-vm-to-secondary-udn.html#virt-connecting-vm-to-secondary-udn">Connect a VM to the physical network by using an Open vSwitch bridge</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-accessing-vm-internal-fqdn.html#virt-accessing-vm-internal-fqdn">Access a virtual machine by using its internal FQDN</a></p>
+</li>
+<li>
+<p><a href="../../networking/networking_operators/metallb-operator/metallb-operator-install.html#metallb-operator-install_metallb-operator-install">Install the MetalLB Operator</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-connecting-vm-to-linux-bridge.html#virt-connecting-vm-to-linux-bridge">Connect a virtual machine to the physical network by using a Linux bridge</a></p>
+</li>
+<li>
+<p><a href="../../networking/networking_operators/k8s-nmstate-about-the-k8s-nmstate-operator.html#k8s-nmstate-about-the-k8s-nmstate-operator">Install the Kubernetes NMState Operator</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-connecting-vm-to-sriov.html#virt-connecting-vm-to-sriov">Connect a VM to the physical network by using an SR-IOV device</a></p>
+</li>
+<li>
+<p><a href="../../networking/networking_operators/sr-iov-operator/installing-sriov-operator.html#installing-sriov-operator">Install the SR-IOV Network Operator</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-using-dpdk-with-sriov.html#virt-using-dpdk-with-sriov">Connect a VM to the physical network by using DPDK drivers with SR-IOV hardware</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-dedicated-network-live-migration.html#virt-dedicated-network-live-migration">Configure a dedicated network for live migration</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-accessing-vm-secondary-network-fqdn.html#virt-accessing-vm-secondary-network-fqdn">Access a VM by using its external FQDN</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-setting-interface-link-state.html#virt-setting-interface-link-state">Manage the link state of a virtual machine interface</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-hot-plugging-network-interfaces.html#virt-hot-plugging-network-interfaces">Hot plugging secondary network interfaces</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-configuring-viewing-ips-for-vms.html#virt-configuring-viewing-ips-for-vms">Configure and view VM IP address</a></p>
+</li>
+<li>
+<p><a href="../../virt/vm_networking/virt-using-mac-address-pool-for-vms.html#virt-using-mac-address-pool-for-vms">Manage MAC address pools for network interfaces</a></p>
+</li>
+<li>
+<p><a href="../../virt/managing_vms/virt-accessing-vm-ssh.html#virt-accessing-vm-ssh">Configure SSH access to a virtual machine</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>

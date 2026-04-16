@@ -896,7 +896,6 @@
                   <li><a class="" href="../../service_mesh/v2x/ossm-troubleshooting-istio.html">Troubleshooting Service Mesh</a></li>
                   <li><a class="" href="../../service_mesh/v2x/ossm-reference-smcp.html">Control plane configuration reference</a></li>
                   <li><a class="" href="../../service_mesh/v2x/ossm-reference-kiali.html">Kiali configuration reference</a></li>
-                  <li><a class="" href="../../service_mesh/v2x/ossm-reference-jaeger.html">Jaeger configuration reference</a></li>
                   <li><a class="" href="../../service_mesh/v2x/removing-ossm.html">Uninstalling Service Mesh</a></li>              </ul>
             </li>
       </ul>
@@ -1107,6 +1106,8 @@
 <li><a href="#nw-ingress-operator-logs_configuring-ingress">View Ingress Controller logs</a></li>
 <li><a href="#nw-ingress-controller-status_configuring-ingress">View Ingress Controller status</a></li>
 <li><a href="#sd-ingress-responsibility-matrix_configuring-ingress">Management of <code>default</code> Ingress Controller functions</a></li>
+<li><a href="#osd-create-cluster-exclude-namespace-selector-cli_configuring-ingress">Set namespace exclusions for the default ingress when creating a cluster</a></li>
+<li><a href="#osd-ingress-excluded-namespaces-ocm-cli_configuring-ingress">Configure excluded namespaces for the default ingress controller</a></li>
 </ul>
 </div>
 <div id="preamble">
@@ -1320,6 +1321,184 @@ within a minute.</p>
 </tr>
 </tbody>
 </table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="osd-create-cluster-exclude-namespace-selector-cli_configuring-ingress"><a class="anchor" href="#osd-create-cluster-exclude-namespace-selector-cli_configuring-ingress"></a>Set namespace exclusions for the default ingress when creating a cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>When you create an OpenShift Dedicated cluster in noninteractive mode, you can pass a namespace label selector so that namespaces matching those labels are excluded from the default <code>application ingress</code>. This allows you to exclude namespaces that host workloads through the default ingress, such as namespaces with sensitive data or internal services.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the <code>ocm</code> CLI and logged in with credentials that can create clusters in Red Hat OpenShift Cluster Manager.</p>
+</li>
+<li>
+<p>You are using the noninteractive mode for <code>ocm create cluster</code>. For interactive mode, use the prompts for ingress settings when they are available for your <code>ocm</code> version.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not exclude namespaces that host required platform routes (for example, <code>openshift-console</code> or <code>openshift-authentication</code>). Excluding them can break the web console, downloads, or OAuth flows.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Run <code>ocm create cluster -h</code> and confirm that your <code>ocm</code> version lists the <code>--exclude-namespace-selector</code> flag.</p>
+</li>
+<li>
+<p>Build your <code>ocm create cluster</code> command with the required parameters for your cloud provider and subscription model.</p>
+<div class="paragraph">
+<p>The following example shows only the ingress-related fragment. Replace the rest of the flags with the values required for your environment.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ocm create cluster &lt;cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--provider</span><span class="o">=</span>&lt;aws_or_gcp&gt; <span class="se">\</span>
+  &lt;other_required_flags&gt; <span class="se">\</span>
+  <span class="nt">--default-ingress-excluded-namespace-selectors</span> <span class="s1">'&lt;key&gt;=&lt;value&gt;,&lt;key2&gt;=&lt;value2&gt;'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;cluster_name&gt;</code></dt>
+<dd>
+<p>Specifies the cluster name.</p>
+</dd>
+<dt class="hdlist1"><code>--provider=&lt;aws_or_gcp&gt;</code></dt>
+<dd>
+<p>Specifies the cloud provider.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;other_required_flags&gt;</code></dt>
+<dd>
+<p>Required parameters such as region, version, CCS settings, or billing flags, as described in the cluster creation documentation for your platform.</p>
+</dd>
+<dt class="hdlist1"><code>--default-ingress-excluded-namespace-selectors</code></dt>
+<dd>
+<p>Specifies label selectors; namespaces whose labels match are excluded from the default application ingress, subject to validation by the service. Replace <code>&lt;key&gt;=&lt;value&gt;</code> with your labels. Do not include spaces around the <code>=</code> sign.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>After the cluster reaches <code>ready</code> state, confirm ingress settings and inspect the default ingress object for the configured exclusion data.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ocm list ingress <span class="nt">-c</span> &lt;cluster_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="osd-ingress-excluded-namespaces-ocm-cli_configuring-ingress"><a class="anchor" href="#osd-ingress-excluded-namespaces-ocm-cli_configuring-ingress"></a>Configure excluded namespaces for the default ingress controller</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>As a cluster administrator, you can use the OpenShift Cluster Manager CLI (<code>ocm</code>) to set which namespaces are excluded from the default application ingress on an existing cluster. Excluded namespaces do not have routes served by that ingress.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the <code>ocm</code> CLI and logged in with credentials that can modify cluster ingress settings in Red Hat OpenShift Cluster Manager.</p>
+</li>
+<li>
+<p>You have the cluster name, cluster ID, or external ID of your cluster.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not exclude namespaces that host required platform routes (for example, <code>openshift-console</code> or <code>openshift-authentication</code>). Excluding them can break the web console, downloads, or OAuth flows.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Optional: Set your cluster name in a variable:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">CLUSTER_NAME</span><span class="o">=</span>&lt;cluster_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>List ingress endpoints for the cluster and note the <code>id</code> of the default ingress:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ocm list ingress <span class="nt">-c</span> <span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: To store the default ingress ID in a variable:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">INGRESS_ID</span><span class="o">=</span><span class="si">$(</span>ocm list ingress <span class="nt">-c</span> <span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span>| jq <span class="nt">-r</span> <span class="s1">'.[] | select(.default == true) | .id'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit the default ingress and set excluded namespaces as a comma-separated list of namespace names:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ocm edit ingress <span class="nt">-c</span> <span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span> <span class="k">${</span><span class="nv">INGRESS_ID</span><span class="k">}</span> <span class="se">\</span>
+    <span class="nt">--excluded-namespaces</span> <span class="s1">'namespace-one,namespace-two'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Substitute <code>namespace-one</code>, <code>namespace-two</code>, and any additional entries with the metadata names of the namespaces to exclude.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>After the command completes, verify that the updated ingress object reflects your excluded namespace settings.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ocm list ingress <span class="nt">-c</span> &lt;cluster_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
       </div>
