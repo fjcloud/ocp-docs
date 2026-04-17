@@ -2762,6 +2762,13 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#hcp-ingress-egress-reqs_hcp-networking">Ingress and egress requirements for hosted control planes</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-ingress-reqs_hcp-networking">Ingress requirements for hosted control planes</a></li>
+<li><a href="#hcp-egress-reqs_hcp-networking">Egress requirements for hosted control planes</a></li>
+<li><a href="#hcp-ingress-egress-example_hcp-networking">Example firewall configuration</a></li>
+</ul>
+</li>
 <li><a href="#hcp-custom-ovn-subnets_hcp-networking">Configuring internal OVN IPv4 subnets for hosted clusters</a></li>
 <li><a href="#hcp-proxy-overview_hcp-networking">Proxy support for hosted control planes</a>
 <ul class="sectlevel2">
@@ -2772,11 +2779,355 @@
 <li><a href="#hcp-proxy-addl-network_hcp-networking">Management cluster that uses a proxy and a hosted cluster with a secondary network and no default pod network</a></li>
 </ul>
 </li>
-<li><a href="#additional-resources-hcp-proxy_hcp-networking">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
 <p>Ensure optimal performance with hosted control planes by configuring network settings. Those settings include internal subnets and proxy support for control-plane workloads, compute nodes, management clusters, and hosted clusters.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-ingress-egress-reqs_hcp-networking"><a class="anchor" href="#hcp-ingress-egress-reqs_hcp-networking"></a>Ingress and egress requirements for hosted control planes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Specific network ports must be open for communication between the management cluster, the hosted control planes components, and the compute nodes. The ports are categorized into ingress ports, which involve incoming traffic to hosted control planes and egress ports, which involve outgoing traffic from hosted control planes.</p>
+</div>
+<div class="sect2">
+<h3 id="hcp-ingress-reqs_hcp-networking"><a class="anchor" href="#hcp-ingress-reqs_hcp-networking"></a>Ingress requirements for hosted control planes</h3>
+<div class="paragraph _abstract">
+<p>Ingress ports involve incoming traffic to hosted control planes. Ensure the correct ports are open for communication between the management cluster, the hosted control planes components, and the compute nodes.</p>
+</div>
+<div class="paragraph">
+<p>The following table details the ports for incoming traffic to hosted control planes across all platforms:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Common ingress ports</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Port</th>
+<th class="tableblock halign-left valign-top">Protocol</th>
+<th class="tableblock halign-left valign-top">Service</th>
+<th class="tableblock halign-left valign-top">Description</th>
+<th class="tableblock halign-left valign-top">Code reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>6443</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Kubernetes API server</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Primary API server port for <code>kubectl</code> and cluster communication</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>support/config/constants.go:35</code> - <code>KASSVCPort = 6443</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>9090</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ignition server</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Port from compute nodes during the bootstrap process, <code>NodePort</code> or <code>Route</code> service publishing strategy</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The service publishing strategy determines additional ports. The <code>Ignition Proxy</code> and <code>Konnectivity</code> services are exposed through one of the following service publishing strategies:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>Route</code></dt>
+<dd>
+<p>This setting is the default on OKD. Traffic flows through the OpenShift router on port 443. No additional firewall rules are needed beyond standard HTTPS.</p>
+</dd>
+<dt class="hdlist1"><code>NodePort</code></dt>
+<dd>
+<p>Direct access is required to port 8091 (Konnectivity) and port 8443 (Ignition Proxy).</p>
+</dd>
+<dt class="hdlist1"><code>LoadBalancer</code></dt>
+<dd>
+<p>Direct access is required to port 8091 (Konnectivity) through the cloud load balancer.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The following table details the ingress port configurations that are specific to each platform:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. Platform-specific ingress port configurations</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Platform</th>
+<th class="tableblock halign-left valign-top">Port</th>
+<th class="tableblock halign-left valign-top">Service</th>
+<th class="tableblock halign-left valign-top">Description</th>
+<th class="tableblock halign-left valign-top">Code reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Agent</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>8443</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ignition Proxy</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HTTPS proxy for ignition content delivery (<code>NodePort</code> publishing)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hypershift-operator/controllers/hostedcluster/network_policies.go:390</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Agent</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>8081</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Agent CAPI health probe</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Health check endpoint for Agent platform CAPI provider</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hypershift-operator/controllers/hostedcluster/internal/platform/agent.go:96,105,115</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Agent</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>8080</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Agent CAPI metrics</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Metrics endpoint for Agent platform CAPI provider (binds to localhost only)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hypershift-operator/controllers/hostedcluster/internal/platform/agent/agent.go:97</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">AWS</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>9440</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">CAPI health check</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Health and readiness probe endpoint for AWS CAPI provider</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hypershift-operator/controllers/hostedcluster/internal/platform/aws/aws.go:222-223</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bare metal without the Agent platform</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>8443</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ignition Proxy</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HTTPS proxy for ignition content delivery (<code>NodePort</code> publishing)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">-</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">KubeVirt</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>9440</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">CAPI health check</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Health and readiness probe endpoint</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hypershift-operator/controllers/hostedcluster/internal/platform/kubevirt/kubevirt.go:140</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OpenStack (Technology Preview)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>9440</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">CAPI health check</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Health and readiness probe endpoint</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hypershift-operator/controllers/hostedcluster/internal/platform/openstack/openstack.go:238</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OpenStack (Technology Preview)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>8081</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ORC health check</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Health and readiness probe endpoint for OpenStack Resource Controller</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hypershift-operator/controllers/hostedcluster/internal/platform/openstack/openstack.go:294,311</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The following table details the ingress port configurations for private clusters, such as those on AWS:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 3. Ingress port configurations for private clusters</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 25%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Port</th>
+<th class="tableblock halign-left valign-top">Service</th>
+<th class="tableblock halign-left valign-top">Description</th>
+<th class="tableblock halign-left valign-top">Code reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>8080</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Private router HTTP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HTTP traffic through the private router</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hypershift-operator/controllers/hostedcluster/network_policies.go:244</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>8443</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Private router HTTPS</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HTTPS traffic through the private router</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hypershift-operator/controllers/hostedcluster/network_policies.go:245</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="hcp-egress-reqs_hcp-networking"><a class="anchor" href="#hcp-egress-reqs_hcp-networking"></a>Egress requirements for hosted control planes</h3>
+<div class="paragraph _abstract">
+<p>Egress ports involve outgoing traffic from hosted control planes. Ensure the correct ports are open for communication between the management cluster, the hosted control planes components, and the compute nodes.</p>
+</div>
+<div class="paragraph">
+<p>The following table details the ports that must be accessible for outgoing traffic from hosted control planes, across all platforms.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 4. Common egress ports</caption>
+<colgroup>
+<col style="width: 11.1111%;">
+<col style="width: 22.2222%;">
+<col style="width: 22.2222%;">
+<col style="width: 44.4445%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Port</th>
+<th class="tableblock halign-left valign-top">Protocol</th>
+<th class="tableblock halign-left valign-top">Service</th>
+<th class="tableblock halign-left valign-top">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>443</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HTTPS</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OLM images, <code>Ignition</code> content, external HTTPS services</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>6443</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Kubernetes API server</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Communication with management cluster API</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>53</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP and UDP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">DNS</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Standard DNS queries</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Compute nodes require outbound network access to several hosted control planes services. The following table details the egress requirements for compute nodes.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 5. Compute node egress requirements</caption>
+<colgroup>
+<col style="width: 9.0909%;">
+<col style="width: 9.0909%;">
+<col style="width: 9.0909%;">
+<col style="width: 36.3636%;">
+<col style="width: 36.3637%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Port</th>
+<th class="tableblock halign-left valign-top">Protocol</th>
+<th class="tableblock halign-left valign-top">Service</th>
+<th class="tableblock halign-left valign-top">Purpose</th>
+<th class="tableblock halign-left valign-top">When required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>443</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HTTPS</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Container registries, <code>Ignition</code> or <code>Konnectivity</code> service via <code>Route</code> service publishing strategy, external HTTPS services</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Always</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>6443</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Kubernetes API server</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Cluster management and kubelet communication</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Always</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>8091</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Konnectivity server</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Establishes a reverse tunnel for control plane access</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>NodePort</code> or <code>LoadBalancer</code> publishing only</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>8443</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ignition Proxy</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Retrieves bootstrap configuration</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>NodePort</code> publishing only for Agent platform or bare metal</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>53</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">TCP and UDP</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">DNS</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name resolution</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Always</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="hcp-ingress-egress-example_hcp-networking"><a class="anchor" href="#hcp-ingress-egress-example_hcp-networking"></a>Example firewall configuration</h3>
+<div class="paragraph _abstract">
+<p>Review an example of what the firewall configuration looks like for a typical hosted control planes on AWS deployment that uses <code>Route</code> service publishing.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Ingress rules</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Port <code>6443</code>/TCP: Kubernetes API server, from compute nodes and external clients</p>
+</li>
+<li>
+<p>Port <code>443</code>/TCP: OpenShift Router for Ignition or Konnectivity routes, from compute nodes</p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Egress rules</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Port <code>443</code>/TCP: HTTPS, to container registries, routes, and external services</p>
+</li>
+<li>
+<p>Port <code>6443</code>/TCP: Management cluster API, to management cluster</p>
+</li>
+<li>
+<p>Port <code>53</code>/TCP and UDP: DNS, to DNS servers</p>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>If you use <code>NodePort</code> or <code>LoadBalancer</code> service publishing instead of <code>Route</code> service publishing, the following rules apply:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Port <code>8091</code>/TCP: Konnectivity server, from compute nodes</p>
+</li>
+<li>
+<p>Port <code>8443</code>/TCP: Ignition Proxy, from compute nodes during the bootstrap process, <code>NodePort</code> publishing strategy only</p>
+</li>
+<li>
+<p>Port <code>9090</code>/TCP: Ignition server, from compute nodes during the bootstrap process, <code>NodePort</code> publishing strategy only</p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
@@ -3294,13 +3645,8 @@
 <div class="paragraph">
 <p>If a management cluster uses a proxy configuration and you are configuring a hosted cluster with a secondary network but are not attaching the default pod network, add the CIDR of the secondary network to the proxy configuration. Specifically, you need to add the CIDR of the secondary network to the <code>noProxy</code> section of the proxy configuration for the management cluster. Otherwise, the Kubernetes API server will route some API requests through the proxy. In the hosted cluster configuration, the CIDR of the secondary network is automatically added to the <code>noProxy</code> section.</p>
 </div>
-</div>
-</div>
-</div>
-<div class="sect1 _additional-resources">
-<h2 id="additional-resources-hcp-proxy_hcp-networking"><a class="anchor" href="#additional-resources-hcp-proxy_hcp-networking"></a>Additional resources</h2>
-<div class="sectionbody">
-<div class="ulist">
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
 <ul>
 <li>
 <p><a href="../hosted_control_planes/hcp-troubleshooting.html#hcp-ts-internal-subnets_hcp-troubleshooting">Troubleshooting internal subnets for hosted clusters</a></p>
@@ -3315,6 +3661,7 @@
 <p><a href="../networking/configuring_network_settings/enable-cluster-wide-proxy.html#enable-cluster-wide-proxy">Configuring the cluster-wide proxy</a></p>
 </li>
 </ul>
+</div>
 </div>
 </div>
 </div>
