@@ -2818,6 +2818,22 @@
 </tr>
 </table>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In OKD 4.22 and later, the multi-network policy backend uses <code>nftables</code>.
+The <code>iptables</code> backend has been removed and there is no option to revert to it.
+The <code>MultiNetworkPolicy</code> API and user-facing configuration are unchanged.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -2923,13 +2939,13 @@
 <h2 id="nw-multi-network-policy-ipv6-support_configuring-multi-network-policy"><a class="anchor" href="#nw-multi-network-policy-ipv6-support_configuring-multi-network-policy"></a>Supporting multi-network policies in IPv6 networks</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>The ICMPv6 Neighbor Discovery Protocol (NDP) is a set of messages and processes that enable devices to discover and maintain information about neighboring nodes. NDP plays a crucial role in IPv6 networks, facilitating the interaction between devices on the same link.</p>
+<p>The ICMPv6 Neighbor Discovery Protocol (NDP) is a set of messages and processes that enable devices to discover and maintain information about neighboring nodes. NDP is essential in IPv6 networks, facilitating the interaction between devices on the same link.</p>
 </div>
 <div class="paragraph">
-<p>The Cluster Network Operator (CNO) deploys the iptables implementation of multi-network policy when the <code>useMultiNetworkPolicy</code> parameter is set to <code>true</code>.</p>
+<p>The Cluster Network Operator (CNO) deploys the <code>nftables</code> implementation of multi-network policy when the <code>useMultiNetworkPolicy</code> parameter is set to <code>true</code>.</p>
 </div>
 <div class="paragraph">
-<p>To support multi-network policies in IPv6 networks the Cluster Network Operator deploys the following set of custom rules in every pod affected by a multi-network policy:</p>
+<p>To support multi-network policies in IPv6 networks, the Cluster Network Operator deploys the following predefined <code>nftables</code> rules in every pod affected by a multi-network policy. The CNO automatically creates and manages the following <code>ConfigMap</code>. You do not need to create this resource.</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -2939,14 +2955,13 @@
   <span class="na">name</span><span class="pi">:</span> <span class="s">multi-networkpolicy-custom-rules</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-multus</span>
 <span class="na">data</span><span class="pi">:</span>
-
   <span class="s">custom-v6-rules.txt</span><span class="pi">:</span> <span class="pi">|</span>
     <span class="s"># accept NDP</span>
-    <span class="s">-p icmpv6 --icmpv6-type neighbor-solicitation -j ACCEPT</span>
-    <span class="s">-p icmpv6 --icmpv6-type neighbor-advertisement -j ACCEPT</span>
+    <span class="s">icmpv6 type nd-neighbor-solicit accept</span>
+    <span class="s">icmpv6 type nd-neighbor-advert accept</span>
     <span class="s"># accept RA/RS</span>
-    <span class="s">-p icmpv6 --icmpv6-type router-solicitation -j ACCEPT</span>
-    <span class="s">-p icmpv6 --icmpv6-type router-advertisement -j ACCEPT</span></code></pre>
+    <span class="s">icmpv6 type nd-router-advert accept</span>
+    <span class="s">icmpv6 type nd-router-solicit accept</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -2954,21 +2969,21 @@
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><code>icmpv6-type neighbor-solicitation</code></dt>
+<dt class="hdlist1"><code>icmpv6 type nd-neighbor-solicit</code></dt>
 <dd>
-<p>This rule allows incoming ICMPv6 neighbor solicitation messages, which are part of the neighbor discovery protocol (NDP). These messages help determine the link-layer addresses of neighboring nodes.</p>
+<p>This rule allows incoming ICMPv6 neighbor solicitation messages, which are part of the Neighbor Discovery Protocol (NDP). These messages help determine the link-layer addresses of neighboring nodes. In a multi-network setup, this allows other pods or the secondary interface gateway to resolve the pod&#8217;s MAC address. Without this, the pod becomes 'invisible' to its neighbors on the secondary network.</p>
 </dd>
-<dt class="hdlist1"><code>icmpv6-type neighbor-advertisement</code></dt>
+<dt class="hdlist1"><code>icmpv6 type nd-neighbor-advert</code></dt>
 <dd>
-<p>This rule allows incoming ICMPv6 neighbor advertisement messages, which are part of NDP and provide information about the link-layer address of the sender.</p>
+<p>This rule allows incoming ICMPv6 neighbor advertisement messages, which are part of NDP and provide information about the link-layer address of the sender. This ensures the pod can receive MAC address updates from other nodes.</p>
 </dd>
-<dt class="hdlist1"><code>icmpv6-type router-solicitation</code></dt>
+<dt class="hdlist1"><code>icmpv6 type nd-router-advert</code></dt>
 <dd>
-<p>This rule permits incoming ICMPv6 router solicitation messages. Hosts use these messages to request router configuration information.</p>
+<p>This rule allows incoming ICMPv6 router advertisement messages, which provide configuration information to hosts. This allows the pod to receive its default gateway and routing prefix dynamically from the network infrastructure.</p>
 </dd>
-<dt class="hdlist1"><code>icmpv6-type router-advertisement</code></dt>
+<dt class="hdlist1"><code>icmpv6 type nd-router-solicit</code></dt>
 <dd>
-<p>This rule allows incoming ICMPv6 router advertisement messages, which give configuration information to hosts.</p>
+<p>This rule allows incoming ICMPv6 router solicitation messages. Hosts use these messages to request router configuration information. This ensures that when a pod&#8217;s interface comes online, it can immediately request network parameters rather than waiting for the next scheduled broadcast, reducing container startup latency.</p>
 </dd>
 </dl>
 </div>
