@@ -2799,11 +2799,25 @@
 <div class="sect1">
 <h2 id="understanding-file-integrity-custom-resource_file-integrity-operator"><a class="anchor" href="#understanding-file-integrity-custom-resource_file-integrity-operator"></a>Creating the FileIntegrity custom resource</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>An instance of a <code>FileIntegrity</code> custom resource (CR) represents a set of continuous file integrity scans for one or more nodes.</p>
 </div>
 <div class="paragraph">
 <p>Each <code>FileIntegrity</code> CR is backed by a daemon set running AIDE on the nodes matching the <code>FileIntegrity</code> CR specification.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For all-in-one control plane and worker nodes, separate <code>FileIntegrity</code> CRs that use <code>node-role.kubernetes.io/master</code> and <code>node-role.kubernetes.io/worker</code> selectors can schedule many daemon sets that run Advanced Intrusion Detection Environment (AIDE) on the same nodes, because schedulable control plane nodes often have both labels. Redundant scans waste resources and can complicate file integrity monitoring. You can avoid this by using a single <code>FileIntegrity</code> CR whose <code>nodeSelector</code> targets each node only once for your cluster layout.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -2819,58 +2833,82 @@
   <span class="na">name</span><span class="pi">:</span> <span class="s">worker-fileintegrity</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-file-integrity</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">nodeSelector</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-      <span class="s">node-role.kubernetes.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">tolerations</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
-  <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">myNode"</span>
+  <span class="na">nodeSelector</span><span class="pi">:</span>
+    <span class="s">node-role.kubernetes.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+  <span class="na">tolerations</span><span class="pi">:</span>
+    <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">myNode"</span>
     <span class="na">operator</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Exists"</span>
     <span class="na">effect</span><span class="pi">:</span> <span class="s2">"</span><span class="s">NoSchedule"</span>
-  <span class="na">config</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">config</span><span class="pi">:</span>
     <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">myconfig"</span>
     <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">openshift-file-integrity"</span>
     <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">config"</span>
-    <span class="na">gracePeriod</span><span class="pi">:</span> <span class="s">20</span> <i class="conum" data-value="4"></i><b>(4)</b>
-    <span class="na">maxBackups</span><span class="pi">:</span> <span class="s">5</span> <i class="conum" data-value="5"></i><b>(5)</b>
-    <span class="na">initialDelay</span><span class="pi">:</span> <span class="s">60</span> <i class="conum" data-value="6"></i><b>(6)</b>
+    <span class="na">gracePeriod</span><span class="pi">:</span> <span class="m">20</span>
+    <span class="na">maxBackups</span><span class="pi">:</span> <span class="m">5</span>
+    <span class="na">initialDelay</span><span class="pi">:</span> <span class="m">60</span>
   <span class="na">debug</span><span class="pi">:</span> <span class="no">false</span>
 <span class="na">status</span><span class="pi">:</span>
-  <span class="na">phase</span><span class="pi">:</span> <span class="s">Active</span> <i class="conum" data-value="7"></i><b>(7)</b></code></pre>
+  <span class="na">phase</span><span class="pi">:</span> <span class="s">Active</span></code></pre>
 </div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Defines the selector for scheduling node scans.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify <code>tolerations</code> to schedule on nodes with custom taints. When not specified, a default toleration allowing running on main and infra nodes is applied.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Define a <code>ConfigMap</code> containing an AIDE configuration to use.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>The number of seconds to pause in between AIDE integrity checks. Frequent AIDE checks on a node might be resource intensive, so it can be useful to specify a longer interval. Default is 900 seconds (15 minutes).</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>The maximum number of AIDE database and log backups (leftover from the re-init process) to keep on a node. Older backups beyond this number are automatically pruned by the daemon. Default is set to 5.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>The number of seconds to wait before starting the first AIDE integrity check. Default is set to 0.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>The running status of the <code>FileIntegrity</code> instance. Statuses are <code>Initializing</code>, <code>Pending</code>, or <code>Active</code>.</td>
-</tr>
-</table>
 </div>
 <div class="hdlist">
 <table>
+<tr>
+<td class="hdlist1">
+<code>spec.nodeSelector</code>
+</td>
+<td class="hdlist2">
+<p>Specifies the selector for scheduling node scans.</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+<code>spec.tolerations</code>
+</td>
+<td class="hdlist2">
+<p>Specify <code>tolerations</code> to schedule on nodes with custom taints. When not specified, a default toleration allowing running on main and infra nodes is applied.</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+<code>spec.config</code>
+</td>
+<td class="hdlist2">
+<p>Specify a <code>ConfigMap</code> containing an AIDE configuration to use.</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+<code>spec.config.gracePeriod</code>
+</td>
+<td class="hdlist2">
+<p>The number of seconds to pause in between AIDE integrity checks. Frequent AIDE checks on a node might be resource intensive, so it can be useful to specify a longer interval. Default is 900 seconds (15 minutes).</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+<code>spec.config.maxBackups</code>
+</td>
+<td class="hdlist2">
+<p>The maximum number of AIDE database and log backups (leftover from the re-init process) to keep on a node. Older backups beyond this number are automatically pruned by the daemon. Default is set to 5.</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+<code>spec.config.initialDelay</code>
+</td>
+<td class="hdlist2">
+<p>The number of seconds to wait before starting the first AIDE integrity check. Default is set to 0.</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+<code>status.phase</code>
+</td>
+<td class="hdlist2">
+<p>The running status of the <code>FileIntegrity</code> instance. Statuses are <code>Initializing</code>, <code>Pending</code>, or <code>Active</code>.</p>
+</td>
+</tr>
 <tr>
 <td class="hdlist1">
 <code>Initializing</code>
