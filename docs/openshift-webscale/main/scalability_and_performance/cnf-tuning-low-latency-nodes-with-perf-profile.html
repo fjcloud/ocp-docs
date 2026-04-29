@@ -317,6 +317,15 @@
 <li><a href="#nto_supported_api_versions_cnf-tuning-low-latency-nodes-with-perf-profile">Supported performance profile API versions</a></li>
 <li><a href="#configuring-workload-hints_cnf-tuning-low-latency-nodes-with-perf-profile">Node power consumption and realtime processing with workload hints</a></li>
 <li><a href="#cnf-configuring-power-saving-for-nodes_cnf-tuning-low-latency-nodes-with-perf-profile">Configuring power saving for nodes that run colocated high and low priority workloads</a></li>
+<li><a href="#cnf-exec-cpu-affinity_cnf-tuning-low-latency-nodes-with-perf-profile">Protecting low latency workloads from exec operations</a>
+<ul class="sectlevel2">
+<li><a href="#cnf-protecting-low-latency-workloads_cnf-tuning-low-latency-nodes-with-perf-profile">How ExecCPUAffinity prevents latency spikes from exec operations</a></li>
+<li><a href="#cnf-enabling-cpu-isolation-for-executed-processes_cnf-tuning-low-latency-nodes-with-perf-profile">Isolating exec processes from latency-sensitive workloads</a></li>
+<li><a href="#cnf-disabling-cpu-isolation-for-executed-processes_cnf-tuning-low-latency-nodes-with-perf-profile">Disabling CPU isolation for executed processes</a></li>
+<li><a href="#troubleshooting-exec-cpu-affinity_cnf-tuning-low-latency-nodes-with-perf-profile">Troubleshooting ExecCPUAffinity configuration</a></li>
+<li><a href="#troubleshooting-exec-cpu-affinity-reference_cnf-tuning-low-latency-nodes-with-perf-profile">Troubleshooting ExecCPUAffinity configuration common issues and resolutions</a></li>
+</ul>
+</li>
 <li><a href="#cnf-cpu-infra-container_cnf-tuning-low-latency-nodes-with-perf-profile">CPUs for infra and application containers</a></li>
 <li><a href="#restricting-cnf-cpu-infra-container_cnf-tuning-low-latency-nodes-with-perf-profile">Partitioning CPUs for infra and application containers</a></li>
 <li><a href="#cnf-configuring-hyperthreading-for-a-cluster_cnf-tuning-low-latency-nodes-with-perf-profile">Configuring Hyper-Threading for a cluster</a></li>
@@ -1989,6 +1998,613 @@ perPodPowerManagement: true</span></code></pre>
 </li>
 </ol>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="cnf-exec-cpu-affinity_cnf-tuning-low-latency-nodes-with-perf-profile"><a class="anchor" href="#cnf-exec-cpu-affinity_cnf-tuning-low-latency-nodes-with-perf-profile"></a>Protecting low latency workloads from exec operations</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="cnf-protecting-low-latency-workloads_cnf-tuning-low-latency-nodes-with-perf-profile"><a class="anchor" href="#cnf-protecting-low-latency-workloads_cnf-tuning-low-latency-nodes-with-perf-profile"></a>How ExecCPUAffinity prevents latency spikes from exec operations</h3>
+<div class="paragraph _abstract">
+<p>When you run exec operations such as <code>oc exec</code> or shell access on a container with isolated CPUs, those processes can interrupt your time-sensitive workloads. The <code>ExecCPUAffinity</code> feature automatically pins these secondary processes to a specific CPU within the container&#8217;s isolated set. This ensures that your primary low-latency applications, such as Telco RAN DU or 5G Core, maintain deterministic performance without resource contention.</p>
+</div>
+<div class="paragraph">
+<p><code>ExecCPUAffinity</code> is enabled by default whenever you apply a <code>PerformanceProfile</code> to a node. The feature operates at the container level and requires the following conditions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Runtime Class</strong>: The pod must use the <code>PerformanceProfile</code> runtime class, for example <code>&lt;PP-name&gt;-performance</code>.</p>
+</li>
+<li>
+<p><strong>QoS Class</strong>: The pod must belong to the Guaranteed QoS class and request whole integer CPUs.</p>
+</li>
+<li>
+<p><strong>CPU Selection Logic</strong>: The system automatically selects the first available CPU to host the executed process. It prioritizes a shared CPU if one is configured; otherwise, it uses the first exclusive CPU in the container&#8217;s set.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If a Pod contains multiple containers, only the container requesting an integer number of CPUs uses <code>ExecCPUAffinity</code>. Any container with fractional CPU requests will follow the default behavior, allowing processes to run on any CPU within the container&#8217;s cgroup set.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If you need the previous behavior where executed processes can run on any allocated core, you can disable the feature for all workloads by using that performance runtime class.</p>
+</div>
+<div class="paragraph">
+<p>To disable <code>ExecCPUAffinity</code>, add the following annotation to your <code>PerformanceProfile</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">performance.openshift.io/exec-cpu-affinity</span><span class="pi">:</span> <span class="s2">"</span><span class="s">disable"</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Use this annotation only as a temporary fallback and is expected to be removed in future releases.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="cnf-enabling-cpu-isolation-for-executed-processes_cnf-tuning-low-latency-nodes-with-perf-profile"><a class="anchor" href="#cnf-enabling-cpu-isolation-for-executed-processes_cnf-tuning-low-latency-nodes-with-perf-profile"></a>Isolating exec processes from latency-sensitive workloads</h3>
+<div class="paragraph _abstract">
+<p>You can prevent <code>oc exec</code> and shell processes from interrupting latency-sensitive workloads by applying a <code>PerformanceProfile</code> to a node. The Node Tuning Operator (NTO) automatically enables the <code>ExecCPUAffinity</code> feature, which pins exec processes to a designated CPU so that your primary workload CPUs remain undisturbed.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to an OpenShift Container Platform cluster using an account with <code>cluster-admin</code> permissions.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Apply a <code>PerformanceProfile</code> tailored to your workload tuning requirements, such as reserved CPU counts or real-time kernel settings. For detailed instructions on generating a profile, see <em>Creating a performance profile</em>.</p>
+</li>
+<li>
+<p>Create a namespace for testing the performance configuration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create namespace performance-profile-testing</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can create the workload in any namespace. This <code>performance-profile-testing</code> is used for testing purposes in this example.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Deploy a <code>Guaranteed</code> QoS pod that requests whole integer CPUs and uses the generated <code>RuntimeClass</code>.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Retrieve the <code>RuntimeClass</code> created by the PerformanceProfile by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get performanceprofile performance <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.runtimeClass}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example shows the expected output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">performance-performance</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a YAML file for the pod, for example <code>my-pod.yaml</code>. Ensure it requests whole integer CPUs and references the <code>runtimeClassName</code> generated by your <code>PerformanceProfile</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">test</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">performance-profile-testing</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">runtimeClassName</span><span class="pi">:</span> <span class="s">performance-performance</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">test</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s2">"</span><span class="s">quay.io/openshift-kni/cnf-tests:Branch</span><span class="nv"> </span><span class="s">Build"</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">sleep"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">10h"</span><span class="pi">]</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">requests</span><span class="pi">:</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span>
+      <span class="na">limits</span><span class="pi">:</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span>
+        <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">256Mi"</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The following requirements apply for CPU pinning:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Guaranteed QoS Class</strong>: To trigger CPU pinning, the Pod must belong to the Guaranteed Quality of Service class. This requires that every container in the pod has both CPU and memory limits defined, and those limits must exactly equal their corresponding requests.</p>
+</li>
+<li>
+<p><strong>Integer CPUs</strong>: The CPU request must be a whole integer.</p>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>SMT/Hyperthreading</strong>: On systems where Simultaneous Multithreading (SMT) is enabled, the request should typically be a multiple of the threads per core, which is usually 2, to ensure exclusive core allocation.</p>
+</li>
+<li>
+<p><strong>Fractional Requests</strong>: Pods with fractional CPU requests do not trigger the <code>ExecCPUAffinity</code> logic and follow the previous scheduling behavior.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><strong>Capacity</strong>: Ensure your cluster has sufficient isolated CPU capacity available in the node&#8217;s allocated pool to satisfy the request.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Apply the pod definition by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> my-pod.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the pod is running by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pod <span class="nt">-n</span> performance-profile-testing <span class="nb">test</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wait until the pod status shows <code>Running</code> before proceeding to the verification steps.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify <code>exec</code> process pinning as follows:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Run the following command to see the specific cores exclusively assigned to this container by the CPU Manager:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> performance-profile-testing <span class="nb">test</span> <span class="nt">--</span> <span class="nb">cat</span> /sys/fs/cgroup/cpuset.cpus</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In a single-container pod, the command defaults to that container. In a multi-container pod, you must specify the container name using the <code>-c &lt;container_name&gt;</code> flag to ensure you are checking the correct context.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following example shows the expected output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">4-5</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows exactly 2 CPUs, such as indexes 4 and 5, because the container requested <code>cpu: "2"</code>. The output represents the baseline exclusive CPUs for comparison.</p>
+</div>
+</li>
+<li>
+<p>Start an exec process in the pod by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> performance-profile-testing <span class="nb">test</span> <span class="nt">--</span> <span class="nb">sleep </span>3600 &amp;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Identify the node where the test pod is running:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pod <span class="nb">test</span> <span class="nt">-n</span> performance-profile-testing <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.nodeName}{"\n"}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Start a debug session on the node and set the root directory:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Find the PID of the sleep 3600 process by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ps <span class="nt">-ef</span> | <span class="nb">grep</span> <span class="s2">"sleep 3600"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example shows the expected output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">1001     12345 12340  0 12:00 ? 00:00:00 sleep 3600</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Identify the dedicated CPU set for the container by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> performance-profile-testing <span class="nb">test</span> <span class="nt">--</span> <span class="nb">cat</span> /sys/fs/cgroup/cpuset.cpus</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In a multi-container pod, you must specify the container name using the <code>-c &lt;container_name&gt;</code> flag.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following example shows the expected output for example the specific cores exclusively assigned to this container by the CPU Manager:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">4-5</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the CPU affinity of the exec process by running the following command, replacing <code>&lt;PID&gt;</code> with the PID identified in the previous step:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>taskset <span class="nt">-pc</span> &lt;PID&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Compare the taskset output against the container&#8217;s dedicated CPU set from Step 1.</p>
+</div>
+<div class="paragraph">
+<p>In this example, while the container has access to CPUs 4-5, the <code>ExecCPUAffinity</code> logic has pinned the exec process specifically to CPU 4. This confirms the pinning logic is active and that your primary workload&#8217;s exclusive CPUs remain undisturbed.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="cnf-disabling-cpu-isolation-for-executed-processes_cnf-tuning-low-latency-nodes-with-perf-profile"><a class="anchor" href="#cnf-disabling-cpu-isolation-for-executed-processes_cnf-tuning-low-latency-nodes-with-perf-profile"></a>Disabling CPU isolation for executed processes</h3>
+<div class="paragraph _abstract">
+<p>If you have a high-performance workload that requires executed processes to use any available core rather than being pinned to the first core, you can opt out of the default behavior by following this procedure.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Adding or removing the <code>performance.openshift.io/exec-cpu-affinity</code> annotation triggers a MachineConfig rollout that reboots the affected nodes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>List existing profiles by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get performanceprofile</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Identify the PerformanceProfile applied to the nodes running your high-performance workload.</p>
+</div>
+</li>
+<li>
+<p>Edit the identified PerformanceProfile to add the annotation that disables CPU isolation for executed processes by running the following command, replacing <code>&lt;profile-name&gt;</code> with the name of your PerformanceProfile:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit performanceprofile &lt;profile-name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>In the editor that opens, add the following annotation under the <code>metadata</code> section:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;profile-name&gt;</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">performance.openshift.io/exec-cpu-affinity</span><span class="pi">:</span> <span class="s2">"</span><span class="s">disable"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Save and close the editor to apply the changes.</p>
+</li>
+<li>
+<p>Wait for the MachineConfigPool (MCP) to finish updating:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get mcp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>All pools should show <code>UPDATED=True</code> and <code>UPDATING=False</code> before proceeding.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the annotation has been added by running the following command, replacing <code>&lt;profile-name&gt;</code> with the name of your PerformanceProfile:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get performanceprofile &lt;profile_name&gt; <span class="nt">-o</span> yaml | <span class="nb">grep</span> <span class="s2">"exec-cpu-affinity: disable"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Expected output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">    performance.openshift.io/exec-cpu-affinity: "disable"</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="troubleshooting-exec-cpu-affinity_cnf-tuning-low-latency-nodes-with-perf-profile"><a class="anchor" href="#troubleshooting-exec-cpu-affinity_cnf-tuning-low-latency-nodes-with-perf-profile"></a>Troubleshooting ExecCPUAffinity configuration</h3>
+<div class="paragraph _abstract">
+<p>If a process initiated by using <code>oc exec</code> is not being pinned correctly despite the pod meeting the Guaranteed QoS and integer CPU requirements, use the following procedure to verify the configuration at the node level.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with <code>cluster-admin</code> permissions.</p>
+</li>
+<li>
+<p>You have the OpenShift CLI (<code>oc</code>) installed.</p>
+</li>
+<li>
+<p>You have identified the node where the pod is running.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Start a debug session for the targeted node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set <code>/host</code> as the root directory for the debug shell:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Inspect the performance runtime configuration file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">cat</span> /etc/crio/crio.conf.d/99-runtimes.conf</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example shows the expected output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="toml"><span class="nn">[crio.runtime.runtimes.high-performance]</span>
+<span class="py">inherit_default_runtime</span> <span class="p">=</span> <span class="kc">true</span>
+<span class="py">exec_cpu_affinity</span> <span class="p">=</span> <span class="s">"first"</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If <code>exec_cpu_affinity = "first"</code> is missing, ensure the <code>PerformanceProfile</code> does not contain the <code>performance.openshift.io/exec-cpu-affinity: "disable"</code> annotation. If you recently changed the annotation, verify that the MachineConfigPool (MCP) has finished updating.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Verify the live CRI-O configuration to ensure the setting is loaded into memory:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>crio config | <span class="nb">grep </span>exec_cpu_affinity</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example shows the expected output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">exec_cpu_affinity = "first"</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>If both the runtime configuration file and live CRI-O configuration show <code>exec_cpu_affinity = "first"</code>, the ExecCPUAffinity feature is correctly configured. Processes initiated by <code>oc exec</code> on Guaranteed QoS pods with integer CPU requests are pinned to the first available core.</p>
+</li>
+<li>
+<p>If <code>exec_cpu_affinity = "first"</code> is missing from either output, check that the <code>PerformanceProfile</code> does not contain the <code>performance.openshift.io/exec-cpu-affinity: "disable"</code> annotation and verify that the MachineConfigPool (MCP) has finished updating by running:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get mcp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>All pools should show <code>UPDATED=True</code> and <code>UPDATING=False</code>.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="troubleshooting-exec-cpu-affinity-reference_cnf-tuning-low-latency-nodes-with-perf-profile"><a class="anchor" href="#troubleshooting-exec-cpu-affinity-reference_cnf-tuning-low-latency-nodes-with-perf-profile"></a>Troubleshooting ExecCPUAffinity configuration common issues and resolutions</h3>
+<div class="paragraph _abstract">
+<p>Troubleshoot <code>ExecCPUAffinity</code> configuration issues by identifying common symptoms and their resolutions. Use this information to ensure processes are correctly pinned to the intended CPUs and that the MachineConfigPool updates successfully.</p>
+</div>
+<div class="paragraph">
+<p>The following table describes common issues and resolutions for <code>ExecCPUAffinity</code> configuration:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 40%;">
+<col style="width: 40%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Potential Cause</th>
+<th class="tableblock halign-left valign-top">Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Process runs on all CPUs in the container set.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The pod does not belong to the Guaranteed QoS class. For more information see <a href="https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/#criteria">Pod Quality of Service Classes</a>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ensure the container has <code>limits</code> and <code>requests</code> defined for both CPU and memory, and that they are equal.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Process runs on all CPUs in the container set.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The container uses fractional CPU requests for example <code>500m</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Update the pod specification to request a whole integer number of CPUs.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <code>99-runtimes.conf</code> file does not exist or is not updated.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The MachineConfigPool (MCP) is still updating or has failed.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check the MCP status using <code>oc get mcp</code>. Changing the <code>ExecCPUAffinity</code> status triggers a node reboot; ensure the update has completed.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <code>exec</code> process is pinned to an exclusive CPU instead of a shared CPU.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Shared CPUs are not defined in the <code>PerformanceProfile</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When the <code>MixedCPUsAllocation</code> Technology Preview feature is enabled through the <code>TechPreviewNoUpgrade</code> feature set, the system&#8217;s CPU pinning logic for exec processes changes. If shared CPUs are defined in the PerformanceProfile under <code>spec.cpu.shared</code> and <code>workloadHints.mixedCpus</code> is set to <code>true</code>, the system prioritizes the first shared CPU. If no shared CPUs are defined, it defaults to the first exclusive (isolated) CPU. Enabling this feature set cannot be undone and is not recommended for production clusters. Additionally, the container must request shared CPUs by including <code>workload.openshift.io/enable-shared-cpus: "1"</code> in the resource limits.</p></td>
+</tr>
+</tbody>
+</table>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
@@ -2002,6 +2618,7 @@ perPodPowerManagement: true</span></code></pre>
 <p><a href="../scalability_and_performance/cnf-tuning-low-latency-nodes-with-perf-profile.html#managing-device-interrupt-processing-for-guaranteed-pod-isolated-cpus_cnf-tuning-low-latency-nodes-with-perf-profile">Managing device interrupt processing for guaranteed pod isolated CPUs</a></p>
 </li>
 </ul>
+</div>
 </div>
 </div>
 </div>
