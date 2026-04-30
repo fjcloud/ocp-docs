@@ -4654,32 +4654,36 @@ router-default-7b5df44ff-wwsth   2/2     Running   0          66s</span></code><
 </li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="ulist">
 <div class="title">Procedure</div>
-<p>Configure Ingress access logging to a sidecar.</p>
-</div>
+<ul>
+<li>
+<p>For Ingress access logging to a sidecar, complete the following commands:</p>
 <div class="ulist">
 <ul>
 <li>
-<p>To configure Ingress access logging, you must specify a destination using <code>spec.logging.access.destination</code>. To specify logging to a sidecar container, you must specify <code>Container</code> <code>spec.logging.access.destination.type</code>. The following example is an Ingress Controller definition that logs to a <code>Container</code> destination:</p>
+<p>To enable Ingress access logging to a sidecar, enter the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">IngressController</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ingress-operator</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
-  <span class="na">logging</span><span class="pi">:</span>
-    <span class="na">access</span><span class="pi">:</span>
-      <span class="na">destination</span><span class="pi">:</span>
-        <span class="na">type</span><span class="pi">:</span> <span class="s">Container</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch ingresscontroller default <span class="nt">-n</span> openshift-ingress-operator <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"logging":{"access":{"destination":{"type":"Container"}}}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>After you configure the Ingress Controller to log to a sidecar, the Operator creates a container named <code>logs</code> inside a router pod that exists in the <code>openshift-ingress</code> namespace.</p>
+</div>
+</li>
+<li>
+<p>If you need to disable Ingress access logging, enter the following command that does not specify any values for <code>spec.logging</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch ingresscontroller default <span class="nt">-n</span> openshift-ingress-operator <span class="nt">--type</span><span class="o">=</span>json <span class="se">\</span>
+  <span class="nt">-p</span><span class="o">=</span><span class="s1">'[{"op": "remove", "path": "/spec/logging"}]'</span></code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>When you configure the Ingress Controller to log to a sidecar, the operator creates a container named <code>logs</code> inside the Ingress Controller Pod:</p>
+<p>To stream the access logs and system events from the OKD Ingress Controller, enter the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-ingress logs deployment.apps/router-default <span class="nt">-c</span> logs</code></pre>
@@ -4694,29 +4698,35 @@ router-default-7b5df44ff-wwsth   2/2     Running   0          66s</span></code><
 </li>
 </ul>
 </div>
-<div class="paragraph">
-<p>Configure Ingress access logging to a Syslog endpoint.</p>
+</li>
+<li>
+<p>To enable logging to an external Syslog server, enter the following command. Use this option if you need to forward logs to a centralized logging solution such as Splunk, Rsyslog, or Logstash.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch ingresscontroller default <span class="nt">-n</span> openshift-ingress-operator <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"logging":{"access":{"destination":{"type":"Syslog","syslog":{"address":"1.2.3.4","port":514,"maxLenght":1024}}}}}}'</span></code></pre>
+</div>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>To configure Ingress access logging, you must specify a destination using <code>spec.logging.access.destination</code>. To specify logging to a Syslog endpoint destination, you must specify <code>Syslog</code> for <code>spec.logging.access.destination.type</code>. If the destination type is <code>Syslog</code>, you must also specify a destination endpoint using <code>spec.logging.access.destination.syslog.address</code> and you can specify a facility using <code>spec.logging.access.destination.syslog.facility</code>. The following example is an Ingress Controller definition that logs to a <code>Syslog</code> destination:</p>
+<p>Replace <code>1.2.3.4</code> with the destination IP address of your logging server. Syslog does not support a DNS hostname value.</p>
+</li>
+<li>
+<p>Replace <code>514</code> with the UDP destination port of your logging server.</p>
+</li>
+<li>
+<p>Replace <code>1024</code> with the maximum length of a log message in bytes that you want to set for log messages.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>To customize the log format, append an HAProxy-compatible log string to the following command. The string determines what information gets captured in the log format, such as a client IP address.</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">IngressController</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ingress-operator</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
-  <span class="na">logging</span><span class="pi">:</span>
-    <span class="na">access</span><span class="pi">:</span>
-      <span class="na">destination</span><span class="pi">:</span>
-        <span class="na">type</span><span class="pi">:</span> <span class="s">Syslog</span>
-        <span class="na">syslog</span><span class="pi">:</span>
-          <span class="na">address</span><span class="pi">:</span> <span class="s">1.2.3.4</span>
-          <span class="na">port</span><span class="pi">:</span> <span class="s">10514</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch ingresscontroller default <span class="nt">-n</span> openshift-ingress-operator <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"logging":{"access":{"httpLogFormat":"%ci:%cp [%t] %ft %b/%s %B %bq %HM %HU %HV"}}}}'</span></code></pre>
 </div>
 </div>
 <div class="admonitionblock note">
@@ -4727,123 +4737,28 @@ router-default-7b5df44ff-wwsth   2/2     Running   0          66s</span></code><
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The <code>syslog</code> destination port must be UDP.</p>
-</div>
-<div class="paragraph">
-<p>The <code>syslog</code> destination address must be an IP address. It does not support DNS hostname.</p>
+<p>For a list of HAProxy log variable descriptions, see <a href="https://docs.haproxy.org/2.8/configuration.html#8.2.6">Custom log format</a> in the upstream HAProxy documentation.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
 </li>
-</ul>
-</div>
-<div class="paragraph">
-<p>Configure Ingress access logging with a specific log format.</p>
-</div>
-<div class="ulist">
-<ul>
 <li>
-<p>You can specify <code>spec.logging.access.httpLogFormat</code> to customize the log format. The following example is an Ingress Controller definition that logs to a <code>syslog</code> endpoint with IP address 1.2.3.4 and port 10514:</p>
+<p>To capture custom HTTP headers or response headers in your logs, enter the following command. Consider this option if you need to track an <code>X-Forwarded-For</code> header or custom application IDs in the Ingress and application logs.</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">IngressController</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ingress-operator</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
-  <span class="na">logging</span><span class="pi">:</span>
-    <span class="na">access</span><span class="pi">:</span>
-      <span class="na">destination</span><span class="pi">:</span>
-        <span class="na">type</span><span class="pi">:</span> <span class="s">Syslog</span>
-        <span class="na">syslog</span><span class="pi">:</span>
-          <span class="na">address</span><span class="pi">:</span> <span class="s">1.2.3.4</span>
-          <span class="na">port</span><span class="pi">:</span> <span class="m">10514</span>
-      <span class="na">httpLogFormat</span><span class="pi">:</span> <span class="s1">'</span><span class="s">%ci:%cp</span><span class="nv"> </span><span class="s">[%t]</span><span class="nv"> </span><span class="s">%ft</span><span class="nv"> </span><span class="s">%b/%s</span><span class="nv"> </span><span class="s">%B</span><span class="nv"> </span><span class="s">%bq</span><span class="nv"> </span><span class="s">%HM</span><span class="nv"> </span><span class="s">%HU</span><span class="nv"> </span><span class="s">%HV'</span></code></pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>Disable Ingress access logging.</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>To disable Ingress access logging, leave <code>spec.logging</code> or <code>spec.logging.access</code> empty:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">IngressController</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ingress-operator</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
-  <span class="na">logging</span><span class="pi">:</span>
-    <span class="na">access</span><span class="pi">:</span> <span class="no">null</span></code></pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>Allow the Ingress Controller to modify the HAProxy log length when using a sidecar.</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Use <code>spec.logging.access.destination.syslog.maxLength</code> if you are using <code>spec.logging.access.destination.type: Syslog</code>.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">IngressController</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ingress-operator</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
-  <span class="na">logging</span><span class="pi">:</span>
-    <span class="na">access</span><span class="pi">:</span>
-      <span class="na">destination</span><span class="pi">:</span>
-        <span class="na">type</span><span class="pi">:</span> <span class="s">Syslog</span>
-        <span class="na">syslog</span><span class="pi">:</span>
-          <span class="na">address</span><span class="pi">:</span> <span class="s">1.2.3.4</span>
-          <span class="na">maxLength</span><span class="pi">:</span> <span class="m">4096</span>
-          <span class="na">port</span><span class="pi">:</span> <span class="s">10514</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch ingresscontroller default <span class="nt">-n</span> openshift-ingress-operator <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec":{"logging":{"access":{"httpCaptureHeaders":{"request":[{"name":"User-Agent","maxLength": 1024}],"response":[{"name":"Content-Type","maxLength": 1024}]}}}}}'</span></code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Use <code>spec.logging.access.destination.container.maxLength</code> if you are using <code>spec.logging.access.destination.type: Container</code>.</p>
+<p>To configure a log empty requests policy, enter the following command and set the <code>logEmptyRequests</code> parameter to <code>Log</code>. By default, HAProxy might not log empty requests or health checks, so you must manually enable this feature. To disable the feature, set the <code>logEmptyRequests</code> parameter to <code>Ignore</code>.</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">IngressController</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ingress-operator</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
-  <span class="na">logging</span><span class="pi">:</span>
-    <span class="na">access</span><span class="pi">:</span>
-      <span class="na">destination</span><span class="pi">:</span>
-        <span class="na">container</span><span class="pi">:</span>
-          <span class="na">maxLength</span><span class="pi">:</span> <span class="m">8192</span>
-        <span class="na">type</span><span class="pi">:</span> <span class="s">Container</span>
-      <span class="na">httpCaptureHeaders</span><span class="pi">:</span>
-        <span class="na">request</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="na">maxLength</span><span class="pi">:</span> <span class="m">128</span>
-          <span class="na">name</span><span class="pi">:</span> <span class="s">X-Forwarded-For</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch ingresscontroller default <span class="nt">-n</span> openshift-ingress-operator <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec":{"logging":{"access":{"logEmptyRequests":"Ignore"}}}}'</span></code></pre>
 </div>
 </div>
-</li>
-<li>
-<p>To view the original client source IP address by using the <code>X-Forwarded-For</code> header in the <code>Ingress</code> access logs, see the "Capturing Original Client IP from the X-Forwarded-For Header in Ingress and Application Logs" Red&#160;Hat Knowledgebase solution.</p>
 </li>
 </ul>
 </div>
