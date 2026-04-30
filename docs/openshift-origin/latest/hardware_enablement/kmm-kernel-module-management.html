@@ -1391,6 +1391,7 @@
             <li><a class="" href="../machine_configuration/machine-configs-custom.html">Configuring MCO-related custom resources</a></li>
             <li><a class="" href="../machine_configuration/machine-config-pin-preload-images-about.html">Pinning images to nodes</a></li>
             <li><a class="" href="../machine_configuration/mco-update-boot-images.html">Boot image management</a></li>
+            <li><a class="" href="../machine_configuration/mco-update-boot-skew-mgmt.html">Boot image skew enforcement</a></li>
             <li><a class="" href="../machine_configuration/mco-update-boot-images-manual.html">Manually updating the boot image</a></li>
             <li><a class="" href="../machine_configuration/machine-configs-garbage-collection.html">Managing unused rendered machine configs</a></li>
             <li><a class="" href="../machine_configuration/mco-coreos-layering.html">Image mode for OpenShift</a></li>
@@ -2821,6 +2822,12 @@
 </ul>
 </li>
 <li><a href="#kmm-signing-kmods-in-a-prebuilt-image_kernel-module-management-operator">Signing kmods in a pre-built image</a></li>
+<li><a href="#kmm-specifying-files-to-sign_kernel-module-management-operator">Specifying files to sign</a>
+<ul class="sectlevel2">
+<li><a href="#kmm-defining-full-paths_kernel-module-management-operator">Defining full paths</a></li>
+<li><a href="#kmm-using-wildcard-and-glob-patterns_kernel-module-management-operator">Using wildcard and glob patterns</a></li>
+</ul>
+</li>
 <li><a href="#kmm-building-and-signing-a-kmod-image_kernel-module-management-operator">Building and signing a kmod image</a></li>
 <li><a href="#kmm-using-tolerations-for-kernel-module-scheduling_kernel-module-management-operator">Using tolerations for kernel module scheduling</a></li>
 <li><a href="#kmm-applying-tolerations-to-kernel-module-pods_kernel-module-management-operator">Applying tolerations to kernel module pods</a></li>
@@ -4561,6 +4568,114 @@ The value is automatically set by KMM when creating the <code>Build</code> resou
 </div>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="kmm-specifying-files-to-sign_kernel-module-management-operator"><a class="anchor" href="#kmm-specifying-files-to-sign_kernel-module-management-operator"></a>Specifying files to sign</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can specify full paths or wildcard and glob patterns to sign kernel module (<code>.ko</code>) files in specific directories.</p>
+</div>
+<div class="paragraph">
+<p>Kernel Module Management (KMM) provides support for wildcard and glob pattern support for the <code>sign.filesToSign</code> field in the <code>Module</code> CR for signing kernel modules. In addition to using a full path to explicit files, you can use any glob patterns supported by the Bash shell to specify the files to sign.</p>
+</div>
+<div class="paragraph">
+<p>The <code>DirName</code> value from <code>moduleLoader.container.modprobe</code> is propagated into the sign image. The validation webhook also verifies that all <code>filesToSign</code> entries fall under the configured <code>DirName</code>.</p>
+</div>
+<div class="paragraph">
+<p>All paths in <code>filesToSign</code> must be under the directory defined by <code>DirName</code> in the same <code>moduleLoader.container.modprobe</code> (default <code>/opt</code>).</p>
+</div>
+<div class="paragraph">
+<p>The KMM Operator loads the signed kmods onto all of the nodes that match the selector. The kmods should be successfully loaded on any nodes that have the public key in their Machine Owner Key (MOK) database and on any nodes that are not secure-boot enabled (which will just ignore the signature). They should fail to load on any that have secure-boot enabled but do not have that key in their MOK database.</p>
+</div>
+<div class="sect2">
+<h3 id="kmm-defining-full-paths_kernel-module-management-operator"><a class="anchor" href="#kmm-defining-full-paths_kernel-module-management-operator"></a>Defining full paths</h3>
+<div class="paragraph _abstract">
+<p>You can define one or more absolute paths to kernel module <code>.ko</code> files inside the image.</p>
+</div>
+<div class="paragraph">
+<p>The following example shows full path usage in the <code>sign.filesToSign</code> field:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">sign</span><span class="pi">:</span>
+  <span class="na">certSecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cert_secret&gt;</span>
+  <span class="na">keySecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;key_secret&gt;</span>
+  <span class="na">filesToSign</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">/opt/lib/modules/${KERNEL_FULL_VERSION}/&lt;my-kmod&gt;.ko</span>
+    <span class="pi">-</span> <span class="s">/opt/lib/modules/${KERNEL_FULL_VERSION}/&lt;my_kmod1&gt;.ko</span>
+    <span class="pi">-</span> <span class="s">/opt/lib/modules/${KERNEL_FULL_VERSION}/&lt;my_kmod2&gt;.ko</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="kmm-using-wildcard-and-glob-patterns_kernel-module-management-operator"><a class="anchor" href="#kmm-using-wildcard-and-glob-patterns_kernel-module-management-operator"></a>Using wildcard and glob patterns</h3>
+<div class="paragraph _abstract">
+<p>You can use wildcard and any glob expression supported by the Ash shell in the <code>sign.filesToSign</code> field. The shell expands each entry at sign time, so you can match multiple modules with a single entry.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The following example signs all <code>.ko</code> files in that directory:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">sign</span><span class="pi">:</span>
+  <span class="na">certSecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cert_secret&gt;</span>
+  <span class="na">keySecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;key_secret&gt;</span>
+  <span class="na">filesToSign</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">/opt/lib/modules/${KERNEL_FULL_VERSION}/*.ko</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The following example signs all modules matching that pattern, for example, <code>kmm_ci_a.ko</code>, <code>kmm_ci_b.ko</code>, and so on:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">sign</span><span class="pi">:</span>
+  <span class="na">certSecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cert_secret&gt;</span>
+  <span class="na">keySecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;key_secret&gt;</span>
+  <span class="na">filesToSign</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">/opt/lib/modules/${KERNEL_FULL_VERSION}/kmm_ci_?.ko</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The following example signs <code>driver-a.ko</code>, <code>driver-b.ko</code>, or <code>driver-c.ko</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">sign</span><span class="pi">:</span>
+  <span class="na">certSecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cert_secret&gt;</span>
+  <span class="na">keySecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;key_secret&gt;</span>
+  <span class="na">filesToSign</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">/opt/lib/modules/${KERNEL_FULL_VERSION}/driver-[abc].ko</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The following example signs <code>mod-0.ko</code> through <code>mod-9.ko</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">sign</span><span class="pi">:</span>
+  <span class="na">certSecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cert_secret&gt;</span>
+  <span class="na">keySecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;key_secret&gt;</span>
+  <span class="na">filesToSign</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">/opt/lib/modules/${KERNEL_FULL_VERSION}/mod-[0-9].ko</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
