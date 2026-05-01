@@ -2766,12 +2766,9 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#adding-node-iso-configs_adding-node-iso">Cluster configuration reference</a>
-<ul class="sectlevel2">
 <li><a href="#adding-node-iso-yaml_adding-node-iso">Adding one or more nodes using a configuration file</a></li>
 <li><a href="#adding-node-iso-flags_adding-node-iso">Adding a node with command flags</a></li>
-</ul>
-</li>
+<li><a href="#adding-node-iso-configs_adding-node-iso">Cluster configuration reference</a></li>
 <li><a href="#additional-resources_adding-node-iso">Additional resources</a></li>
 </ul>
 </div>
@@ -2865,6 +2862,305 @@ This is useful if you want to add only a single node at a time, and have only si
 </div>
 </dd>
 </dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="adding-node-iso-yaml_adding-node-iso"><a class="anchor" href="#adding-node-iso-yaml_adding-node-iso"></a>Adding one or more nodes using a configuration file</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can add one or more nodes to your cluster by using the <code>nodes-config.yaml</code> file to specify configurations for the new nodes.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>)</p>
+</li>
+<li>
+<p>You have installed the Rsync utility</p>
+</li>
+<li>
+<p>You have an active connection to your target cluster</p>
+</li>
+<li>
+<p>You have a kubeconfig file available</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a new YAML file that contains configurations for the nodes you are adding and is named <code>nodes-config.yaml</code>. You must provide a MAC address for each new node.</p>
+<div class="paragraph">
+<p>In the following example file, two new workers are described with an initial static network configuration:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>nodes-config.yaml</code> file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">hosts</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="na">hostname</span><span class="pi">:</span> <span class="s">extra-worker-1</span>
+  <span class="na">rootDeviceHints</span><span class="pi">:</span>
+   <span class="na">deviceName</span><span class="pi">:</span> <span class="s">/dev/sda</span>
+  <span class="na">interfaces</span><span class="pi">:</span>
+   <span class="pi">-</span> <span class="na">macAddress</span><span class="pi">:</span> <span class="s">00:00:00:00:00:00</span>
+     <span class="na">name</span><span class="pi">:</span> <span class="s">eth0</span>
+  <span class="na">networkConfig</span><span class="pi">:</span>
+   <span class="na">interfaces</span><span class="pi">:</span>
+     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eth0</span>
+       <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+       <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+       <span class="na">mac-address</span><span class="pi">:</span> <span class="s">00:00:00:00:00:00</span>
+       <span class="na">ipv4</span><span class="pi">:</span>
+         <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+         <span class="na">address</span><span class="pi">:</span>
+           <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s">192.168.122.2</span>
+             <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">23</span>
+         <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
+<span class="pi">-</span> <span class="na">hostname</span><span class="pi">:</span> <span class="s">extra-worker-2</span>
+  <span class="na">rootDeviceHints</span><span class="pi">:</span>
+   <span class="na">deviceName</span><span class="pi">:</span> <span class="s">/dev/sda</span>
+  <span class="na">interfaces</span><span class="pi">:</span>
+   <span class="pi">-</span> <span class="na">macAddress</span><span class="pi">:</span> <span class="s">00:00:00:00:00:02</span>
+     <span class="na">name</span><span class="pi">:</span> <span class="s">eth0</span>
+  <span class="na">networkConfig</span><span class="pi">:</span>
+   <span class="na">interfaces</span><span class="pi">:</span>
+     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eth0</span>
+       <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+       <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+       <span class="na">mac-address</span><span class="pi">:</span> <span class="s">00:00:00:00:00:02</span>
+       <span class="na">ipv4</span><span class="pi">:</span>
+         <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+         <span class="na">address</span><span class="pi">:</span>
+           <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s">192.168.122.3</span>
+             <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">23</span>
+         <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Generate the ISO image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm node-image create</code></pre>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In order for the <code>create</code> command to fetch a release image that matches the target cluster version, you must specify a valid pull secret.
+You can specify the pull secret either by using the <code>--registry-config</code> flag or by setting the <code>REGISTRY_AUTH_FILE</code> environment variable beforehand.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the directory of the <code>nodes-config.yaml</code> file is not specified by using the <code>--dir</code> flag, the tool looks for the file in the current directory.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Verify that a new <code>node.&lt;arch&gt;.iso</code> file is present in the asset directory.
+The asset directory is your current directory, unless you specified a different one when creating the ISO image.</p>
+</li>
+<li>
+<p>Boot the selected node with the generated ISO image.</p>
+</li>
+<li>
+<p>Track progress of the node creation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm node-image monitor <span class="nt">--ip-addresses</span> &lt;ip_addresses&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;ip_addresses&gt;</code></dt>
+<dd>
+<p>Specifies a list of the IP addresses of the nodes that are being added.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If reverse DNS entries are not available for your node, the <code>oc adm node-image monitor</code> command skips checks for pending certificate signing requests (CSRs).
+If these checks are skipped, you must manually check for CSRs by running the <code>oc get csr</code> command.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Approve the CSRs by running the following command for each CSR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm certificate approve &lt;csr_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="adding-node-iso-flags_adding-node-iso"><a class="anchor" href="#adding-node-iso-flags_adding-node-iso"></a>Adding a node with command flags</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can add a single node to your cluster by using command flags to specify configurations for the new node.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>)</p>
+</li>
+<li>
+<p>You have installed the Rsync utility</p>
+</li>
+<li>
+<p>You have an active connection to your target cluster</p>
+</li>
+<li>
+<p>You have a kubeconfig file available</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Generate the ISO image by running the following command. The MAC address must be specified using a command flag. See the "Cluster configuration reference" section for more flags that you can use with this command.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm node-image create <span class="nt">--mac-address</span><span class="o">=</span>&lt;mac_address&gt;</code></pre>
+</div>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;mac_address&gt;</code></dt>
+<dd>
+<p>Specifies the MAC address of the node that is being added.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In order for the <code>create</code> command to fetch a release image that matches the target cluster version, you must specify a valid pull secret.
+You can specify the pull secret either by using the <code>--registry-config</code> flag or by setting the <code>REGISTRY_AUTH_FILE</code> environment variable beforehand.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>To see additional flags that can be used to configure your node, run the following <code>oc adm node-image create --help</code> command.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Verify that a new <code>node.&lt;arch&gt;.iso</code> file is present in the asset directory.
+The asset directory is your current directory, unless you specified a different one when creating the ISO image.</p>
+</li>
+<li>
+<p>Boot the node with the generated ISO image.</p>
+</li>
+<li>
+<p>Track progress of the node creation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm node-image monitor <span class="nt">--ip-addresses</span> &lt;ip_address&gt;</code></pre>
+</div>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;ip_address&gt;</code></dt>
+<dd>
+<p>Specifies a list of the IP addresses of the nodes that are being added.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If reverse DNS entries are not available for your node, the <code>oc adm node-image monitor</code> command skips checks for pending certificate signing requests (CSRs).
+If these checks are skipped, you must manually check for CSRs by running the <code>oc get csr</code> command.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Approve the pending CSRs by running the following command for each CSR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm certificate approve &lt;csr_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -3104,301 +3400,6 @@ This flag can be used to create only a single node, and the <code>--mac-address<
 </table>
 </dd>
 </dl>
-</div>
-<div class="sect2">
-<h3 id="adding-node-iso-yaml_adding-node-iso"><a class="anchor" href="#adding-node-iso-yaml_adding-node-iso"></a>Adding one or more nodes using a configuration file</h3>
-<div class="paragraph _abstract">
-<p>You can add one or more nodes to your cluster by using the <code>nodes-config.yaml</code> file to specify configurations for the new nodes.</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You have installed the OpenShift CLI (<code>oc</code>)</p>
-</li>
-<li>
-<p>You have installed the Rsync utility</p>
-</li>
-<li>
-<p>You have an active connection to your target cluster</p>
-</li>
-<li>
-<p>You have a kubeconfig file available</p>
-</li>
-</ul>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Create a new YAML file that contains configurations for the nodes you are adding and is named <code>nodes-config.yaml</code>. You must provide a MAC address for each new node.</p>
-<div class="paragraph">
-<p>In the following example file, two new workers are described with an initial static network configuration:</p>
-</div>
-<div class="listingblock">
-<div class="title">Example <code>nodes-config.yaml</code> file</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">hosts</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">hostname</span><span class="pi">:</span> <span class="s">extra-worker-1</span>
-  <span class="na">rootDeviceHints</span><span class="pi">:</span>
-   <span class="na">deviceName</span><span class="pi">:</span> <span class="s">/dev/sda</span>
-  <span class="na">interfaces</span><span class="pi">:</span>
-   <span class="pi">-</span> <span class="na">macAddress</span><span class="pi">:</span> <span class="s">00:00:00:00:00:00</span>
-     <span class="na">name</span><span class="pi">:</span> <span class="s">eth0</span>
-  <span class="na">networkConfig</span><span class="pi">:</span>
-   <span class="na">interfaces</span><span class="pi">:</span>
-     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eth0</span>
-       <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
-       <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
-       <span class="na">mac-address</span><span class="pi">:</span> <span class="s">00:00:00:00:00:00</span>
-       <span class="na">ipv4</span><span class="pi">:</span>
-         <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
-         <span class="na">address</span><span class="pi">:</span>
-           <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s">192.168.122.2</span>
-             <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">23</span>
-         <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
-<span class="pi">-</span> <span class="na">hostname</span><span class="pi">:</span> <span class="s">extra-worker-2</span>
-  <span class="na">rootDeviceHints</span><span class="pi">:</span>
-   <span class="na">deviceName</span><span class="pi">:</span> <span class="s">/dev/sda</span>
-  <span class="na">interfaces</span><span class="pi">:</span>
-   <span class="pi">-</span> <span class="na">macAddress</span><span class="pi">:</span> <span class="s">00:00:00:00:00:02</span>
-     <span class="na">name</span><span class="pi">:</span> <span class="s">eth0</span>
-  <span class="na">networkConfig</span><span class="pi">:</span>
-   <span class="na">interfaces</span><span class="pi">:</span>
-     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eth0</span>
-       <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
-       <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
-       <span class="na">mac-address</span><span class="pi">:</span> <span class="s">00:00:00:00:00:02</span>
-       <span class="na">ipv4</span><span class="pi">:</span>
-         <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
-         <span class="na">address</span><span class="pi">:</span>
-           <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s">192.168.122.3</span>
-             <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">23</span>
-         <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Generate the ISO image by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm node-image create</code></pre>
-</div>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>In order for the <code>create</code> command to fetch a release image that matches the target cluster version, you must specify a valid pull secret.
-You can specify the pull secret either by using the <code>--registry-config</code> flag or by setting the <code>REGISTRY_AUTH_FILE</code> environment variable beforehand.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If the directory of the <code>nodes-config.yaml</code> file is not specified by using the <code>--dir</code> flag, the tool looks for the file in the current directory.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Verify that a new <code>node.&lt;arch&gt;.iso</code> file is present in the asset directory.
-The asset directory is your current directory, unless you specified a different one when creating the ISO image.</p>
-</li>
-<li>
-<p>Boot the selected node with the generated ISO image.</p>
-</li>
-<li>
-<p>Track progress of the node creation by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm node-image monitor <span class="nt">--ip-addresses</span> &lt;ip_addresses&gt;</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>where:</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>&lt;ip_addresses&gt;</code></dt>
-<dd>
-<p>Specifies a list of the IP addresses of the nodes that are being added.</p>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If reverse DNS entries are not available for your node, the <code>oc adm node-image monitor</code> command skips checks for pending certificate signing requests (CSRs).
-If these checks are skipped, you must manually check for CSRs by running the <code>oc get csr</code> command.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</dd>
-</dl>
-</div>
-</li>
-<li>
-<p>Approve the CSRs by running the following command for each CSR:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm certificate approve &lt;csr_name&gt;</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect2">
-<h3 id="adding-node-iso-flags_adding-node-iso"><a class="anchor" href="#adding-node-iso-flags_adding-node-iso"></a>Adding a node with command flags</h3>
-<div class="paragraph _abstract">
-<p>You can add a single node to your cluster by using command flags to specify configurations for the new node.</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You have installed the OpenShift CLI (<code>oc</code>)</p>
-</li>
-<li>
-<p>You have installed the Rsync utility</p>
-</li>
-<li>
-<p>You have an active connection to your target cluster</p>
-</li>
-<li>
-<p>You have a kubeconfig file available</p>
-</li>
-</ul>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Generate the ISO image by running the following command. The MAC address must be specified using a command flag. See the "Cluster configuration reference" section for more flags that you can use with this command.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm node-image create <span class="nt">--mac-address</span><span class="o">=</span>&lt;mac_address&gt;</code></pre>
-</div>
-</div>
-<div class="openblock">
-<div class="content">
-<div class="paragraph">
-<p>where:</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>&lt;mac_address&gt;</code></dt>
-<dd>
-<p>Specifies the MAC address of the node that is being added.</p>
-</dd>
-</dl>
-</div>
-</div>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>In order for the <code>create</code> command to fetch a release image that matches the target cluster version, you must specify a valid pull secret.
-You can specify the pull secret either by using the <code>--registry-config</code> flag or by setting the <code>REGISTRY_AUTH_FILE</code> environment variable beforehand.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-tip" title="Tip"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>To see additional flags that can be used to configure your node, run the following <code>oc adm node-image create --help</code> command.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Verify that a new <code>node.&lt;arch&gt;.iso</code> file is present in the asset directory.
-The asset directory is your current directory, unless you specified a different one when creating the ISO image.</p>
-</li>
-<li>
-<p>Boot the node with the generated ISO image.</p>
-</li>
-<li>
-<p>Track progress of the node creation by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm node-image monitor <span class="nt">--ip-addresses</span> &lt;ip_address&gt;</code></pre>
-</div>
-</div>
-<div class="openblock">
-<div class="content">
-<div class="paragraph">
-<p>where:</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>&lt;ip_address&gt;</code></dt>
-<dd>
-<p>Specifies a list of the IP addresses of the nodes that are being added.</p>
-</dd>
-</dl>
-</div>
-</div>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If reverse DNS entries are not available for your node, the <code>oc adm node-image monitor</code> command skips checks for pending certificate signing requests (CSRs).
-If these checks are skipped, you must manually check for CSRs by running the <code>oc get csr</code> command.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Approve the pending CSRs by running the following command for each CSR:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm certificate approve &lt;csr_name&gt;</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
 </div>
 </div>
 </div>
