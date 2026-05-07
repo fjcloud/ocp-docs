@@ -3317,6 +3317,7 @@
 </ul>
 </li>
 <li><a href="#installation-gcp-user-managed-firewall-rules_installing-gcp-account">Managing your own firewall rules</a></li>
+<li><a href="#installation-gcp-organization-policies_installing-gcp-account">Configuring Google Cloud organization policies and VPC service controls</a></li>
 <li><a href="#installation-gcp-regions_installing-gcp-account">Supported Google Cloud regions</a></li>
 <li><a href="#next-steps">Next steps</a></li>
 </ul>
@@ -5259,6 +5260,147 @@ If you only supply the <code>roles/compute.networkUser</code> role, you must cre
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get svc router-default <span class="nt">-n</span> openshift-ingress <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.ports[*].nodePort}'</span></code></pre>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="installation-gcp-organization-policies_installing-gcp-account"><a class="anchor" href="#installation-gcp-organization-policies_installing-gcp-account"></a>Configuring Google Cloud organization policies and VPC service controls</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>OpenShift Container Platform requires that you modify or remove some organization policies and VPC service controls when installing a cluster on Google Cloud.</p>
+</div>
+<div class="paragraph">
+<p>If your organization uses the following policies, they must be modified or removed:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>compute.trustedImageProjects</code></p>
+</li>
+<li>
+<p><code>iam.allowedPolicyMemberDomains</code></p>
+</li>
+<li>
+<p><code>storage.publicAccessPrevention</code></p>
+</li>
+<li>
+<p>VPC Service Controls egress rules</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You created a project to host your cluster.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Modify the <code>constraints/compute.trustedImageProjects</code> constraint in your Google Cloud project and add <code>projects/rhcos-cloud</code> to the <code>allowedValues</code> list, as in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">constraint</span><span class="pi">:</span> <span class="s">constraints/compute.trustedImageProjects</span>
+<span class="na">listPolicy</span><span class="pi">:</span>
+ <span class="na">allowedValues</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">projects/rhcos-cloud</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Alternatively, you can delete the <code>constraints/compute.trustedImageProjects</code> constraint.</p>
+</div>
+</li>
+<li>
+<p>Modify the <code>iam.managed.allowedPolicyMembers</code> constraint to allow the service account that the installation program uses to authenticate with Google Cloud and create storage as in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">name</span><span class="pi">:</span> <span class="s">organizations/&lt;organization_id&gt;/policies/iam.managed.allowedPolicyMembers</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="na">rules</span><span class="pi">:</span>
+ <span class="pi">-</span> <span class="na">enforce</span><span class="pi">:</span> <span class="no">true</span>
+   <span class="na">parameters</span><span class="pi">:</span>
+     <span class="na">allowedMemberSubjects</span><span class="pi">:</span>
+       <span class="pi">-</span> <span class="s">&lt;allowed_member&gt;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;organization_id&gt;</code></dt>
+<dd>
+<p>Specifies the numeric ID of your Google Cloud organization.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;allowed_member&gt;</code></dt>
+<dd>
+<p>Specifies the IAM role that you created for the installation program. You can specify a service account in the format of "serviceAccount:example-service-account@example.com" or a user in the format of "user:example-user@example.com".</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Disable the <code>storage.publicAccessPrevention</code> constraint so that the installation program can access the cloud storage for your project.</p>
+</li>
+<li>
+<p>Create an egress rule that allows access to the RHCOS project, as in the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="pi">-</span> <span class="na">egressFrom</span><span class="pi">:</span>
+    <span class="na">identityType</span><span class="pi">:</span> <span class="s">ANY_IDENTITY</span>
+    <span class="na">identities</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">serviceAccount:&lt;installation_program_sa&gt;@&lt;project_id&gt;.iam.gserviceaccount.com"</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">user:&lt;admin_email&gt;"</span>
+  <span class="na">egressTo</span><span class="pi">:</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">&lt;project_id&gt;</span>
+    <span class="na">operations</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">serviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">compute.googleapis.com"</span>
+        <span class="na">methodSelectors</span><span class="pi">:</span> <span class="pi">[{</span><span class="nv">method</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span><span class="pi">}]</span>
+      <span class="pi">-</span> <span class="na">serviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">storage.googleapis.com"</span>
+        <span class="na">methodSelectors</span><span class="pi">:</span> <span class="pi">[{</span><span class="nv">method</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span><span class="pi">}]</span>
+      <span class="pi">-</span> <span class="na">serviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">dns.googleapis.com"</span>
+        <span class="na">methodSelectors</span><span class="pi">:</span> <span class="pi">[{</span><span class="nv">method</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span><span class="pi">}]</span>
+      <span class="pi">-</span> <span class="na">serviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">iam.googleapis.com"</span>
+        <span class="na">methodSelectors</span><span class="pi">:</span> <span class="pi">[{</span><span class="nv">method</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span><span class="pi">}]</span>
+      <span class="pi">-</span> <span class="na">serviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">cloudresourcemanager.googleapis.com"</span>
+        <span class="na">methodSelectors</span><span class="pi">:</span> <span class="pi">[{</span><span class="nv">method</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span><span class="pi">}]</span>
+      <span class="pi">-</span> <span class="na">serviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">serviceusage.googleapis.com"</span>
+        <span class="na">methodSelectors</span><span class="pi">:</span> <span class="pi">[{</span><span class="nv">method</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span><span class="pi">}]</span>
+      <span class="pi">-</span> <span class="na">serviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">artifactregistry.googleapis.com"</span>
+        <span class="na">methodSelectors</span><span class="pi">:</span> <span class="pi">[{</span><span class="nv">method</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span><span class="pi">}]</span>
+      <span class="pi">-</span> <span class="na">serviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">deploymentmanager.googleapis.com"</span>
+        <span class="na">methodSelectors</span><span class="pi">:</span> <span class="pi">[{</span><span class="nv">method</span><span class="pi">:</span> <span class="s2">"</span><span class="s">*"</span><span class="pi">}]</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;installation_program_sa&gt;</code></dt>
+<dd>
+<p>Specifies the service account that you created for the installation program. This service account will be granted access to the specified resources.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;project_id&gt;</code></dt>
+<dd>
+<p>Specifies the project ID of the Google Cloud project where you are installing the cluster.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;admin_email&gt;</code></dt>
+<dd>
+<p>Specifies the email address of an administrator account. You do not need to specify both a service account and an administrator email address. This service account will be granted access to the specified resources.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;project_id&gt;</code></dt>
+<dd>
+<p>Specifies one or more projects that the specified identities can access. You can specify a wildcard such as <code>projects/*</code> to grant access to all projects, or specific project IDs such as <code>projects/1234567890</code>.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
