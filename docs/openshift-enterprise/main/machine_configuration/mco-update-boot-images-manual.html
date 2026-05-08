@@ -3295,6 +3295,9 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#mco-update-boot-images-azure_mco-update-boot-images-manual">Manually updating the boot image on an Azure cluster</a></li>
+<li><a href="#mco-update-boot-images-aws_mco-update-boot-images-manual">Manually updating the boot image on an AWS cluster</a></li>
+<li><a href="#mco-update-boot-images-gcp_mco-update-boot-images-manual">Manually updating the boot image on an Google Cloud cluster</a></li>
 <li><a href="#mco-update-boot-images-ibm-cloud_mco-update-boot-images-manual">Manually updating the boot image on an IBM Cloud&#174; cluster</a></li>
 <li><a href="#mco-update-boot-images-nutanix_mco-update-boot-images-manual">Manually updating the boot image on a Nutanix cluster</a></li>
 <li><a href="#mco-update-boot-images-openstack_mco-update-boot-images-manual">Manually updating the boot image on an RHOSP cluster</a></li>
@@ -3317,6 +3320,1568 @@
 </td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mco-update-boot-images-azure_mco-update-boot-images-manual"><a class="anchor" href="#mco-update-boot-images-azure_mco-update-boot-images-manual"></a>Manually updating the boot image on an Azure cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can manually update the boot image for your Microsoft Azure cluster by configuring your machine sets to use the latest OpenShift Container Platform image as the boot image to ensure that new nodes can scale up properly.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Boot image updates are not supported for Azure confidential virtual machines and Azure Stack Hub clusters. Contact Red Hat Support for these cases.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Use the following procedure to create environment variables that facilitate running the required commands, identify the correct boot image to use as the new boot image, and modify your compute machine sets to use that image.</p>
+</div>
+<div class="paragraph">
+<p>The process requires you to determine the product variant and Hyper-V generation of your Azure boot image. The following procedure helps determine both values, which you need in order to look up the target image.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For clusters that use a default Red&#160;Hat Enterprise Linux CoreOS (RHCOS), Azure Red Hat OpenShift (ARO), or Azure Marketplace image, you can configure the cluster to automatically update the boot image each time the cluster is updated. If you are using the following procedure, ensure that automatic boot image updates are disabled and skew enforcement is in manual mode. For more information, see "Boot image management" and "Boot image skew enforcement".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have completed the general boot image prerequisites as described in the "Prerequisites" section of the <a href="https://access.redhat.com/articles/7053165#prerequisites-2">OpenShift Container Platform Boot Image Updates knowledgebase article</a>.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have set boot image skew enforcement to the manual or none mode. For more information, see "Configuring boot image skew enforcement".</p>
+</li>
+<li>
+<p>You have disabled boot image management for the cluster. For more information, see "Disabling boot image management".</p>
+</li>
+<li>
+<p>You have downloaded the latest version of the OpenShift Container Platform installation program from the <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>. For more information, see "Obtaining the installation program."</p>
+</li>
+<li>
+<p>You have installed the <a href="https://stedolan.github.io/jq/"><code>jq</code></a> program.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Set an environment variable with your cluster architecture by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">ARCH</span><span class="o">=</span>&lt;architecture_type&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;architecture_type&gt;</code> with one of the following values:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Use <code>aarch64</code> for the AArch64 or ARM64 architecture.</p>
+</li>
+<li>
+<p>Use <code>x86_64</code> for the x86_64 or AMD64 architecture.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>You can find the architecture as a label in any <code>MachineSet</code> object.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example machine set with an architecture label</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+metadata:
+  annotations:
+    capacity.cluster-autoscaler.kubernetes.io/labels: kubernetes.io/arch=amd64
+</span><span class="gp">#</span><span class="w"> </span>...</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Determine your Azure image variant and Hyper-V generation:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the required values from your machine set by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset &lt;machineset-name&gt; <span class="nt">-n</span> openshift-machine-api <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.template.spec.providerSpec.value.image}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{"offer":"rh-ocp-worker","publisher":"redhat","resourceID":"","sku":"rh-ocp-worker","type":"MarketplaceWithPlan","version":"4.16.20231023"}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Determine your image variant by comparing the output to the entries in the following table:</p>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Output parmeters</th>
+<th class="tableblock halign-left valign-top">Variant</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>resourceID</code> is non-empty</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>no-purchase-plan</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>publisher</code> is <code>azureopenshift</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>no-purchase-plan</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>publisher</code> is <code>redhat</code> and <code>offer</code> is <code>rh-ocp-worker</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ocp</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>publisher</code> is <code>redhat</code> and <code>offer</code> is <code>rh-opp-worker</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>opp</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>publisher</code> is <code>redhat</code> and <code>offer</code> is <code>rh-oke-worker</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>oke</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>publisher</code> is <code>redhat-limited</code> and <code>offer</code> is <code>rh-ocp-worker</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ocp-emea</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>publisher</code> is <code>redhat-limited</code> and <code>offer</code> is <code>rh-ocp-worker</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>opp-emea</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>publisher</code> is <code>redhat-limited</code> and <code>offer</code> is <code>rh-ocp-worker</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>oke-emea</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Make note of the variant for later use.</p>
+</div>
+</li>
+<li>
+<p>Determine your image Hyper-V generation by comparing the output to the entries in the following table:</p>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Output</th>
+<th class="tableblock halign-left valign-top">Image type</th>
+<th class="tableblock halign-left valign-top">Hyper-V generation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>resourceID</code> is non-empty</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Legacy uploaded</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="ulist">
+<ul>
+<li>
+<p><code>hyperVGen2</code> if the <code>resourceID</code> value contains <code>gen2</code></p>
+</li>
+<li>
+<p><code>hyperVGen1</code>  if the <code>resourceID</code> value does not contain <code>gen2</code></p>
+</li>
+</ul>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>publisher</code> is <code>azureopenshift</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unpaid marketplace</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="ulist">
+<ul>
+<li>
+<p><code>hyperVGen2</code> if <code>sku</code> contains <code>v2</code> or the cluster architecture is AArch64 or ARM64</p>
+</li>
+<li>
+<p><code>hyperVGen1</code> for all other images</p>
+</li>
+</ul>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>publisher</code> is <code>redhat</code> or <code>redhat-limited</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Paid marketplace</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="ulist">
+<ul>
+<li>
+<p><code>hyperVGen1</code> if <code>sku</code> contains <code>-gen1</code></p>
+</li>
+<li>
+<p><code>hyperVGen2</code> for all other images</p>
+</li>
+</ul>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Make note of the generation for later use.</p>
+</div>
+</li>
+<li>
+<p>Optional: You can compare the output of the <code>version</code> parameter against the output of the following command to determine if your boot image needs updating.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openshift-install coreos print-stream-json | jq <span class="s1">'.architectures."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."rhel-coreos-extensions"."marketplace"."azure"'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ARCH</code> is the environment variable you created in a previous step.</p>
+</div>
+<div class="paragraph">
+<p>In the output of the command, locate your variant and generation as shown in the following example:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">  "ocp": {
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">    "hyperVGen2": {
+      "publisher": "redhat",
+      "offer": "rh-ocp-worker",
+      "sku": "rh-ocp-worker",
+      "version": "4.18.2025031114"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the boot image referenced in the <code>version</code> parameter of your machine set matches or is later than the version in this output, no further action on your part is required to update the boot image. If not, continue with this procedure.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Obtain the values needed to identify the new boot image and set the values as environment variables:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the values required for the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openshift-install coreos print-stream-json | jq <span class="s1">'.architectures."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."rhel-coreos-extensions"."marketplace"."azure"'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ARCH</code> is the environment variable you created in a previous step.</p>
+</div>
+</li>
+<li>
+<p>In the output of the command, locate your variant and generation as shown in the following example:</p>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">  "ocp": {
+</span><span class="gp">  #</span><span class="w"> </span>...
+<span class="go">    "hyperVGen2": {
+      "publisher": "redhat",
+      "offer": "rh-ocp-worker",
+      "sku": "rh-ocp-worker",
+      "version": "9.6.20251015"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set an environment variable with your image variant by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">VARIANT</span><span class="o">=</span>&lt;variant&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;variant&gt;</code> with the variant of your image, one of the following vales: <code>no-purchase-plan</code>, <code>ocp</code>, <code>opp</code>, <code>oke</code>, <code>ocp-emea</code>, <code>opp-emea</code>, or <code>oke-emea</code>.</p>
+</div>
+</li>
+<li>
+<p>Set an environment variable with your image generation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">GEN</span><span class="o">=</span>&lt;generation&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;generation&gt;</code> with the generation of your image, one of the following vales: <code>hyperVGen1</code> or <code>hyperVGen2</code>.</p>
+</div>
+</li>
+<li>
+<p>Set environment variables for the <code>publisher</code>, <code>offer</code>, <code>sku</code>, and <code>version</code> fields based on the <code>openshift-install</code> output for your variant and generation by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">PUBLISHER</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s1">'.architectures."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."rhel-coreos-extensions"."marketplace"."azure"."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">VARIANT</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">GEN</span><span class="k">}</span><span class="s2">"</span><span class="s1">'".publisher'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ARCH</code>, <code>VARIANT</code>, and <code>GEN</code> are environment variables you created in a previous step.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">OFFER</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s1">'.architectures."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."rhel-coreos-extensions"."marketplace"."azure"."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">VARIANT</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">GEN</span><span class="k">}</span><span class="s2">"</span><span class="s1">'".offer'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">SKU</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s1">'.architectures."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."rhel-coreos-extensions"."marketplace"."azure"."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">VARIANT</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">GEN</span><span class="k">}</span><span class="s2">"</span><span class="s1">'".sku'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">VERSION</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s1">'.architectures."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."rhel-coreos-extensions"."marketplace"."azure"."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">VARIANT</span><span class="k">}</span><span class="s2">"</span><span class="s1">'"."'</span><span class="s2">"</span><span class="k">${</span><span class="nv">GEN</span><span class="k">}</span><span class="s2">"</span><span class="s1">'".version'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Obtain the RHCOS version by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nv">$VERSION</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">9.6.20251015</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Make note of the RHCOS version for later use.</p>
+</div>
+</li>
+<li>
+<p>Set an environment variable with the type of your image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">IMAGE_TYPE</span><span class="o">=</span>&lt;image_type&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;image_type&gt;</code> with one of the following values based on the variant of your image:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>For the <code>no-purchase-plan</code> variant, use <code>MarketplaceNoPlan</code>.</p>
+</li>
+<li>
+<p>For all other variants, use <code>MarketplaceWithPlan</code>.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Update each of your compute machine sets to include the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of your machine sets for use in the following step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                        DESIRED   CURRENT   READY   AVAILABLE   AGE
+ci-ln-lbf9h9k-1d09d-fwh4l-worker-eastus21   1         1         1       1           135m
+ci-ln-lbf9h9k-1d09d-fwh4l-worker-eastus22   1         1         1       1           135m
+ci-ln-lbf9h9k-1d09d-fwh4l-worker-eastus23   1         1         1       1           135m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit a machine set to update the <code>image</code> field in the <code>providerSpec</code> stanza to add your boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch machineset &lt;machineset-name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">--type</span> merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"template":{"spec":{"providerSpec":{"value":{"image":{"publisher":"'</span><span class="k">${</span><span class="nv">PUBLISHER</span><span class="k">}</span><span class="s1">'","offer":"'</span><span class="k">${</span><span class="nv">OFFER</span><span class="k">}</span><span class="s1">'","sku":"'</span><span class="k">${</span><span class="nv">SKU</span><span class="k">}</span><span class="s1">'","version":"'</span><span class="k">${</span><span class="nv">VERSION</span><span class="k">}</span><span class="s1">'","resourceID":"","type":"'</span><span class="k">${</span><span class="nv">IMAGE_TYPE</span><span class="k">}</span><span class="s1">'"}}}}}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>PUBLISHER</code>, <code>OFFER</code>, <code>SKU</code>, <code>VERSION</code>, and <code>IMAGE_TYPE</code> are environment variables you created in previous steps.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>If boot image skew enforcement in your cluster is set to the manual mode, update the version of the new boot image in the <code>MachineConfiguration</code> object as described in "Updating the boot image skew enforcement version".</p>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Scale up a machine set to check that the new node is using the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Increase the machine set replicas by one to trigger a new machine by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc scale <span class="nt">--replicas</span><span class="o">=</span>&lt;count&gt; machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;count&gt;</code></dt>
+<dd>
+<p>Specifies the total number of replicas, including any existing replicas, that you want for this machine set.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;machineset_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the machine set to scale.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Optional: View the status of the machine set as it provisions by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines.machine.openshift.io <span class="nt">-n</span> openshift-machine-api <span class="nt">-w</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It can take several minutes for the machine set to achieve the <code>Running</code> state.</p>
+</div>
+</li>
+<li>
+<p>Verify that the new node has been created and is in the <code>Ready</code> state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the new node is using the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;new_node&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">cat</span> /sysroot/.coreos-aleph-version.json</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;new_node&gt;</code> with the name of your new node.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">    "ref": "docker://ostree-image-signed:oci-archive:/rhcos-9.6.20251015-ostree.x86_64.ociarchive",
+    "version": "9.6.20251015"
+}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>version</code></dt>
+<dd>
+<p>Specifies the boot image version.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Verify that the boot image is the same the RHCOS version as the image you noted in a previous step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nv">$VERSION</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">9.6.20251015</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mco-update-boot-images-aws_mco-update-boot-images-manual"><a class="anchor" href="#mco-update-boot-images-aws_mco-update-boot-images-manual"></a>Manually updating the boot image on an AWS cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can manually update the boot image for your Amazon Web Services (AWS) cluster by configuring your machine sets to use the latest OpenShift Container Platform image as the boot image to ensure that new nodes can scale up properly.</p>
+</div>
+<div class="paragraph">
+<p>Use the following procedure to create environment variables that facilitate running the required commands, identify the correct Amazon Machine Image (AMI) to use as the new boot image, and modify your compute machine sets to use that image.</p>
+</div>
+<div class="paragraph">
+<p>The process differs for clusters that use a default Red&#160;Hat Enterprise Linux CoreOS (RHCOS) image and clusters that use a custom RHCOS image from the AWS Marketplace. The following procedure helps determine which type of image you use.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For clusters that use a default RHCOS image, you can configure the cluster to automatically update the boot image each time the cluster is updated. If you are using the following procedure, ensure that automatic boot image updates are disabled and skew enforcement is in manual mode. For more information, see "Boot image management" and "Boot image skew enforcement".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have completed the general boot image prerequisites as described in the "Prerequisites" section of the <a href="https://access.redhat.com/articles/7053165#prerequisites-2">OpenShift Container Platform Boot Image Updates knowledgebase article</a>.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have set boot image skew enforcement to the manual or none mode. For more information, see "Configuring boot image skew enforcement".</p>
+</li>
+<li>
+<p>You have disabled boot image management for the cluster. For more information, see "Disabling boot image management".</p>
+</li>
+<li>
+<p>You have installed the <a href="https://aws.amazon.com/cli/">AWS CLI</a>.</p>
+</li>
+<li>
+<p>You configured an AWS account to host the cluster. For information, see "Configuring an AWS account".</p>
+</li>
+<li>
+<p>For a cluster that uses a default RHCOS image, ensure you have met the following additional prerequisites:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>You have downloaded the latest version of the OpenShift Container Platform installation program from the <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>. For more information, see "Obtaining the installation program."</p>
+</li>
+<li>
+<p>For a cluster that uses a default RHCOS image, you have installed the <a href="https://jqlang.org/"><code>jq</code></a> program.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Determine if your cluster uses a default RHCOS image or a custom RHCOS image from the AWS Marketplace image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the current AWS region where the cluster is installed and set the value in an environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">REGION</span><span class="o">=</span><span class="si">$(</span>oc get infrastructure cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.platformStatus.aws.region}'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Obtain the current Amazon Machine Image (AMI) ID for your region and set the value in an environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">CURRENT_AMI</span><span class="o">=</span><span class="si">$(</span>oc get machineset <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].spec.template.spec.providerSpec.value.ami.id}'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Obtain the product ID for your AMI and set the value in an environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">PRODUCT_ID</span><span class="o">=</span><span class="si">$(</span>aws ec2 describe-images <span class="nt">--image-ids</span> <span class="s2">"</span><span class="nv">$CURRENT_AMI</span><span class="s2">"</span> <span class="nt">--region</span> <span class="s2">"</span><span class="nv">$REGION</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s1">'Images[0].Name'</span> <span class="nt">--output</span> text | <span class="se">\</span>
+  <span class="nb">grep</span> <span class="nt">-oE</span> <span class="s1">'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>CURRENT_AMI</code> and <code>REGION</code> are environment variables you created in previous steps.</p>
+</div>
+</li>
+<li>
+<p>Display the contents of the <code>PRODUCT_ID</code> environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nv">$PRODUCT_ID</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If the output for the <code>PRODUCT_ID</code> environment variable is empty, as shown in the following example, your cluster uses a standard OpenShift Container Platform image.</p>
+<div class="listingblock">
+<div class="title">Example with empty output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If the output for the <code>PRODUCT_ID</code> environment variable is not empty, as shown in the following example, your cluster uses an AWS Marketplace image.</p>
+<div class="listingblock">
+<div class="title">Example with non-empty output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">59ead7de-2540-4653-a8b0-fa7926d5c845</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If the command returns an error, and you are unable to determine your cluster variant, contact Red Hat Support. If Red Hat Support determines that your cluster uses an AWS Marketplace image, you can set the <code>PRODUCT_ID</code> environment variable with the appropriate product ID from the following table.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">PRODUCT_ID</span><span class="o">=</span>&lt;Product_ID_from_table&gt;</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Variant</th>
+<th class="tableblock halign-left valign-top">Product ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://aws.amazon.com/marketplace/procurement/?productId=59ead7de-2540-4653-a8b0-fa7926d5c845">OpenShift Container Platform on x86 - NA</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>59ead7de-2540-4653-a8b0-fa7926d5c845</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://aws.amazon.com/marketplace/procurement?productId=963b36c3-de6f-48ed-b802-2b38b2a2cdeb">OpenShift Kubernetes Engine on x86 - NA</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>963b36c3-de6f-48ed-b802-2b38b2a2cdeb</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://aws.amazon.com/marketplace/procurement?productId=f5da01a6-d046-487c-9072-42fe53b1cad4">OpenShift Platform Plus on x86 - NA</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>f5da01a6-d046-487c-9072-42fe53b1cad4</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://aws.amazon.com/marketplace/procurement?productId=abc249f8-7440-45f7-a4b1-c026baff64c1">OpenShift Container Platform on ARM - NA</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>abc249f8-7440-45f7-a4b1-c026baff64c1</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://aws.amazon.com/marketplace/procurement?productId=d2d3ebcd-c1ca-43d8-bf0a-530433200f35">OpenShift Kubernetes Engine on ARM - NA</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>d2d3ebcd-c1ca-43d8-bf0a-530433200f35</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://aws.amazon.com/marketplace/procurement?productId=be6d3e94-c8dc-4a3e-9218-4b449b11f06f">OpenShift Platform Plus on ARM - NA</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>be6d3e94-c8dc-4a3e-9218-4b449b11f06f</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://aws.amazon.com/marketplace/procurement?productId=962791c7-3ae5-46d1-ba62-c7a5ebac54fd">OpenShift Container Platform on x86 - EU, ME and Africa</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>962791c7-3ae5-46d1-ba62-c7a5ebac54fd</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://aws.amazon.com/marketplace/procurement?productId=7026c8d7-392c-4010-b93c-f93f7bc5495f">OpenShift Kubernetes Engine on x86 - EU, ME and Africa</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>7026c8d7-392c-4010-b93c-f93f7bc5495f</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="https://aws.amazon.com/marketplace/procurement?productId=628c9df3-0254-4f91-bc1f-8619d1b8eaa8">OpenShift Platform Plus on x86 - EU, ME and Africa</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>628c9df3-0254-4f91-bc1f-8619d1b8eaa8</code></p></td>
+</tr>
+</tbody>
+</table>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Determine the AMI for the new boot image by using one of the following steps, depending upon the type of image used in your cluster:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>For a cluster that uses a default RHCOS image, perform the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set an environment variable with your cluster architecture by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">ARCH</span><span class="o">=</span>&lt;architecture_type&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;architecture_type&gt;</code> with one of the following values:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Specify <code>aarch64</code> for the AArch64 or ARM64 architecture.</p>
+</li>
+<li>
+<p>Specify <code>ppc64le</code> for the IBM Power&#174; (ppc64le) architecture.</p>
+</li>
+<li>
+<p>Specify <code>s390x</code> for the IBM Z&#174; and IBM&#174; LinuxONE (s390x) architecture.</p>
+</li>
+<li>
+<p>Specify <code>x86_64</code> for the x86_64 or AMD64 architecture.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>You can find the architecture as a label in any <code>MachineSet</code> object.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example machine set with an architecture label</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+metadata:
+  annotations:
+    capacity.cluster-autoscaler.kubernetes.io/labels: kubernetes.io/arch=amd64
+</span><span class="gp">#</span><span class="w"> </span>...</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Obtain the AMI for the new boot image and set an environment variable with the AMI by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">AMI_ID</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s2">".architectures.</span><span class="se">\"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="se">\"</span><span class="s2">.images.aws.regions.</span><span class="se">\"</span><span class="k">${</span><span class="nv">REGION</span><span class="k">}</span><span class="se">\"</span><span class="s2">.image"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ARCH</code> and <code>REGION</code> are environment variables you created in previous steps.</p>
+</div>
+</li>
+<li>
+<p>View the RHCOS version of the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s2">".architectures.</span><span class="se">\"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="se">\"</span><span class="s2">.images.aws.regions.</span><span class="se">\"</span><span class="k">${</span><span class="nv">REGION</span><span class="k">}</span><span class="se">\"</span><span class="s2">.release"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">9.6.20251212-1</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Make note of the RHCOS version for later use.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>For a cluster that uses a custom RHCOS image, perform the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain a list of valid AMI images by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws ec2 describe-images <span class="nt">--region</span> <span class="s2">"</span><span class="k">${</span><span class="nv">REGION</span><span class="k">}</span><span class="s2">"</span> <span class="nt">--filters</span> <span class="s2">"Name=name,Values=*</span><span class="k">${</span><span class="nv">PRODUCT_ID</span><span class="k">}</span><span class="s2">*"</span> <span class="se">\</span>
+  <span class="nt">--query</span> <span class="s1">'reverse(sort_by(Images, &amp;CreationDate))[].[CreationDate,ImageId,Name]'</span> <span class="nt">--output</span> table</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>REGION</code> and <code>PRODUCT_ID</code> are environment variables you created in previous steps.</p>
+</div>
+<div class="paragraph">
+<p>This command returns the AMIs ordered by creation date, with the latest images first. The RHCOS version of each AMI is contained in the AMI name. Choose the latest image version available.</p>
+</div>
+<div class="paragraph">
+<p>Make note of the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) version for later use.</p>
+</div>
+</li>
+<li>
+<p>Set an environment variable with the AMI of the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">AMI_ID</span><span class="o">=</span>&lt;ami-value&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Update each of your compute machine sets to include the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of your machine sets for use in the following step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                 DESIRED   CURRENT   READY   AVAILABLE   AGE
+rhhdrbk-b5564-4pcm9-worker-0         3         3         3       3           123m
+ci-ln-xj96skb-72292-48nm5-worker-d   1         1         1       1           27m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit a machine set to update the <code>image</code> field in the <code>providerSpec</code> stanza to add your boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">--type</span> merge <span class="nt">-p</span> <span class="s1">'{"spec":{"template":{"spec":{"providerSpec":{"value":{"ami":{"id":"'</span><span class="k">${</span><span class="nv">AMI_ID</span><span class="k">}</span><span class="s1">'"}}}}}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;machineset_name&gt;</code> with the name of your machine set.</p>
+</div>
+<div class="paragraph">
+<p><code>AMI_ID</code> is the environment variable you created in a previous step.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>If boot image skew enforcement in your cluster is set to the manual mode, update the boot image version in the <code>MachineConfiguration</code> object as described in "Updating the boot image skew enforcement version."</p>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Scale up a machine set to check that the new node is using the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Increase the machine set replicas by one to trigger a new machine by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc scale <span class="nt">--replicas</span><span class="o">=</span>&lt;count&gt; machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;count&gt;</code></dt>
+<dd>
+<p>Specifies the total number of replicas, including any existing replicas, that you want for this machine set.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;machineset_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the machine set to scale.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Optional: View the status of the machine set as it provisions by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines.machine.openshift.io <span class="nt">-n</span> openshift-machine-api <span class="nt">-w</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It can take several minutes for the machine set to achieve the <code>Running</code> state.</p>
+</div>
+</li>
+<li>
+<p>Verify that the new node has been created and is in the <code>Ready</code> state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the new node is using the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;new_node&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">cat</span> /sysroot/.coreos-aleph-version.json</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;new_node&gt;</code> with the name of your new node.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">    "ref": "docker://ostree-image-signed:oci-archive:/rhcos-9.6.20251212-1-ostree.x86_64.ociarchive",
+    "version": "9.6.20251212-1"
+}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>version</code></dt>
+<dd>
+<p>Specifies the boot image version.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mco-update-boot-images-gcp_mco-update-boot-images-manual"><a class="anchor" href="#mco-update-boot-images-gcp_mco-update-boot-images-manual"></a>Manually updating the boot image on an Google Cloud cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can manually update the boot image for your Google Cloud cluster by configuring your machine sets to use the latest OpenShift Container Platform image as the boot image to ensure that new nodes can scale up properly.</p>
+</div>
+<div class="paragraph">
+<p>Use the following procedure to create environment variables that facilitate running the required commands, identify the correct boot image to use as the new boot image, and modify your machine sets to use that image.</p>
+</div>
+<div class="paragraph">
+<p>The process differs for clusters that use a default Red&#160;Hat Enterprise Linux CoreOS (RHCOS) image, clusters that use a custom Red&#160;Hat Enterprise Linux CoreOS (RHCOS) image from the Google Cloud Marketplace, and user-provisioned infrastructure clusters. The following procedure helps determine which type of cluster you have.</p>
+</div>
+<div class="paragraph">
+<p>For user-provisioned infrastructure Google Cloud clusters, which typically have no Machine API compute machine sets, you can provision new nodes based on the new boot image by updating the underlying Google Cloud infrastructure with the new boot image, such as instance templates, Deployment Manager templates, or Terraform configuration. For more information, see "Creating additional worker machines in Google Cloud".</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For clusters that use a default Red&#160;Hat Enterprise Linux CoreOS (RHCOS) image, you can configure the cluster to automatically update the boot image each time the cluster is updated. If you are using the following procedure, ensure that automatic boot image updates are disabled and skew enforcement is in manual mode. For more information, see "Boot image management" and "Boot image skew enforcement".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have completed the general boot image prerequisites as described in the "Prerequisites" section of the <a href="https://access.redhat.com/articles/7053165#prerequisites-2">OpenShift Container Platform Boot Image Updates knowledgebase article</a>.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have set boot image skew enforcement to the manual or none mode. For more information, see "Configuring boot image skew enforcement".</p>
+</li>
+<li>
+<p>You have disabled boot image management for the cluster. For more information, see "Disabling boot image management".</p>
+</li>
+<li>
+<p>For a cluster that uses a default RHCOS image, ensure that your cluster meets the following additional prerequisites:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>You have downloaded the latest version of the OpenShift Container Platform installation program, openshift-install, from the <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>. For more information, see "Obtaining the installation program."</p>
+</li>
+<li>
+<p>You have installed the <a href="https://jqlang.github.io/jq/"><code>jq</code></a> program.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>For a user-provisioned infrastructure cluster, ensure that your cluster meets the following additional prerequisites:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>You have downloaded the latest version of the OpenShift Container Platform installation program from the <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>. For more information, see "Obtaining the installation program."</p>
+</li>
+<li>
+<p>You have installed the <a href="https://cloud.google.com/sdk/docs/install">Google Cloud CLI</a>.</p>
+</li>
+<li>
+<p>You have created a Google Cloud service account.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Determine which image in the machine set is the boot image and set the value in an environment variable:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set the boot image value in an environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">BOOT_DISK_INDEX</span><span class="o">=</span><span class="si">$(</span>oc get machineset <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> json | <span class="se">\</span>
+  jq <span class="s1">'.items[0].spec.template.spec.providerSpec.value.disks | map(.boot == true) | index(true)'</span><span class="si">)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Display the contents of the <code>BOOT_DISK_INDEX</code> environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nv">$BOOT_DISK_INDEX</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">0</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the output for the <code>BOOT_DISK_INDEX</code> environment variable is <code>null</code>, none of the disks in the machine set has the <code>boot</code> field explicitly set. In this case, the boot disk is typically the first disk.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example null output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">null</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If the  <code>BOOT_DISK_INDEX</code> output is <code>null</code>, set the boot image to the first image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">BOOT_DISK_INDEX</span><span class="o">=</span>0</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Determine if your cluster uses a default RHCOS image or a GCP Marketplace RHCOS image from the Google Cloud Marketplace, or is a user-provisioned infrastructure cluster:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of the current boot image and set the name as an environment variable by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">CURRENT_IMAGE</span><span class="o">=</span><span class="si">$(</span>oc get machineset <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> json | <span class="se">\</span>
+  jq <span class="nt">-r</span> <span class="s2">".items[0].spec.template.spec.providerSpec.value.disks[</span><span class="k">${</span><span class="nv">BOOT_DISK_INDEX</span><span class="k">}</span><span class="s2">].image"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>BOOT_DISK_INDEX</code> is the environment variable you created in a previous step.</p>
+</div>
+</li>
+<li>
+<p>View the name of the image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nv">$CURRENT_IMAGE</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">projects/rhcos-cloud/global/images/rhcos-416-94-202510081640-0-gcp-x86-64</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Compare the prefix of the image name to the entries in the following table:</p>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Current image prefix</th>
+<th class="tableblock halign-left valign-top">Variant</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>projects/rhcos-cloud/global/images/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Default</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>projects/redhat-marketplace-public/global/images/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">GCP Marketplace RHCOS image</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No machine set present/custom prefix</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">User-provisioned infrastructure</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Default RHCOS clusters use images from the <code>rhcos-cloud</code> project in the <code>rhcos-&lt;version&gt;-&lt;platform&gt;-&lt;arch&gt;</code> format.</p>
+</div>
+<div class="paragraph">
+<p>GCP Marketplace RHCOS clusters use images from the <code>redhat-marketplace-public</code> project in the <code>redhat-coreos-&lt;offering&gt;-&lt;version&gt;-&lt;arch&gt;-&lt;date&gt;</code> format.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The following images are the latest Google Cloud Marketplace images for the OpenShift Container Platform:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">OpenShift Container Platform</dt>
+<dd>
+<p><code>redhat-coreos-ocp-413-x86-64-202305021736</code></p>
+</dd>
+<dt class="hdlist1">OpenShift Platform Plus</dt>
+<dd>
+<p><code>redhat-coreos-opp-413-x86-64-202305021736</code></p>
+</dd>
+<dt class="hdlist1">OpenShift Kubernetes Engine</dt>
+<dd>
+<p><code>redhat-coreos-oke-413-x86-64-202305021736</code></p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Red Hat has not published Marketplace images for OpenShift Container Platform later than these OpenShift Container Platform 4.13 images. If the current boot image in your cluster matches one of the listed images, no further action is necessary.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Obtain the name of the new boot image by using one of the following steps, depending upon your cluster:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>For a cluster that uses a default RHCOS image, perform the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set an environment variable with your cluster architecture by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">ARCH</span><span class="o">=</span>&lt;architecture_type&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;architecture_type&gt;</code> with one of the following values:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Specify <code>aarch64</code> for the AArch64 or ARM64 architecture.</p>
+</li>
+<li>
+<p>Specify <code>ppc64le</code> for the IBM Power&#174; (ppc64le) architecture.</p>
+</li>
+<li>
+<p>Specify <code>s390x</code> for the IBM Z&#174; and IBM&#174; LinuxONE (s390x) architecture.</p>
+</li>
+<li>
+<p>Specify <code>x86_64</code> for the x86_64 or AMD64 architecture.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>You can find the architecture as a label in any <code>MachineSet</code> object.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example machine set with an architecture label</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: machine.openshift.io/v1beta1
+kind: MachineSet
+metadata:
+  annotations:
+    capacity.cluster-autoscaler.kubernetes.io/labels: kubernetes.io/arch=amd64
+</span><span class="gp">#</span><span class="w"> </span>...</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set an environment variable with the name of the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">GCP_IMAGE</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s2">".architectures.</span><span class="se">\"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="se">\"</span><span class="s2">.images.gcp.name"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ARCH</code> is the environment variable you created in a previous step.</p>
+</div>
+</li>
+<li>
+<p>Set an environment variable with the Google Cloud project of the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">GCP_PROJECT</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s2">".architectures.</span><span class="se">\"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="se">\"</span><span class="s2">.images.gcp.project"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ARCH</code> is the environment variable you created in a previous step.</p>
+</div>
+</li>
+<li>
+<p>View the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) version of the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s2">".architectures.</span><span class="se">\"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="se">\"</span><span class="s2">.images.gcp.release"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">9.6.20251212-1</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Make note of the RHCOS version for later use.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>For a cluster that uses a GCP Marketplace RHCOS image that is earlier than the 4.13 images listed above, perform the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set an environment variable with the name of the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">GCP_IMAGE</span><span class="o">=</span>&lt;image_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;image_name&gt;</code> with one of the following values:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Specify <code>redhat-coreos-ocp-413-x86-64-202305021736</code> for an OpenShift Container Platform cluster.</p>
+</li>
+<li>
+<p>Specify <code>redhat-coreos-opp-413-x86-64-202305021736</code> for an OpenShift Platform Plus cluster.</p>
+</li>
+<li>
+<p>Specify <code>redhat-coreos-oke-413-x86-64-202305021736</code> for an OpenShift Kubernetes Engine cluster.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Set an environment variable with the Google Cloud project of the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">GCP_PROJECT</span><span class="o">=</span>redhat-marketplace-public</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>For a user-provisioned infrastructure cluster, perform the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set an environment variable with your cluster architecture by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">ARCH</span><span class="o">=</span>&lt;architecture_type&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;architecture_type&gt;</code> with one of the following values:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Specify <code>aarch64</code> for the AArch64 or ARM64 architecture.</p>
+</li>
+<li>
+<p>Specify <code>ppc64le</code> for the IBM Power&#174; (ppc64le) architecture.</p>
+</li>
+<li>
+<p>Specify <code>s390x</code> for the IBM Z&#174; and IBM&#174; LinuxONE (s390x) architecture.</p>
+</li>
+<li>
+<p>Specify <code>x86_64</code> for the x86_64 or AMD64 architecture.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Set an environment variable with the name of the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">GCP_IMAGE</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s2">".architectures.</span><span class="se">\"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="se">\"</span><span class="s2">.images.gcp.name"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ARCH</code> is the environment variable you created in a previous step.</p>
+</div>
+</li>
+<li>
+<p>Set an environment variable with the Google Cloud project of the new boot image in your cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">GCP_PROJECT</span><span class="o">=</span><span class="si">$(</span>openshift-install coreos print-stream-json | jq <span class="nt">-r</span> <span class="s2">".architectures.</span><span class="se">\"</span><span class="k">${</span><span class="nv">ARCH</span><span class="k">}</span><span class="se">\"</span><span class="s2">.images.gcp.project"</span><span class="si">)</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>ARCH</code> is the environment variable you created in a previous step.</p>
+</div>
+<div class="paragraph">
+<p>If the default RHCOS image is not accessible in your environment, for example in a restricted or disconnected environment, you could download the new boot image tar file and upload the file as a custom image to your own Google Cloud project before updating your Google Cloud instance templates.</p>
+</div>
+<div class="paragraph">
+<p>Update your Google Cloud instance template(s) to reference the new image, then create new instances from the updated template. The exact steps depend on how your infrastructure was provisioned. For more information, see "Creating additional worker machines in Google Cloud".</p>
+</div>
+<div class="paragraph">
+<p>After creating the new instances, you can proceed to the verification steps, unless your user-provisioned infrastructure cluster has any Machine API machine sets, such as for Day-2 scaling. You can update those machine sets as described in the following steps.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Update each of your compute machine sets to include the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of your machine sets for use in the following step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                 DESIRED   CURRENT   READY   AVAILABLE   AGE
+ci-ln-xw7zmyt-72292-x7nqv-worker-a   1         1         1       1           53m
+ci-ln-xw7zmyt-72292-x7nqv-worker-b   1         1         1       1           53m
+ci-ln-xw7zmyt-72292-x7nqv-worker-c   1         1         1       1           53m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit a machine set to update the <code>image</code> field in the <code>providerSpec</code> stanza to add your boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch machineset &lt;machineset-name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">--type</span> json <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'[{"op": "replace", "path": "/spec/template/spec/providerSpec/value/disks/'</span><span class="k">${</span><span class="nv">BOOT_DISK_INDEX</span><span class="k">}</span><span class="s1">'/image", "value": "projects/'</span><span class="k">${</span><span class="nv">GCP_PROJECT</span><span class="k">}</span><span class="s1">'/global/images/'</span><span class="k">${</span><span class="nv">GCP_IMAGE</span><span class="k">}</span><span class="s1">'"}]'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;machineset_name&gt;</code> with the name of your machine set.</p>
+</div>
+<div class="paragraph">
+<p><code>BOOT_DISK_INDEX</code>, <code>GCP_PROJECT</code>, and <code>GCP_IMAGE</code> are environment variables you created in previous steps.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>If boot image skew enforcement in your cluster is set to the manual mode, update the version of the new boot image in the <code>MachineConfiguration</code> object as described in "Updating the boot image skew enforcement version".</p>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Scale up a machine set to check that the new node is using the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Increase the machine set replicas by one to trigger a new machine by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc scale <span class="nt">--replicas</span><span class="o">=</span>&lt;count&gt; machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;count&gt;</code></dt>
+<dd>
+<p>Specifies the total number of replicas, including any existing replicas, that you want for this machine set.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;machineset_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the machine set to scale.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Optional: View the status of the machine set as it provisions by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines.machine.openshift.io <span class="nt">-n</span> openshift-machine-api <span class="nt">-w</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It can take several minutes for the machine set to achieve the <code>Running</code> state.</p>
+</div>
+</li>
+<li>
+<p>Verify that the new node has been created and is in the <code>Ready</code> state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the new node is using the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;new_node&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">cat</span> /sysroot/.coreos-aleph-version.json</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;new_node&gt;</code> with the name of your new node.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">    "ref": "docker://ostree-image-signed:oci-archive:/rhcos-9.6.20251212-1-ostree.x86_64.ociarchive",
+    "version": "9.6.20251212-1"
+}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>version</code></dt>
+<dd>
+<p>Specifies the boot image version.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Verify that the boot image is the same the RHCOS version as the image you noted in a previous step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nv">$GCP_IMAGE</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>RHCOS_URL</code> is the environment variable you created in a previous step.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">https://rhcos.mirror.openshift.com/art/storage/prod/streams/rhel-9.6/builds/9.6.20251212-1/x86_64/rhcos-9.6.20251212-1-nutanix.x86_64.qcow2</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -4536,6 +6101,12 @@ ci-ln-xj96skb-72292-48nm5-worker-d   1         1         1       1           27m
 </li>
 <li>
 <p><a href="../machine_management/user_infra/adding-bare-metal-compute-user-infra.html#adding-bare-metal-compute-user-infra">Adding compute machines to bare metal</a></p>
+</li>
+<li>
+<p><a href="../installing/installing_aws/installing-aws-account.html#installing-aws-account">Configuring an AWS account</a></p>
+</li>
+<li>
+<p><a href="../installing/installing_gcp/installing-restricted-networks-gcp.html#installation-creating-gcp-worker_installing-restricted-networks-gcp">Creating additional worker machines in Google Cloud</a></p>
 </li>
 </ul>
 </div>

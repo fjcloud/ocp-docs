@@ -2760,7 +2760,7 @@
 <li><a href="#nw-metallb-configure-with-L2-advertisement_about-advertising-ip-address-pool">Configuring MetalLB with an L2 advertisement</a></li>
 <li><a href="#nw-metallb-configure-with-L2-advertisement-label_about-advertising-ip-address-pool">Configuring MetalLB with an L2 advertisement and labels</a></li>
 <li><a href="#nw-metallb-configure-with-L2-advertisement-interface_about-advertising-ip-address-pool">Configuring MetalLB with an L2 advertisement for selected interfaces</a></li>
-<li><a href="#nw-metallb-configure-secondary-interface_about-advertising-ip-address-pool">Configuring MetalLB with secondary networks</a></li>
+<li><a href="#nw-metallb-configure-secondary-interface_about-advertising-ip-address-pool">Configure MetalLB with secondary networks</a></li>
 <li><a href="#additional-resources_about-advertiseipaddress">Additional resources</a></li>
 </ul>
 </div>
@@ -3584,35 +3584,18 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="nw-metallb-configure-secondary-interface_about-advertising-ip-address-pool"><a class="anchor" href="#nw-metallb-configure-secondary-interface_about-advertising-ip-address-pool"></a>Configuring MetalLB with secondary networks</h2>
+<h2 id="nw-metallb-configure-secondary-interface_about-advertising-ip-address-pool"><a class="anchor" href="#nw-metallb-configure-secondary-interface_about-advertising-ip-address-pool"></a>Configure MetalLB with secondary networks</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>From OKD 4.14 the default network behavior is to not allow forwarding of IP packets between network interfaces. Therefore, when MetalLB is configured on a secondary interface, you need to add a machine configuration to enable IP forwarding for only the required interfaces.</p>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>OKD clusters upgraded from 4.13 are not affected because a global parameter is set during upgrade to enable global IP forwarding.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>To enable IP forwarding for the secondary interface, you have two options:</p>
+<p>In environments with multiple network interfaces, you might need MetalLB to advertise load-balancer IP addresses on a secondary interface for network traffic segmentation. To route traffic using a secondary interface, you must do the following:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Enable IP forwarding for a specific interface.</p>
+<p>Enable IP forwarding on the secondary interface so that the interface can forward packets to the pods.</p>
 </li>
 <li>
-<p>Enable IP forwarding for all interfaces.</p>
+<p>Enable local gateway mode at the cluster level so that traffic uses the host networking stack.</p>
 </li>
 </ul>
 </div>
@@ -3624,102 +3607,83 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Enabling IP forwarding for a specific interface provides more granular control, while enabling it for all interfaces applies a global setting.</p>
+<p>From OKD 4.14, IP forwarding is disabled by default on cluster nodes for improved security. Clusters upgraded from 4.13 might already have IP forwarding enabled because existing node settings are preserved during upgrade.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed and configured MetalLB.</p>
+</li>
+<li>
+<p>You identified the secondary network interface on each node.</p>
+</li>
+<li>
+<p>You installed the Kubernetes NMState Operator.</p>
+</li>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Patch the Cluster Network Operator, setting the parameter <code>routingViaHost</code> to <code>true</code> by running the following command:</p>
+<p>Enable local gateway mode by patching the Cluster Network Operator to set <code>routingViaHost</code> to <code>true</code>:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch network.operator cluster <span class="nt">-p</span> <span class="s1">'{"spec":{"defaultNetwork":{"ovnKubernetesConfig":{"gatewayConfig": {"routingViaHost": true} }}}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
 </div>
 </div>
-</li>
-<li>
-<p>Enable forwarding for a specific secondary interface, such as <code>bridge-net</code>, by creating and applying a <code>MachineConfig</code> CR:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Base64-encode the string that is used to configure network kernel parameters by running the following command on your local machine:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nt">-e</span> <span class="s2">"net.ipv4.conf.bridge-net.forwarding = 1"</span> | <span class="nb">base64</span> <span class="nt">-w0</span></code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">bmV0LmlwdjQuY29uZi5icmlkZ2UtbmV0LmZvcndhcmRpbmcgPSAxCg==</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Create the <code>MachineConfig</code> CR to enable IP forwarding for the specified secondary interface named <code>bridge-net</code>.</p>
-</li>
-<li>
-<p>Save the following YAML in the <code>enable-ip-forward.yaml</code> file:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfig</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">labels</span><span class="pi">:</span>
-    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">&lt;node_role&gt;</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">81-enable-global-forwarding</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">config</span><span class="pi">:</span>
-    <span class="na">ignition</span><span class="pi">:</span>
-      <span class="na">version</span><span class="pi">:</span> <span class="s">3.2.0</span>
-    <span class="na">storage</span><span class="pi">:</span>
-      <span class="na">files</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span>
-          <span class="na">source</span><span class="pi">:</span> <span class="s">data:text/plain;charset=utf-8;base64,bmV0LmlwdjQuY29uZi5icmlkZ2UtbmV0LmZvcndhcmRpbmcgPSAxCg==</span>
-          <span class="na">verification</span><span class="pi">:</span> <span class="pi">{}</span>
-        <span class="na">filesystem</span><span class="pi">:</span> <span class="s">root</span>
-        <span class="na">mode</span><span class="pi">:</span> <span class="m">420</span>
-        <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/sysctl.d/enable-global-forwarding.conf</span>
-  <span class="na">osImageURL</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
 <div class="paragraph">
-<p>where:</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>&lt;node_role&gt;</code></dt>
-<dd>
-<p>Node role where you want to enable IP forwarding, for example, <code>worker</code>.</p>
-</dd>
-<dt class="hdlist1"><code>contents.source</code></dt>
-<dd>
-<p>Populate with the generated Base64 string.</p>
-</dd>
-</dl>
+<p>This setting routes traffic through the host networking stack, which is required for MetalLB to use secondary interfaces.</p>
 </div>
 </li>
 <li>
-<p>Apply the configuration by running the following command:</p>
+<p>Create a <code>NodeNetworkConfigurationPolicy</code> manifest to enable IP forwarding on the secondary interface, such as <code>eth1</code>:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> enable-ip-forward.yaml</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nmstate.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NodeNetworkConfigurationPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">enable-forwarding-eth1</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">nodeSelector</span><span class="pi">:</span>
+    <span class="s">node-role.kubernetes.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+  <span class="na">desiredState</span><span class="pi">:</span>
+    <span class="na">interfaces</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eth1</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+      <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+      <span class="na">ipv4</span><span class="pi">:</span>
+        <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">forwarding</span><span class="pi">:</span> <span class="no">true</span></code></pre>
 </div>
 </div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>interfaces.name</code> defines the name of the secondary interface on which to enable IP forwarding.</p>
 </li>
-</ol>
+<li>
+<p><code>ipv4.forwarding</code> enables IPv4 forwarding on the interface.</p>
+</li>
+</ul>
 </div>
 </li>
 <li>
-<p>Optional: Enable IP forwarding globally by running the following command:</p>
+<p>Apply the policy by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch network.operator cluster <span class="nt">-p</span> <span class="s1">'{"spec":{"defaultNetwork":{"ovnKubernetesConfig":{"gatewayConfig":{"ipForwarding": "Global"}}}}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> enable-forwarding-eth1.yaml</code></pre>
 </div>
 </div>
 </li>
@@ -3729,43 +3693,32 @@
 <div class="title">Verification</div>
 <ol class="arabic">
 <li>
-<p>After you apply the machine config, verify the changes by completing the following steps:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Enter into a debug session on the target node by running the following command. This command instantiates a debug pod called <code>&lt;node-name&gt;-debug</code>.</p>
+<p>Verify that the policy was applied by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node-name&gt;</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Set <code>/host</code> as the root directory within the debug shell by running the following command. The debug pod mounts root file system of the host in <code>/host</code> within the pod. By changing the root directory to <code>/host</code>, you can run binaries contained in the executable paths of the host.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Verify that IP forwarding is enabled by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> /etc/sysctl.d/enable-global-forwarding.conf</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nncp</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">net.ipv4.conf.bridge-net.forwarding = 1</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                      STATUS      REASON
+enable-forwarding-eth1    Available   SuccessfullyConfigured</span></code></pre>
 </div>
-</div>
-<div class="paragraph">
-<p>The output indicates that IPv4 forwarding is enabled on the <code>bridge-net</code> interface.</p>
 </div>
 </li>
-</ol>
+<li>
+<p>Verify that IP forwarding is enabled on a node by running the following command, replacing <code>&lt;node_name&gt;</code> with the name of the node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host sysctl net.ipv4.conf.eth1.forwarding</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">net.ipv4.conf.eth1.forwarding = 1</span></code></pre>
+</div>
 </div>
 </li>
 </ol>
@@ -3779,6 +3732,9 @@
 <ul>
 <li>
 <p><a href="../../../networking/ingress_load_balancing/metallb/metallb-configure-community-alias.html#metallb-configure-community-alias">Configuring a community alias</a></p>
+</li>
+<li>
+<p><a href="../../../networking/k8s_nmstate/k8s-nmstate-updating-node-network-config.html#nw-nmstate-enable-per-interface-ip-forwarding_k8s-nmstate-updating-node-network-config">Enable IP forwarding on specific interfaces</a></p>
 </li>
 </ul>
 </div>

@@ -3294,7 +3294,8 @@
 <div class="sectionbody">
 <!-- toc disabled -->
 <div class="paragraph">
-<p>If you use a firewall, you must configure it so that OpenShift Container Platform can access the sites that it requires to function. You must always grant access to some sites, and you grant access to more if you use Red&#160;Hat Lightspeed, the Telemetry service, a cloud to host your cluster, and certain build strategies.</p>
+<p>If you use a firewall, you must configure your firewall&#8217;s allowlist to ensure OpenShift Container Platform has access to the URLs it requires to pull container images and access Red Hat services.
+Additional URLs are required for features such as Telemetry, Red&#160;Hat Lightspeed, cloud provider integrations, or certain build strategies.</p>
 </div>
 </div>
 </div>
@@ -5020,32 +5021,19 @@ that is specified in the <code>spec.route.hostname</code> field of the
 </div>
 </div>
 <div class="sect1">
-<h2 id="network-commatrix-plugin-intro_configuring-firewall"><a class="anchor" href="#network-commatrix-plugin-intro_configuring-firewall"></a>Ingress network flow analysis with the <code>commatrix</code> plugin</h2>
+<h2 id="network-commatrix-plugin-intro_configuring-firewall"><a class="anchor" href="#network-commatrix-plugin-intro_configuring-firewall"></a>Ingress network flow management with the commatrix plugin</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The <code>commatrix</code> plugin for the <code>oc</code> command generates ingress network flow data from your cluster. You can also use the plugin to identify any differences between open ports on the host and expected ingress flows for your environment.</p>
+<div class="paragraph _abstract">
+<p>Use the <code>commatrix</code> plugin for the <code>oc</code> command to analyze ingress network traffic and generate firewall rules for live clusters.</p>
 </div>
 <div class="paragraph">
-<p>The plugin generates ingress flows to OpenShift Container Platform services for the following environments:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>OpenShift Container Platform on bare metal</p>
-</li>
-<li>
-<p>Single-node OpenShift with other platforms</p>
-</li>
-<li>
-<p>OpenShift Container Platform on Amazon Web Services (AWS)</p>
-</li>
-<li>
-<p>Single-node OpenShift on AWS</p>
-</li>
-</ul>
+<p>For ingress network analysis, the plugin reads the services deployed in a target cluster and generates a communication matrix of expected ingress flows. You can export the data in formats such as CSV, JSON, or YAML for audits, documentation, or configuring external firewalls.</p>
 </div>
 <div class="paragraph">
-<p>The plugin outputs the network flow data in various formats, such as CSV or JSON.</p>
+<p>For firewall configuration, the plugin generates <code>nftables</code> rules in Butane format that restrict ingress traffic to only the flows required by your cluster. The plugin also generates a <code>NodeDisruptionPolicy</code> patch to apply updates without triggering node reboots.</p>
+</div>
+<div class="paragraph">
+<p>The plugin relies on <code>EndpointSlice</code> resources for port discovery. However, some ports on your cluster nodes might be open without a corresponding service or <code>EndpointSlice</code>, such as host-level services, monitoring agents, or third-party software. Use the <code>--host-open-ports</code> flag to discover actual listening ports on your nodes and merge them into the generated firewall rules. This ensures the rules capture all known open ports, not just those defined in <code>EndpointSlice</code> resources.</p>
 </div>
 </div>
 </div>
@@ -5095,7 +5083,7 @@ that is specified in the <code>spec.route.hostname</code> field of the
 <p>Extract the <code>commatrix</code> binary from the plugin image by running the following commands:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="bash"><span class="nv">$ </span>podman create <span class="nt">--name</span> oc-commatrix registry.redhat.io/openshift-kni/commatrix:v4.21
+<pre class="rouge highlight nowrap"><code data-lang="bash"><span class="nv">$ </span>podman create <span class="nt">--name</span> oc-commatrix registry.redhat.io/openshift-kni/commatrix:v4.22
 <span class="nv">$ </span>podman <span class="nb">cp </span>oc-commatrix:/oc-commatrix <span class="nb">.</span>
 <span class="nv">$ </span>podman <span class="nb">rm </span>oc-commatrix</code></pre>
 </div>
@@ -5157,10 +5145,29 @@ Use <span class="s2">"commatrix [command] --help"</span> <span class="k">for </s
 </div>
 </div>
 <div class="sect1">
-<h2 id="network-commatrix-plugin-generate_configuring-firewall"><a class="anchor" href="#network-commatrix-plugin-generate_configuring-firewall"></a>Generating ingress network flow data using the <code>commatrix</code> plugin</h2>
+<h2 id="network-commatrix-plugin-generate_configuring-firewall"><a class="anchor" href="#network-commatrix-plugin-generate_configuring-firewall"></a>Generate ingress network flow data using the <code>commatrix</code> plugin</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>Use the <code>commatrix</code> plugin for the <code>oc</code> command to generate ingress network flow data from your cluster and identify any differences between open ports on the host and expected ingress flows for your environment.</p>
+</div>
+<div class="paragraph">
+<p>The plugin generates ingress flows to OpenShift Container Platform services for the following environments:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>OpenShift Container Platform on bare metal</p>
+</li>
+<li>
+<p>Single-node OpenShift with other platforms</p>
+</li>
+<li>
+<p>OpenShift Container Platform on Amazon Web Services (AWS)</p>
+</li>
+<li>
+<p>Single-node OpenShift on AWS</p>
+</li>
+</ul>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -5232,10 +5239,462 @@ Ingress,TCP,9103,openshift-ovn-kubernetes,ovn-kubernetes-node,ovnkube-node,kube-
 </div>
 </div>
 <div class="sect1">
+<h2 id="commatrix-restricting-ingress-traffic_configuring-firewall"><a class="anchor" href="#commatrix-restricting-ingress-traffic_configuring-firewall"></a>Ingress traffic configuration with the commatrix plugin</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can use the <code>commatrix</code> plugin to generate <code>nftables</code> rules that configure the firewall on cluster nodes to permit only the ingress traffic defined in the communication matrix.</p>
+</div>
+<div class="paragraph">
+<p><code>nftables</code> is the packet filtering framework in the Linux kernel that replaces <code>iptables</code>.
+OpenShift Container Platform cluster nodes running Red&#160;Hat Enterprise Linux CoreOS (RHCOS) use <code>nftables</code> for packet filtering.
+The <code>commatrix</code> plugin generates <code>nftables</code> rules and packages them as <code>MachineConfig</code> resources that the Machine Config Operator applies to your nodes.</p>
+</div>
+<div class="paragraph">
+<p>When you generate firewall rules with the <code>commatrix</code> plugin in Butane format, the plugin also generates a <code>NodeDisruptionPolicy</code> patch.
+This patch enables the Machine Config Operator to apply <code>nftables</code> rule updates without triggering a full node reboot, minimizing disruption to running workloads.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When operators or components are installed, enabled, uninstalled, or disabled, you must regenerate the firewall rules to reflect the new configuration. Failure to regenerate and apply firewall rules in this scenario might have the following consequences:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Unnecessary ports might remain open, which increases the attack surface of your cluster.</p>
+</li>
+<li>
+<p>Services might fail to function correctly if required ports remain blocked by outdated firewall rules.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../machine_configuration/machine-config-node-disruption.html#machine-config-node-disruption">Minimizing node disruption with MachineConfig changes</a></p>
+</li>
+<li>
+<p><a href="https://access.redhat.com/articles/7090422">Custom nftables firewall rules in OpenShift</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="commatrix-generate-butane_configuring-firewall"><a class="anchor" href="#commatrix-generate-butane_configuring-firewall"></a>Generate nftables firewall rules in Butane format</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can generate <code>nftables</code> firewall rules in Butane format by using the <code>commatrix</code> plugin.
+The generated Butane configs contain <code>nftables</code> rules that allow the ingress flows defined in the communication matrix and block all other ingress flows.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Errors in <code>nftables</code> rules can block legitimate traffic and isolate nodes from the cluster.
+Review all generated rules before applying them.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You installed Podman.</p>
+</li>
+<li>
+<p>You installed the <code>commatrix</code> plugin.</p>
+</li>
+<li>
+<p>You installed the <code>butane</code> CLI.</p>
+</li>
+<li>
+<p>For custom node groups, you need an existing machine config pool that you can target using node label selectors.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Generate firewall rules in Butane format by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc commatrix generate <span class="nt">--format</span> butane</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>By default, the plugin writes the output files to the <code>communication-matrix</code> directory in your current working directory.</p>
+</div>
+<div class="paragraph">
+<p>The plugin generates one Butane config file per node pool, named <code>butane-&lt;pool_name&gt;.yaml</code>, and a <code>node-disruption-policy.yaml</code> patch file, for example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">communication-matrix/
+├── butane-master.yaml
+├── butane-worker.yaml
+└── node-disruption-policy.yaml</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Review the generated Butane config files by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat </span>communication-matrix/butane-&lt;pool_name&gt;.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>See the following example of the <code>butane-master.yaml</code> file.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can adjust the generated firewall rules in your YAML file to suit your network environment.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">variant</span><span class="pi">:</span> <span class="s">openshift</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s">4.22.0</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">98-nftables-commatrix-master</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
+<span class="na">systemd</span><span class="pi">:</span>
+  <span class="na">units</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">nftables.service"</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">contents</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s"># ... systemd unit configuration ...</span>
+<span class="na">storage</span><span class="pi">:</span>
+  <span class="na">files</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/sysconfig/nftables.conf</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="m">0600</span>
+      <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">contents</span><span class="pi">:</span>
+        <span class="na">inline</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">table inet openshift_filter {</span>
+              <span class="s">chain OPENSHIFT {</span>
+                  <span class="s">type filter hook input priority 1; policy accept;</span>
+
+                  <span class="s"># Allow loopback traffic</span>
+                  <span class="s">iif lo accept</span>
+
+                  <span class="s"># Allow established and related traffic</span>
+                  <span class="s">ct state established,related accept</span>
+
+                  <span class="s"># Allow ICMP on ipv4</span>
+                  <span class="s">ip protocol icmp accept</span>
+                  <span class="s">ip6 nexthdr ipv6-icmp accept</span>
+
+                  <span class="s"># Allow specific TCP and UDP ports</span>
+                  <span class="s">tcp dport { 22, 6443, 9100, 10250, 30000-60999 } accept</span>
+                  <span class="s">udp dport { 6081, 30000-60999 } accept</span>
+
+                  <span class="s"># Drop broadcast traffic with rate-limited logging</span>
+                  <span class="s">ip daddr 255.255.255.255 jump { limit rate 1/minute log prefix "firewall "; drop; }</span>
+
+                  <span class="s"># Rate-limited logging and default drop</span>
+                  <span class="s">jump { limit rate 1/minute log prefix "firewall "; drop; }</span>
+              <span class="s">}</span>
+          <span class="s">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Review the generated <code>NodeDisruptionPolicy</code> patch by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat </span>communication-matrix/node-disruption-policy.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check whether your cluster already defines <code>NodeDisruptionPolicy</code> entries by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get <span class="nt">-o</span> yaml machineconfiguration cluster</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>NodeDisruptionPolicy</code> patch:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>If the <code>MachineConfiguration</code> resource does not define any <code>nodeDisruptionPolicy</code> entries, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch machineconfiguration cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">--patch-file</span><span class="o">=</span>communication-matrix/node-disruption-policy.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If the <code>MachineConfiguration</code> resource already contains <code>nodeDisruptionPolicy</code> entries, manually add the entries from <code>node-disruption-policy.yaml</code> to the existing <code>.spec.nodeDisruptionPolicy.units</code> and <code>.spec.nodeDisruptionPolicy.files</code> lists by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit machineconfiguration cluster</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Convert each Butane config to a <code>MachineConfig</code> resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>butane <span class="nt">--strict</span> <span class="nt">-o</span> mc-&lt;pool_name&gt;.yaml communication-matrix/butane-&lt;pool_name&gt;.yaml</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;pool_name&gt;</code> is the name of the target node pool.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Apply the <code>MachineConfig</code> resources by running the following command for each node pool:</p>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You must apply the <code>NodeDisruptionPolicy</code> patch before applying <code>MachineConfig</code> resources.
+If you apply <code>MachineConfig</code> resources without the <code>NodeDisruptionPolicy</code> in place, the Machine Config Operator triggers a full node reboot.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> mc-&lt;pool_name&gt;.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The plugin generates <code>MachineConfig</code> resources with the naming pattern <code>98-nftables-commatrix-&lt;pool_name&gt;</code>.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Open a debug shell on a target node by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;
+<span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;node_name&gt;</code> is the name of a cluster node.</p>
+</li>
+<li>
+<p><code>chroot /host</code> accesses the host filesystem.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Verify that the <code>nftables</code> rules are active on a node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span>nft list ruleset</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="c">...
+</span><span class="go">table inet openshift_filter {
+	chain OPENSHIFT {
+</span><span class="gp">		type filter hook input priority filter + 1;</span><span class="w"> </span>policy accept<span class="p">;</span>
+<span class="go">		iif "lo" accept
+		ct state established,related accept
+		ip protocol icmp accept
+		ip6 nexthdr ipv6-icmp accept
+		tcp dport { 22, 111, 2379-2380, 6080, 6443, 9001, 9099-9100, 9103-9105, 9107-9108, 9192, 9258, 9443, 9637, 9978-9980, 10250, 10256-10259, 17697, 22623-22624, 30000-60999 } accept
+		udp dport { 111, 6081, 30000-60999 } accept
+		ip daddr 255.255.255.255 jump {
+			limit rate 1/minute burst 5 packets log prefix "firewall "
+			drop
+		}
+		jump {
+			limit rate 1/minute burst 5 packets log prefix "firewall "
+			drop
+		}
+	}
+}
+</span><span class="c">...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that denied traffic is logged with rate limiting by checking the node journal:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host journalctl <span class="nt">-k</span> <span class="nt">--grep</span> firewall</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Denied packets are logged, but log entries are rate-limited to one per minute with an initial burst of five entries.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../installing/install_config/installing-customizing.html#installation-special-config-butane-install_installing-customizing">Installing Butane</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="commatrix-revert-nftables_configuring-firewall"><a class="anchor" href="#commatrix-revert-nftables_configuring-firewall"></a>Revert nftables firewall rules generated by the commatrix plugin</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>If you need to remove the <code>nftables</code> firewall rules from your cluster nodes, delete the <code>MachineConfig</code> resources, and then clean up the <code>NodeDisruptionPolicy</code> entries.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You applied <code>nftables</code> firewall rules generated by the <code>commatrix</code> plugin.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Identify the <code>MachineConfig</code> resources created by the <code>commatrix</code> plugin by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfig | <span class="nb">grep </span>nftables</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the <code>MachineConfig</code> resource for each node pool by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete machineconfig 98-nftables-commatrix-&lt;pool_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Wait for all <code>MachineConfigPool</code> resources to return to the <code>UPDATED</code> state:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get mcp</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output showing pools in <code>UPDATED</code> state</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME     CONFIG                                             UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT   DEGRADEDMACHINECOUNT   AGE
+master   rendered-master-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6   True      False      False      1              1                   1                     0                      160d
+worker   rendered-worker-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6   True      False      False      0              0                   0                     0                      160d</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Open a debug shell on a target node by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;
+<span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;node_name&gt;</code> is the name of a cluster node.</p>
+</li>
+<li>
+<p><code>chroot /host</code> accesses the host filesystem.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Verify that the custom <code>nftables</code> rules were removed by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span>nft list ruleset 2&gt;&amp;1 | <span class="nb">grep</span> <span class="nt">-q</span> openshift_filter <span class="o">||</span> <span class="nb">echo</span> <span class="s2">"Custom rules removed"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Remove the related <code>nftables</code> rules from the <code>NodeDisruptionPolicy</code> entries by editing the <code>MachineConfiguration</code> resource:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit machineconfiguration cluster</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Remove the <code>nftables.service</code> entry from <code>.spec.nodeDisruptionPolicy.units</code> and the <code>/etc/sysconfig/nftables.conf</code> entry from <code>.spec.nodeDisruptionPolicy.files</code>.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="commatrix-plugin-reference_configuring-firewall"><a class="anchor" href="#commatrix-plugin-reference_configuring-firewall"></a>Reference flags for the <code>commatrix</code> plugin</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The following matrix describes the flags for the <code>commatrix</code> plugin.</p>
+<div class="paragraph _abstract">
+<p>The following table describes the flags for the <code>commatrix</code> plugin.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
 <colgroup>
@@ -5272,14 +5731,19 @@ Ingress,TCP,9103,openshift-ovn-kubernetes,ovn-kubernetes-node,ovnkube-node,kube-
 <td class="tableblock halign-left valign-top"><p class="tableblock">Define the directory for output files. The default value is <code>communication-matrix</code>.</p></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>--custom-node-group</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Assign nodes matching a label selector to a custom group for separate firewall rule generation. Specify in <code>&lt;group_name&gt;=&lt;label_selector&gt;</code> format. You can specify this flag multiple times to define multiple custom groups. This flag applies only to <code>nft</code>, <code>butane</code>, and <code>mc</code> output formats. A <code>MachineConfigPool</code> custom group matching the custom group name must exist before you apply the generated <code>MachineConfig</code> resources.</p></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>--format</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Define the output format. Supported values are <code>json</code>, <code>yaml</code>, <code>csv</code>, or <code>nft</code>. The default value is <code>csv</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Define the output format. Supported values are <code>json</code>, <code>yaml</code>, <code>csv</code>, <code>nft</code>, <code>butane</code>, or <code>mc</code>. The <code>butane</code> format generates Butane YAML configs containing nftables firewall rules. The <code>mc</code> format generates <code>MachineConfig</code> custom resources containing nftables firewall rules. The default value is <code>csv</code>.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>--host-open-ports</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">boolean</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Generate the expected communication data for the cluster environment. Identify the actual open ports on the cluster node to compare the difference between the expected open ports and the actual open ports. You can view the differences in the generated <code>matrix-diff-ss</code> file in the destination directory.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Generate the expected communication data for the cluster environment. Identify the actual open ports on the cluster node to compare the difference between the expected open ports and the actual open ports. You can view the differences in the generated <code>matrix-diff-ss</code> file in the destination directory. For <code>nft</code>, <code>butane</code>, and <code>mc</code> formats, host open ports are merged into the communication matrix instead of generating a separate diff file.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>-h</code></p></td>
