@@ -1777,6 +1777,7 @@
             <li><a class="" href="../../machine_configuration/mco-update-boot-images.html">Boot image management</a></li>
             <li><a class="" href="../../machine_configuration/mco-update-boot-skew-mgmt.html">Boot image skew enforcement</a></li>
             <li><a class="" href="../../machine_configuration/mco-update-boot-images-manual.html">Manually updating the boot image</a></li>
+            <li><a class="" href="../../machine_configuration/machine-config-custom-mcp.html">Creating custom machine config pools</a></li>
             <li><a class="" href="../../machine_configuration/machine-configs-garbage-collection.html">Managing unused rendered machine configs</a></li>
             <li><a class="" href="../../machine_configuration/mco-coreos-layering.html">Image mode for OpenShift</a></li>
             <li><a class="" href="../../machine_configuration/machine-config-daemon-metrics.html">Machine Config Daemon metrics</a></li>
@@ -2064,6 +2065,7 @@
                   <li><a class="" href="../../nodes/nodes/nodes-nodes-garbage-collection.html">Freeing node resources using garbage collection</a></li>
                   <li><a class="" href="../../nodes/nodes/nodes-nodes-resources-configuring.html">Allocating resources for nodes</a></li>
                   <li><a class="" href="../../nodes/nodes/nodes-nodes-resources-cpus.html">Allocating specific CPUs for nodes in a cluster</a></li>
+                  <li><a class="" href="../../nodes/nodes/nodes-nodes-additional-crio-storage.html">Additional CRI-O storage locations for faster container startup</a></li>
                   <li><a class="" href="../../nodes/nodes/nodes-nodes-tls.html">Enabling TLS security profiles for the kubelet</a></li>
                   <li><a class="" href="../../nodes/nodes/nodes-nodes-creating-infrastructure-nodes.html">Creating infrastructure nodes</a></li>              </ul>
             </li>
@@ -3421,7 +3423,7 @@
 <h2 id="persistent-storage-csi-snapshots-operator_persistent-storage-csi-snapshots"><a class="anchor" href="#persistent-storage-csi-snapshots-operator_persistent-storage-csi-snapshots"></a>About the CSI Snapshot Controller Operator</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The CSI Snapshot Controller Operator runs in the <code>openshift-cluster-storage-operator</code> namespace. It is installed by the Cluster Version Operator (CVO) in all clusters by default.</p>
+<p>The Container Storage Interface (CSI) Snapshot Controller Operator runs in the <code>openshift-cluster-storage-operator</code> namespace. It is installed by the Cluster Version Operator (CVO) in all clusters by default.</p>
 </div>
 <div class="paragraph">
 <p>The CSI Snapshot Controller Operator installs the CSI snapshot controller, which runs in the <code>openshift-cluster-storage-operator</code> namespace.</p>
@@ -3455,7 +3457,7 @@
 </dd>
 <dt class="hdlist1"><code>VolumeSnapshotClass</code></dt>
 <dd>
-<p>Allows a cluster administrator to specify different attributes belonging to a <code>VolumeSnapshot</code> object. These attributes may differ among snapshots taken of the same volume on the storage system, in which case they would not be expressed by using the same storage class of a persistent volume claim.</p>
+<p>The <code>VolumeSnapshotClass</code> CRD allows a cluster administrator to specify different attributes belonging to a <code>VolumeSnapshot</code> object. These attributes may differ among snapshots taken of the same volume on the storage system, in which case they would not be expressed by using the same storage class of a persistent volume claim.</p>
 <div class="paragraph">
 <p>The <code>VolumeSnapshotClass</code> CRD defines the parameters for the <code>csi-external-snapshotter</code> sidecar to use when creating a snapshot. This allows the storage back end to know what kind of snapshot to dynamically create if multiple options are supported.</p>
 </div>
@@ -3464,6 +3466,43 @@
 </div>
 <div class="paragraph">
 <p>The <code>VolumeSnapshotContentClass</code> CRD is not namespaced and is for use by a cluster administrator to enable global configuration options for their storage back end.</p>
+</div>
+<div class="paragraph">
+<p>For Google Cloud Platform (GCP) persistent disk (PD) storage  CSI, there is a non-default <code>VolumeSnapshotClass</code>, named <code>csi-gce-pd-vsc-images</code>, that uses the <code>snapshot-type</code>: <code>images</code> parameter. When using KubeVirt, this allows you to create VMs from "golden images" (templates saved as snapshots).</p>
+</div>
+<div class="paragraph">
+<p>If you want to use the images volume snapshot class for dynamic snapshot provisioning, you can either:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Make the images volume snapshot class the default by changing the <code>snapshot.storage.kubernetes.io/is-default-class</code> annotation to <code>true</code>. Also, for the normal default volume snapshot class, <code>csi-gce-pd-vsc</code>, be sure to change this parameter to <code>false</code>.</p>
+</li>
+<li>
+<p>When creating the snapshot object, be sure to set <code>volumeSnapshotClassName</code> to <code>csi-gce-pd-vsc-images</code>.</p>
+<div class="paragraph">
+<p>For information about creating volume snapshots, see Section <em>Creating a volume snapshot</em>.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example images volume snapshot class YAML file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">snapshot.storage.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VolumeSnapshotClass</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">csi-gce-pd-vsc-images</span>
+<span class="na">driver</span><span class="pi">:</span> <span class="s">pd.csi.storage.gke.io</span>
+<span class="na">parameters</span><span class="pi">:</span>
+  <span class="na">snapshot-type</span><span class="pi">:</span> <span class="s">images</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p><code>metadata.name:csi-gce-pd-vsc-images</code>: Name for the non-default images volume snapshot class.</p>
+</li>
+<li>
+<p><code>parameters: snapshot-type: images</code>: Defines the snapshot as a "golden image" or a bootable template, rather than the standard disk backup.</p>
+</li>
+</ul>
 </div>
 </dd>
 </dl>
