@@ -2053,11 +2053,361 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If your cluster uses an <code>ImageDigestMirrorSet</code>, <code>ImageTagMirrorSet</code>, or <code>ImageContentSourcePolicy</code> object to configure repository mirroring, you can use only global pull secrets for mirrored registries. You cannot add a pull secret to a project.</p>
+<p>By default, if your cluster uses an <code>ImageDigestMirrorSet</code>, <code>ImageTagMirrorSet</code>, or <code>ImageContentSourcePolicy</code> object to configure repository mirroring, you must use a global pull secret for mirrored registries. You cannot add an image pull secret to a project.</p>
+</div>
+<div class="paragraph">
+<p>However, you can configure a cluster-wide <code>CRIOCredentialProviderConfig</code> object to enable project-scoped image pull secrets that you can use with mirrored repositories. For more information, see "Configuring project-scoped image pull secrets for mirrored registries".</p>
 </div>
 </td>
 </tr>
 </table>
+</div>
+<div class="sect2">
+<h3 id="images-configuration-registry-mirror-project-secret_image-configuration"><a class="anchor" href="#images-configuration-registry-mirror-project-secret_image-configuration"></a>Configuring project-scoped image pull secrets for mirrored registries</h3>
+<div class="paragraph _abstract">
+<p>As a cluster administrator, you can edit the cluster-wide <code>CRIOCredentialProviderConfig</code> object, named <code>cluster</code>, to enable project-scoped image pull secrets that you can use with mirrored repositories. By using project-scoped secrets, you can maintain security isolation between projects without exposing credentials in a global pull secret.</p>
+</div>
+<div class="paragraph">
+<p>By default, if your cluster uses an <code>ImageDigestMirrorSet</code>, <code>ImageTagMirrorSet</code>, or <code>ImageContentSourcePolicy</code> object to configure repository mirroring, you must use a global pull secret for mirrored registries. You cannot add an image pull secret to a project. However, you can use the cluster-wide <code>CRIOCredentialProviderConfig</code> object to configure the kubelet to trigger the CRI-O credential provider, which enables project-scoped image pull secrets.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Project-scoped image pull secrets for mirrored registries is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>An administrator edits the <code>CRIOCredentialProviderConfig</code> object named <code>cluster</code>, to list the registries that a developer can pull from by using a project-scoped secret. The administrator then creates an image pull secret in each namespace where it is needed and configures role-based access control (RBAC) permissions that allow the pod&#8217;s service account within that namespace to access the secret. The admin can create a different pull secret with different credentials for each namespace or use the same pull secret in multiple namespaces.</p>
+</div>
+<div class="paragraph">
+<p>When a developer uses a pod spec in one of those namespaces to pull an image from a listed registry, the <code>CRIOCredentialProviderConfig</code> object triggers the CRI-O credential provider. The credential provider resolves mirror configurations, discovers namespace-scoped secrets, and generates short-lived authentication files for CRI-O consumption. This process maintains credential isolation between namespaces while preserving existing mirror configuration methods.</p>
+</div>
+<div class="paragraph">
+<p>The following is an example <code>CRIOCredentialProviderConfig</code> object:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: config.openshift.io/v1alpha1
+kind: CRIOCredentialProviderConfig
+metadata:
+  name: cluster
+spec:
+  matchImages:
+    - "docker.io"
+    - "*.example.io"
+    - "quay.io"
+    - "registry.example.com:5000"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.matchImages</code></dt>
+<dd>
+<p>Specifies the registries available for pulling by using project-scoped secrets. The items in this list trigger the CRI-O credential provider.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Editing this object updates the <code>CredentialProviderConfig</code> object on the nodes.</p>
+</div>
+<div class="paragraph">
+<p>The following is an example <code>CredentialProviderConfig</code> object:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+- apiVersion: credentialprovider.kubelet.k8s.io/v1
+  args:
+  - get-credentials
+  - --v=3
+  defaultCacheDuration: 1m0s
+  matchImages:
+  - gcr.io
+  - '*.gcr.io'
+  - '*.pkg.dev'
+  - container.cloud.google.com
+  name: gcr-credential-provider
+- apiVersion: credentialprovider.kubelet.k8s.io/v1
+  defaultCacheDuration: 1s
+  matchImages:
+  - '*.example.io'
+  - docker.io
+  - quay.io
+  - registry.example.com:5000
+  name: crio-credential-provider
+  tokenAttributes:
+    cacheType: Token
+    requireServiceAccount: false
+    serviceAccountTokenAudience: https://kubernetes.default.svc</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>providers.matchImages</code></dt>
+<dd>
+<p>Specifies the registries you listed in the <code>CRIOCredentialProviderConfig</code> object.</p>
+</dd>
+<dt class="hdlist1"><code>providers.tokenAttributes</code></dt>
+<dd>
+<p>Specifies the configuration of the service account token that is passed to the CRI-O credential provider.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Only the <code>matchImages</code> parameter is configurable by using the <code>CRIOCredentialProviderConfig</code> object. All other parameters are immutable.</p>
+</div>
+<div class="paragraph">
+<p>In this example, the <code>crio-credential-provider</code> configuration was generated from the <code>CRIOCredentialProviderConfig</code> object. The <code>gcr-credential-provider</code> configuration is a default configuration.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have enabled the <code>TechPreviewNoUpgrade</code> feature set in your cluster&#8217;s <code>FeatureGate</code> custom resource (CR). For more information, see "Understanding feature gates".</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a namespace for the pod by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create namespace &lt;namespace_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;namespace_name&gt;</code> with a name for your namespace.</p>
+</div>
+</li>
+<li>
+<p>Create a secret in that namespace from an existing authentication file:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>For Docker clients using <code>.docker/config.json</code>, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic &lt;pull_secret_name&gt; <span class="se">\</span>
+    <span class="nt">--from-file</span><span class="o">=</span>.dockerconfigjson<span class="o">=</span>&lt;path/to/.docker/config.json&gt; <span class="se">\</span>
+    <span class="nt">--type</span><span class="o">=</span>kubernetes.io/dockerconfigjson</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;pull_secret_name&gt;</code> with a name for your secret and <code>&lt;path/to/.docker/config.json&gt;</code> with the path to your Docker <code>config.json</code> file.</p>
+</div>
+</li>
+<li>
+<p>For Podman clients using <code>.config/containers/auth.json</code>, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic &lt;pull_secret_name&gt; <span class="se">\</span>
+     <span class="nt">--from-file</span><span class="o">=</span>&lt;path/to/.config/containers/auth.json&gt; <span class="se">\</span>
+     <span class="nt">--type</span><span class="o">=</span>kubernetes.io/podmanconfigjson</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;pull_secret_name&gt;</code> with a name for your secret and <code>&lt;path/to/.config/containers/auth.json&gt;</code> with the path to your Podman <code>auth.json</code> file.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Create a <code>Role</code> and a <code>RoleBinding</code> object in the namespace to grant service account access to image pull secrets:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create a YAML file similar to the following example:</p>
+<div class="listingblock">
+<div class="title">Example <code>CRIOCredentialProviderConfig</code> object</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+</span><span class="gp">  name: &lt;role_name&gt;</span><span class="w">
+</span><span class="gp">  namespace: &lt;namespace_name&gt;</span><span class="w">
+</span><span class="go">rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: credential-provider-secret-access-binding
+</span><span class="gp">  namespace: &lt;namespace_name&gt;</span><span class="w">
+</span><span class="go">roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+</span><span class="gp">  name: &lt;role_name&gt;</span><span class="w">
+</span><span class="go">subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+</span><span class="gp">  name: system:serviceaccount:&lt;namespace_name&gt;</span>:default</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;namespace_name&gt;</code> with a name for your namespace and <code>&lt;role_name&gt;</code> with a name for the role.</p>
+</div>
+</li>
+<li>
+<p>Create the <code>CRIOCredentialProviderConfig</code> object:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;file_name&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit the <code>CRIOCredentialProviderConfig</code> object:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit criocredentialproviderconfig cluster</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add the <code>spec.matchImages</code> stanza with a list of registries similar to the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: config.openshift.io/v1alpha1
+kind: CRIOCredentialProviderConfig
+metadata:
+  name: cluster
+spec:
+  matchImages:
+    - "docker.io"
+    - "*.example.io"
+    - "quay.io"
+    - "registry.example.com:5000"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.matchImages</code></dt>
+<dd>
+<p>Specifies the registries that you want pods to pull from by using a project-scoped secret. Each entry in the list must be a valid fully-qualified domain name with an optional wildcard, port, and path. The maximum length is 512 characters. Wildcards ('*') are supported for full-subdomain labels and top-level domains. Wildcards are not allowed in the port or path portions. The items in this list trigger the CRI-O credential provider.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>After you save the changes, OpenShift Dedicated updates the <code>CredentialProviderConfig</code> object on the nodes.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the <code>CredentialProviderConfig</code> object contains the registries from the <code>matchImages</code> list:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Start a debug session as root for a control plane node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set <code>/host</code> as the root directory within the debug shell:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>View the <code>/etc/kubernetes/credential-providers/&lt;platform&gt;-credential-provider.yaml</code> file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">cat</span> /etc/kubernetes/credential-providers/&lt;platform&gt;-credential-provider.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;platform&gt;</code> with one of the following options:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Use <code>ecr</code> for an AWS cluster.</p>
+</li>
+<li>
+<p>Use <code>gcr</code> for a Google Cloud cluster.</p>
+</li>
+<li>
+<p>Use <code>acr</code> for an Azure cluster.</p>
+</li>
+<li>
+<p>Use <code>generic</code> for non-cloud platforms.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>The output should include the repositories you added to the <code>CRIOCredentialProviderConfig</code> object.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: kubelet.config.k8s.io/v1
+kind: CredentialProviderConfig
+providers:
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">- apiVersion: credentialprovider.kubelet.k8s.io/v1
+  defaultCacheDuration: 1s
+  matchImages:
+  - '*.example.io'
+  - docker.io
+  - quay.io
+  - registry.example.com:5000
+</span><span class="gp">#</span><span class="w"> </span>...</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
 </div>
 <div class="sect2">
 <h3 id="images-configuration-registry-mirror-configuring_image-configuration"><a class="anchor" href="#images-configuration-registry-mirror-configuring_image-configuration"></a>Configuring image registry repository mirroring</h3>

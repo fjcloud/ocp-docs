@@ -2749,6 +2749,7 @@
 <li><a href="#mco-update-boot-images-azure_mco-update-boot-images-manual">Manually updating the boot image on an Azure cluster</a></li>
 <li><a href="#mco-update-boot-images-aws_mco-update-boot-images-manual">Manually updating the boot image on an AWS cluster</a></li>
 <li><a href="#mco-update-boot-images-gcp_mco-update-boot-images-manual">Manually updating the boot image on an Google Cloud cluster</a></li>
+<li><a href="#mco-update-boot-images-ibm-bare-metal_mco-update-boot-images-manual">Manually updating the boot image on a bare-metal cluster</a></li>
 <li><a href="#mco-update-boot-images-ibm-cloud_mco-update-boot-images-manual">Manually updating the boot image on an IBM Cloud&#174; cluster</a></li>
 <li><a href="#mco-update-boot-images-nutanix_mco-update-boot-images-manual">Manually updating the boot image on a Nutanix cluster</a></li>
 <li><a href="#mco-update-boot-images-openstack_mco-update-boot-images-manual">Manually updating the boot image on an OpenStack cluster</a></li>
@@ -4330,6 +4331,205 @@ ci-ln-xw7zmyt-72292-x7nqv-worker-c   1         1         1       1           53m
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">https://rhcos.mirror.openshift.com/art/storage/prod/streams/rhel-9.6/builds/9.6.20251212-1/x86_64/rhcos-9.6.20251212-1-nutanix.x86_64.qcow2</span></code></pre>
 </div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mco-update-boot-images-ibm-bare-metal_mco-update-boot-images-manual"><a class="anchor" href="#mco-update-boot-images-ibm-bare-metal_mco-update-boot-images-manual"></a>Manually updating the boot image on a bare-metal cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>For a bare-metal cluster that was installed with OKD version 4.9 or earlier, you need to change how the cluster provisions new nodes in order to update the boot image used with those nodes. Using an up-to-date boot image ensures that any new nodes can scale up properly.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The standard boot image management feature is not supported for bare-metal clusters.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>If your bare-metal cluster was installed with OKD version 4.10 or later, boot images are kept current by the Cluster Version Operator (CVO) and are not at risk of boot image skew. Skew enforcement is disabled for the cluster by default. No further action on your part is required to maintain the boot image versioning.</p>
+</div>
+<div class="paragraph">
+<p>If your bare-metal cluster was installed with OKD version 4.9 or earlier, the cluster is using the legacy qcow2-based provisioning method. Boot images in these clusters are not managed by the CVO and could be significantly out of date. Follow the steps below to migrate the cluster to use the <code>machine-os-images</code> provisioning method, which was introduced in OKD 4.10. This migration ensures that the cluster always uses the release version as the boot image when a scale-up is taking place.</p>
+</div>
+<div class="paragraph">
+<p>Use the following procedure to enable the <code>install_coreos</code> deployment method and disable the qcow2 image cache. With these changes, the Cluster Baremetal Operator (CBO) will use the <code>machine-os-images</code> container from the release payload for new node provisioning. The cluster will have no skew risk, the same as a cluster at version 4.10 or later. Skew enforcement is automatically disabled after the migration is complete.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Boot image updates are not required for Agent-based Installer clusters. The boot image for Agent-based Installer nodes is generated from the current release payload through the <code>oc adm node-image create</code> command and does not have skew issues.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have completed the general boot image prerequisites as described in the "Prerequisites" section of the <a href="https://access.redhat.com/articles/7053165#prerequisites-2">OKD Boot Image Updates knowledgebase article</a>.</p>
+</li>
+<li>
+<p>You have the OpenShift CLI (<code>oc</code>) installed.</p>
+</li>
+<li>
+<p>A new physical host must be registered and in the <code>available</code> state and an associated <code>BareMetalHost</code> object must be present in the <code>openshift-machine-api</code> namespace so that you can scale a new machine to verify the procedure.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check whether your cluster is using the legacy boot image provisioning path by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get provisioning provisioning-configuration <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.provisioningOSDownloadURL}'</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If the output is non-empty, your cluster was installed with OKD version 4.9 or earlier. Boot images are not managed by the the Cluster Version Operator (CVO) and could be significantly out of date. Follow the steps in this procedure to migrate to the current provisioning path.</p>
+</li>
+<li>
+<p>If the output is empty, your cluster was installed with OKD version 4.10 or later. Boot images are kept current by the Cluster Version Operator (CVO) and are not at risk of skew. Skew enforcement is disabled for this cluster. No further action on your part is required to maintain the boot image versioning.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Clear the legacy image fields and enable the <code>install_coreos</code> deployment method:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Migrate each machine set to the <code>machine-os-images</code> provisioning path by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">--type</span> merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"template":{"spec":{"providerSpec":{"value":{"customDeploy":{"method":"install_coreos"},"image":{"url":"","checksum":""}}}}}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;machineset_name&gt;</code> with the name of your machine set.</p>
+</div>
+</li>
+<li>
+<p>Clear the legacy download URL by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch provisioning provisioning-configuration <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec":{"provisioningOSDownloadURL":""}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This process migrates the cluster to the <code>machine-os-images</code> provisioning method, which ensures that the latest boot image is used for scaling nodes.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Scale up a machine set to check that the new node is using the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Increase the machine set replicas by one to trigger a new machine by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc scale <span class="nt">--replicas</span><span class="o">=</span>&lt;count&gt; machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;count&gt;</code></dt>
+<dd>
+<p>Specifies the total number of replicas, including any existing replicas, that you want for this machine set.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;machineset_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the machine set to scale.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Optional: View the status of the machine set as it provisions by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines.machine.openshift.io <span class="nt">-n</span> openshift-machine-api <span class="nt">-w</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It can take several minutes for the machine set to achieve the <code>Running</code> state.</p>
+</div>
+</li>
+<li>
+<p>Verify that the new node has been created and is in the <code>Ready</code> state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the new node is using the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;new_node&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">cat</span> /sysroot/.coreos-aleph-version.json</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;new_node&gt;</code> with the name of your new node.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">    "ref": "docker://ostree-image-signed:oci-archive:/rhcos-9.6.20251212-1-ostree.x86_64.ociarchive",
+    "version": "9.6.20251212-1"
+}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>version</code></dt>
+<dd>
+<p>Specifies the boot image version.</p>
+</dd>
+</dl>
 </div>
 </li>
 </ol>
