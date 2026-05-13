@@ -2753,6 +2753,8 @@
 <li><a href="#mco-update-boot-images-ibm-cloud_mco-update-boot-images-manual">Manually updating the boot image on an IBM Cloud&#174; cluster</a></li>
 <li><a href="#mco-update-boot-images-nutanix_mco-update-boot-images-manual">Manually updating the boot image on a Nutanix cluster</a></li>
 <li><a href="#mco-update-boot-images-openstack_mco-update-boot-images-manual">Manually updating the boot image on an OpenStack cluster</a></li>
+<li><a href="#mco-update-boot-images-vsphere_mco-update-boot-images-manual">Manually updating the boot image on a vSphere cluster</a></li>
+<li><a href="#mco-update-boot-images-plat-none_mco-update-boot-images-manual">Manually updating the boot image on a platform none or external cluster</a></li>
 <li><a href="#additional-resources_mco-update-boot-images-manual">Additional resources</a></li>
 </ul>
 </div>
@@ -5739,6 +5741,342 @@ ci-ln-xj96skb-72292-48nm5-worker-d   1         1         1       1           27m
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="mco-update-boot-images-vsphere_mco-update-boot-images-manual"><a class="anchor" href="#mco-update-boot-images-vsphere_mco-update-boot-images-manual"></a>Manually updating the boot image on a vSphere cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can manually update the boot image for your VMware vSphere cluster by configuring your machine sets to use the latest OKD image as the boot image to ensure that new nodes can scale up properly.</p>
+</div>
+<div class="paragraph">
+<p>vSphere boot images use a template that you create by uploading a Fedora CoreOS (FCOS) OVA image to the vSphere vCenter. The template image is used by all machine sets as the boot image. Use the following procedure to identify the correct boot image to use as the new boot image, create the template from the image in vCenter, and modify your compute machine sets to use that template image.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For clusters that use a default FCOS image, you can configure the cluster to automatically update the boot image each time the cluster is updated. If you are using the following procedure, ensure that automatic boot image updates are disabled and skew enforcement is in manual mode. For more information, see "Boot image management" and "Boot image skew enforcement".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have completed the general boot image prerequisites as described in the "Prerequisites" section of the <a href="https://access.redhat.com/articles/7053165#prerequisites-2">OKD Boot Image Updates knowledgebase article</a>.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have set boot image skew enforcement to the manual or none mode. For more information, see "Configuring boot image skew enforcement".</p>
+</li>
+<li>
+<p>You have disabled boot image management for the cluster. For more information, see "Disabling boot image management".</p>
+</li>
+<li>
+<p>You have downloaded the latest version of the OKD installation program from the <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>. For more information, see "Obtaining the installation program."</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Obtain the latest boot image to use as the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openshift-install coreos print-stream-json | jq <span class="s1">'.architectures.x86_64.artifacts.vmware'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+  "release": "9.6.20251023-0",
+  "formats": {
+    "ova": {
+      "disk": {
+        "location": "https://rhcos.mirror.openshift.com/art/storage/prod/streams/rhel-9.6/builds/9.6.20251023-0/x86_64/rhcos-9.6.20251023-0-vmware.x86_64.ova",
+        "sha256": "14fa549bb83b2e730de22312419b503bc1ce85adf72269582f0af60e366d87ff"
+      }
+    }
+  }
+}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Use the URL in the <code>location</code> field to download the image.</p>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>In the vSphere Client, create a template for the OVA image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>From the <strong>Hosts and Clusters</strong> tab, right-click your cluster name and select <strong>Deploy OVF Template</strong>.</p>
+</li>
+<li>
+<p>On the <strong>Select an OVF</strong> tab, specify the name of the FCOS OVA file that you downloaded.</p>
+</li>
+<li>
+<p>On the <strong>Select a name and folder</strong> tab, set a <strong>Virtual machine name</strong> for your template, such as using the FCOS version number in the image name. Click the name of your vSphere cluster and select the folder.</p>
+</li>
+<li>
+<p>On the <strong>Select a compute resource</strong> tab, click the name of your vSphere cluster.</p>
+</li>
+<li>
+<p>On the <strong>Select storage</strong> tab, configure the storage options for your VM.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Select <strong>Thin Provision</strong> or <strong>Thick Provision</strong>, based on your storage preferences.</p>
+</li>
+<li>
+<p>Select the data store that you specified in your <code>install-config.yaml</code> file.</p>
+</li>
+<li>
+<p>If you want to encrypt your virtual machines, select <strong>Encrypt this virtual machine</strong>. See "Requirements for encrypting virtual machines" for more information.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>On the <strong>Select network</strong> tab, specify the network that you configured for the cluster, if available.</p>
+</li>
+<li>
+<p>When creating the OVF template, do not specify values on the <strong>Customize template</strong> tab or configure the template any further.</p>
+</li>
+<li>
+<p>On the <strong>Ready to complete</strong> tab, verify your settings and click <strong>Finish</strong>.</p>
+<div class="paragraph">
+<p>The vSphere Client uploads the boot image to create the OVF template. This can take a few minutes depending on network speeds. You can keep track of this process in the task tab under <em>Deploy OVF template</em>.</p>
+</div>
+</li>
+<li>
+<p>After the upload is complete, click the new virtual machine and click <strong>Template</strong> &#8594; <strong>Convert to template</strong> &#8594; <strong>Yes</strong>.</p>
+<div class="paragraph">
+<p>You now have a VM template based on the new boot image, which you can use to update the machine set objects.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Update each of your compute machine sets to include the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Obtain the name of your machine sets for use in the following step by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                 DESIRED   CURRENT   READY   AVAILABLE   AGE
+ci-ln-xw7zmyt-72292-x7nqv-worker-a   1         1         1       1           53m</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit a machine set to update the <code>image</code> field in the <code>providerSpec</code> stanza to add your boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch machineset &lt;machineset-name&gt; <span class="nt">-n</span> openshift-machine-api <span class="nt">--type</span> json <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'[{"op": "replace", "path": "/spec/template/spec/providerSpec/value/template", "value": "ci-ln-6vjqx8t-c1627-bwxkr-rhcos-generated-region-generated-zone"}]'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;machineset_name&gt;</code> with the name of your machine set.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>If boot image skew enforcement in your cluster is set to the manual mode, update the version of the new boot image in the <code>MachineConfiguration</code> object as described in "Updating the boot image skew enforcement version".</p>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Scale up a machine set to check that the new node is using the new boot image:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Increase the machine set replicas by one to trigger a new machine by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc scale <span class="nt">--replicas</span><span class="o">=</span>&lt;count&gt; machineset &lt;machineset_name&gt; <span class="nt">-n</span> openshift-machine-api</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;count&gt;</code></dt>
+<dd>
+<p>Specifies the total number of replicas, including any existing replicas, that you want for this machine set.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;machineset_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the machine set to scale.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Optional: View the status of the machine set as it provisions by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines.machine.openshift.io <span class="nt">-n</span> openshift-machine-api <span class="nt">-w</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It can take several minutes for the machine set to achieve the <code>Running</code> state.</p>
+</div>
+</li>
+<li>
+<p>Verify that the new node has been created and is in the <code>Ready</code> state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the new node is using the new boot image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;new_node&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">cat</span> /sysroot/.coreos-aleph-version.json</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;new_node&gt;</code> with the name of your new node.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+</span><span class="gp">#</span><span class="w"> </span>...
+<span class="go">    "ref": "docker://ostree-image-signed:oci-archive:/rhcos-9.6.20251212-1-ostree.x86_64.ociarchive",
+    "version": "9.6.20251212-1"
+}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>version</code></dt>
+<dd>
+<p>Specifies the boot image version.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="mco-update-boot-images-plat-none_mco-update-boot-images-manual"><a class="anchor" href="#mco-update-boot-images-plat-none_mco-update-boot-images-manual"></a>Manually updating the boot image on a platform none or external cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>For <code>platform: None</code> and <code>platform: External</code> clusters, you can manually update the boot image for your cluster by configuring your machine sets to use the latest OKD image as the boot image to help ensure any new nodes can scale up properly.</p>
+</div>
+<div class="paragraph">
+<p>For these clusters, OKD does not manage node provisioning or Fedora CoreOS (FCOS) boot images. These clusters do not use Machine API machine sets.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The standard boot image management feature is not supported for <code>platform: None</code> or <code>platform: External</code> clusters.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The method for updating boot images depends on how nodes are added to your cluster as a day-2 operation.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Method</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">User-provisioned infrastructure clusters</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Nodes are provisioned manually by a user-managed infrastructure.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Red&#160;Hat Advanced Cluster Management (RHACM)-managed clusters</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Nodes are added by using a discovery ISO managed by an <code>InfraEnv</code> object on the hub cluster.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">External provider clusters</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Nodes are provisioned by using provider-specific tooling with a user-uploaded FCOS image.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">User-provisioned infrastructure</dt>
+<dd>
+<p>For user-provisioned infrastructure clusters, you manage boot images as part of your infrastructure. To update the boot image, download the latest FCOS image for your architecture from <a href="https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/">mirror.openshift.com</a> and update your infrastructure to serve the new image.</p>
+<div class="paragraph">
+<p>For the full procedure, see the section for your platform in "Adding compute machines to clusters with user-provisioned infrastructure manually".</p>
+</div>
+</dd>
+<dt class="hdlist1">RHACM-managed clusters</dt>
+<dd>
+<p>For clusters managed by RHACM, the boot image used to generate the discovery ISO image is controlled by the <code>spec.osImageVersion</code> parameter in the <code>InfraEnv</code> object on the hub cluster. After an OKD upgrade, you need to update the existing <code>InfraEnv</code> object to add or update <code>spec.osImageVersion</code> field, specifying the OKD version of the new boot image.</p>
+</dd>
+<dt class="hdlist1">External provider clusters</dt>
+<dd>
+<p>For clusters managed by an external infrastructure provider, such as Oracle Cloud Infrastructure (OCI), you must upload the new boot image to the provider&#8217;s image store and update your node provisioning configuration to reference the new image when creating new nodes. The exact steps are provider-specific.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>If boot image skew enforcement in your cluster is set to the manual mode, after updating the boot image, update the version of the new boot image in the <code>MachineConfiguration</code> object as described in "Updating the boot image skew enforcement version".</p>
+</div>
+</div>
+</div>
 <div class="sect1 _additional-resources">
 <h2 id="additional-resources_mco-update-boot-images-manual"><a class="anchor" href="#additional-resources_mco-update-boot-images-manual"></a>Additional resources</h2>
 <div class="sectionbody">
@@ -5746,6 +6084,9 @@ ci-ln-xj96skb-72292-48nm5-worker-d   1         1         1       1           27m
 <ul>
 <li>
 <p><a href="../machine_configuration/mco-update-boot-images.html#mco-update-boot-images">Boot image management</a></p>
+</li>
+<li>
+<p><a href="../machine_configuration/mco-update-boot-skew-mgmt.html#mco-update-boot-skew-mgmt">Updating the boot image skew enforcement version</a></p>
 </li>
 <li>
 <p><a href="../installing/installing_aws/ipi/ipi-aws-preparing-to-install.html#installation-obtaining-installer_ipi-aws-preparing-to-install">Obtaining the installation program</a></p>
@@ -5758,6 +6099,12 @@ ci-ln-xj96skb-72292-48nm5-worker-d   1         1         1       1           27m
 </li>
 <li>
 <p><a href="../installing/installing_gcp/installing-restricted-networks-gcp.html#installation-creating-gcp-worker_installing-restricted-networks-gcp">Creating additional worker machines in Google Cloud</a></p>
+</li>
+<li>
+<p><a href="../installing/installing_vsphere/upi/upi-vsphere-installation-reqs.html#installation-vsphere-encrypted-vms_upi-vsphere-installation-reqs">Requirements for encrypting virtual machines</a></p>
+</li>
+<li>
+<p><a href="../machine_management/user_infra/adding-compute-user-infra-general.html#adding-compute-user-infra-general">Adding compute machines to clusters with user-provisioned infrastructure manually</a></p>
 </li>
 </ul>
 </div>
