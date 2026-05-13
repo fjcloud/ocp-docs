@@ -3556,6 +3556,38 @@
 <div class="paragraph _abstract">
 <p>You can disable the boot image management feature so that the Machine Config Operator (MCO) no longer manages or updates the boot image in the affected machine sets. For example, you could disable this feature for the worker nodes in order to use a custom boot image that you do not want changed.</p>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you are updating an Microsoft Azure or VMware vSphere cluster from OpenShift Container Platform 4.21 to 4.22, and you have not configured the <code>managedBootImages</code> parameter, the update is blocked with the message: <code>This cluster is Azure or vSphere but lacks a boot image configuration</code>. The update is intentionally blocked on Azure or vSphere clusters in order to alert you that the default boot image management behavior is changing between version 4.21 and 4.22 in order to enable boot images management by default on those platforms.</p>
+</div>
+<div class="paragraph">
+<p>To allow the update, perform one of the following tasks:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If you want to allow the feature to be enabled, acknowledge that you are aware of the change in the default behavior by patching the <code>admin-acks</code> config map by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-config patch cm admin-acks <span class="nt">--patch</span> <span class="s1">'{"data":{"ack-4.21-boot-image-opt-out-in-4.22":"true"}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If you do not want the boot image management feature enabled, explicitly disable the feature for worker machine sets by using the following procedure.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>You disable the boot image management feature for the control plane or worker machine sets in your cluster by editing the <code>MachineConfiguration</code> object.</p>
 </div>
@@ -3633,7 +3665,11 @@
 </div>
 </li>
 <li>
-<p>Disable the feature for some or all of your machine sets:</p>
+<p>Disable the feature for some or all of your machine sets by making one or both of the following changes:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Disable the feature for nodes in the worker machine sets by adding the following parameters:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
@@ -3647,7 +3683,49 @@
     <span class="pi">-</span> <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">machine.openshift.io</span>
       <span class="na">resource</span><span class="pi">:</span> <span class="s">machinesets</span>
       <span class="na">selection</span><span class="pi">:</span>
-        <span class="na">mode</span><span class="pi">:</span> <span class="s">None</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">None</span></code></pre>
+</div>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.managedBootImages</code></dt>
+<dd>
+<p>Specifies the parameters for the boot image management feature.</p>
+</dd>
+<dt class="hdlist1"><code>spec.managedBootImages.machineManagers.apiGroup</code></dt>
+<dd>
+<p>Specifies the API group. This must be <code>machine.openshift.io</code>.</p>
+</dd>
+<dt class="hdlist1"><code>spec.managedBootImages.machineManagers.resource</code></dt>
+<dd>
+<p>Specifies that the <code>selection.mode</code> parameter applies to worker nodes when a value of <code>machinesets</code> is set.</p>
+</dd>
+<dt class="hdlist1"><code>spec.managedBootImages.machineManagers.selection.mode</code></dt>
+<dd>
+<p>When <code>None</code>, specifies that the feature is disabled for the specified machine sets.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Disable the feature for nodes in the control plane machine sets by adding the following parameters:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfiguration</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">managedBootImages</span><span class="pi">:</span>
+    <span class="na">machineManagers</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">machine.openshift.io</span>
       <span class="na">resource</span><span class="pi">:</span> <span class="s">controlplanemachinesets</span>
       <span class="na">selection</span><span class="pi">:</span>
@@ -3663,25 +3741,26 @@
 <dl>
 <dt class="hdlist1"><code>spec.managedBootImages</code></dt>
 <dd>
-<p>Configures the boot image management feature.</p>
+<p>Specifies the parameters for the boot image management feature.</p>
 </dd>
-<dt class="hdlist1"><code>spec.managedBootImages.machineManagers.selection.mode.None</code></dt>
+<dt class="hdlist1"><code>spec.managedBootImages.machineManagers.apiGroup</code></dt>
 <dd>
-<p>Specifies that the feature is disabled for all machine sets in the cluster. Set the selection mode to <code>None</code> for one or both of the following resources to disable the feature for that resource.</p>
-<div class="ulist">
-<ul>
-<li>
-<p><code>controlplanemachinesets</code>: Disable boot image management for control plane machine sets.</p>
-</li>
-<li>
-<p><code>machinesets</code>: Disables boot image management for worker machine sets.</p>
-</li>
-</ul>
-</div>
+<p>Specifies the API group. This must be <code>machine.openshift.io</code>.</p>
+</dd>
+<dt class="hdlist1"><code>spec.managedBootImages.machineManagers.resource</code></dt>
+<dd>
+<p>Specifies that the <code>selection.mode</code> parameter applies to control plane nodes when a value of <code>controlplanemachinesets</code> is set.</p>
+</dd>
+<dt class="hdlist1"><code>spec.managedBootImages.machineManagers.selection.mode</code></dt>
+<dd>
+<p>When <code>None</code>, specifies that the feature is disabled for the specified machine sets.</p>
 </dd>
 </dl>
 </div>
 </div>
+</div>
+</li>
+</ul>
 </div>
 </li>
 </ol>
