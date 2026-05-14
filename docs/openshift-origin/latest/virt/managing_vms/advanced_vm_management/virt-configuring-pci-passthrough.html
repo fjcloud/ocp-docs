@@ -2958,6 +2958,20 @@ nvidia-vfio-manager-866pz        1/1     Running   0          8d</span></code></
 </li>
 <li>
 <p>Your CPU hardware is Intel or AMD.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Enabling IOMMU is not required on <code>s390x</code> architecture.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 <li>
 <p>You enabled Intel Virtualization Technology for Directed I/O extensions or AMD IOMMU in the BIOS.</p>
@@ -3072,7 +3086,7 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
 <div class="sect2">
 <h3 id="virt-binding-devices-vfio-driver_virt-configuring-pci-passthrough"><a class="anchor" href="#virt-binding-devices-vfio-driver_virt-configuring-pci-passthrough"></a>Binding PCI devices to the VFIO driver</h3>
 <div class="paragraph _abstract">
-<p>To bind PCI devices to the VFIO (Virtual Function I/O) driver, obtain the values for <code>vendor-ID</code> and <code>device-ID</code> from each device and create a list with the values. Add this list to the <code>MachineConfig</code> object.</p>
+<p>To bind PCI devices to the VFIO (Virtual Function I/O) driver, obtain the values for the vendor ID and the device ID from each device and create a list with the values. Add this list to the <code>MachineConfig</code> object.</p>
 </div>
 <div class="paragraph">
 <p>The <code>MachineConfig</code> Operator generates the <code>/etc/modprobe.d/vfio.conf</code> on the nodes with the PCI devices, and binds the PCI devices to the VFIO driver.</p>
@@ -3082,6 +3096,20 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
 <ul>
 <li>
 <p>You added kernel arguments to enable IOMMU for the CPU.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Enabling IOMMU is not required on <code>s390x</code> architecture.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 <li>
 <p>You have installed the OpenShift CLI (<code>oc</code>).</p>
@@ -3092,11 +3120,28 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Run the <code>lspci</code> command to obtain the <code>vendor-ID</code> and the <code>device-ID</code> for the PCI device.</p>
+<p>Run the <code>lspci</code> command with the name of the GPU accelerator to obtain the vendor ID and the device ID for the PCI device.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>NVIDIA GPU is supported on <code>x86</code> and <code>aarch64</code> architectures, Intel QAT is supported on <code>x86</code> architecture, and IBM&#174; Spyre is supported on <code>s390x</code> architecture.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-nnv</span> | <span class="nb">grep</span> <span class="nt">-i</span> nvidia</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-nnv</span> | <span class="nb">grep</span> <span class="nt">-i</span> &lt;gpu_accelerator&gt;</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Valid values for <code>&lt;gpu_accelerator&gt;</code> are <code>nvidia</code>, <code>qat</code>, and <code>spyre</code>.</p>
 </div>
 <div class="paragraph">
 <p>Example output:</p>
@@ -3141,8 +3186,8 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
     <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
     <span class="na">contents</span><span class="pi">:</span>
       <span class="na">inline</span><span class="pi">:</span> <span class="pi">|</span>
-        <span class="s">options vfio-pci ids=10de:1eb8 </span><i class="conum" data-value="2"></i><b>(2)</b>
-  <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/modules-load.d/vfio-pci.conf</span> <i class="conum" data-value="3"></i><b>(3)</b>
+        <span class="s">options vfio-pci ids=&lt;vendor_id&gt;:&lt;device_id&gt;</span>
+  <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/modules-load.d/vfio-pci.conf</span>
     <span class="na">mode</span><span class="pi">:</span> <span class="m">0644</span>
     <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
     <span class="na">contents</span><span class="pi">:</span>
@@ -3152,19 +3197,19 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
 <div class="ulist">
 <ul>
 <li>
-<p><code>metadata.labels.machineconfiguration.openshift.io/role: worker</code> specifies that the new kernel argument is applied only to worker nodes.</p>
+<p><code>metadata.labels.machineconfiguration.openshift.io/role: worker</code> specifies that the new kernel argument is applied only to compute nodes.</p>
 </li>
 <li>
-<p><code>storage.files.contents.inline</code>, where the path is <code>/etc/modprobe.d/vfio.conf</code>, specifies the previously determined <code>vendor-ID</code> value (<code>10de</code>) and the <code>device-ID</code> value (<code>1eb8</code>) to bind a single device to the VFIO driver. You can add a list of multiple devices with their vendor and device information.</p>
+<p><code>storage.files.contents.inline</code>, where the path is <code>/etc/modprobe.d/vfio.conf</code>, specifies the previously determined hexadecimal vendor ID and device ID values to bind a device to the VFIO driver. You can add a list of multiple devices with their vendor and device information.</p>
 </li>
 <li>
-<p><code>storage.files.path</code>, where the <code>contents.inline</code> is <code>vfio-pci</code>, specifies the file that loads the <code>vfio-pci</code> kernel module on the worker nodes.</p>
+<p><code>storage.files.path</code>, where the <code>contents.inline</code> is <code>vfio-pci</code>, specifies the file that loads the <code>vfio-pci</code> kernel module on the compute nodes.</p>
 </li>
 </ul>
 </div>
 </li>
 <li>
-<p>Use Butane to generate a <code>MachineConfig</code> object file, <code>100-worker-vfiopci.yaml</code>, containing the configuration to be delivered to the worker nodes:</p>
+<p>Use Butane to generate a <code>MachineConfig</code> object file, <code>100-worker-vfiopci.yaml</code>, containing the configuration to be delivered to the compute nodes:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>butane 100-worker-vfiopci.bu <span class="nt">-o</span> 100-worker-vfiopci.yaml</code></pre>
@@ -3172,7 +3217,7 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
 </div>
 </li>
 <li>
-<p>Apply the <code>MachineConfig</code> object to the worker nodes:</p>
+<p>Apply the <code>MachineConfig</code> object to the compute nodes:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> 100-worker-vfiopci.yaml</code></pre>
@@ -3212,7 +3257,7 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
 <p>Verify that the VFIO driver is loaded.</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-nnk</span> <span class="nt">-d</span> 10de:</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-nnk</span> <span class="nt">-d</span> &lt;vendor_id&gt;:</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3291,7 +3336,7 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
 <p><code>spec.permittedHostDevices.pciHostDevices</code> specifies the list of PCI devices available on the node.</p>
 </li>
 <li>
-<p><code>spec.permittedHostDevices.pciHostDevices.pciDeviceSelector</code> specifies the <code>vendor-ID</code> and the <code>device-ID</code> required to identify the PCI device.</p>
+<p><code>spec.permittedHostDevices.pciHostDevices.pciDeviceSelector</code> specifies the vendor ID and the device ID required to identify the PCI device.</p>
 </li>
 <li>
 <p><code>spec.permittedHostDevices.pciHostDevices.resourceName</code> specifies the name of a PCI host device.</p>
@@ -3311,6 +3356,24 @@ AMD: [ 0.000000] AMD-Vi: IOMMU Initialized</span></code></pre>
 </td>
 </tr>
 </table>
+</div>
+<div class="paragraph">
+<p>Example configuration file for an IBM&#174; Spyre device on <code>s390x</code> architecture:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hco.kubevirt.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HyperConverged</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt-hyperconverged</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">kubevirt-hyperconverged</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">permittedHostDevices</span><span class="pi">:</span>
+    <span class="na">pciHostDevices</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">pciDeviceSelector</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1014:06a8"</span>
+      <span class="na">resourceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">ibm.com/spyre"</span>
+<span class="c1"># ...</span></code></pre>
+</div>
 </div>
 </li>
 </ul>
@@ -3364,6 +3427,20 @@ Allocatable:
   pods:                           250</span></code></pre>
 </div>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When using an IBM&#174; Spyre device on <code>s390x</code> architecture, the allocated device is shown as follows: <code>ibm.com/spyre:         1</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 </ul>
 </div>
@@ -3393,7 +3470,7 @@ Allocatable:
 </div>
 </li>
 <li>
-<p>Remove the PCI device information from the <code>spec.permittedHostDevices.pciHostDevices</code> array by deleting the <code>pciDeviceSelector</code>, <code>resourceName</code> and <code>externalResourceProvider</code> (if applicable) fields for the appropriate device. In this example, the <code>intel.com/qat</code> resource has been deleted.</p>
+<p>Remove the PCI device information from the <code>spec.permittedHostDevices.pciHostDevices</code> array by deleting the <code>pciDeviceSelector</code>, <code>resourceName</code> and <code>externalResourceProvider</code> (if applicable), fields for the appropriate device. In this example, the user deletes the <code>nvidia.com/TU104GL_Tesla_T4</code>.</p>
 <div class="paragraph">
 <p>Example configuration file:</p>
 </div>
@@ -3409,8 +3486,6 @@ Allocatable:
     <span class="na">pciHostDevices</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">pciDeviceSelector</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10DE:1DB6"</span>
       <span class="na">resourceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">nvidia.com/GV100GL_Tesla_V100"</span>
-    <span class="pi">-</span> <span class="na">pciDeviceSelector</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10DE:1EB8"</span>
-      <span class="na">resourceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">nvidia.com/TU104GL_Tesla_T4"</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -3424,7 +3499,7 @@ Allocatable:
 <div class="title">Verification</div>
 <ul>
 <li>
-<p>Verify that the PCI host device was removed from the node by running the following command. The example output shows that there are zero devices associated with the <code>intel.com/qat</code> resource name.</p>
+<p>Verify that you removed the PCI host device from the node by running the following command. The example output shows that there are zero devices associated with the <code>nvidia.com/TU104GL_Tesla_T4</code> resource name.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe node &lt;node_name&gt;</code></pre>
@@ -3445,8 +3520,7 @@ Allocatable:
   hugepages-2Mi:                  0
   memory:                         131395264Ki
   nvidia.com/GV100GL_Tesla_V100   1
-  nvidia.com/TU104GL_Tesla_T4     1
-  intel.com/qat:                  0
+  nvidia.com/TU104GL_Tesla_T4     0
   pods:                           250
 Allocatable:
   cpu:                            63500m
@@ -3458,8 +3532,7 @@ Allocatable:
   hugepages-2Mi:                  0
   memory:                         130244288Ki
   nvidia.com/GV100GL_Tesla_V100   1
-  nvidia.com/TU104GL_Tesla_T4     1
-  intel.com/qat:                  0
+  nvidia.com/TU104GL_Tesla_T4     0
   pods:                           250</span></code></pre>
 </div>
 </div>
@@ -3503,7 +3576,7 @@ Allocatable:
 <div class="ulist">
 <ul>
 <li>
-<p><code>spec.template.spec.domain.devices.hostDevices.deviceName</code> specifies the name of the PCI device that is permitted on the cluster as a host device. The virtual machine can access this host device.</p>
+<p><code>spec.template.spec.domain.devices.hostDevices.deviceName</code> specifies the name of the PCI device that is permitted on the cluster as a host device. The virtual machine can access this host device. When using an IBM&#174; Spyre device on <code>s390x</code> architecture, specify <code>ibm.com/spyre:</code>.</p>
 </li>
 </ul>
 </div>
@@ -3517,8 +3590,11 @@ Allocatable:
 <p>Use the following command to verify that the host device is available from the virtual machine.</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-nnk</span> | <span class="nb">grep </span>NVIDIA</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-nnk</span> | <span class="nb">grep</span> &lt;gpu_accelerator&gt;</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Valid values for <code>&lt;gpu_accelerator&gt;</code> are <code>nvidia</code>, <code>qat</code>, and <code>spyre</code>.</p>
 </div>
 <div class="paragraph">
 <p>Example output:</p>
@@ -3547,6 +3623,9 @@ Allocatable:
 </li>
 <li>
 <p><a href="../../../machine_configuration/index.html#machine-config-overview">Machine Config Overview</a></p>
+</li>
+<li>
+<p><a href="https://www.ibm.com/docs/en/systems-hardware/linuxone/9175-ML1?topic=library-spyre-accelerator-users-guide">IBM&#174; Spyre Accelerator User&#8217;s Guide</a></p>
 </li>
 </ul>
 </div>
