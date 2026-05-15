@@ -2759,6 +2759,7 @@
 <li><a href="#hcp-connectivity-metrics_hcp-observability">Connectivity monitoring for hosted control planes</a>
 <ul class="sectlevel2">
 <li><a href="#hcp-connect-data-plane_hcp-observability">Connectivity monitoring from the control plane to the data plane</a></li>
+<li><a href="#hcp-connect-control-plane_hcp-observability">Connectivity monitoring from the data plane to the control plane</a></li>
 </ul>
 </li>
 </ul>
@@ -3033,7 +3034,10 @@ cvo:
 <h2 id="hcp-connectivity-metrics_hcp-observability"><a class="anchor" href="#hcp-connectivity-metrics_hcp-observability"></a>Connectivity monitoring for hosted control planes</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Cluster service providers can monitor connectivity metrics to ensure proper function during an update and to determine whether any connectivity issues exist between the control plane and the data plane. By studying the metrics over time, they can also be better equipped to make decisions about capacity planning and scaling.</p>
+<p>Cluster service providers can monitor connectivity metrics to ensure proper function during an update. They can also use the metrics to find connectivity issues between the control plane and the data plane, or vice versa.</p>
+</div>
+<div class="paragraph">
+<p>Studying these metrics over time can inform decisions about capacity planning and scaling.</p>
 </div>
 <div class="sect2">
 <h3 id="hcp-connect-data-plane_hcp-observability"><a class="anchor" href="#hcp-connect-data-plane_hcp-observability"></a>Connectivity monitoring from the control plane to the data plane</h3>
@@ -3116,6 +3120,89 @@ cvo:
 <p><a href="../hosted_control_planes/hcp-troubleshooting.html#hcp-ts-connectivity_hcp-troubleshooting">Troubleshooting connectivity for hosted control planes</a></p>
 </li>
 </ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-connect-control-plane_hcp-observability"><a class="anchor" href="#hcp-connect-control-plane_hcp-observability"></a>Connectivity monitoring from the data plane to the control plane</h3>
+<div class="paragraph _abstract">
+<p>Cluster administrators can monitor network activity between the compute nodes in a data plane and a hosted control plane by using the <code>ControlPlaneConnectionAvailable</code> condition. This condition is useful for identifying and troubleshooting network connectivity issues in hosted clusters.</p>
+</div>
+<div class="paragraph">
+<p>The <code>ControlPlaneConnectionAvailable</code> condition detects whether data plane nodes can reach control plane components. The <code>hosted-cluster-config-operator</code> component evaluates the condition, and a deployment with 3 replicas checks connectivity.</p>
+</div>
+<div class="paragraph">
+<p>The condition monitors the connectivity between the data plane and the control plane by taking the following steps:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Deploys a <code>kas-connection-checker</code> deployment to the <code>kube-system</code> namespace on the data plane.</p>
+</li>
+<li>
+<p>Each pod runs a shell script in an infinite loop that transfers data to and from the Kubernetes API server endpoint every 60 seconds. On success, the script patches the <code>control-plane-connectivity-check</code> config map with a <code>lastSucceeded</code> timestamp.</p>
+</li>
+<li>
+<p>The <code>hosted-cluster-config-operator</code> component checks whether the <code>control-plane-connectivity-check</code> config map exists and whether the <code>lastSucceeded</code> timestamp is within the last 5 minutes. It does not check pod readiness counts.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>The following table details the status and reason values that can be displayed for the condition:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Status</th>
+<th class="tableblock halign-left valign-top">Reason value</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>True</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AsExpected</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">All data plane nodes can reach the control plane (<code>NumberReady = DesiredNumberScheduled</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>False</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>KASAccessFailed</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">At least one data plane node cannot reach the control plane. The message shows the ratio of pods that are ready; for example, <code>1/3 pods ready</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>NoWorkerNodesAvailable</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No compute nodes are available to check connectivity (<code>DesiredNumberScheduled = 0</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>StatusUnknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Kubernetes API server connection checker DaemonSet was not found.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReconcileError</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">An API error blocked the retrieval of the DaemonSet status.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This condition has a known limitation with HTTPS proxy environments. In HTTPS proxy environments, the condition might incorrectly report <code>False</code> because of probe limitations.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>

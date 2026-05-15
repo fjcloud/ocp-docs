@@ -3287,7 +3287,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            Mounting an OCI image into a pod
+            Mounting OCI images and artifacts into a pod
           </h1>
         </div>
         
@@ -3301,16 +3301,16 @@
 <li><a href="#nodes-pods-image-volume-adding_nodes-pods-node-selectors">Adding an image volume to a pod</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>You can mount an Open Container Initiative (OCI)-compliant container image directly into a pod, making the files within the image accessible to the containers without the need to include them in the base image, which allows you to host the data in OCI-compliant registries.</p>
+<div class="paragraph _abstract">
+<p>You can mount an Open Container Initiative (OCI)-compliant container image or artifact directly into a pod, making the OCI object accessible to the containers without the need to include them in the base image, which allows you to host the data in OCI-compliant registries.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="nodes-pods-image-volume-about_nodes-pods-node-selectors"><a class="anchor" href="#nodes-pods-image-volume-about_nodes-pods-node-selectors"></a>Understanding image volumes</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can use an <em>image volume</em> to mount an Open Container Initiative (OCI)-compliant container image directly into a pod, making the files within the image accessible to the containers without the need to include them in the base image. This means you can host the data in an OCI-compliant registry.</p>
+<div class="paragraph _abstract">
+<p>You can you use an <em>image volume</em> to mount an Open Container Initiative (OCI)-compliant container image or artifact directly into a pod as a native volume source, making the OCI object accessible to the containers without the need to include them in the base image. OCI objects enable users to store and distribute arbitrary files and metadata through OCI-compliant container registries.</p>
 </div>
 <div class="paragraph">
 <p>By using an image volume in a pod, you can take advantage of the OCI image and distribution specification standards to accomplish several tasks including the following use cases:</p>
@@ -3326,18 +3326,21 @@
 <li>
 <p>You can use a public image for a malware scanner and mount it in a volume of private malware signatures, so that you can load those signatures without incorporating the image into a base image, which might not be allowed by the copyright on the public image.</p>
 </li>
+<li>
+<p>You can package and distribute binary artifacts and mount them directly into your pods, allowing you to streamline your CI/CD pipeline. This allows you to maintain a small set of base images by attaching the CI/CD artifacts to the image volumes instead.</p>
+</li>
 </ul>
 </div>
 <div class="paragraph">
-<p>To mount an image volume, include a path to the image in your pod spec with an optional pull policy as described in <em>Adding an image volume to a pod</em>.</p>
+<p>To mount an image volume, include a path to the image or artifact in your pod spec with an optional pull policy as described in <em>Adding an image volume to a pod</em>.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="nodes-pods-image-volume-adding_nodes-pods-node-selectors"><a class="anchor" href="#nodes-pods-image-volume-adding_nodes-pods-node-selectors"></a>Adding an image volume to a pod</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>To mount an Open Container Initiative (OCI)-compliant container image, use the <code>volume</code> parameter to include a path to the image in your pod spec with an optional pull policy. You can create the pod directly or use a controlling object, such as a deployment or replica set.</p>
+<div class="paragraph _abstract">
+<p>To mount an Open Container Initiative (OCI)-compliant container image or artifact, use the <code>volume</code> parameter in your pod spec to include a path to the image or artifact, along with an optional pull policy. You can create the pod directly or use a controlling object, such as a deployment or replica set.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3352,47 +3355,83 @@
   <span class="na">name</span><span class="pi">:</span> <span class="s">image-volume</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">containers</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">shell</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">image-volume-container</span>
     <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">sleep"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">infinity"</span><span class="pi">]</span>
     <span class="na">image</span><span class="pi">:</span> <span class="s">debian</span>
     <span class="na">volumeMounts</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">volume</span>
-      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/volume</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">image</span>
+      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/image</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">artifact-volume-container</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">busybox:latest</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">/bin/sh"</span><span class="pi">]</span>
+    <span class="na">args</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">-c</span>
+    <span class="pi">-</span> <span class="s">trap 'exit 0' TERM INT; sleep infinity &amp; wait</span>
+    <span class="na">volumeMounts</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">artifact</span>
+      <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/artifact</span>
   <span class="na">volumes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">volume</span>
-    <span class="na">image</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-      <span class="na">reference</span><span class="pi">:</span> <span class="s">quay.io/crio/image:v2</span> <i class="conum" data-value="2"></i><b>(2)</b>
-      <span class="na">pullPolicy</span><span class="pi">:</span> <span class="s">Always</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">image</span>
+    <span class="na">image</span><span class="pi">:</span>
+      <span class="na">reference</span><span class="pi">:</span> <span class="s">quay.io/crio/busybox:1</span>
+      <span class="na">pullPolicy</span><span class="pi">:</span> <span class="s">Always</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">artifact</span>
+    <span class="na">image</span><span class="pi">:</span>
+      <span class="na">reference</span><span class="pi">:</span> <span class="s">quay.io/crio/artifact:singlefile</span>
+      <span class="na">pullPolicy</span><span class="pi">:</span> <span class="s">IfNotPresent</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specifies an OCI container image that is available on the host machine.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specifies the path to the image.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specifies a pull policy, one of the following options:
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.containers</code></dt>
+<dd>
+<p>Specifies the configuration for one or more containers.</p>
+</dd>
+<dt class="hdlist1"><code>spec.containers.volumeMounts</code></dt>
+<dd>
+<p>Specifies the name of the volume to mount and where to mount that volume. The first example indicates the container with the name <code>image-volume-container</code> should mount the <code>image</code> volume under the path <code>/image</code>.</p>
+</dd>
+<dt class="hdlist1"><code>spec.volumes</code></dt>
+<dd>
+<p>Specifies the storage volumes that are available for the containers to use.</p>
+</dd>
+<dt class="hdlist1"><code>spec.volumes.name</code></dt>
+<dd>
+<p>Specifies a name for the volume.</p>
+</dd>
+<dt class="hdlist1"><code>spec.volumes.image</code></dt>
+<dd>
+<p>Specifies an OCI container image or artifact that is available on the host machine.</p>
+</dd>
+<dt class="hdlist1"><code>spec.volumes.image.reference</code></dt>
+<dd>
+<p>Specifies the path to the OCI object.</p>
+</dd>
+<dt class="hdlist1"><code>spec.volumes.image.pullPolicy</code></dt>
+<dd>
+<p>Specifies a pull policy, one of the following options:</p>
+<div class="openblock">
+<div class="content">
 <div class="ulist">
 <ul>
 <li>
-<p>If <code>Always</code>, the kubelet always attempts to pull the image. If the pull fails, the kubelet sets the pod to <code>Failed</code>.</p>
+<p>If <code>Always</code>, the kubelet always attempts to pull the OCI object. If the pull fails, the kubelet sets the pod to <code>Failed</code>.</p>
 </li>
 <li>
-<p>If <code>Never</code>, the kubelet never pulls the image and only uses a local image. The pod becomes <code>Failed</code> if any layers of the image are not present locally, or if the manifest for that image is not already cached.</p>
+<p>If <code>Never</code>, the kubelet never pulls the image and only uses an OCI object. The pod becomes <code>Failed</code> if any layers of the image are not present locally, or if the manifest for that image is not already cached.</p>
 </li>
 <li>
-<p>If <code>IfNotPresent</code> the kubelet pulls the image if it is not present. The pod becomes <code>Failed</code> if the image is not present and the pull fails. This is the default.</p>
+<p>If <code>IfNotPresent</code>, the kubelet pulls the OCI object if it is not present. The pod becomes <code>Failed</code> if the OCI object is not present and the pull fails. This is the default.</p>
 </li>
 </ul>
-</div></td>
-</tr>
-</table>
+</div>
+</div>
+</div>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3421,32 +3460,56 @@
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">Name</span><span class="pi">:</span>             <span class="s">image-volume</span>
 <span class="na">Namespace</span><span class="pi">:</span>        <span class="s">default</span>
 <span class="c1"># ...</span>
+<span class="na">Containers</span><span class="pi">:</span>
+  <span class="na">image-volume-container</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+    <span class="na">Mounts</span><span class="pi">:</span>
+      <span class="s">/image from image (rw)</span>
+      <span class="s">/var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-svtzn (ro)</span>
+  <span class="na">artifact-volume-container</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+    <span class="na">Mounts</span><span class="pi">:</span>
+      <span class="s">/artifact from artifact (rw)</span>
+      <span class="s">/var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-svtzn (ro)</span>
+<span class="c1"># ...</span>
 <span class="na">Volumes</span><span class="pi">:</span>
-  <span class="na">volume</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">Type</span><span class="pi">:</span>        <span class="s">Image</span>
-    <span class="na">Reference</span><span class="pi">:</span>   <span class="s">quay.io/crio/image:v2</span>
+  <span class="na">image</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span>        <span class="s">Image (a container image or OCI artifact)</span>
+    <span class="na">Reference</span><span class="pi">:</span>   <span class="s">quay.io/crio/busybox:1</span>
+    <span class="na">PullPolicy</span><span class="pi">:</span>  <span class="s">Always</span>
+  <span class="na">artifact</span><span class="pi">:</span>
+    <span class="na">Type</span><span class="pi">:</span>        <span class="s">Image (a container image or OCI artifact)</span>
+    <span class="na">Reference</span><span class="pi">:</span>   <span class="s">quay.io/crio/artifact:singlefile</span>
     <span class="na">PullPolicy</span><span class="pi">:</span>  <span class="s">IfNotPresent</span>
 <span class="c1"># ...</span>
 <span class="na">Events</span><span class="pi">:</span>
   <span class="s">Type    Reason          Age                From               Message</span>
   <span class="s">----    ------          ----               ----               -------</span>
 <span class="c1"># ...</span>
-  <span class="s">Normal  Pulling         46s                kubelet            Pulling image "quay.io/crio/image:v2"</span>
-  <span class="s">Normal  Pulled          44s                kubelet            Successfully pulled image "quay.io/crio/image:v2" in 2.261s (2.261s including waiting). Image size</span><span class="pi">:</span> <span class="s">6707 bytes.</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="s">Normal  Pulling         10s (x3 over 15s)  kubelet            Pulling image "quay.io/crio/busybox:1"</span>
+  <span class="s">Normal  Pulled          10s                kubelet            Successfully pulled image "quay.io/crio/busybox:1" in 555ms (555ms including waiting). Image size</span><span class="pi">:</span> <span class="s">1468102 bytes.</span>
+<span class="c1"># ...</span>
+  <span class="s">Normal  Pulling         15s                kubelet            Pulling image "quay.io/crio/artifact:singlefile"</span>
+  <span class="s">Normal  Pulled          13s                kubelet            Successfully pulled image "quay.io/crio/artifact:singlefile" in 1.493s (1.493s including waiting). Image size</span><span class="pi">:</span> <span class="s">14 bytes.</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Indicates that the image was mounted to the pod.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Indicates that the image was successfully pulled.</td>
-</tr>
-</table>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>Containers</code> stanza shows that the two containers were created with the configured volume mounts.</p>
+</li>
+<li>
+<p>The <code>Volumes</code> stanza shows that the two volumes were created.</p>
+</li>
+<li>
+<p>The <code>Events</code> stanza shows that the images in the volumes were pulled.</p>
+</li>
+</ul>
+</div>
+</div>
 </div>
 </li>
 </ul>

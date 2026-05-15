@@ -3327,6 +3327,8 @@
 <li><a href="#installation-bare-metal-config-yaml_installing-bare-metal">Sample install-config.yaml file for bare metal</a></li>
 <li><a href="#installation-configure-proxy_installing-bare-metal">Configuring the cluster-wide proxy during installation</a></li>
 <li><a href="#installation-three-node-cluster_installing-bare-metal">Configuring a three-node cluster</a></li>
+<li><a href="#local-arbiter-node-config-prerequisites_installing-bare-metal">Local arbiter node configuration prerequisites</a></li>
+<li><a href="#upi-install-config-local-arbiter-node_installing-bare-metal">Configuring a local arbiter node by using user-provisioned infrastructure</a></li>
 </ul>
 </li>
 <li><a href="#installation-user-infra-generate-k8s-manifest-ignition_installing-bare-metal">Creating the Kubernetes manifest and Ignition config files</a></li>
@@ -6811,6 +6813,145 @@ with the RHCOS trust bundle. The <code>additionalTrustBundle</code> field is req
 <p>Do not deploy any compute nodes when you create the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) machines.</p>
 </li>
 </ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="local-arbiter-node-config-prerequisites_installing-bare-metal"><a class="anchor" href="#local-arbiter-node-config-prerequisites_installing-bare-metal"></a>Local arbiter node configuration prerequisites</h3>
+<div class="paragraph _abstract">
+<p>To retain high availability (HA) while reducing infrastructure costs for your cluster, you can configure an OpenShift Container Platform cluster with two control plane nodes and one local arbiter node.</p>
+</div>
+<div class="paragraph">
+<p>A local arbiter node is a lower-cost, co-located machine that participates in control plane quorum decisions. Unlike a standard control plane node, the arbiter node does not run the full set of control plane services. You can use this configuration to maintain HA in your cluster with only two fully provisioned control plane nodes instead of three.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can configure a local arbiter node only. Remote arbiter nodes are not supported.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>To deploy a cluster with two control plane nodes and one local arbiter node, you must define the following nodes in the <code>install-config.yaml</code> file:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>2 control plane nodes</p>
+</li>
+<li>
+<p>1 arbiter node</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The arbiter node must meet the following minimum system requirements:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>2 threads</p>
+</li>
+<li>
+<p>8 GB of RAM</p>
+</li>
+<li>
+<p>50 GB of SSD or equivalent storage</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The arbiter node must be located in a network environment with an end-to-end latency of less than 500 milliseconds, including disk I/O. In high-latency environments, you might need to apply the <code>etcd</code> slow profile.</p>
+</div>
+<div class="paragraph">
+<p>The control plane nodes must meet the following minimum system requirements:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>4 threads</p>
+</li>
+<li>
+<p>16 GB of RAM</p>
+</li>
+<li>
+<p>120 GB of SSD or equivalent storage</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Additionally, the control plane nodes must also have enough storage for the workload.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="upi-install-config-local-arbiter-node_installing-bare-metal"><a class="anchor" href="#upi-install-config-local-arbiter-node_installing-bare-metal"></a>Configuring a local arbiter node by using user-provisioned infrastructure</h3>
+<div class="paragraph _abstract">
+<p>To retain high availability (HA) while reducing infrastructure costs for your cluster, you can configure an OpenShift Container Platform cluster with two control plane nodes and one local arbiter node.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have downloaded OpenShift CLI (<code>oc</code>) and the installation program.</p>
+</li>
+<li>
+<p>You have logged into the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the <code>install-config.yaml</code> file to define the arbiter node alongside control plane nodes.</p>
+<div class="listingblock">
+<div class="title">Example <code>install-config.yaml</code> configuration for deploying an arbiter node</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">baseDomain</span><span class="pi">:</span> <span class="s">devcluster.openshift.com</span>
+<span class="na">compute</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
+    <span class="na">hyperthreading</span><span class="pi">:</span> <span class="s">Enabled</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">worker</span>
+    <span class="na">platform</span><span class="pi">:</span> <span class="pi">{}</span>
+    <span class="na">replicas</span><span class="pi">:</span> <span class="m">0</span>
+
+<span class="na">arbiter</span><span class="pi">:</span>
+  <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
+  <span class="na">hyperthreading</span><span class="pi">:</span> <span class="s">Enabled</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;Specifies a name for the arbiter machine pool&gt;</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">baremetal</span><span class="pi">:</span> <span class="pi">{}</span>
+<span class="na">controlPlane</span><span class="pi">:</span>
+  <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
+  <span class="na">hyperthreading</span><span class="pi">:</span> <span class="s">Enabled</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">master</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">baremetal</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">2</span>
+
+<span class="na">platform</span><span class="pi">:</span>
+  <span class="na">none</span><span class="pi">:</span> <span class="pi">{}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Set the <code>arbiter.replicas</code> field to <code>1</code> for the arbiter pool. You cannot set this field to a value that is greater than 1.</p>
+</div>
+<div class="paragraph">
+<p>For <code>controlPlane.replicas</code> field, when an arbiter pool is defined, two control plane replicas are valid.</p>
+</div>
+</li>
+<li>
+<p>Save the modified <code>install-config.yaml</code> file.</p>
+</li>
+</ol>
 </div>
 </div>
 </div>
