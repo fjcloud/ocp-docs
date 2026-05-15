@@ -1780,6 +1780,7 @@
             <li><a class="" href="../machine_configuration/machine-config-custom-mcp.html">Creating custom machine config pools</a></li>
             <li><a class="" href="../machine_configuration/machine-configs-garbage-collection.html">Managing unused rendered machine configs</a></li>
             <li><a class="" href="../machine_configuration/mco-coreos-layering.html">Image mode for OpenShift</a></li>
+            <li><a class="" href="../machine_configuration/mco-image-streams.html">Setting the RHCOS version in a cluster</a></li>
             <li><a class="" href="../machine_configuration/machine-config-daemon-metrics.html">Machine Config Daemon metrics</a></li>
       </ul>
     </li>
@@ -3327,6 +3328,11 @@
 </ul>
 </li>
 <li><a href="#cnf-configuring-node-groups-for-the-numaresourcesoperator_numa-aware">Configuring polling operations for NUMA resources updates</a></li>
+<li><a href="#cnf-topology-aware-scheduler-scalability_numa-aware">Topology-aware scheduler scalability</a>
+<ul class="sectlevel2">
+<li><a href="#cnf-optimizing-topology-aware-scheduler-large-clusters_numa-aware">Optimization strategies for large-cluster NUMA-aware scheduling</a></li>
+</ul>
+</li>
 <li><a href="#cnf-troubleshooting-numa-aware-workloads_numa-aware">Troubleshooting NUMA-aware scheduling</a>
 <ul class="sectlevel2">
 <li><a href="#cnf-reporting-more-exact-resource-availability_numa-aware">Reporting more exact resource availability</a></li>
@@ -5309,6 +5315,122 @@ master-2      21m</span></code></pre>
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="cnf-topology-aware-scheduler-scalability_numa-aware"><a class="anchor" href="#cnf-topology-aware-scheduler-scalability_numa-aware"></a>Topology-aware scheduler scalability</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can scale the NUMA-aware secondary scheduler to support clusters with up to 500 nodes.
+Understanding how the scheduler consumes resources at scale helps you size your control plane correctly and avoid resource exhaustion during cluster growth.</p>
+</div>
+<div class="paragraph">
+<p>The NUMA-aware secondary scheduler relies on the <code>NodeResourceTopology</code> custom resource (CR) to track per-node NUMA zone availability.
+As the number of nodes in a cluster increases, the scheduler must process a larger set of <code>NodeResourceTopology</code> objects during each scheduling cycle.
+This relationship between node count, cache refresh interval, and scheduling latency determines the scalability profile of the scheduler.</p>
+</div>
+<div class="paragraph">
+<p>From OpenShift Container Platform 4.22, the NUMA-aware scheduler pod defaults to <code>Burstable</code> quality of service (QoS), which reduces baseline resource consumption while allowing the scheduler to scale up in larger clusters. Switching to <code>Guaranteed</code> QoS is generally not recommended because it mandates a higher resource commitment that can unnecessarily constrain the control plane.</p>
+</div>
+<div class="paragraph">
+<p>When high availability (HA) mode is enabled, the NUMA Resources Operator deploys multiple scheduler replicas across the control plane nodes to ensure redundancy.</p>
+</div>
+<div class="sect2">
+<h3 id="cnf-optimizing-topology-aware-scheduler-large-clusters_numa-aware"><a class="anchor" href="#cnf-optimizing-topology-aware-scheduler-large-clusters_numa-aware"></a>Optimization strategies for large-cluster NUMA-aware scheduling</h3>
+<div class="paragraph _abstract">
+<p>You can optimize the NUMA-aware secondary scheduler for clusters with 200 or more nodes by tuning cache resync intervals, polling configurations, and the scheduler QoS profile.
+These optimization points help you balance scheduling accuracy, API server load, and control plane resource consumption for your specific cluster size and workload profile.</p>
+</div>
+<div class="paragraph">
+<p>To get the best performance, coordinate the <code>NUMAResourcesOperator</code> and <code>NUMAResourcesScheduler</code> settings. The operator controls how frequently topology data is exported, and the scheduler controls how frequently it consumes that data. Aligning these intervals ensures accurate scheduling decisions while minimizing API server traffic.</p>
+</div>
+<div class="sect3">
+<h4 id="numaresourcesoperator-settings"><a class="anchor" href="#numaresourcesoperator-settings"></a>NUMAResourcesOperator settings</h4>
+<div class="paragraph">
+<p>In the <code>NUMAResourcesOperator</code> CR, configure the following parameters to optimize for large clusters:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>For NUMA-sensitive workloads with minimal overhead, set <code>podsFingerprinting</code> to <code>EnabledExclusiveResources</code>, which is the default.</p>
+</li>
+<li>
+<p>For higher accuracy, set <code>podsFingerprinting</code> to <code>Enabled</code>. This increases the API load.</p>
+</li>
+<li>
+<p>Set <code>infoRefreshMode</code> to <code>Periodic</code> for large clusters. <code>PeriodicAndEvents</code> provides the highest accuracy but increases API load.</p>
+</li>
+<li>
+<p>Set <code>infoRefreshPeriod</code> to control how often the exporter updates topology data. This value must be shorter than the scheduler <code>cacheResyncPeriod</code> so that the cache always pulls fresh data. For example, set <code>infoRefreshPeriod</code> to 5 seconds.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="numaresourcesscheduler-settings"><a class="anchor" href="#numaresourcesscheduler-settings"></a>NUMAResourcesScheduler settings</h4>
+<div class="paragraph">
+<p>In the <code>NUMAResourcesScheduler</code> CR, configure the following parameters:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Set <code>cacheResyncPeriod</code> to control how often the scheduler refreshes its cache from the exported topology data. This value must be longer than <code>infoRefreshPeriod</code>. For example, set <code>cacheResyncPeriod</code> to 10 seconds.</p>
+</li>
+<li>
+<p>Choose a QoS profile that matches your operational requirements:</p>
+</li>
+<li>
+<p><code>Burstable</code> QoS (default): The recommended setting from OpenShift Container Platform 4.22. Minimizes baseline resource usage while allowing the scheduler to scale up during peak loads.</p>
+</li>
+<li>
+<p><code>Guaranteed</code> QoS (opt-in): Ensures the scheduler pod is protected from eviction. Use this profile for clusters where control plane memory is frequently overcommitted or under pressure.</p>
+<div class="paragraph">
+<p>Apply the Guaranteed QoS profile by annotating the <code>NUMAResourcesScheduler</code> custom resource with the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch numaresourcesscheduler numaresourcesscheduler <span class="nt">--type</span><span class="o">=</span><span class="s1">'merge'</span>
+<span class="go">-p '{"metadata":{"annotations":{"config.numa-operator.openshift.io/scheduler-qos-request":"guaranteed"}}}'</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This option is expected to be removed in a later OpenShift Container Platform release.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="best-practices-for-large-clusters"><a class="anchor" href="#best-practices-for-large-clusters"></a>Best practices for large clusters</h4>
+<div class="paragraph">
+<p>When you deploy the NUMA-aware scheduler in clusters with 200 or more nodes:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Enable HA mode to distribute replicas across control plane nodes.</p>
+</li>
+<li>
+<p>Use <code>oc adm top pod</code> in the <code>openshift-numaresources</code> namespace to monitor actual resource consumption.</p>
+</li>
+<li>
+<p>Align your refresh intervals so the exporter provides updates faster than the scheduler cache consumes them.</p>
+</li>
+</ul>
+</div>
+</div>
 </div>
 </div>
 </div>
