@@ -3302,6 +3302,7 @@
 <li><a href="#nw-metallb-configure-address-pool_monitor-metallb-config-status">Viewing the <code>IPAddressPool</code> status</a></li>
 <li><a href="#nw-viewing-service-bgp-status_monitor-metallb-config-status">Viewing the ServiceBGPStatus custom resource</a></li>
 <li><a href="#nw-metallb-verifying-bgp-session_monitor-metallb-config-status">Verifying BGP session state</a></li>
+<li><a href="#nw-metallb-checking-configuration-status_monitor-metallb-config-status">Checking MetalLB configuration status</a></li>
 <li><a href="#additional-resources">Additional resources</a></li>
 </ul>
 </div>
@@ -3348,6 +3349,11 @@
 <td class="tableblock halign-left valign-top"><p class="tableblock"><strong><code>BGPSessionStatus</code></strong></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Shows the real-time operational state of the border gateway protocol (BGP) and bidirectional forwarding detection (BFD) sessions between a specific cluster node and a BGP peer, indicating if the channel is <code>Established</code> or <code>Up</code> based on routing stack feedback.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>oc get bgpsessionstatus -o wide</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong><code>ConfigurationState</code></strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Shows whether the MetalLB controller and speakers have successfully validated and applied the current configuration. MetalLB creates one resource for the controller and one for each speaker node. Reports errors when custom resources are incompatible.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>oc get configurationstates -n metallb-system</code></p></td>
 </tr>
 </tbody>
 </table>
@@ -4045,6 +4051,181 @@ worker0.example.com  5m</span></code></pre>
 </div>
 <div class="paragraph">
 <p>This confirms that BGP is advertising the service IP.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-metallb-checking-configuration-status_monitor-metallb-config-status"><a class="anchor" href="#nw-metallb-checking-configuration-status_monitor-metallb-config-status"></a>Checking MetalLB configuration status</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can verify that the MetalLB controller and speakers have successfully applied the current configuration by viewing the <code>ConfigurationState</code> custom resource (CR). MetalLB creates a <code>ConfigurationState</code> resource for the controller and one for each speaker node. These resources report whether the configuration is valid and surface error details when validation fails, such as incompatible custom resources.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have an OpenShift Container Platform cluster with the MetalLB Operator installed.</p>
+</li>
+<li>
+<p>You have deployed a MetalLB instance.</p>
+</li>
+<li>
+<p>You have configured MetalLB resources such as <code>IPAddressPool</code>, <code>BGPPeer</code>, <code>BFDProfile</code>, <code>Community</code>, or <code>FRRConfiguration</code>.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>List the <code>ConfigurationState</code> resources by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configurationstates <span class="nt">-n</span> metallb-system</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                         RESULT   ERRORSUMMARY   AGE
+controller                   Valid                   75m
+speaker-mysno-sno.demo.lab   Valid                   28m</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>controller</code> resource shows the status for the MetalLB controller. Each <code>speaker-&lt;node-name&gt;</code> resource shows the status for the speaker on that node.</p>
+</div>
+</li>
+<li>
+<p>Verify that the controller has a valid configuration by inspecting the <code>ConfigurationState</code> details. Run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configurationstates controller <span class="nt">-n</span> metallb-system <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">metallb.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigurationState</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2026-04-21T09:46:47Z"</span>
+  <span class="na">generation</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">metallb.io/component-type</span><span class="pi">:</span> <span class="s">controller</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">controller</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">metallb-system</span>
+  <span class="na">resourceVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">28268"</span>
+  <span class="na">uid</span><span class="pi">:</span> <span class="s">23f5c492-4d5c-4893-84ea-77904c006404</span>
+<span class="na">status</span><span class="pi">:</span>
+  <span class="na">conditions</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2026-04-21T09:54:00Z"</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">Reconciled</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">True"</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">poolReconcilerValid</span>
+  <span class="na">result</span><span class="pi">:</span> <span class="s">Valid</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Confirm that the output has the following values:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>result: Valid</code> indicates that all configured resources are compatible and active. If this value is <code>Invalid</code>, check the <code>errorSummary</code> field for aggregated error messages that identify which part of the configuration has failed.</p>
+</li>
+<li>
+<p><code>message: Describes any configuration problem that occurs.  Here, `""</code> confirms that no errors were reported.</p>
+</li>
+<li>
+<p><code>reason: Reconciled</code> with <code>status: "True"</code> confirms that the reconciler has successfully processed the configuration. If the <code>reason</code> is <code>ReconciliationFailed</code> and <code>status</code> is <code>"False"</code>, the <code>message</code> field contains details about the failure.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The controller does not validate peer-level settings. Errors such as a missing <code>BFDProfile</code>, undefined <code>Community</code>, or missing authentication secret are reported only by the speakers. A <code>Valid</code> controller with one or more <code>Invalid</code> speakers is expected in these cases. Always check both controller and speaker <code>ConfigurationState</code> resources.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>If the configuration is invalid, the output is similar to the following example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">metallb.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigurationState</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2026-04-21T09:51:17Z"</span>
+  <span class="na">generation</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">metallb.io/component-type</span><span class="pi">:</span> <span class="s">speaker</span>
+    <span class="s">metallb.io/node-name</span><span class="pi">:</span> <span class="s">mysno-sno.demo.lab</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">speaker-mysno-sno.demo.lab</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">metallb-system</span>
+  <span class="na">resourceVersion</span><span class="pi">:</span> <span class="s2">"</span><span class="s">31161"</span>
+  <span class="na">uid</span><span class="pi">:</span> <span class="s">339781bf-ec9a-4ba9-aaba-0a9ac8ebce78</span>
+<span class="na">status</span><span class="pi">:</span>
+  <span class="na">conditions</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">lastTransitionTime</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2026-04-21T10:09:34Z"</span>
+    <span class="na">message</span><span class="pi">:</span> <span class="s1">'</span><span class="s">configuration</span><span class="nv"> </span><span class="s">error:</span><span class="nv"> </span><span class="s">peer</span><span class="nv"> </span><span class="s">peer1</span><span class="nv"> </span><span class="s">referencing</span><span class="nv"> </span><span class="s">non</span><span class="nv"> </span><span class="s">existing</span><span class="nv"> </span><span class="s">bfd</span><span class="nv"> </span><span class="s">profile</span>
+      <span class="s">my-bfd-profile'</span>
+    <span class="na">reason</span><span class="pi">:</span> <span class="s">ConfigurationError</span>
+    <span class="na">status</span><span class="pi">:</span> <span class="s2">"</span><span class="s">False"</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">configReconcilerValid</span>
+  <span class="na">errorSummary</span><span class="pi">:</span> <span class="s1">'</span><span class="s">configuration</span><span class="nv"> </span><span class="s">error:</span><span class="nv"> </span><span class="s">peer</span><span class="nv"> </span><span class="s">peer1</span><span class="nv"> </span><span class="s">referencing</span><span class="nv"> </span><span class="s">non</span><span class="nv"> </span><span class="s">existing</span><span class="nv"> </span><span class="s">bfd</span><span class="nv"> </span><span class="s">profile</span>
+    <span class="s">my-bfd-profile'</span>
+  <span class="na">result</span><span class="pi">:</span> <span class="s">Invalid</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Confirm that the output has the following values to identify the problem:</p>
+</div>
+</li>
+<li>
+<p><code>result: Invalid</code> indicates that one or more configured resources are incompatible. The <code>errorSummary</code> field provides an aggregated description of the problem.</p>
+</li>
+<li>
+<p><code>reason: ConfigurationError</code> with <code>status: "False"</code> indicates that the reconciler failed to process the configuration. The <code>message</code> field describes the specific error.</p>
+</li>
+<li>
+<p>In this example, the <code>BGPPeer</code> resource <code>peer1</code> references a <code>BFDProfile</code> named <code>my-bfd-profile</code> that does not exist. To resolve this error, either create the missing <code>BFDProfile</code> resource or update the <code>BGPPeer</code> to reference an existing <code>BFDProfile</code>.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>ConfigurationState</code> resource does not report errors that arise when the configuration applied by the speaker to the <code>frr-k8s</code> daemon conflicts with other external configurations within that daemon.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>After correcting the configuration, verify that the status shows a valid configuration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configurationstates <span class="nt">-n</span> metallb-system <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{.metadata.name}{"\t"}{.status.result}{"\n"}{end}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A return value of <code>Valid</code> for all entries confirms that the MetalLB controller and speakers are operating with a valid configuration.</p>
 </div>
 </li>
 </ol>
