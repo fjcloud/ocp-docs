@@ -3301,6 +3301,7 @@
 <li><a href="#nodes-nodes-resources-configuring-about_nodes-nodes-resources-configuring">Understanding how resources are allocated to nodes</a>
 <ul class="sectlevel2">
 <li><a href="#computing-allocated-resources_nodes-nodes-resources-configuring">How OpenShift Container Platform computes allocated resources</a></li>
+<li><a href="#system-reserved-compressible_nodes-nodes-resources-configuring">How OpenShift Container Platform enforces system-reserved CPU</a></li>
 <li><a href="#allocate-node-enforcement_nodes-nodes-resources-configuring">How nodes enforce resource constraints</a></li>
 <li><a href="#allocate-eviction-thresholds_nodes-nodes-resources-configuring">Understanding Eviction Thresholds</a></li>
 <li><a href="#allocate-scheduler-policy_nodes-nodes-resources-configuring">How the scheduler determines resource availability</a></li>
@@ -3470,6 +3471,111 @@
 </div>
 <div class="paragraph">
 <p>Each node reports the system resources that are used by the container runtime and kubelet. To simplify configuring the <code>system-reserved</code> parameter, view the resource use for the node by using the node summary API. The node summary is available at <code>/api/v1/nodes/&lt;node&gt;/proxy/stats/summary</code>. For more information, use the "Node metrics data" link in the <em>Additional resources</em> section.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="system-reserved-compressible_nodes-nodes-resources-configuring"><a class="anchor" href="#system-reserved-compressible_nodes-nodes-resources-configuring"></a>How OpenShift Container Platform enforces system-reserved CPU</h3>
+<div class="paragraph _abstract">
+<p>By default, OpenShift Container Platform calculates how much CPU should be reserved for system processes and uses cgroup controls to ensure that CPU is distributed according to configured weights and limits.</p>
+</div>
+<div class="paragraph">
+<p>This enforcement is applied in times of CPU contention within a node. When a node is not under CPU pressure, system processes can use more than the reserved share if the unused CPU is available.</p>
+</div>
+<div class="paragraph">
+<p>OpenShift Container Platform uses the <code>systemReservedCgroup</code> and <code>enforceNodeAllocatable</code> parameters in the kubelet configuration to perform this CPU enforcement.</p>
+</div>
+<div class="paragraph">
+<p>By default, the <code>systemReservedCgroup</code> parameter is set to <code>/system.slice</code>, which enforces CPU limits on the systemd <code>system.slice</code> cgroup, which includes kubelet, CRI-O, and other system services. The <code>enforceNodeAllocatable</code> parameter is set to <code>pods</code> and <code>system-reserved-compressible</code>, which enforce node allocatable limits across both pods and the <code>system-reserved</code> resources.</p>
+</div>
+<div class="paragraph">
+<p>As an example of this enforcement, if 0.5 CPU is reserved for system daemons on a four-core node, the systemd <code>system.slice</code> cgroup receives approximately that much CPU during contention and workload pods receive their expected share of the remaining 3.5 CPUs. If the system daemons hit the CPU limit, the OpenShift Container Platform throttles, but does not kill, the daemons. The OpenShift Container Platform reduces the CPU time allocated to processes in the <code>system.slice</code> cgroup, spreading their work over a longer period.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If other systemd slices are running CPU-intensive workloads, contention from slices other than <code>system.slice</code> could still impact overall CPU allocation.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>However, the kubelet cannot simultaneously enforce both the <code>systemReservedCgroup</code> setting and the <code>reservedSystemCPUs</code> setting used by Performance Profiles. If you apply a Performance Profile configured with <code>reservedSystemCPUs</code>, OpenShift Container Platform takes the following actions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>systemReservedCgroup</code> setting is automatically cleared.</p>
+</li>
+<li>
+<p>The <code>enforceNodeAllocatable</code> parameter is set to <code>pods</code> only.</p>
+</li>
+<li>
+<p>The existing Performance Profile behavior is preserved without requiring any changes.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>You can disable the default enforcement behavior for nodes in specific machine config pools, if needed, by using a <code>KubeletConfig</code> object. You might disable the feature for the following reasons:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>You have specific system daemon resource management requirements.</p>
+</li>
+<li>
+<p>You want to perform troubleshooting if system daemons are being throttled unexpectedly.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The following kubelet config disables CPU reservation enforcement:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KubeletConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">80-custom-system-reserved</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">machineConfigPoolSelector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="s">pools.operator.machineconfiguration.openshift.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+  <span class="na">kubeletConfig</span><span class="pi">:</span>
+    <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubelet.config.k8s.io/v1beta1</span>
+    <span class="na">kind</span><span class="pi">:</span> <span class="s">KubeletConfiguration</span>
+    <span class="na">systemReservedCgroup</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+    <span class="na">enforceNodeAllocatable</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">pods"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>metadata.name</code></dt>
+<dd>
+<p>Specifies a name for the kubelet config. Use a high number prefix to ensure it merges last.</p>
+</dd>
+<dt class="hdlist1"><code>spec.machineConfigPoolSelector.matchLabels</code></dt>
+<dd>
+<p>Specifies a label for the machine config pool that you want to modify.</p>
+</dd>
+<dt class="hdlist1"><code>spec.kubeletConfig.systemReservedCgroup</code></dt>
+<dd>
+<p>When set to <code>""</code>, specifies that the cgroup enforcement is disabled.</p>
+</dd>
+<dt class="hdlist1"><code>spec.kubeletConfig.enforceNodeAllocatable</code></dt>
+<dd>
+<p>When set only to <code>"pods"</code>, specifies that node allocatable enforcement applies only across pods and not across the <code>system-reserved</code> resources.</p>
+</dd>
+</dl>
 </div>
 </div>
 <div class="sect2">
