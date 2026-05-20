@@ -1124,6 +1124,7 @@
                   <li><a class="" href="../../authentication/identity_providers/configuring-oidc-identity-provider.html">Configuring an OpenID Connect identity provider</a></li>              </ul>
             </li>
             <li><a class="" href="../../authentication/external-auth.html">Enabling direct authentication with an OIDC identity provider</a></li>
+            <li><a class="" href="../../authentication/structured-auth-config-fields.html">Configuring advanced direct authentication fields</a></li>
             <li><a class="" href="../../authentication/using-rbac.html">Using RBAC to define and apply permissions</a></li>
             <li><a class="" href="../../authentication/remove-kubeadmin.html">Removing the kubeadmin user</a></li>
             <li><a class="" href="../../authentication/understanding-and-creating-service-accounts.html">Understanding and creating service accounts</a></li>
@@ -1135,8 +1136,8 @@
             <li><a class="" href="../../authentication/understanding-and-managing-pod-security-admission.html">Understanding and managing pod security admission</a></li>
             <li><a class="" href="../../authentication/impersonating-system-admin.html">Impersonating the system:admin user</a></li>
             <li><a class="" href="../../authentication/ldap-syncing.html">Syncing LDAP groups</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-12-19"><span id="sgSpan-12-19" class="fa fa-caret-right"></span>&nbsp;Managing cloud provider credentials</a>
-              <ul id="topicSubGroup-12-19" class="nav-tertiary list-unstyled collapse">
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-12-20"><span id="sgSpan-12-20" class="fa fa-caret-right"></span>&nbsp;Managing cloud provider credentials</a>
+              <ul id="topicSubGroup-12-20" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../authentication/managing_cloud_provider_credentials/about-cloud-credential-operator.html">About the Cloud Credential Operator</a></li>
                   <li><a class="" href="../../authentication/managing_cloud_provider_credentials/cco-mode-mint.html">Mint mode</a></li>
@@ -3307,6 +3308,7 @@
 <li><a href="#nodes-pods-allocate-dra-about_nodes-pods-allocate-dra">About GPU attributes</a></li>
 <li><a href="#nodes-pods-allocate-dra-configure-about_nodes-pods-allocate-dra">About GPU allocation objects and concepts</a></li>
 <li><a href="#nodes-pods-allocate-dra-configure_nodes-pods-allocate-dra">Adding resource claims to pods</a></li>
+<li><a href="#additional-resources_nodes-pods-allocate-dra">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -3405,9 +3407,42 @@
 </dd>
 <dt class="hdlist1">Resource slice</dt>
 <dd>
-<p>The DRA driver on each node creates and manages <em>resource slices</em>, which describe what resources are available in that cluster. A resource slice represents one or more GPU resources that are attached to nodes. When a resource claim is created and used in a pod, OpenShift Container Platform uses the resource slices to find nodes that have the requested resources. After finding an eligible resource slice for the resource claim, the OpenShift Container Platform scheduler updates the resource claim with the allocation details, allocates resources to the resource claim, and schedules the pod onto a node that can access the resources.</p>
+<p>The DRA driver on each node creates and manages <em>resource slices</em>, which describe what resources are available in that cluster. A resource slice represents one or more GPU resources that are attached to nodes. The DRA can allocate either a full device or fixed-size partitions of full devices.</p>
+<div class="paragraph">
+<p>A partitionable device is a single physical hardware device that can be split into smaller, logical instances, such as Multi-Instance GPUs, based on workload demands. By partitioning devices, you can safely and efficiently share expensive accelerators across multiple pods.</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Partitionable devices is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>To allocate partitions, the DRA creates a <em>counter set</em>, which is a set of named <em>counters</em>. The counters represent the resources available on the physical device that are used by the logical devices advertised through DRA.</p>
+</div>
+<div class="paragraph">
+<p>Logical devices can specify the <code>consumesCounters</code> list in a resource slice. Each entry contains a reference to a counter set and a set of named counters with the amounts they can consume.</p>
+</div>
+<div class="paragraph">
+<p>When a resource claim is created and used in a pod, OpenShift Container Platform uses the resource slices to find nodes that have the requested resources. After finding an eligible resource slice for the resource claim, the OpenShift Container Platform scheduler updates the resource claim with the allocation details, allocates resources to the resource claim, and schedules the pod onto a node that can access the resources.</p>
+</div>
 <div class="listingblock">
-<div class="title">Example resource slice object</div>
+<div class="title">Example resource slice object for a device</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">items</span><span class="pi">:</span>
@@ -3415,26 +3450,26 @@
   <span class="na">kind</span><span class="pi">:</span> <span class="s">ResourceSlice</span>
 <span class="c1"># ...</span>
 <span class="na">spec</span><span class="pi">:</span>
-    <span class="na">driver</span><span class="pi">:</span> <span class="s">driver.example.com</span>
-    <span class="na">nodeName</span><span class="pi">:</span> <span class="s">dra-example-driver</span>
-    <span class="na">pool</span><span class="pi">:</span>
-      <span class="na">generation</span><span class="pi">:</span> <span class="m">0</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">dra-example-driver</span>
-      <span class="na">resourceSliceCount</span><span class="pi">:</span> <span class="m">1</span>
-    <span class="na">devices</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">attributes</span><span class="pi">:</span>
-        <span class="na">driverVersion</span><span class="pi">:</span>
-          <span class="na">version</span><span class="pi">:</span> <span class="s">1.0.0</span>
-        <span class="na">index</span><span class="pi">:</span>
-          <span class="na">int</span><span class="pi">:</span> <span class="m">0</span>
-        <span class="na">model</span><span class="pi">:</span>
-          <span class="na">string</span><span class="pi">:</span> <span class="s">LATEST-GPU-MODEL</span>
-        <span class="na">uuid</span><span class="pi">:</span>
-          <span class="na">string</span><span class="pi">:</span> <span class="s">gpu-18db0e85-99e9-c746-8531-ffeb86328b39</span>
-      <span class="na">capacity</span><span class="pi">:</span>
-        <span class="na">memory</span><span class="pi">:</span>
-          <span class="na">value</span><span class="pi">:</span> <span class="s">10Gb</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">2g-10gb</span>
+  <span class="na">driver</span><span class="pi">:</span> <span class="s">driver.example.com</span>
+  <span class="na">nodeName</span><span class="pi">:</span> <span class="s">dra-example-driver</span>
+  <span class="na">pool</span><span class="pi">:</span>
+    <span class="na">generation</span><span class="pi">:</span> <span class="m">0</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">dra-example-driver</span>
+    <span class="na">resourceSliceCount</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">devices</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">attributes</span><span class="pi">:</span>
+      <span class="na">driverVersion</span><span class="pi">:</span>
+        <span class="na">version</span><span class="pi">:</span> <span class="s">1.0.0</span>
+      <span class="na">index</span><span class="pi">:</span>
+        <span class="na">int</span><span class="pi">:</span> <span class="m">0</span>
+      <span class="na">model</span><span class="pi">:</span>
+        <span class="na">string</span><span class="pi">:</span> <span class="s">LATEST-GPU-MODEL</span>
+      <span class="na">uuid</span><span class="pi">:</span>
+        <span class="na">string</span><span class="pi">:</span> <span class="s">gpu-18db0e85-99e9-c746-8531-ffeb86328b39</span>
+    <span class="na">capacity</span><span class="pi">:</span>
+      <span class="na">memory</span><span class="pi">:</span>
+        <span class="na">value</span><span class="pi">:</span> <span class="s">10Gb</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">2g-10gb</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -3456,6 +3491,101 @@
 </dl>
 </div>
 </div>
+</div>
+<div class="listingblock">
+<div class="title">Example resource slice object for a partitionable device</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">resource.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ResourceSlice</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">counter-slice</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">driver</span><span class="pi">:</span> <span class="s2">"</span><span class="s">resource-driver.example.com"</span>
+  <span class="na">nodeName</span><span class="pi">:</span> <span class="s">dra-example-driver</span>
+  <span class="na">pool</span><span class="pi">:</span>
+    <span class="na">generation</span><span class="pi">:</span> <span class="m">1</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">my-pool"</span>
+    <span class="na">resourceSliceCount</span><span class="pi">:</span> <span class="m">2</span>
+  <span class="na">sharedCounters</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">gpu-0-counter-set</span>
+    <span class="na">counters</span><span class="pi">:</span>
+      <span class="na">memory</span><span class="pi">:</span>
+        <span class="na">value</span><span class="pi">:</span> <span class="s">40Gi</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">resource.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ResourceSlice</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">device-slice</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">driver</span><span class="pi">:</span> <span class="s2">"</span><span class="s">resource-driver.example.com"</span>
+  <span class="na">pool</span><span class="pi">:</span>
+    <span class="na">generation</span><span class="pi">:</span> <span class="m">1</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">my-pool"</span>
+    <span class="na">resourceSliceCount</span><span class="pi">:</span> <span class="m">2</span>
+  <span class="na">nodeName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">my-node"</span>
+  <span class="na">devices</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">gpu-0</span>
+    <span class="na">capacity</span><span class="pi">:</span>
+      <span class="na">memory</span><span class="pi">:</span>
+        <span class="na">value</span><span class="pi">:</span> <span class="s">40Gi</span>
+    <span class="na">consumesCounters</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">counterSet</span><span class="pi">:</span> <span class="s">gpu-0-counter-set</span>
+      <span class="na">counters</span><span class="pi">:</span>
+        <span class="na">memory</span><span class="pi">:</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s">40Gi</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">gpu-0-partition-0</span>
+    <span class="na">capacity</span><span class="pi">:</span>
+      <span class="na">memory</span><span class="pi">:</span>
+        <span class="na">value</span><span class="pi">:</span> <span class="s">20Gi</span>
+    <span class="na">consumesCounters</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">counterSet</span><span class="pi">:</span> <span class="s">gpu-0-counter-set</span>
+      <span class="na">counters</span><span class="pi">:</span>
+        <span class="na">memory</span><span class="pi">:</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s">20Gi</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">gpu-0-partition-1</span>
+    <span class="na">capacity</span><span class="pi">:</span>
+      <span class="na">memory</span><span class="pi">:</span>
+        <span class="na">value</span><span class="pi">:</span> <span class="s">20Gi</span>
+    <span class="na">consumesCounters</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">counterSet</span><span class="pi">:</span> <span class="s">gpu-0-counter-set</span>
+      <span class="na">counters</span><span class="pi">:</span>
+        <span class="na">memory</span><span class="pi">:</span>
+          <span class="na">value</span><span class="pi">:</span> <span class="s">20Gi</span></code></pre>
+</div>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.driver</code></dt>
+<dd>
+<p>Specifies the name of the DRA driver, which you can specify in a device class.</p>
+</dd>
+<dt class="hdlist1"><code>spec.sharedCounters</code></dt>
+<dd>
+<p>Specifies the counter set and counters.</p>
+</dd>
+<dt class="hdlist1"><code>spec.devices</code></dt>
+<dd>
+<p>Specifies a list of devices that can be requested by pods.</p>
+</dd>
+<dt class="hdlist1"><code>spec.devices.name</code></dt>
+<dd>
+<p>Specifies the details of a single device.</p>
+</dd>
+<dt class="hdlist1"><code>spec.devices.consumesCounters</code></dt>
+<dd>
+<p>Specifies how much of a shared counter set the device consumes if allocated.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>In this example, the <code>resource-driver.example.com</code> DRA driver is sharing 40Gi of memory through the <code>gpu-0-counter-set</code> counter set in the <code>counter-slice</code> object. The <code>device-slice</code> object makes this memory available as a full device named <em>gpu-0</em> or either of two partitioned devices named <em>gpu-0-partition-0</em> and <em>gpu-0-partition-1</em>. Each device has a capacity and declares how much it consumes from the counter when allocated, either 40Gi for the full device or 20Gi of memory for each partition. You can allocate the memory by using either the full device or the partitions, but not both, enforcing mutual exclusivity between a full device and its partitions. When <em>gpu-0</em> is allocated, the GPU consumes all 40Gi from the counter set, leaving 0Gi for the partitions.</p>
 </div>
 </dd>
 <dt class="hdlist1">Resource claim template</dt>
@@ -3648,6 +3778,23 @@
 <p>A resource slice has been created.</p>
 </li>
 <li>
+<p>If your resource slice is allocating a partitioned device, you enabled the required Technology Preview features for your cluster by adding the <code>TechPreviewNoUpgrade</code> feature set to the <code>FeatureGate</code> CR named <code>cluster</code>. For information about enabling Feature Gates, see "Enabling features using feature gates".</p>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Enabling the <code>TechPreviewNoUpgrade</code> feature set on your cluster cannot be undone and prevents minor version updates. This feature set allows you to enable these Technology Preview features on test clusters, where you can fully test them. Do not enable this feature set on production clusters.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
 <p>A resource claim and/or resource claim template has been created.</p>
 <div class="listingblock">
 <div class="title">Example resource claim object</div>
@@ -3768,11 +3915,23 @@
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;file_name&gt;.yaml</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>For more information on configuring pod resource requests, see <a href="https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/">"Dynamic Resource Allocation"</a> (Kubernetes documentation).</p>
+</div>
 </li>
 </ol>
 </div>
-<div class="paragraph">
-<p>For more information on configuring pod resource requests, see <a href="https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/">"Dynamic Resource Allocation"</a> (Kubernetes documentation).</p>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources_nodes-pods-allocate-dra"><a class="anchor" href="#additional-resources_nodes-pods-allocate-dra"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="../../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling-features">Enabling features using feature gates</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
