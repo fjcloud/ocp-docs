@@ -505,7 +505,8 @@
                   <li><a class="" href="../../installing/installing_with_agent_based_installer/prepare-pxe-assets-agent.html">Preparing PXE assets for OCP</a></li>
                   <li><a class="" href="../../installing/installing_with_agent_based_installer/installing-using-iscsi.html">Preparing installation assets for iSCSI booting</a></li>
                   <li><a class="" href="../../installing/installing_with_agent_based_installer/preparing-an-agent-based-installed-cluster-for-mce.html">Preparing an Agent-based installed cluster for the multicluster engine for Kubernetes</a></li>
-                  <li><a class="" href="../../installing/installing_with_agent_based_installer/installation-config-parameters-agent.html">Installation configuration parameters for the Agent-based Installer</a></li>              </ul>
+                  <li><a class="" href="../../installing/installing_with_agent_based_installer/installation-config-parameters-agent.html">Installation configuration parameters for the Agent-based Installer</a></li>
+                  <li><a class="" href="../../installing/installing_with_agent_based_installer/agent-based-installer-postinstallation.html">Postinstallation tasks</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-5-10"><span id="sgSpan-5-10" class="fa fa-caret-right"></span>&nbsp;Installing on a single node</a>
               <ul id="topicSubGroup-5-10" class="nav-tertiary list-unstyled collapse">
@@ -6912,22 +6913,39 @@ hello-openshift   8080-tcp                 None</code></pre>
 </div>
 <div class="sect2">
 <h3 id="nw-exposing-router-metrics_configuring-ingress"><a class="anchor" href="#nw-exposing-router-metrics_configuring-ingress"></a>Exposing router metrics</h3>
-<div class="paragraph">
-<p>You can expose the HAProxy router metrics by default in Prometheus format on the default stats port, 1936. The external metrics collection and aggregation systems such as Prometheus can access the HAProxy router metrics. You can view the HAProxy router metrics in a browser in the HTML and comma separated values (CSV) format.</p>
+<div class="paragraph _abstract">
+<p>You can retrieve Prometheus-format HAProxy ingress router metrics from port <code>1936</code> to monitor ingress load and troubleshoot routing behavior. By analyzing these metrics, you can identify capacity bottlenecks and determine when to scale your router deployment.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You configured your firewall to access the default stats port, 1936.</p>
+<p>You have cluster administrator access to the cluster.</p>
+</li>
+<li>
+<p>You configured your firewall to allow port <code>1936</code>.</p>
 </li>
 </ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The Prometheus <code>/metrics</code> endpoint and the HAProxy HTML statistics dashboard are mutually exclusive exposition modes because the HAProxy router process serves one mode at a time. The Ingress Operator configures default Ingress Controller pods for Prometheus scraping (<code>/metrics</code> on port <code>1936</code>). Browsing <code>http://&lt;user&gt;:&lt;password&gt;@&lt;pod_IP&gt;:1936/</code> for interactive HTML statistics is not supported concurrently with Prometheus metrics on deployments that the Ingress Operator configures in this manner.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Get the router pod name by running the following command:</p>
+<p>List the router pods in the ingress namespace by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-ingress</code></pre>
@@ -6936,36 +6954,29 @@ hello-openshift   8080-tcp                 None</code></pre>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                              READY   STATUS    RESTARTS   AGE
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                               READY   STATUS    RESTARTS   AGE
 router-default-76bfffb66c-46qwp   1/1     Running   0          11h</span></code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Get the router&#8217;s username and password, which the router pod stores in the <code>/var/lib/haproxy/conf/metrics-auth/statsUsername</code> and <code>/var/lib/haproxy/conf/metrics-auth/statsPassword</code> files:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Get the username by running the following command:</p>
+<p>Read the stats user from the router pod under <code>/var/lib/haproxy/conf/metrics-auth/</code> by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh &lt;router_pod_name&gt; <span class="nb">cat </span>metrics-auth/statsUsername</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh &lt;router_pod_name&gt; <span class="nb">cat</span> /var/lib/haproxy/conf/metrics-auth/statsUsername</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Get the password by running the following command:</p>
+<p>Read the stats password from the router pod under <code>/var/lib/haproxy/conf/metrics-auth/</code> by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh &lt;router_pod_name&gt; <span class="nb">cat </span>metrics-auth/statsPassword</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh &lt;router_pod_name&gt; <span class="nb">cat</span> /var/lib/haproxy/conf/metrics-auth/statsPassword</code></pre>
 </div>
-</div>
-</li>
-</ol>
 </div>
 </li>
 <li>
-<p>Get the router IP and metrics certificates by running the following command:</p>
+<p>Get pod details, including the IP address for the pod, by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe pod &lt;router_pod&gt;</code></pre>
@@ -6973,81 +6984,41 @@ router-default-76bfffb66c-46qwp   1/1     Running   0          11h</span></code>
 </div>
 </li>
 <li>
-<p>Get the raw statistics in Prometheus format by running the following command:</p>
+<p>Fetch Prometheus text metrics from the default port <code>1936</code> by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-u</span> &lt;user&gt;:&lt;password&gt; http://&lt;router_IP&gt;:&lt;stats_port&gt;/metrics</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-u</span> &lt;user&gt;:&lt;password&gt; http://&lt;router_IP&gt;:1936/metrics</code></pre>
 </div>
 </div>
-</li>
-<li>
-<p>Access the metrics securely by running the following command:</p>
+<div class="paragraph">
+<p>If the stats endpoint serves TLS-protected Prometheus text, retrieve metrics over HTTPS instead by entering the following command:</p>
+</div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-u</span> user:password https://&lt;router_IP&gt;:&lt;stats_port&gt;/metrics <span class="nt">-k</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-u</span> &lt;user&gt;:&lt;password&gt; https://&lt;router_IP&gt;:1936/metrics <span class="nt">-k</span></code></pre>
 </div>
 </div>
-</li>
-<li>
-<p>Access the default stats port, 1936, by running the following command:</p>
 <div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-u</span> &lt;user&gt;:&lt;password&gt; http://&lt;router_IP&gt;:&lt;stats_port&gt;/metrics</code></pre>
-</div>
-</div>
-<div class="openblock">
-<div class="content">
-<details>
-<summary class="title">Example output</summary>
-<div class="content">
-<div class="listingblock">
+<div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="c">...
-</span><span class="gp">#</span><span class="w"> </span>HELP haproxy_backend_connections_total Total number of connections.
-<span class="gp">#</span><span class="w"> </span>TYPE haproxy_backend_connections_total gauge
-<span class="go">haproxy_backend_connections_total{backend="http",namespace="default",route="hello-route"} 0
-haproxy_backend_connections_total{backend="http",namespace="default",route="hello-route-alt"} 0
-haproxy_backend_connections_total{backend="http",namespace="default",route="hello-route01"} 0
-</span><span class="c">...
-</span><span class="gp">#</span><span class="w"> </span>HELP haproxy_exporter_server_threshold Number of servers tracked and the current threshold value.
-<span class="gp">#</span><span class="w"> </span>TYPE haproxy_exporter_server_threshold gauge
-<span class="go">haproxy_exporter_server_threshold{type="current"} 11
-haproxy_exporter_server_threshold{type="limit"} 500
-</span><span class="c">...
-</span><span class="gp">#</span><span class="w"> </span>HELP haproxy_frontend_bytes_in_total Current total of incoming bytes.
-<span class="gp">#</span><span class="w"> </span>TYPE haproxy_frontend_bytes_in_total gauge
-<span class="go">haproxy_frontend_bytes_in_total{frontend="fe_no_sni"} 0
-haproxy_frontend_bytes_in_total{frontend="fe_sni"} 0
-haproxy_frontend_bytes_in_total{frontend="public"} 119070
-</span><span class="c">...
-</span><span class="gp">#</span><span class="w"> </span>HELP haproxy_server_bytes_in_total Current total of incoming bytes.
-<span class="gp">#</span><span class="w"> </span>TYPE haproxy_server_bytes_in_total gauge
-<span class="go">haproxy_server_bytes_in_total{namespace="",pod="",route="",server="fe_no_sni",service=""} 0
-haproxy_server_bytes_in_total{namespace="",pod="",route="",server="fe_sni",service=""} 0
-haproxy_server_bytes_in_total{namespace="default",pod="docker-registry-5-nk5fz",route="docker-registry",server="10.130.0.89:5000",service="docker-registry"} 0
-haproxy_server_bytes_in_total{namespace="default",pod="hello-rc-vkjqx",route="hello-route",server="10.130.0.90:8080",service="hello-svc-1"} 0
+</span><span class="gp">#</span><span class="w"> </span>HELP haproxy_max_connections Hard limit on the number of connections <span class="o">(</span>configured or imposed by <span class="nb">ulimit</span> <span class="nt">-n</span><span class="o">)</span><span class="nb">.</span>
+<span class="gp">#</span><span class="w"> </span>TYPE haproxy_max_connections gauge
+<span class="go">haproxy_max_connections 50000
 </span><span class="c">...</span></code></pre>
 </div>
 </div>
-</div>
-</details>
-</div>
-</div>
 </li>
 <li>
-<p>Launch the stats window by entering the following URL in a browser:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">http://&lt;user&gt;</span>:&lt;password&gt;@&lt;router_IP&gt;:&lt;stats_port&gt;</code></pre>
+<p>Optional: In the OpenShift Container Platform web console, navigate to <strong>Observe</strong> → <strong>Metrics</strong>, or query Prometheus directly, to compare ingress load against the HAProxy allowance.</p>
+<div class="paragraph">
+<p>The <code>haproxy_max_connections</code> gauge reflects each scraped router endpoint&#8217;s HAProxy allowance from <code>spec.tuningOptions.maxConnections</code> on the <code>IngressController</code>, bound by operating system limits such as <code>ulimit -n</code>. Before relying on ratios, confirm the labeled metric for front-end sessions that your HAProxy Prometheus exporter emits. For example, use <code>haproxy_frontend_current_sessions</code> when that series is available for your deployment.</p>
 </div>
+<div class="paragraph">
+<p>Expressions similar to <code>sum(haproxy_frontend_current_sessions) / sum(haproxy_max_connections)</code> can estimate connection load across scrape targets after you verify those series for your deployment.</p>
 </div>
-</li>
-<li>
-<p>Optional: Get the stats in CSV format by entering the following URL in a browser:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">http://&lt;user&gt;</span>:&lt;password&gt;@&lt;router_ip&gt;:1936/metrics<span class="p">;</span>csv</code></pre>
-</div>
+<div class="paragraph">
+<p>If the ratio approaches <code>1</code>, adjust <code>spec.tuningOptions.maxConnections</code> on the <code>IngressController</code> or scale the router deployment.</p>
 </div>
 </li>
 </ol>
