@@ -1424,8 +1424,14 @@
                     <li><a class="" href="../../../networking/advanced_networking/route_advertisements/example-route-advertisement-setup.html" style="padding-left: 70px;">Example route advertisements setup</a></li>                  </ul>
                   </li>
 
-                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-13-8-7"><span id="ssgSpan-13-8-7" class="fa fa-caret-right"></span>&nbsp;Using PTP hardware</a>
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-13-8-7"><span id="ssgSpan-13-8-7" class="fa fa-caret-right"></span>&nbsp;BGP EVPN for user-defined networks</a>
                   <ul id="topicSubSubGroup-13-8-7" class="nav-tertiary list-unstyled collapse">
+
+                    <li><a class="" href="../../../networking/advanced_networking/bgp_evpn_udn/about-bgp-evpn-user-defined-networks.html" style="padding-left: 70px;">About BGP EVPN for primary cluster user-defined networks</a></li>                  </ul>
+                  </li>
+
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-13-8-8"><span id="ssgSpan-13-8-8" class="fa fa-caret-right"></span>&nbsp;Using PTP hardware</a>
+                  <ul id="topicSubSubGroup-13-8-8" class="nav-tertiary list-unstyled collapse">
 
                     <li><a class="" href="../../../networking/advanced_networking/ptp/about-ptp.html" style="padding-left: 70px;">About PTP in OpenShift cluster nodes</a></li>
                     <li><a class="" href="../../../networking/advanced_networking/ptp/configuring-ptp.html" style="padding-left: 70px;">Configuring PTP devices</a></li>
@@ -3325,6 +3331,7 @@
 <li><a href="#nw-udn-l2-l3_user-defined-networks">Layer 2 and layer 3 topologies</a></li>
 <li><a href="#about-cudn_user-defined-networks">About the ClusterUserDefinedNetwork CR</a>
 <ul class="sectlevel2">
+<li><a href="#cudn-transport-considerations_user-defined-networks">Considerations for ClusterUserDefinedNetwork transport</a></li>
 <li><a href="#considerations-for-cudn_user-defined-networks">Best practices for ClusterUserDefinedNetwork CRs</a></li>
 <li><a href="#nw-cudn-cr_user-defined-networks">Creating a ClusterUserDefinedNetwork CR by using the CLI</a></li>
 <li><a href="#nw-cudn-localnet_user-defined-networks">Creating a ClusterUserDefinedNetwork CR for a Localnet topology</a></li>
@@ -3341,6 +3348,7 @@
 <li><a href="#nw-udn-additional-config-details_user-defined-networks">Additional configuration details for user-defined networks</a></li>
 <li><a href="#cudn-status-conditions_user-defined-networks">User-defined network status condition types</a></li>
 <li><a href="#opening-default-network-ports-udn_user-defined-networks">Opening default network ports on user-defined network pods</a></li>
+<li><a href="#user-defined-networks-additional-resources_user-defined-networks">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -3585,6 +3593,34 @@
 <div class="title">Figure 3. Tenant isolation using a ClusterUserDefinedNetwork CR</div>
 </div>
 <div class="sect2">
+<h3 id="cudn-transport-considerations_user-defined-networks"><a class="anchor" href="#cudn-transport-considerations_user-defined-networks"></a>Considerations for ClusterUserDefinedNetwork transport</h3>
+<div class="paragraph _abstract">
+<p>Unlike the <code>UserDefinedNetwork</code> (UDN) custom resource (CR), the <code>ClusterUserDefinedNetwork</code> CR gives you more control over how pod traffic is carried on the cluster infrastructure and how it relates to networks outside the cluster.</p>
+</div>
+<div class="paragraph">
+<p>By default, pod-to-pod traffic on the CUDN CR uses a Geneve overlay.
+Pod IP addresses are not directly reachable from outside of the cluster.
+When workload traffic leaves the cluster through the designated egress gateway, source addresses are masqueraded to the node IP address of the node that forwards the traffic, similar to other pod networks.</p>
+</div>
+<div class="paragraph">
+<p>You can use route advertisements and the <code>RouteAdvertisements</code> CR so that routes for the CUDN are advertised on the provider network by using Border Gateway Protocol (BGP). Collectively, this configuration makes pod IP addresses reachable from outside the cluster. For information, see "About route advertisements".</p>
+</div>
+<div class="paragraph">
+<p>Additionally, you can set the <code>spec.network.transport</code> field to <code>EVPN</code> to attach a primary CUDN to an external BGP EVPN fabric instead of using only the default overlay behavior. Configuring EVPN requires additional objects and node networking beyond the CUDN CR. For more information, see "About BGP EVPN for primary cluster user-defined networks".</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../networking/advanced_networking/route_advertisements/about-route-advertisements.html#about-route-advertisements">About route advertisements</a></p>
+</li>
+<li>
+<p><a href="../../../networking/advanced_networking/bgp_evpn_udn/about-bgp-evpn-user-defined-networks.html#about-bgp-evpn-user-defined-networks">About BGP EVPN for primary cluster user-defined networks</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
 <h3 id="considerations-for-cudn_user-defined-networks"><a class="anchor" href="#considerations-for-cudn_user-defined-networks"></a>Best practices for ClusterUserDefinedNetwork CRs</h3>
 <div class="paragraph _abstract">
 <p>To create and deploy a successful instance of the <code>ClusterUserDefinedNetwork</code> (CUDN) CR, administrators must follow best practices such as avoiding default and openshift-* namespaces, use the proper namespace selector configuration, and ensure physical network parameter matching.</p>
@@ -3735,7 +3771,8 @@
       <span class="na">role</span><span class="pi">:</span> <span class="s">Primary</span>
       <span class="na">subnets</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="s2">"</span><span class="s">2001:db8::/64"</span>
-        <span class="pi">-</span> <span class="s2">"</span><span class="s">10.100.0.0/16"</span></code></pre>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">10.100.0.0/16"</span>
+    <span class="na">transport</span><span class="pi">:</span> <span class="s">&lt;transport_protocol&gt;</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3788,6 +3825,10 @@ This field specifies the topology configuration. It can be <code>layer2</code> o
 </ul>
 </div>
 </dd>
+<dt class="hdlist1"><code>spec.network.transport</code></dt>
+<dd>
+<p>Specifies how pod traffic is carried on the cluster infrastructure for the <code>ClusterUserDefinedNetwork</code> CR. Accepted value is <code>EVPN</code>. Additional configuration is required when setting the <code>spec.network.transport</code> field. This field is optional. For more information, see "About BGP EVPN for primary cluster user-defined networks".</p>
+</dd>
 </dl>
 </div>
 </li>
@@ -3811,7 +3852,8 @@ This field specifies the topology configuration. It can be <code>layer2</code> o
       <span class="na">role</span><span class="pi">:</span> <span class="s">Primary</span>
       <span class="na">subnets</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="na">cidr</span><span class="pi">:</span> <span class="s">10.100.0.0/16</span>
-          <span class="na">hostSubnet</span><span class="pi">:</span> <span class="s">24</span></code></pre>
+          <span class="na">hostSubnet</span><span class="pi">:</span> <span class="m">24</span>
+    <span class="na">transport</span><span class="pi">:</span> <span class="s">&lt;transport_protocol&gt;</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3869,6 +3911,10 @@ This field specifies the topology configuration. It can be <code>layer2</code> o
 </li>
 </ul>
 </div>
+</dd>
+<dt class="hdlist1"><code>spec.network.transport</code></dt>
+<dd>
+<p>Specifies how pod traffic is carried on the cluster infrastructure for the <code>ClusterUserDefinedNetwork</code> CR. Accepted value is <code>EVPN</code>. Additional configuration is required when setting the <code>spec.network.transport</code> field. This field is optional. For more information, see "About BGP EVPN for primary cluster user-defined networks".</p>
 </dd>
 </dl>
 </div>
@@ -4701,6 +4747,12 @@ When omitted, all IP addresses in the <code>subnets</code> field are available f
 <td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the name for a physical network interface. The value you specify must match the <code>network-name</code> parameter that you provided in your Open vSwitch (OVS) bridge mapping.</p></td>
 </tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.network.transport</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies how pod traffic is carried on the cluster infrastructure for the <code>ClusterUserDefinedNetwork</code> CR. Accepted value is <code>EVPN</code>. Additional configuration is required when setting the <code>spec.network.transport</code> field. For more information, see "About BGP EVPN for primary cluster user-defined networks".</p></td>
+</tr>
 </tbody>
 </table>
 <div class="paragraph">
@@ -5331,6 +5383,18 @@ When omitted, all IP addresses in the <code>subnets</code> field are available f
 </td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="user-defined-networks-additional-resources_user-defined-networks"><a class="anchor" href="#user-defined-networks-additional-resources_user-defined-networks"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="../../../networking/advanced_networking/bgp_evpn_udn/about-bgp-evpn-user-defined-networks.html#about-bgp-evpn-user-defined-networks">About BGP EVPN for primary cluster user-defined networks</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
