@@ -1771,7 +1771,6 @@
             <li><a class="" href="../../../applications/pruning-objects.html">Pruning objects to reclaim resources</a></li>
             <li><a class="" href="../../../applications/idling-applications.html">Idling applications</a></li>
             <li><a class="" href="../../../applications/odc-deleting-applications.html">Deleting applications</a></li>
-            <li><a class="" href="../../../applications/red-hat-marketplace.html">Using the Red Hat Marketplace</a></li>
       </ul>
     </li>
     <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup21"><span id="tgSpan21" class="fa fa-angle-right"></span>Serverless</a>
@@ -3337,16 +3336,13 @@
 <li><a href="#nw-configuring-clb-timeouts_configuring-ingress-cluster-traffic-aws">Configuring Classic Load Balancer timeouts</a></li>
 </ul>
 </li>
-<li><a href="#nw-configuring-ingress-cluster-traffic-aws-network-load-balancer_configuring-ingress-cluster-traffic-aws">Configuring ingress cluster traffic on AWS using a Network Load Balancer</a>
+<li><a href="#nw-configuring-ingress-cluster-traffic-aws-network-load-balancer_configuring-ingress-cluster-traffic-aws">Configuring ingress cluster traffic on AWS using a Network Load Balancer</a></li>
+<li><a href="#nw-aws-ingress-nlb-dual-stack_configuring-ingress-cluster-traffic-aws">Dual-stack networking for the Ingress Controller load balancer on AWS</a>
 <ul class="sectlevel2">
 <li><a href="#nw-aws-switching-clb-with-nlb_configuring-ingress-cluster-traffic-aws">Switching the Ingress Controller from using a Classic Load Balancer to a Network Load Balancer</a></li>
 <li><a href="#nw-aws-switching-nlb-with-clb_configuring-ingress-cluster-traffic-aws">Switching the Ingress Controller from using a Network Load Balancer to a Classic Load Balancer</a></li>
 <li><a href="#nw-aws-replacing-clb-with-nlb_configuring-ingress-cluster-traffic-aws">Replacing Ingress Controller Classic Load Balancer with Network Load Balancer</a></li>
 <li><a href="#nw-aws-nlb-existing-cluster_configuring-ingress-cluster-traffic-aws">Configuring an Ingress Controller Network Load Balancer on an existing AWS cluster</a></li>
-</ul>
-</li>
-<li><a href="#additional-resources">Additional resources</a>
-<ul class="sectlevel2">
 <li><a href="#nw-aws-nlb-new-cluster_configuring-ingress-cluster-traffic-aws">Configuring an Ingress Controller Network Load Balancer on a new AWS cluster</a></li>
 <li><a href="#nw-ingress-setting-select-subnet-Loadbalancerservice_configuring-ingress-cluster-traffic-aws">Choosing subnets while creating a LoadBalancerService Ingress Controller</a></li>
 <li><a href="#nw-ingress-setting-update-subnet-Loadbalancerservice_configuring-ingress-cluster-traffic-aws">Updating the subnets on an existing Ingress Controller</a></li>
@@ -3360,20 +3356,17 @@
 <p>OpenShift Container Platform provides methods for communicating from outside the cluster with services running in the cluster. This method uses load balancers on Amazon Web Services (AWS), specifically a Network Load Balancer (NLB) or a Classic Load Balancer (CLB). Both types of load balancers can forward the IP address of the client to the node, but a CLB requires proxy protocol support, which OpenShift Container Platform automatically enables.</p>
 </div>
 <div class="paragraph">
-<p>There are two ways to configure an Ingress Controller to use an NLB:</p>
+<p>There are two ways to switch an Ingress Controller from using a CLB to using an NLB. Use only one of these approaches for a given Ingress Controller; do not combine them.</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>By force replacing the Ingress Controller that is currently using a CLB. This deletes the <code>IngressController</code> object and an outage occurs while the new DNS records propagate and the NLB is being provisioned.</p>
+<p>Force replace the Ingress Controller that is currently using a CLB. This deletes the <code>IngressController</code> object and an outage occurs while the new DNS records propagate and the NLB is being provisioned.</p>
 </li>
 <li>
-<p>By editing an existing Ingress Controller that uses a CLB to then use an NLB. This changes the load balancer without having to delete and recreate the <code>IngressController</code> object.</p>
+<p>Edit the existing <code>IngressController</code> to set <code>spec.endpointPublishingStrategy.loadBalancer.providerParameters.aws.type</code> to <code>NLB</code>. Starting in OpenShift Container Platform 4.22, the cloud controller does not reprovision the load balancer automatically. The <code>IngressController</code> displays a <code>Progressing</code> condition stating that you must delete the router <code>Service</code> in the <code>openshift-ingress</code> namespace so that a new load balancer can be created. That interruption can change the load balancer hostname and IP addresses. Complete the subnets update procedure to read the <code>Progressing</code> condition and delete the router <code>Service</code>.</p>
 </li>
 </ol>
-</div>
-<div class="paragraph">
-<p>Both methods can be used to switch from an NLB to a CLB.</p>
 </div>
 <div class="paragraph">
 <p>You can configure these load balancers on a new or existing AWS cluster.</p>
@@ -3509,6 +3502,40 @@
 <div class="sectionbody">
 <div class="paragraph _abstract">
 <p>To enable high-performance communication between external services and your OpenShift Container Platform cluster, configure an Amazon Web Services Network Load Balancer (NLB). You can set up an NLB on a new or existing AWS cluster to manage ingress traffic with low latency.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-aws-ingress-nlb-dual-stack_configuring-ingress-cluster-traffic-aws"><a class="anchor" href="#nw-aws-ingress-nlb-dual-stack_configuring-ingress-cluster-traffic-aws"></a>Dual-stack networking for the Ingress Controller load balancer on AWS</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>On Amazon Web Services, an Ingress Controller must use a publishing <code>Service</code> type Network Load Balancer (NLB) to enable publishing over IPv4 and IPv6 when the cluster runs AWS dual-stack networking. A Classic Load Balancer (CLB) does not support the dual-stack publishing path.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Dual-stack networking for OpenShift Container Platform on Amazon Web Services is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>If your Ingress Controller uses an NLB and the cluster-scoped <code>Infrastructure</code> resource named <code>cluster</code> contains <code>DualStackIPv4Primary</code> or <code>DualStackIPv6Primary</code> in the <code>status.platformStatus.aws.ipFamily</code> field, the Ingress Operator sets the Ingress Controller load balancer <code>Service</code> to dual-stack IP families.</p>
+</div>
+<div class="paragraph">
+<p>The <code>Service</code> lists IPv4 first for <code>DualStackIPv4Primary</code> and IPv6 first for <code>DualStackIPv6Primary</code>.</p>
+</div>
+<div class="paragraph">
+<p>If the Ingress Controller uses a CLB and the cluster runs AWS dual-stack networking, the publishing load balancer stays IPv4-only. To expose the Ingress Controller over IPv4 and IPv6, you must configure the Ingress Controller to use an NLB.</p>
 </div>
 <div class="sect2">
 <h3 id="nw-aws-switching-clb-with-nlb_configuring-ingress-cluster-traffic-aws"><a class="anchor" href="#nw-aws-switching-clb-with-nlb_configuring-ingress-cluster-traffic-aws"></a>Switching the Ingress Controller from using a Classic Load Balancer to a Network Load Balancer</h3>
@@ -3944,18 +3971,6 @@
 </li>
 </ol>
 </div>
-</div>
-</div>
-</div>
-<div class="sect1 _additional-resources">
-<h2 id="additional-resources"><a class="anchor" href="#additional-resources"></a>Additional resources</h2>
-<div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p><a href="../../../installing/installing_aws/ipi/installing-aws-customizations.html#installation-initializing_installing-aws-customizations">Creating the installation configuration file</a></p>
-</li>
-</ul>
 </div>
 <div class="sect2">
 <h3 id="nw-aws-nlb-new-cluster_configuring-ingress-cluster-traffic-aws"><a class="anchor" href="#nw-aws-nlb-new-cluster_configuring-ingress-cluster-traffic-aws"></a>Configuring an Ingress Controller Network Load Balancer on a new AWS cluster</h3>
@@ -4442,6 +4457,18 @@ type: Progressing</span></code></pre>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
+<li>
+<p><a href="../../../networking/ovn_kubernetes_network_provider/converting-to-dual-stack.html#nw-dual-stack-convert_converting-to-dual-stack">Converting to a dual-stack cluster network</a></p>
+</li>
+<li>
+<p><a href="../../../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling-features">Enabling features using feature gates</a></p>
+</li>
+<li>
+<p><a href="../../../installing/installing_aws/ipi/installing-aws-customizations.html#installation-initializing_installing-aws-customizations">Creating the installation configuration file</a></p>
+</li>
+<li>
+<p><a href="../../../rest_api/config_apis/infrastructure-config-openshift-io-v1.html#infrastructure-config-openshift-io-v1">Infrastructure cluster configuration API</a></p>
+</li>
 <li>
 <p><a href="../../../installing/installing_aws/ipi/installing-aws-customizations.html#installing-aws-customizations">Installing a cluster on AWS with network customizations</a></p>
 </li>

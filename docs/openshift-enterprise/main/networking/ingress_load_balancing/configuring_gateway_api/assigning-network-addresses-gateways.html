@@ -1771,7 +1771,6 @@
             <li><a class="" href="../../../applications/pruning-objects.html">Pruning objects to reclaim resources</a></li>
             <li><a class="" href="../../../applications/idling-applications.html">Idling applications</a></li>
             <li><a class="" href="../../../applications/odc-deleting-applications.html">Deleting applications</a></li>
-            <li><a class="" href="../../../applications/red-hat-marketplace.html">Using the Red Hat Marketplace</a></li>
       </ul>
     </li>
     <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup21"><span id="tgSpan21" class="fa fa-angle-right"></span>Serverless</a>
@@ -3336,19 +3335,21 @@
 <li><a href="#address-types">Address types</a></li>
 </ul>
 </li>
+<li><a href="#on-premise-gateway-routing-requirements_assigning-network-addresses-gateways">On-premise gateway routing requirements</a></li>
 <li><a href="#configuring-automatic-address-assignment-gateway_assigning-network-addresses-gateways">Configure automatic address assignment for a gateway</a></li>
 <li><a href="#configuring-internal-lb-gateway_assigning-network-addresses-gateways">Configure an internal load balancer for a gateway</a>
 <ul class="sectlevel2">
 <li><a href="#internal-lb-annotations-reference_assigning-network-addresses-gateways">Cloud provider annotations for internal load balancers</a></li>
 </ul>
 </li>
+<li><a href="#configuring-dns-on-premise-gateways_assigning-network-addresses-gateways">Configuring DNS for on-premise gateways</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>You can configure network addresses for your gateway to provide a predictable entry point for external and internal traffic. This ensures that clients can reliably resolve and route requests to your load balancers. Gateway API uses addresses to define the specific network locations that are assigned to your <code>Gateway</code> resource.</p>
+<p>You can configure network addresses for your gateway to provide a predictable entry point for external and internal traffic. This ensures that clients can reliably resolve and route requests to your load balancers.</p>
 </div>
 <div class="paragraph">
-<p>In OpenShift Container Platform, you rely on the gateway controller to automatically provision and bind the necessary network addresses, such as an external or internal load balancer IP, to your gateway. The controller then populates the <code>status.addresses</code> field of the <code>Gateway</code> resource with the assigned addresses once they are available.</p>
+<p>Gateway API uses addresses to define the specific network locations that are assigned to your <code>Gateway</code> resource. In OpenShift Container Platform, you rely on the gateway controller to automatically provision and bind the necessary network addresses, such as an external or internal load balancer IP, to your gateway. On on-premise environments, this automatic provisioning requires a configured load balancer controller.</p>
 </div>
 <div class="paragraph">
 <p>To successfully assign network addresses to your gateway, complete the following tasks:</p>
@@ -3359,6 +3360,9 @@
 <p>Understand gateway address assignment and types to plan your DNS and load balancer configuration.</p>
 </li>
 <li>
+<p>Understand on-premise gateway routing requirements to ensure your infrastructure can support Gateway API.</p>
+</li>
+<li>
 <p>Configure automatic address assignment for a gateway to successfully deploy it without violating manual address constraints.</p>
 </li>
 <li>
@@ -3366,6 +3370,9 @@
 </li>
 <li>
 <p>Review cloud provider annotations to ensure your internal load balancer provisions correctly on your specific infrastructure.</p>
+</li>
+<li>
+<p>Configure DNS for on-premise gateways to ensure clients can reliably resolve your gateway.</p>
 </li>
 </ul>
 </div>
@@ -3411,6 +3418,44 @@
 </dd>
 </dl>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="on-premise-gateway-routing-requirements_assigning-network-addresses-gateways"><a class="anchor" href="#on-premise-gateway-routing-requirements_assigning-network-addresses-gateways"></a>On-premise gateway routing requirements</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Understand the specific routing and load balancing requirements for on-premise Gateway API deployments to ensure your gateway functions correctly.</p>
+</div>
+<div class="paragraph">
+<p>Unlike cloud environments where load balancers are dynamically provisioned, on-premise clusters require a preconfigured load balancer controller. Red Hat tests and certifies Gateway API on on-premise platforms specifically with MetalLB.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you attempt to use Gateway API on an on-premise cluster without a functional load balancer controller, the gateway service will remain in a "pending" state indefinitely.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Additionally, be aware of the following topology and load balancer limitations for on-premise environments:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Third-party load balancers: Red Hat does not currently test Gateway API with third-party load balancers such as F5 or Avi Kubernetes Operator (AKO). If you use an untested load balancer, the cluster administrator is responsible for ensuring it is configured and working properly.</p>
+</li>
+<li>
+<p>Unsupported topologies: Environments without a load balancer controller are not supported. For example, you cannot use annotations to enforce a <code>NodePort</code> service type in place of a load balancer.</p>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -3633,6 +3678,59 @@
 </tr>
 </tbody>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="configuring-dns-on-premise-gateways_assigning-network-addresses-gateways"><a class="anchor" href="#configuring-dns-on-premise-gateways_assigning-network-addresses-gateways"></a>Configuring DNS for on-premise gateways</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Configure DNS records manually on on-premise environments to ensure clients can reliably resolve your gateway.</p>
+</div>
+<div class="paragraph">
+<p>Although the Ingress Operator automatically creates a <code>DNSRecord</code> custom resource (CR) using the hostname from the listener, this record is marked as "unmanaged" on on-premise platforms because the cluster Ingress Operator does not implement on-premise DNS providers. You must manually configure DNS records to point to the IP address of your load balancer.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have configured a load balancer controller, such as MetalLB, for your cluster.</p>
+</li>
+<li>
+<p>Your gateway has been assigned an external network address by the load balancer.</p>
+</li>
+<li>
+<p>Your gateway is located in the <code>openshift-ingress</code> namespace.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Retrieve the external IP address assigned to your gateway by the load balancer by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-ingress get gateway &lt;gateway_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note the IP address listed in the <code>ADDRESS</code> column.</p>
+</div>
+</li>
+<li>
+<p>Access your organization&#8217;s DNS provider or server.</p>
+</li>
+<li>
+<p>Create a DNS record, such as an A record or wildcard A record, that maps the listener&#8217;s hostname to the external IP address of your gateway.</p>
+</li>
+</ol>
 </div>
 </div>
 </div>

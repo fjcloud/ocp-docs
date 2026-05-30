@@ -1237,7 +1237,11 @@
 <li><a href="#rosa-operator-config_rosa-hcp-sts-creating-a-cluster-quickly">Creating Operator roles and policies</a></li>
 </ul>
 </li>
-<li><a href="#rosa-hcp-sts-creating-a-cluster-cli_rosa-hcp-sts-creating-a-cluster-quickly">Creating a Red Hat OpenShift Service on AWS cluster using the CLI</a></li>
+<li><a href="#rosa-hcp-sts-creating-a-cluster-cli_rosa-hcp-sts-creating-a-cluster-quickly">Creating a Red Hat OpenShift Service on AWS cluster using the CLI</a>
+<ul class="sectlevel2">
+<li><a href="#rosa-hcp-sts-external-id_rosa-hcp-sts-creating-a-cluster-quickly">About external ID</a></li>
+</ul>
+</li>
 <li><a href="#additional-resources_rosa-sts-creating-a-cluster-quickly">Additional resources</a></li>
 </ul>
 </div>
@@ -2074,6 +2078,20 @@ TAGS    kubernetes.io/role/elb  &lt;subnet-id&gt;        subnet  1</code></pre>
 </li>
 </ol>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>As an additional safeguard, after role creation, you can manually update the trust policies of the Support and Installer account-wide roles to include an external ID. For more information, see <em>About external ID</em>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
@@ -2448,7 +2466,7 @@ ROLE PREFIX  AMOUNT IN BUNDLE
 </dd>
 <dt class="hdlist1"><code>&lt;external-id&gt;</code></dt>
 <dd>
-<p>Optional. A unique identifier that might be required when you assume a role in another account.</p>
+<p>Optional. A unique identifier that might be required when you assume a role in another account. For more information about external ID, see <em>About external ID</em>.</p>
 </dd>
 </dl>
 </div>
@@ -2545,6 +2563,86 @@ ROLE PREFIX  AMOUNT IN BUNDLE
 </div>
 </li>
 </ol>
+</div>
+<div class="sect2">
+<h3 id="rosa-hcp-sts-external-id_rosa-hcp-sts-creating-a-cluster-quickly"><a class="anchor" href="#rosa-hcp-sts-external-id_rosa-hcp-sts-creating-a-cluster-quickly"></a>About external ID</h3>
+<div class="paragraph _abstract">
+<p>An external ID functions as a unique, separate, identifier embedded within your Red Hat OpenShift Service on AWS account-wide roles, blocking unauthorized third-party access.</p>
+</div>
+<div class="paragraph">
+<p>During cluster creation, you might be asked to supply an external ID. This serves as an additional safeguard that prevents cross-account identity spoofing, ensuring that no one else can trigger automation against your AWS infrastructure.</p>
+</div>
+<div class="paragraph">
+<p>When Red&#160;Hat&#8217;s automation plane issues an <code>sts:AssumeRole</code> API call to your account to manage cluster resources, it must present this exact identifier. If the string does not match the condition block defined in your AWS IAM trust relationship, AWS automatically blocks the request. This ensures Red&#160;Hat&#8217;s automation can only access your environment when explicitly acting on behalf of your organization.</p>
+</div>
+<div class="paragraph">
+<p>When you assign an external ID, it is applied to both the Support IAM role and the Installer IAM role, through their associated trust policies:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Support role: when Red&#160;Hat Site Reliability Engineers (SREs) need to perform diagnostic, maintenance or any other support function, they assume this role.</p>
+<div class="listingblock">
+<div class="title">Example support trust policy with an external ID <code>sts_hcp_support_trust_policy.json</code></div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+    </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+            </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="nl">"AWS"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::710019948333:role/RH-Technical-Support-15234082"</span><span class="w">
+            </span><span class="p">},</span><span class="w">
+            </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts:AssumeRole"</span><span class="p">,</span><span class="w">
+            </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+              </span><span class="nl">"StringEquals"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+                </span><span class="nl">"sts:ExternalID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;external_id&gt;"</span><span class="w">
+              </span><span class="p">}</span><span class="w">
+           </span><span class="p">}</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+    </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Installer role: when Red Hat OpenShift Cluster Manager (OCM) automation needs to provision, scale or delete core cluster infrastructure, it assumes this role.</p>
+<div class="listingblock">
+<div class="title">Example installer trust policy with an external ID <code>sts_hcp_installer_trust_policy.json</code></div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+    </span><span class="nl">"Version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2012-10-17"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"Statement"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+        </span><span class="p">{</span><span class="w">
+           </span><span class="nl">"Effect"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Allow"</span><span class="p">,</span><span class="w">
+           </span><span class="nl">"Principal"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+               </span><span class="nl">"AWS"</span><span class="p">:</span><span class="w"> </span><span class="s2">"arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"</span><span class="w">
+           </span><span class="p">},</span><span class="w">
+           </span><span class="nl">"Action"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sts:AssumeRole"</span><span class="p">,</span><span class="w">
+           </span><span class="nl">"Condition"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+             </span><span class="nl">"StringEquals"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+               </span><span class="nl">"sts:ExternalID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;external_id&gt;"</span><span class="w">
+             </span><span class="p">}</span><span class="w">
+          </span><span class="p">}</span><span class="w">
+        </span><span class="p">}</span><span class="w">
+    </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_common-scenarios_third-party.html#id_roles_third-party_example">Example scenario using an external ID</a></p>
+</li>
+<li>
+<p><a href="https://aws.amazon.com/blogs/apn/securely-using-external-id-for-accessing-aws-accounts-owned-by-others/">Securely using external ID for accessing AWS accounts owned by others</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
