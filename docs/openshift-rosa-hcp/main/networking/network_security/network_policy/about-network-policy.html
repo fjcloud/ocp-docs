@@ -1217,7 +1217,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            About network policy
+            Creating a network policy
           </h1>
         </div>
         
@@ -1227,13 +1227,22 @@
 <ul class="sectlevel1">
 <li><a href="#nw-networkpolicy-about_about-network-policy">About network policy</a>
 <ul class="sectlevel2">
-<li><a href="#nw-networkpolicy-allow-from-router_about-network-policy">Using the allow-from-router network policy</a></li>
-<li><a href="#nw-networkpolicy-allow-from-hostnetwork_about-network-policy">Using the allow-from-hostnetwork network policy</a></li>
+<li><a href="#nw-networkpolicy-additive_about-network-policy">Policy additivity</a></li>
+<li><a href="#nw-networkpolicy-default-core-components_about-network-policy">Default network policies for core Red Hat OpenShift Service on AWS  components</a></li>
 </ul>
 </li>
 <li><a href="#nw-networkpolicy-optimize-ovn_about-network-policy">Optimizations for network policy with OVN-Kubernetes network plugin</a>
 <ul class="sectlevel2">
 <li><a href="#nw-networkpolicy-external-ip-ovn_about-network-policy">NetworkPolicy CR and external IPs in OVN-Kubernetes</a></li>
+</ul>
+</li>
+<li><a href="#nw-network-policy-examples_about-network-policy">Network policy examples</a>
+<ul class="sectlevel2">
+<li><a href="#nw-network-policy-deny-all_about-network-policy">Example: Deny all traffic</a></li>
+<li><a href="#nw-network-policy-allow-ingress_about-network-policy">Example: Allow connections from the Ingress Controller</a></li>
+<li><a href="#nw-network-policy-allow-same-namespace_about-network-policy">Example: Allow connections from pods in the same project</a></li>
+<li><a href="#nw-network-policy-allow-http-https_about-network-policy">Example: Allow HTTP and HTTPS traffic based on pod labels</a></li>
+<li><a href="#nw-network-policy-allow-pod-namespace_about-network-policy">Example: Accept connections using both namespace and pod selectors</a></li>
 </ul>
 </li>
 <li><a href="#about-network-policy-next-steps">Next steps</a></li>
@@ -1242,7 +1251,7 @@
 <div id="preamble">
 <div class="sectionbody">
 <!-- toc disabled -->
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>As a developer, you can define network policies that restrict traffic to pods in your cluster.</p>
 </div>
 </div>
@@ -1250,255 +1259,91 @@
 <div class="sect1">
 <h2 id="nw-networkpolicy-about_about-network-policy"><a class="anchor" href="#nw-networkpolicy-about_about-network-policy"></a>About network policy</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>By default, all pods in a project are accessible from other pods and network endpoints. To isolate one or more pods in a project, you can create <code>NetworkPolicy</code> objects in that project to indicate the allowed incoming connections. Project administrators can create and delete <code>NetworkPolicy</code> objects within their own project.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>From Red Hat OpenShift Service on AWS 4.22, Red Hat OpenShift Service on AWS now includes <code>NetworkPolicy</code> objects in some of its own namespaces by default. This inclusion improves overall security and better protects control plane components. Do not modify the <code>NetworkPolicy</code> objects that Red Hat OpenShift Service on AWS includes in its own namespaces by default. To check the namespaces that include the objects by default, you can run the following command:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get networkpolicies <span class="nt">--all-namespaces</span></code></pre>
-</div>
+<div class="paragraph _abstract">
+<p>To isolate workloads, project administrators can create <code>NetworkPolicy</code> objects to define and manage allowed incoming connections.</p>
 </div>
 <div class="paragraph">
-<p>The Red Hat OpenShift Service on AWS 4.22 release does not include these objects in all Red Hat OpenShift Service on AWS namespaces; later Red Hat OpenShift Service on AWS releases might include the objects in additional namespaces.</p>
-</div>
-</td>
-</tr>
-</table>
+<p>By default, all pods in a project are accessible from any network endpoint.</p>
 </div>
 <div class="paragraph">
-<p>If a pod is matched by selectors in one or more <code>NetworkPolicy</code> objects, then the pod will accept only connections that are allowed by at least one of those <code>NetworkPolicy</code> objects. A pod that is not selected by any <code>NetworkPolicy</code> objects is fully accessible.</p>
+<p>If a pod is matched by selectors in one or more <code>NetworkPolicy</code> objects, then the pod accepts only connections that are allowed by at least one of those <code>NetworkPolicy</code> objects. A pod that is not selected by any <code>NetworkPolicy</code> objects remains fully accessible.</p>
 </div>
-<div class="paragraph">
-<p>A network policy applies to only the Transmission Control Protocol (TCP), User Datagram Protocol (UDP), Internet Control Message Protocol (ICMP), and Stream Control Transmission Protocol (SCTP) protocols. Other protocols are not affected.</p>
-</div>
-<div class="admonitionblock warning">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-warning" title="Warning"></i>
-</td>
-<td class="content">
-<div class="ulist">
-<ul>
-<li>
-<p>A network policy does not apply to the host network namespace. Pods with host networking enabled are unaffected by network policy rules. However, pods connecting to the host-networked pods might be affected by the network policy rules.</p>
-</li>
-<li>
-<p>Using the <code>namespaceSelector</code> field without the <code>podSelector</code> field set to <code>{}</code> will not include <code>hostNetwork</code> pods. You must use the <code>podSelector</code> set to <code>{}</code> with the <code>namespaceSelector</code> field in order to target <code>hostNetwork</code> pods when creating network policies.</p>
-</li>
-<li>
-<p>Network policies cannot block traffic from localhost or from their resident nodes.</p>
-</li>
-<li>
-<p>When creating a network policy, do not apply the <code>network.openshift.io/policy-group: ingress</code> label to custom namespace or projects. This label is Operator-managed and reserved for Red Hat OpenShift Service on AWS networking functions. It should not be altered on system-created namespaces.</p>
-<div class="paragraph">
-<p>Using this label can result in intermittent network connectivity drops, unintended application of system <code>NetworkPolicies</code> resource, or configuration drift as the operator attempts to reconcile the state. For custom traffic grouping, always use unique, user-defined labels as shown in the following procedure.</p>
-</div>
-</li>
-</ul>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>The following example <code>NetworkPolicy</code> objects demonstrate supporting different scenarios:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Deny all traffic:</p>
-<div class="paragraph">
-<p>To make a project deny by default, add a <code>NetworkPolicy</code> object that matches all pods but accepts no traffic:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">deny-by-default</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
-  <span class="na">ingress</span><span class="pi">:</span> <span class="pi">[]</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Only allow connections from the Red Hat OpenShift Service on AWS Ingress Controller:</p>
-<div class="paragraph">
-<p>To make a project allow only connections from the Red Hat OpenShift Service on AWS Ingress Controller, add the following <code>NetworkPolicy</code> object.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-from-openshift-ingress</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">ingress</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
-        <span class="na">matchLabels</span><span class="pi">:</span>
-          <span class="s">policy-group.network.openshift.io/ingress</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
-  <span class="na">policyTypes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Ingress</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Only accept connections from pods within a project:</p>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>To allow ingress connections from <code>hostNetwork</code> pods in the same namespace, you need to apply the <code>allow-from-hostnetwork</code> policy together with the <code>allow-same-namespace</code> policy.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>To make pods accept connections from other pods in the same project, but reject all other connections from pods in other projects, add the following <code>NetworkPolicy</code> object:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-same-namespace</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
-  <span class="na">ingress</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Only allow HTTP and HTTPS traffic based on pod labels:</p>
-<div class="paragraph">
-<p>To enable only HTTP and HTTPS access to the pods with a specific label (<code>role=frontend</code> in following example), add a <code>NetworkPolicy</code> object similar to the following:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-http-and-https</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">podSelector</span><span class="pi">:</span>
-    <span class="na">matchLabels</span><span class="pi">:</span>
-      <span class="na">role</span><span class="pi">:</span> <span class="s">frontend</span>
-  <span class="na">ingress</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">ports</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
-      <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
-    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
-      <span class="na">port</span><span class="pi">:</span> <span class="s">443</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Accept connections by using both namespace and pod selectors:</p>
-<div class="paragraph">
-<p>To match network traffic by combining namespace and pod selectors, you can use a <code>NetworkPolicy</code> object similar to the following:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-pod-and-namespace-both</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">podSelector</span><span class="pi">:</span>
-    <span class="na">matchLabels</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">test-pods</span>
-  <span class="na">ingress</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
-          <span class="na">matchLabels</span><span class="pi">:</span>
-            <span class="na">project</span><span class="pi">:</span> <span class="s">project_name</span>
-        <span class="na">podSelector</span><span class="pi">:</span>
-          <span class="na">matchLabels</span><span class="pi">:</span>
-            <span class="na">name</span><span class="pi">:</span> <span class="s">test-pods</span></code></pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
+<div class="sect2">
+<h3 id="nw-networkpolicy-additive_about-network-policy"><a class="anchor" href="#nw-networkpolicy-additive_about-network-policy"></a>Policy additivity</h3>
 <div class="paragraph">
 <p><code>NetworkPolicy</code> objects are additive, which means you can combine multiple <code>NetworkPolicy</code> objects together to satisfy complex network requirements.</p>
 </div>
 <div class="paragraph">
-<p>For example, for the <code>NetworkPolicy</code> objects defined in previous samples, you can define both <code>allow-same-namespace</code> and <code>allow-http-and-https</code> policies within the same project. Thus allowing the pods with the label <code>role=frontend</code>, to accept any connection allowed by each policy. That is, connections on any port from pods in the same namespace, and connections on ports <code>80</code> and <code>443</code> from pods in any namespace.</p>
+<p>For example, if you define both an <code>allow-same-namespace</code> policy and an <code>allow-http-and-https</code> policy within the same project, pods with the <code>role=frontend</code> label accept any connection allowed by either policy.</p>
+</div>
+<div class="paragraph">
+<p>This means the pods accept:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Connections on any port from pods in the same namespace.</p>
+</li>
+<li>
+<p>Connections on ports <code>80</code> and <code>443</code> from pods in any namespace.</p>
+</li>
+</ul>
+</div>
 </div>
 <div class="sect2">
-<h3 id="nw-networkpolicy-allow-from-router_about-network-policy"><a class="anchor" href="#nw-networkpolicy-allow-from-router_about-network-policy"></a>Using the allow-from-router network policy</h3>
+<h3 id="nw-networkpolicy-default-core-components_about-network-policy"><a class="anchor" href="#nw-networkpolicy-default-core-components_about-network-policy"></a>Default network policies for core Red Hat OpenShift Service on AWS  components</h3>
 <div class="paragraph">
-<p>Use the following <code>NetworkPolicy</code> to allow external traffic regardless of the router configuration:</p>
+<p>To reduce the cluster attack surface and ensure predictable network behavior, Red Hat OpenShift Service on AWS enforces least-privilege network policies on critical networking components.</p>
 </div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-from-router</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">ingress</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
-        <span class="na">matchLabels</span><span class="pi">:</span>
-          <span class="s">policy-group.network.openshift.io/ingress</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span><i class="conum" data-value="1"></i><b>(1)</b>
-  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
-  <span class="na">policyTypes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Ingress</span></code></pre>
+<div class="paragraph">
+<p>The operators that manage cluster DNS and cluster Ingress automatically install and maintain default "deny-all" <code>NetworkPolicy</code> objects in their respective namespaces.</p>
 </div>
+<div class="paragraph">
+<p>Traffic is controlled using targeted "allow" policies in the following namespaces:</p>
 </div>
-<div class="colist arabic">
+<div class="ulist">
+<ul>
+<li>
+<p>DNS component namespaces (<code>openshift-dns</code> and <code>openshift-dns-operator</code>):</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Egress is limited to the API server and required DNS ports.</p>
+</li>
+<li>
+<p>Ingress is restricted to essential DNS traffic and metrics.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Ingress component namespaces (<code>openshift-ingress</code> and <code>openshift-ingress-operator</code>):</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Egress is limited to the API server, DNS ports, and route endpoints.</p>
+</li>
+<li>
+<p>Ingress is restricted to HTTP/HTTPS traffic and metrics.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
 <table>
 <tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>policy-group.network.openshift.io/ingress:""</code> label supports OVN-Kubernetes.</td>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not run unmanaged or custom pods in these namespaces. Because these namespaces operate on a deny-by-default model, network traffic for any unmanaged containers running in these namespaces will be blocked.</p>
+</div>
+</td>
 </tr>
 </table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="nw-networkpolicy-allow-from-hostnetwork_about-network-policy"><a class="anchor" href="#nw-networkpolicy-allow-from-hostnetwork_about-network-policy"></a>Using the allow-from-hostnetwork network policy</h3>
-<div class="paragraph">
-<p>Add the following <code>allow-from-hostnetwork</code> <code>NetworkPolicy</code> object to direct traffic from the host network pods.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-from-hostnetwork</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">ingress</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
-        <span class="na">matchLabels</span><span class="pi">:</span>
-          <span class="s">policy-group.network.openshift.io/host-network</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
-  <span class="na">policyTypes</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">Ingress</span></code></pre>
-</div>
 </div>
 </div>
 </div>
@@ -1670,6 +1515,140 @@
 </div>
 <div class="paragraph">
 <p>For more details, see "About network policy".</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-network-policy-examples_about-network-policy"><a class="anchor" href="#nw-network-policy-examples_about-network-policy"></a>Network policy examples</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can define network policies that restrict traffic to pods in your cluster.</p>
+</div>
+<div class="paragraph">
+<p>The following examples show <code>NetworkPolicy</code> objects for different traffic scenarios.</p>
+</div>
+<div class="sect2">
+<h3 id="nw-network-policy-deny-all_about-network-policy"><a class="anchor" href="#nw-network-policy-deny-all_about-network-policy"></a>Example: Deny all traffic</h3>
+<div class="paragraph">
+<p>To make a project deny traffic by default, add a <code>NetworkPolicy</code> object that matches all pods but accepts no traffic.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">deny-by-default</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">ingress</span><span class="pi">:</span> <span class="pi">[]</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nw-network-policy-allow-ingress_about-network-policy"><a class="anchor" href="#nw-network-policy-allow-ingress_about-network-policy"></a>Example: Allow connections from the Ingress Controller</h3>
+<div class="paragraph">
+<p>To allow only connections from the Red Hat OpenShift Service on AWS Ingress Controller, add the following <code>NetworkPolicy</code> object.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-from-openshift-ingress</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">ingress</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
+        <span class="na">matchLabels</span><span class="pi">:</span>
+          <span class="s">policy-group.network.openshift.io/ingress</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">policyTypes</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">Ingress</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nw-network-policy-allow-same-namespace_about-network-policy"><a class="anchor" href="#nw-network-policy-allow-same-namespace_about-network-policy"></a>Example: Allow connections from pods in the same project</h3>
+<div class="paragraph">
+<p>To allow pods to accept connections from other pods in the same project while rejecting connections from other projects, add the following object.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>To allow ingress connections from <code>hostNetwork</code> pods in the same namespace, you must apply the <code>allow-from-hostnetwork</code> policy together with the <code>allow-same-namespace</code> policy.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-same-namespace</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">ingress</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">podSelector</span><span class="pi">:</span> <span class="pi">{}</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nw-network-policy-allow-http-https_about-network-policy"><a class="anchor" href="#nw-network-policy-allow-http-https_about-network-policy"></a>Example: Allow HTTP and HTTPS traffic based on pod labels</h3>
+<div class="paragraph">
+<p>To enable only HTTP and HTTPS access to pods with a specific label, such as <code>role=frontend</code>, use an object similar to the following.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-http-and-https</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">podSelector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">role</span><span class="pi">:</span> <span class="s">frontend</span>
+  <span class="na">ingress</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">ports</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
+    <span class="pi">-</span> <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
+      <span class="na">port</span><span class="pi">:</span> <span class="s">443</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nw-network-policy-allow-pod-namespace_about-network-policy"><a class="anchor" href="#nw-network-policy-allow-pod-namespace_about-network-policy"></a>Example: Accept connections using both namespace and pod selectors</h3>
+<div class="paragraph">
+<p>To match network traffic by combining namespace and pod selectors, use an object similar to the following.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">NetworkPolicy</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">networking.k8s.io/v1</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">allow-pod-and-namespace-both</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">podSelector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">test-pods</span>
+  <span class="na">ingress</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">from</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">namespaceSelector</span><span class="pi">:</span>
+          <span class="na">matchLabels</span><span class="pi">:</span>
+            <span class="na">project</span><span class="pi">:</span> <span class="s">project_name</span>
+        <span class="na">podSelector</span><span class="pi">:</span>
+          <span class="na">matchLabels</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">test-pods</span></code></pre>
+</div>
 </div>
 </div>
 </div>

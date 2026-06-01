@@ -2740,6 +2740,15 @@
             </li>
       </ul>
     </li>
+    <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup35"><span id="tgSpan35" class="fa fa-angle-right"></span>AI applications</a>
+      <ul id="topicGroup35" class="collapse  list-unstyled">
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-35-0"><span id="sgSpan-35-0" class="fa fa-caret-right"></span>&nbsp;MCP server</a>
+              <ul id="topicSubGroup-35-0" class="nav-tertiary list-unstyled collapse">
+
+                  <li><a class="" href="../../ai_applications/mcp_server/mcp-server-overview.html">MCP server overview</a></li>              </ul>
+            </li>
+      </ul>
+    </li>
 </ul>
       </div>
       <div id="hc-search-modal">
@@ -2782,6 +2791,7 @@
 <li><a href="#olmv1-ownership-considerations_operator-controller">Considerations</a></li>
 </ul>
 </li>
+<li><a href="#olmv1-clusterobjectsets_operator-controller">ClusterObjectSets</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -3040,6 +3050,111 @@
 </dd>
 </dl>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="olmv1-clusterobjectsets_operator-controller"><a class="anchor" href="#olmv1-clusterobjectsets_operator-controller"></a>ClusterObjectSets</h2>
+<div class="sectionbody">
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>ClusterObjectSets is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph _abstract">
+<p>As part of Operator Lifecycle Manager (OLM) v1, the operator-controller creates <code>ClusterObjectSet</code> resources when you install or upgrade content with a <code>ClusterExtension</code> object. <code>ClusterObjectSet</code> objects enable safe, phased rollouts of Kubernetes resources.</p>
+</div>
+<div class="paragraph">
+<p>A <code>ClusterObjectSet</code> object is a cluster-scoped resource. It is not content that you install. It is the controller’s internal record for one revision of your <code>ClusterExtension</code> object. It rolls out related resources sequentially with built-in readiness checks between phases.</p>
+</div>
+<div class="paragraph">
+<p>A <code>ClusterObjectSet</code> object solves several problems when managing sets of related Kubernetes resources:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Immutable revision content</dt>
+<dd>
+<p>The revision number, phases, objects, and collision protection strategy are immutable, that is, they cannot change once set. This provides a clear audit trail of what was deployed at each revision.</p>
+</dd>
+<dt class="hdlist1">Phased rollout</dt>
+<dd>
+<p>Resources are grouped into phases, for example, CRDs before Deployments, and are deployed sequentially. A phase only progresses after all its objects pass readiness probes. Manifests are organized into phases, applied to the cluster, and must pass some status probes before they progress to the next phase. This avoids incomplete installs.</p>
+</dd>
+<dt class="hdlist1">Safe transitions</dt>
+<dd>
+<p>During upgrades, both old and new revisions remain active until the new revision succeeds. Object ownership transitions between revisions automatically.</p>
+</dd>
+<dt class="hdlist1">Single ownership</dt>
+<dd>
+<p>Each resource can only be managed by one <code>ClusterObjectSet</code> at a time, preventing conflicts.</p>
+</dd>
+<dt class="hdlist1">Large resource support</dt>
+<dd>
+<p>Object manifests can be stored inline or externalized into secrets, allowing bundles larger than the etcd 1.5 MiB object size limit.</p>
+</dd>
+</dl>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Archived <code>ClusterObjectSet</code> revisions stay on the cluster as a history of what was applied for that <code>ClusterExtension</code> object.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Each <code>ClusterObjectSet</code> contains the following content:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">A revision number</dt>
+<dd>
+<p>A permanent, sequential integer that identifies the version. When the bundle version changes, it creates a new revision. During an upgrade, the old and new revision can both be active until the new one finishes. Older revisions are archived.</p>
+</dd>
+<dt class="hdlist1">A lifecycle state</dt>
+<dd>
+<p>This shows the status of the <code>ClusterObjectSet</code>, which can be <code>Active</code> (managed and reconciled) or <code>Archived</code>. The  <code>lifecycleState</code> transitions from <code>Active</code> to <code>Archived</code> but not back.</p>
+</dd>
+<dt class="hdlist1">A list of phases</dt>
+<dd>
+<p>Objects within a <code>ClusterObjectSet</code> are organized into phases. Each phase groups related resources, and phases are applied sequentially. Within a phase, all objects are applied simultaneously in no particular order.</p>
+</dd>
+<dt class="hdlist1">A collision protection strategy</dt>
+<dd>
+<p>Controls whether a <code>ClusterObjectSet</code> can adopt pre-existing objects on the cluster.</p>
+</dd>
+<dt class="hdlist1">Status conditions</dt>
+<dd>
+<p>Indicates whether the revision is actively rolling out and reports rollout progress, availability, and success.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>At most, one <code>ClusterObjectSet</code> manages a given cluster object at a time. Very large bundles store manifests in <code>Secret</code> objects so that size limits do not block installs or upgrades.</p>
+</div>
+<div class="paragraph">
+<p>Additionally, support for management of large object bundles created by <code>ClusterObjectSet</code> is provided. <code>ClusterObjectSet</code> embeds Kubernetes manifests in <code>.spec.phases[].objects[].object</code>. Currently, with up to 20 phases and 50 objects per phase, they can exceed the etcd 1.5 MiB object size limit. Large Operators with many CRDs, Deployments, RBAC rules, and webhook configurations frequently hit this limit, causing the API server to reject the <code>ClusterObjectSet</code> and fail installation or upgrade.</p>
+</div>
+<div class="paragraph">
+<p>To solve this, objects can be externalized into <code>Secret</code> resources using per-object references. The phases data is immutable and only consumed by the revision reconciler, making it suitable for externalization.</p>
 </div>
 </div>
 </div>
