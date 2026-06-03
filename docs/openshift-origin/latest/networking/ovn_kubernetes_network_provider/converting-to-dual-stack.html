@@ -2790,8 +2790,8 @@
 <li><a href="#nw-dual-stack-convert-back-single-stack_converting-to-dual-stack">Converting to a single-stack cluster network</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>As a cluster administrator, you can convert your IPv4 single-stack cluster to a dual-network cluster network that supports IPv4 and IPv6 address families. After converting to dual-stack networking, new and existing pods have dual-stack networking enabled.</p>
+<div class="paragraph _abstract">
+<p>To enable IPv4 and IPv6 on your cluster network in OKD, you can convert a single-stack cluster to dual-stack networking. After conversion, new and existing pods can use both address families when you re-create workloads as needed.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -2820,6 +2820,9 @@
 <div class="sect1">
 <h2 id="nw-dual-stack-convert_converting-to-dual-stack"><a class="anchor" href="#nw-dual-stack-convert_converting-to-dual-stack"></a>Converting to a dual-stack cluster network</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To convert your cluster network from IPv4 single-stack to dual-stack in OKD, you can patch the cluster network and, on installer-provisioned infrastructure, the infrastructure custom resources. You must re-create existing pods after conversion to receive IPv6 addresses.</p>
+</div>
 <div class="paragraph">
 <p>As a cluster administrator, you can convert your single-stack cluster network to a dual-stack cluster network.</p>
 </div>
@@ -2867,22 +2870,27 @@
 <div class="paragraph">
 <p>If you already upgraded your cluster to OKD 4.16 or later and you need to convert the single-stack cluster network to a dual-stack cluster network, you must specify an existing IPv4 <code>machineNetwork</code> network configuration from the <code>install-config.yaml</code> file for API and Ingress services in the YAML configuration patch file. This configuration ensures that IPv4 traffic exists in the same network interface as the default gateway.</p>
 </div>
+<div class="paragraph">
+<p>The following example adds an IPv4 address block for the <code>machineNetwork</code> network:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example YAML configuration file with an added IPv4 address block for the <code>machineNetwork</code> network</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="pi">-</span> <span class="na">op</span><span class="pi">:</span> <span class="s">add</span>
-  <span class="na">path</span><span class="pi">:</span> <span class="s">/spec/platformSpec/baremetal/machineNetworks/-</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">path</span><span class="pi">:</span> <span class="s">/spec/platformSpec/baremetal/machineNetworks/-</span>
   <span class="na">value</span><span class="pi">:</span> <span class="s">192.168.1.0/24</span>
   <span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Ensure that you specify an address block for the <code>machineNetwork</code> network where your machines operate. You must select both API and Ingress IP addresses for the machine network.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>/spec/platformSpec/baremetal/machineNetworks/-</code></dt>
+<dd>
+<p>Specifies an address block for the <code>machineNetwork</code> network where your machines operate. You must select both API and Ingress IP addresses for the machine network.</p>
+</dd>
+</dl>
 </div>
 </td>
 </tr>
@@ -2917,42 +2925,40 @@
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="pi">-</span> <span class="na">op</span><span class="pi">:</span> <span class="s">add</span>
   <span class="na">path</span><span class="pi">:</span> <span class="s">/spec/clusterNetwork/-</span>
-  <span class="na">value</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">value</span><span class="pi">:</span>
     <span class="na">cidr</span><span class="pi">:</span> <span class="s">fd01::/48</span>
     <span class="na">hostPrefix</span><span class="pi">:</span> <span class="m">64</span>
 <span class="pi">-</span> <span class="na">op</span><span class="pi">:</span> <span class="s">add</span>
   <span class="na">path</span><span class="pi">:</span> <span class="s">/spec/serviceNetwork/-</span>
-  <span class="na">value</span><span class="pi">:</span> <span class="s">fd02::/112</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+  <span class="na">value</span><span class="pi">:</span> <span class="s">fd02::/112</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify an object with the <code>cidr</code> and <code>hostPrefix</code> parameters. The host prefix must be <code>64</code> or greater. The IPv6 Classless Inter-Domain Routing (CIDR) prefix must be large enough to accommodate the specified host prefix.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify an IPv6 CIDR with a prefix of <code>112</code>. Kubernetes uses only the lowest 16 bits. For a prefix of <code>112</code>, IP addresses are assigned from <code>112</code> to <code>128</code> bits.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>/spec/clusterNetwork/-</code></dt>
+<dd>
+<p>Specifies an object with the <code>cidr</code> and <code>hostPrefix</code> parameters. The host prefix must be <code>64</code> or greater. The IPv6 Classless Inter-Domain Routing (CIDR) prefix must be large enough to accommodate the specified host prefix.</p>
+</dd>
+<dt class="hdlist1"><code>/spec/serviceNetwork/-</code></dt>
+<dd>
+<p>Specifies an IPv6 CIDR with a prefix of <code>112</code>. Kubernetes uses only the lowest 16 bits. For a prefix of <code>112</code>, IP addresses are assigned from <code>112</code> to <code>128</code> bits.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
 <p>Patch the cluster network configuration by entering the following command in your CLI:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch network.config.openshift.io cluster <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch network.config.openshift.io cluster <span class="se">\</span>
   <span class="nt">--type</span><span class="o">=</span><span class="s1">'json'</span> <span class="nt">--patch-file</span> &lt;file&gt;.yaml</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Where <code>file</code> specifies the name of your created YAML file.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>For <code>&lt;file&gt;</code>, specify the name of the YAML file you created.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
@@ -2970,27 +2976,30 @@
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="pi">-</span> <span class="na">op</span><span class="pi">:</span> <span class="s">add</span>
-  <span class="na">path</span><span class="pi">:</span> <span class="s">/spec/platformSpec/baremetal/machineNetworks/-</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">path</span><span class="pi">:</span> <span class="s">/spec/platformSpec/baremetal/machineNetworks/-</span>
   <span class="na">value</span><span class="pi">:</span> <span class="s">fd2e:6f44:5dd8::/64</span>
 <span class="pi">-</span> <span class="na">op</span><span class="pi">:</span> <span class="s">add</span>
-  <span class="na">path</span><span class="pi">:</span> <span class="s">/spec/platformSpec/baremetal/apiServerInternalIPs/-</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">path</span><span class="pi">:</span> <span class="s">/spec/platformSpec/baremetal/apiServerInternalIPs/-</span>
   <span class="na">value</span><span class="pi">:</span> <span class="s">fd2e:6f44:5dd8::4</span>
 <span class="pi">-</span> <span class="na">op</span><span class="pi">:</span> <span class="s">add</span>
   <span class="na">path</span><span class="pi">:</span> <span class="s">/spec/platformSpec/baremetal/ingressIPs/-</span>
   <span class="na">value</span><span class="pi">:</span> <span class="s">fd2e:6f44:5dd8::5</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Ensure that you specify an address block for the <code>machineNetwork</code> network where your machines operate. You must select both API and Ingress IP addresses for the machine network.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Ensure that you specify each file path according to your platform. The example demonstrates a file path on a bare-metal platform.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>/spec/platformSpec/baremetal/machineNetworks/-</code></dt>
+<dd>
+<p>Specifies an address block for the <code>machineNetwork</code> network where your machines operate. You must select both API and Ingress IP addresses for the machine network.</p>
+</dd>
+<dt class="hdlist1"><code>/spec/platformSpec/baremetal/apiServerInternalIPs/-</code></dt>
+<dd>
+<p>Specifies each file path according to your platform. The example demonstrates a file path on a bare metal platform.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3002,21 +3011,13 @@
 </div>
 </div>
 <div class="paragraph">
-<p>Where:</p>
+<p>For <code>&lt;file&gt;</code>, specify the name of the YAML file you created.</p>
 </div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">&lt;file&gt;</dt>
-<dd>
-<p>Specifies the name of your created YAML file.</p>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="text">infrastructure/cluster patched</code></pre>
 </div>
-</div>
-</dd>
-</dl>
 </div>
 </li>
 </ol>
@@ -3110,8 +3111,8 @@ status:
 <div class="sect1">
 <h2 id="nw-dual-stack-convert-back-single-stack_converting-to-dual-stack"><a class="anchor" href="#nw-dual-stack-convert-back-single-stack_converting-to-dual-stack"></a>Converting to a single-stack cluster network</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>As a cluster administrator, you can convert your dual-stack cluster network to a single-stack cluster network.</p>
+<div class="paragraph _abstract">
+<p>To revert dual-stack networking in OKD, you can edit the cluster network configuration and remove the IPv4 or IPv6 blocks you added during dual-stack conversion. You can convert back only to the same single-stack family you had before dual-stack (IPv4 or IPv6).</p>
 </div>
 <div class="admonitionblock important">
 <table>
