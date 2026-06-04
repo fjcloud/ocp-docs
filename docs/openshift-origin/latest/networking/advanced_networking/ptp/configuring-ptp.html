@@ -2806,6 +2806,7 @@
 </li>
 <li><a href="#holdover-in-a-grandmaster-clock_configuring-ptp">Holdover in a grandmaster clock with GNSS as the source</a></li>
 <li><a href="#nw-ptp-t-bc-t-tsc-holdover_configuring-ptp">Applying unassisted holdover for boundary clocks and time synchronous clocks</a></li>
+<li><a href="#nw-ptp-gnrd-t-bc-holdover_configuring-ptp">Configuring GNR-D T-BC holdover on a GNR-D platform</a></li>
 <li><a href="#ptp-configuring-dynamic-leap-seconds-handling-for-tgm_configuring-ptp">Configuring dynamic leap seconds handling for PTP grandmaster clocks</a></li>
 <li><a href="#configuring-linuxptp-services-as-boundary-clock_configuring-ptp">Configuring linuxptp services as a boundary clock</a>
 <ul class="sectlevel2">
@@ -5913,6 +5914,564 @@ T-BC[1760525448]:[ts2phc.1.config] ens4f0 offset -1 T-BC-STATUS s2</span></code>
 <ul>
 <li>
 <p><a href="../../../networking/advanced_networking/ptp/configuring-ptp.html#nw-ptp-grandmaster-clock-class-reference_configuring-ptp">Grandmaster clock class sync state reference</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="nw-ptp-gnrd-t-bc-holdover_configuring-ptp"><a class="anchor" href="#nw-ptp-gnrd-t-bc-holdover_configuring-ptp"></a>Configuring GNR-D T-BC holdover on a GNR-D platform</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure an Intel® Granite Rapids-D (GNR-D) platform device as telecom boundary clock (T-BC) with holdover support by using the PTP Operator.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Configuring GNR-D T-BC holdover on a GNR-D platform is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>In this configuration, one time receiver (TR) port synchronizes to an upstream telecom grandmaster clock, while time transmitter (TT) ports distribute synchronized time to downstream devices. If the upstream timing source degrades, disconnects, or becomes unavailable, the system enters holdover mode and maintains timing by using configured digital phase-locked loop (DPLL) devices.</p>
+</div>
+<div class="paragraph">
+<p>This configuration requires path-based network interface naming so that the system can consistently identify NAC and Carter Flat interfaces across the deployment. The configuration uses the following custom resources:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>MachineConfig</code>: Configures path-based network interface naming for NAC and Carter Flat devices.</p>
+</li>
+<li>
+<p><code>PtpConfig</code>: Configures the PTP boundary clock profile and timing behavior.</p>
+</li>
+<li>
+<p><code>HardwareConfig</code>: Configures supported hardware-specific timing and synchronization settings.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about <code>MachineConfig</code> custom resource, see <em>Additional resources</em>.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Install the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>Log in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>Install the PTP Operator.</p>
+</li>
+<li>
+<p>Deploy a GNR-D platform with supported NIC hardware.</p>
+</li>
+<li>
+<p>Identify the TR and TT interfaces for your hardware layout.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Configure path-based network interface naming for the GNR-D platform:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">10-rename-gnrd-interfaces-master</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">ignition</span><span class="pi">:</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">3.2.0</span>
+    <span class="na">storage</span><span class="pi">:</span>
+      <span class="na">files</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/systemd/network/10-interface-8086-12d3.link</span>
+          <span class="c1"># [Match]</span>
+          <span class="c1"># Property=ID_VENDOR_ID=0x8086</span>
+          <span class="c1"># Property=ID_MODEL_ID=0x12d3</span>
+          <span class="c1"># [Link]</span>
+          <span class="c1"># NamePolicy=path</span>
+          <span class="na">mode</span><span class="pi">:</span> <span class="m">420</span>
+          <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="na">contents</span><span class="pi">:</span>
+            <span class="na">source</span><span class="pi">:</span> <span class="s">data:text/plain,%5BMatch%5D%0AProperty%3DID_VENDOR_ID%3D0x8086%0AProperty%3DID_MODEL_ID%3D0x12d3%0A%0A%5BLink%5D%0ANamePolicy%3Dpath%0A</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>This configuration sets <code>NamePolicy=path</code> so that network interfaces use stable path-based names.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Apply the <code>MachineConfig</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> gnrd-interface-names.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a <code>PtpConfig</code> CR with separate TT and TR profiles:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PtpConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">t-bc</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ptp</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">profile</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">00-tbc-tt</span>
+    <span class="na">ptp4lConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">[eno8803]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[eno8903]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[eno9003]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[eno8303]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[eno8403]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[eno8503]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[eno8603]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp108s0f0]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp108s0f1]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp108s0f2]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp108s0f3]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp108s0f4]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp108s0f5]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp108s0f6]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp108s0f7]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp109s0f0]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp109s0f1]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp109s0f2]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp109s0f3]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp109s0f4]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp109s0f5]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp109s0f6]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[enp109s0f7]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[global]</span>
+      <span class="s">#</span>
+      <span class="s"># Default Data Set</span>
+      <span class="s">#</span>
+      <span class="s">twoStepFlag 1</span>
+      <span class="s">slaveOnly 0</span>
+      <span class="s">priority1 128</span>
+      <span class="s">priority2 128</span>
+      <span class="s">domainNumber 24</span>
+      <span class="s">#utc_offset 37</span>
+      <span class="s">clockClass 248</span>
+      <span class="s">clockAccuracy 0xFE</span>
+      <span class="s">offsetScaledLogVariance 0xFFFF</span>
+      <span class="s">free_running 0</span>
+      <span class="s">freq_est_interval 1</span>
+      <span class="s">dscp_event 0</span>
+      <span class="s">dscp_general 0</span>
+      <span class="s">dataset_comparison G.8275.x</span>
+      <span class="s">G.8275.defaultDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Port Data Set</span>
+      <span class="s">#</span>
+      <span class="s">logAnnounceInterval -3</span>
+      <span class="s">logSyncInterval -4</span>
+      <span class="s">logMinDelayReqInterval -4</span>
+      <span class="s">logMinPdelayReqInterval -4</span>
+      <span class="s">announceReceiptTimeout 3</span>
+      <span class="s">syncReceiptTimeout 0</span>
+      <span class="s">delayAsymmetry 0</span>
+      <span class="s">fault_reset_interval -4</span>
+      <span class="s">neighborPropDelayThresh 20000000</span>
+      <span class="s">masterOnly 0</span>
+      <span class="s">G.8275.portDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Run time options</span>
+      <span class="s">#</span>
+      <span class="s">assume_two_step 0</span>
+      <span class="s">logging_level 6</span>
+      <span class="s">path_trace_enabled 0</span>
+      <span class="s">follow_up_info 0</span>
+      <span class="s">hybrid_e2e 0</span>
+      <span class="s">inhibit_multicast_service 0</span>
+      <span class="s">net_sync_monitor 0</span>
+      <span class="s">tc_spanning_tree 0</span>
+      <span class="s">tx_timestamp_timeout 50</span>
+      <span class="s">unicast_listen 0</span>
+      <span class="s">unicast_master_table 0</span>
+      <span class="s">unicast_req_duration 3600</span>
+      <span class="s">use_syslog 1</span>
+      <span class="s">verbose 0</span>
+      <span class="s">summary_interval 0</span>
+      <span class="s">kernel_leap 1</span>
+      <span class="s">check_fup_sync 0</span>
+      <span class="s">clock_class_threshold 135</span>
+      <span class="s">#</span>
+      <span class="s"># Servo Options</span>
+      <span class="s">#</span>
+      <span class="s">pi_proportional_const 0.60</span>
+      <span class="s">pi_integral_const 0.001</span>
+      <span class="s">pi_proportional_scale 0.0</span>
+      <span class="s">pi_proportional_exponent -0.3</span>
+      <span class="s">pi_proportional_norm_max 0.7</span>
+      <span class="s">pi_integral_scale 0.0</span>
+      <span class="s">pi_integral_exponent 0.4</span>
+      <span class="s">pi_integral_norm_max 0.3</span>
+      <span class="s">step_threshold 2.0</span>
+      <span class="s">first_step_threshold 0.00002</span>
+      <span class="s">max_frequency 900000000</span>
+      <span class="s">clock_servo pi</span>
+      <span class="s">sanity_freq_limit 200000000</span>
+      <span class="s">ntpshm_segment 0</span>
+      <span class="s">#</span>
+      <span class="s"># Transport options</span>
+      <span class="s">#</span>
+      <span class="s">transportSpecific 0x0</span>
+      <span class="s">ptp_dst_mac 01:1B:19:00:00:00</span>
+      <span class="s">p2p_dst_mac 01:80:C2:00:00:0E</span>
+      <span class="s">udp_ttl 1</span>
+      <span class="s">udp6_scope 0x0E</span>
+      <span class="s">uds_address /var/run/ptp4l</span>
+      <span class="s">#</span>
+      <span class="s"># Default interface options</span>
+      <span class="s">#</span>
+      <span class="s">clock_type BC</span>
+      <span class="s">network_transport L2</span>
+      <span class="s">delay_mechanism E2E</span>
+      <span class="s">time_stamping hardware</span>
+      <span class="s">tsproc_mode filter</span>
+      <span class="s">delay_filter moving_median</span>
+      <span class="s">delay_filter_length 10</span>
+      <span class="s">egressLatency 0</span>
+      <span class="s">ingressLatency 0</span>
+      <span class="s">boundary_clock_jbod 1</span>
+      <span class="s">#</span>
+      <span class="s"># Clock description</span>
+      <span class="s">#</span>
+      <span class="s">productDescription ;;</span>
+      <span class="s">revisionData ;;</span>
+      <span class="s">manufacturerIdentity 00:00:00</span>
+      <span class="s">userDescription ;</span>
+      <span class="s">timeSource 0xA0</span>
+    <span class="na">ptp4lOpts</span><span class="pi">:</span> <span class="s">-2 --summary_interval -4</span>
+    <span class="na">ptpSchedulingPolicy</span><span class="pi">:</span> <span class="s">SCHED_FIFO</span>
+    <span class="na">ptpSchedulingPriority</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">ptpSettings</span><span class="pi">:</span>
+      <span class="na">controllingProfile</span><span class="pi">:</span> <span class="s">01-tbc-tr</span>
+      <span class="na">logReduce</span><span class="pi">:</span> <span class="s2">"</span><span class="s">false"</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">01-tbc-tr</span>
+    <span class="na">phc2sysOpts</span><span class="pi">:</span> <span class="s">-r -n 24 -N 8 -R 16 -u 0 -m -s eno8703</span>
+    <span class="na">ptp4lConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s"># The interface name is hardware-specific</span>
+      <span class="s">[eno8703]</span>
+      <span class="s">masterOnly 0</span>
+      <span class="s">[global]</span>
+      <span class="s">#</span>
+      <span class="s"># Default Data Set</span>
+      <span class="s">#</span>
+      <span class="s">twoStepFlag 1</span>
+      <span class="s">slaveOnly 0</span>
+      <span class="s">priority1 128</span>
+      <span class="s">priority2 128</span>
+      <span class="s">domainNumber 24</span>
+      <span class="s">#utc_offset 37</span>
+      <span class="s">clockClass 248</span>
+      <span class="s">clockAccuracy 0xFE</span>
+      <span class="s">offsetScaledLogVariance 0xFFFF</span>
+      <span class="s">free_running 0</span>
+      <span class="s">freq_est_interval 1</span>
+      <span class="s">dscp_event 0</span>
+      <span class="s">dscp_general 0</span>
+      <span class="s">dataset_comparison G.8275.x</span>
+      <span class="s">G.8275.defaultDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Port Data Set</span>
+      <span class="s">#</span>
+      <span class="s">logAnnounceInterval -3</span>
+      <span class="s">logSyncInterval -4</span>
+      <span class="s">logMinDelayReqInterval -4</span>
+      <span class="s">logMinPdelayReqInterval -4</span>
+      <span class="s">announceReceiptTimeout 3</span>
+      <span class="s">syncReceiptTimeout 0</span>
+      <span class="s">delayAsymmetry 0</span>
+      <span class="s">fault_reset_interval -4</span>
+      <span class="s">neighborPropDelayThresh 20000000</span>
+      <span class="s">masterOnly 0</span>
+      <span class="s">G.8275.portDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Run time options</span>
+      <span class="s">#</span>
+      <span class="s">assume_two_step 0</span>
+      <span class="s">logging_level 6</span>
+      <span class="s">path_trace_enabled 0</span>
+      <span class="s">follow_up_info 0</span>
+      <span class="s">hybrid_e2e 0</span>
+      <span class="s">inhibit_multicast_service 0</span>
+      <span class="s">net_sync_monitor 0</span>
+      <span class="s">tc_spanning_tree 0</span>
+      <span class="s">tx_timestamp_timeout 50</span>
+      <span class="s">unicast_listen 0</span>
+      <span class="s">unicast_master_table 0</span>
+      <span class="s">unicast_req_duration 3600</span>
+      <span class="s">use_syslog 1</span>
+      <span class="s">verbose 0</span>
+      <span class="s">summary_interval 0</span>
+      <span class="s">kernel_leap 1</span>
+      <span class="s">check_fup_sync 0</span>
+      <span class="s">clock_class_threshold 135</span>
+      <span class="s">#</span>
+      <span class="s"># Servo Options</span>
+      <span class="s">#</span>
+      <span class="s">pi_proportional_const 0.60</span>
+      <span class="s">pi_integral_const 0.001</span>
+      <span class="s">pi_proportional_scale 0.0</span>
+      <span class="s">pi_proportional_exponent -0.3</span>
+      <span class="s">pi_proportional_norm_max 0.7</span>
+      <span class="s">pi_integral_scale 0.0</span>
+      <span class="s">pi_integral_exponent 0.4</span>
+      <span class="s">pi_integral_norm_max 0.3</span>
+      <span class="s">step_threshold 2.0</span>
+      <span class="s">first_step_threshold 0.00002</span>
+      <span class="s">max_frequency 900000000</span>
+      <span class="s">clock_servo pi</span>
+      <span class="s">sanity_freq_limit 200000000</span>
+      <span class="s">ntpshm_segment 0</span>
+      <span class="s">#</span>
+      <span class="s"># Transport options</span>
+      <span class="s">#</span>
+      <span class="s">transportSpecific 0x0</span>
+      <span class="s">ptp_dst_mac 01:1B:19:00:00:00</span>
+      <span class="s">p2p_dst_mac 01:80:C2:00:00:0E</span>
+      <span class="s">udp_ttl 1</span>
+      <span class="s">udp6_scope 0x0E</span>
+      <span class="s">uds_address /var/run/ptp4l</span>
+      <span class="s">#</span>
+      <span class="s"># Default interface options</span>
+      <span class="s">#</span>
+      <span class="s">clock_type OC</span>
+      <span class="s">network_transport L2</span>
+      <span class="s">delay_mechanism E2E</span>
+      <span class="s">time_stamping hardware</span>
+      <span class="s">tsproc_mode filter</span>
+      <span class="s">delay_filter moving_median</span>
+      <span class="s">delay_filter_length 10</span>
+      <span class="s">egressLatency 0</span>
+      <span class="s">ingressLatency 0</span>
+      <span class="s">boundary_clock_jbod 1</span>
+      <span class="s">#</span>
+      <span class="s"># Clock description</span>
+      <span class="s">#</span>
+      <span class="s">productDescription ;;</span>
+      <span class="s">revisionData ;;</span>
+      <span class="s">manufacturerIdentity 00:00:00</span>
+      <span class="s">userDescription ;</span>
+      <span class="s">timeSource 0xA0</span>
+    <span class="na">ptp4lOpts</span><span class="pi">:</span> <span class="s">-2 --summary_interval -4</span>
+    <span class="na">ptpSchedulingPolicy</span><span class="pi">:</span> <span class="s">SCHED_FIFO</span>
+    <span class="na">ptpSchedulingPriority</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">ptpSettings</span><span class="pi">:</span>
+      <span class="na">clockType</span><span class="pi">:</span> <span class="s">T-BC</span>
+      <span class="na">inSyncConditionThreshold</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10"</span>
+      <span class="na">inSyncConditionTimes</span><span class="pi">:</span> <span class="s2">"</span><span class="s">12"</span>
+      <span class="na">logReduce</span><span class="pi">:</span> <span class="s2">"</span><span class="s">false"</span>
+    <span class="na">ts2phcConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">[global]</span>
+      <span class="s">use_syslog  0</span>
+      <span class="s">verbose 1</span>
+      <span class="s">logging_level 7</span>
+      <span class="s">ts2phc.pulsewidth 500000000</span>
+      <span class="s">leapfile  /usr/share/zoneinfo/leap-seconds.list</span>
+      <span class="s">domainNumber 24</span>
+      <span class="s">uds_address /var/run/ptp4l.1.socket</span>
+      <span class="s">[eno8703]</span>
+      <span class="s">ts2phc.extts_correction 0</span>
+      <span class="s">ts2phc.master 0</span>
+      <span class="s">ts2phc.channel 0</span>
+      <span class="s">ts2phc.pin_index 1</span>
+      <span class="s">[enp108s0f0]</span>
+      <span class="s">ts2phc.extts_correction 0</span>
+      <span class="s">ts2phc.master 0</span>
+      <span class="s">ts2phc.channel 0</span>
+      <span class="s">ts2phc.pin_index 1</span>
+      <span class="s">[enp109s0f0]</span>
+      <span class="s">ts2phc.extts_polarity rising</span>
+      <span class="s">ts2phc.extts_correction 0</span>
+      <span class="s">ts2phc.master 0</span>
+      <span class="s">ts2phc.channel 0</span>
+      <span class="s">ts2phc.pin_index 1</span>
+    <span class="na">ts2phcOpts</span><span class="pi">:</span> <span class="s">-s generic -a --ts2phc.rh_external_pps </span><span class="m">1</span>
+  <span class="na">recommend</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">match</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">nodeLabel</span><span class="pi">:</span> <span class="s">node-role.kubernetes.io/master</span>
+    <span class="na">priority</span><span class="pi">:</span> <span class="m">4</span>
+    <span class="na">profile</span><span class="pi">:</span> <span class="s">00-tbc-tt</span>
+  <span class="pi">-</span> <span class="na">match</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">nodeLabel</span><span class="pi">:</span> <span class="s">node-role.kubernetes.io/master</span>
+    <span class="na">priority</span><span class="pi">:</span> <span class="m">4</span>
+    <span class="na">profile</span><span class="pi">:</span> <span class="s">01-tbc-tr</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The TT profile configures downstream-facing ports.</p>
+</li>
+<li>
+<p>The TR profile configures the upstream-facing port, <code>phc2sys</code>, and <code>ts2phc</code>.</p>
+</li>
+<li>
+<p><code>controllingProfile</code> links the TT profile to the TR profile.</p>
+</li>
+<li>
+<p><code>clockType: T-BC</code> enables telecom boundary clock behavior.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Apply the <code>PtpConfig</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> t-bc-config.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a <code>HardwareConfig</code> CR to configure holdover thresholds:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v2alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HardwareConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">t-bc</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">profile</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">GNR-D-T-BC</span>
+    <span class="na">clockType</span><span class="pi">:</span> <span class="s">T-BC</span>
+    <span class="na">clockChain</span><span class="pi">:</span>
+      <span class="na">structure</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">leader</span>
+        <span class="na">hardwareSpecificDefinitions</span><span class="pi">:</span> <span class="s">&lt;gnrd_platform&gt;</span>
+        <span class="na">dpll</span><span class="pi">:</span>
+          <span class="na">holdoverParameters</span><span class="pi">:</span>
+            <span class="na">maxInSpecOffset</span><span class="pi">:</span> <span class="m">40</span>
+            <span class="na">localMaxHoldoverOffset</span><span class="pi">:</span> <span class="m">1500</span>
+            <span class="na">localHoldoverTimeout</span><span class="pi">:</span> <span class="m">14400</span>
+  <span class="na">relatedPtpProfileName</span><span class="pi">:</span> <span class="s">01-tbc-tr</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>hardwareSpecificDefinitions: &lt;gnrd_platform&gt;</code> applies hardware-specific behavior of the GNR-D platform. Replace <code>&lt;gnrd_platform&gt;</code> with the GNR-D platform on which you want to configure T-BC holdover. The supported GNR-D platforms are <code>dell/XR8720t</code> and  <code>hpe/EL140-Gen12</code>.</p>
+</li>
+<li>
+<p><code>holdoverParameters</code> configure DPLL holdover thresholds.</p>
+</li>
+<li>
+<p><code>relatedPtpProfileName</code> links the hardware profile to the TR profile.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Apply the <code>HardwareConfig</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> hardwareconfig.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the <code>PtpConfig</code> and <code>HardwareConfig</code> resources are deployed:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ptpconfig <span class="nt">-n</span> openshift-ptp
+<span class="gp">$</span><span class="w"> </span>oc get hardwareconfig</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the <code>linuxptp-daemon</code> logs:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs ds/linuxptp-daemon <span class="nt">-n</span> openshift-ptp <span class="nt">-c</span> linuxptp-daemon-container <span class="nt">--since</span><span class="o">=</span>1s <span class="nt">-f</span> | <span class="nb">grep </span>T-BC</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">T-BC[1760525446]:[ts2phc.1.config] eno8703 offset 1 T-BC-STATUS s2
+T-BC[1760525447]:[ts2phc.1.config] eno8703 offset 1 T-BC-STATUS s1</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The status is reported every second:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>s2</code>: Locked - synchronized with the upstream clock</p>
+</li>
+<li>
+<p><code>s1</code>: Holdover - upstream source lost, internal oscillator maintaining timing</p>
+</li>
+<li>
+<p><code>s0</code>: Unlocked - holdover limits exceeded or no valid holdover data</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../machine_configuration/index.html#machine-config-index">Machine Configuration documentation</a></p>
 </li>
 </ul>
 </div>
