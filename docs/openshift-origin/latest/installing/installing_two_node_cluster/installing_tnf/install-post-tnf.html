@@ -699,6 +699,7 @@
 
                     <li><a class="" href="../../../security/compliance_operator/co-scans/compliance-operator-supported-profiles.html" style="padding-left: 70px;">Supported compliance profiles</a></li>
                     <li><a class="" href="../../../security/compliance_operator/co-scans/compliance-scans.html" style="padding-left: 70px;">Compliance Operator scans</a></li>
+                    <li><a class="" href="../../../security/compliance_operator/co-scans/compliance-operator-checkresult-custom-metadata.html" style="padding-left: 70px;">Propagating custom metadata to ComplianceCheckResult objects</a></li>
                     <li><a class="" href="../../../security/compliance_operator/co-scans/compliance-operator-tailor.html" style="padding-left: 70px;">Tailoring the Compliance Operator</a></li>
                     <li><a class="" href="../../../security/compliance_operator/co-scans/compliance-operator-raw-results.html" style="padding-left: 70px;">Retrieving Compliance Operator raw results</a></li>
                     <li><a class="" href="../../../security/compliance_operator/co-scans/compliance-operator-remediation.html" style="padding-left: 70px;">Managing Compliance Operator remediation</a></li>
@@ -2804,18 +2805,21 @@
 <div class="paragraph _abstract">
 <p>You can troubleshoot and restore  a two-node OKD cluster with fencing (TNF) after a disruption event. Manually recover services when automated recovery is unavailable, replace degraded control plane nodes, and use the <code>fencing_validator</code> script to verify cluster health.</p>
 </div>
+<div class="paragraph">
+<p>/Module included in the following assemblies:</p>
+</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="installation-manual-recovering-when-auto-recovery-is-unavail_install-post-tnf"><a class="anchor" href="#installation-manual-recovering-when-auto-recovery-is-unavail_install-post-tnf"></a>Manually recovering from a disruption event when automated recovery is unavailable</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You might need to perform manual recovery steps if a disruption event prevents fencing from functioning correctly. In this case, you can run commands directly on the control plane nodes to recover the cluster. There are four main recovery scenarios, which should be attempted in the following order:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Update fencing secrets:  Refresh the Baseboard Management Console (BMC) credentials if they are incorrect or outdated.</p>
+<p>Update fencing secrets: Refresh the Baseboard Management Console (BMC) credentials if they are incorrect or outdated.</p>
 </li>
 <li>
 <p>Recover from a single-node failure: Restore functionality when only one control plane node is down.</p>
@@ -2858,21 +2862,23 @@
 <ol class="arabic">
 <li>
 <p>Update the fencing secrets:</p>
+<div class="openblock">
+<div class="content">
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>If the Cluster API is unavilable, update fencing secret by running the following command on one of the cluster nodes:</p>
+<p>If the Cluster API is unavailable, update the fencing secret by running the following command on one of the cluster nodes:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs stonith update &lt;node_name&gt;_redfish <span class="nv">username</span><span class="o">=</span>&lt;user_name&gt; <span class="nv">password</span><span class="o">=</span>&lt;password&gt;</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>After the Cluster API recovers, or the Cluster API is already available, update fencing secret in the cluster to ensure it stays in sync, as described in the following step.</p>
+<p>After the Cluster API recovers, or if the Cluster API is already available, update the fencing secret in the cluster to ensure it stays in sync, as described in the following step.</p>
 </div>
 </li>
 <li>
-<p>Edit the username and password for the existing fencing secret for the control plane node by running the following commads:</p>
+<p>Edit the username and password for the existing fencing secret for the control plane node by running the following commands:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc project openshift-etcd</code></pre>
@@ -2880,7 +2886,102 @@
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit secret &lt;node_name&gt;-fencing</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit secret &lt;node_name&gt;-fencing
+<span class="gp">$</span><span class="w"> </span>oc edit secret fencing-credentials-&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The secret contains the following data keys:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Data keys</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Key</th>
+<th class="tableblock halign-left valign-top">Description</th>
+<th class="tableblock halign-left valign-top">Changes during credential rotation?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>username</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">BMC username</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>password</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">BMC password</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>address</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Full Redfish URL (for example, <code>redfish+https://192.168.1.10:443/redfish/v1/Systems/1</code>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Only if BMC address changed</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>certificateVerification</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Disabled</code> or <code>Enabled</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Only if TLS settings changed</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>oc edit secret</code> command displays base64-encoded values. If you modify any of the values, the new values must also be base64-encoded.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Alternatively, you can use the following command to create or update the secret with literal strings:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic fencing-credentials-&lt;node_name&gt; <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">address</span><span class="o">=</span><span class="s1">'&lt;redfish_address&gt;'</span> <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">username</span><span class="o">=</span><span class="s1">'&lt;new_username&gt;'</span> <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">password</span><span class="o">=</span><span class="s1">'&lt;new_password&gt;'</span> <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">certificateVerification</span><span class="o">=</span><span class="s1">'&lt;Disabled_or_Enabled&gt;'</span> <span class="se">\</span>
+  <span class="nt">--dry-run</span><span class="o">=</span>client <span class="nt">-o</span> yaml | oc apply <span class="nt">-f</span> -</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>All four keys must be present. The cluster etcd Operator rejects secrets with missing keys.</p>
+</div>
+</li>
+<li>
+<p>Verify that the new credentials can reach the BMC by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs stonith config &lt;node_name&gt;_redfish</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that no STONITH resources are blocked by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs status <span class="nt">--full</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The cluster etcd Operator performs this validation automatically when it applies credentials from the secret by using the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>fence_redfish <span class="nt">--action</span> status</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -2889,9 +2990,13 @@
 </li>
 </ol>
 </div>
+</div>
+</div>
 </li>
 <li>
 <p>Recover from a single-node failure:</p>
+<div class="openblock">
+<div class="content">
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
@@ -2961,9 +3066,13 @@
 </li>
 </ol>
 </div>
+</div>
+</div>
 </li>
 <li>
 <p>Recover from a complete node failure:</p>
+<div class="openblock">
+<div class="content">
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
@@ -3016,6 +3125,8 @@
 </div>
 </li>
 </ol>
+</div>
+</div>
 </div>
 </li>
 <li>
