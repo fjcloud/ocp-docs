@@ -4843,10 +4843,10 @@ The example configuration configures the cluster for low latency and high perfor
 </div>
 <div class="sect2">
 <h3 id="ztp-sno-du-configuring-ptp_sno-configure-for-vdu"><a class="anchor" href="#ztp-sno-du-configuring-ptp_sno-configure-for-vdu"></a>PTP</h3>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>Single-node OpenShift clusters use Precision Time Protocol (PTP) for network time synchronization.
-The following example <code>PtpConfig</code> CRs illustrate the required PTP configurations for ordinary clocks, boundary clocks, and grandmaster clocks.
-The exact configuration you apply will depend on the node hardware and specific use case.</p>
+The following example <code>PtpConfig</code> custom resources (CRs) illustrate configurations for ordinary clocks, boundary clocks, and Telecom Grandmaster clocks on supported Intel Ethernet hardware.
+You must select the profile that matches your qualified GNR-D hardware layout and complete interface renaming prerequisites before you apply Granite Rapids-D Telecom Grandmaster YAML on Intel Granite Rapids-D servers.</p>
 </div>
 <div class="listingblock">
 <div class="title">Recommended PTP ordinary clock configuration (<code>PtpConfigSlave.yaml</code>)</div>
@@ -5337,6 +5337,304 @@ The exact configuration you apply will depend on the node hardware and specific 
         <span class="pi">-</span> <span class="na">nodeLabel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">node-role.kubernetes.io/$mcp"</span></code></pre>
 </div>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Telecom Grandmaster clock configuration on Intel Granite Rapids-D (GNR-D) hardware is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Recommended PTP Granite Rapids-D Telecom Grandmaster clock configuration (<code>PtpConfigGnrdTGM.yaml</code>)</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># Example Telecom Grandmaster PtpConfig for Intel Granite Rapids-D (GNR-D).</span>
+<span class="c1">#</span>
+<span class="c1"># Note:  This example configuration should be customized to match the desired</span>
+<span class="c1"># configuration For this GNR-D T-GM configuration, we support GNSS incoming to</span>
+<span class="c1"># the onboard connection, and up to 24 Time Transmitter ports including any NAC</span>
+<span class="c1"># ports and any additional Carter Flats ports.</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PtpConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">gnrd-tgm</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ptp</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">ran.openshift.io/ztp-deploy-wave</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">profile</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">grandmaster"</span>
+      <span class="na">ptp4lOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-2</span><span class="nv"> </span><span class="s">--summary_interval</span><span class="nv"> </span><span class="s">-4"</span>
+      <span class="na">phc2sysOpts</span><span class="pi">:</span> <span class="s">-r -u 0 -m -w -N 8 -R 16 -n 24 -s eno8703</span>
+      <span class="na">ptpSchedulingPolicy</span><span class="pi">:</span> <span class="s">SCHED_FIFO</span>
+      <span class="na">ptpSchedulingPriority</span><span class="pi">:</span> <span class="m">10</span>
+      <span class="na">ptpSettings</span><span class="pi">:</span>
+        <span class="na">logReduce</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+      <span class="na">plugins</span><span class="pi">:</span>
+        <span class="na">e830</span><span class="pi">:</span>
+          <span class="na">devices</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s">enp108s0f0</span>
+            <span class="pi">-</span> <span class="s">enp110s0f0</span>
+        <span class="na">e825</span><span class="pi">:</span>
+          <span class="na">devices</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s">eno8703</span>
+          <span class="na">settings</span><span class="pi">:</span>
+            <span class="na">LocalMaxHoldoverOffSet</span><span class="pi">:</span> <span class="m">1500</span>
+            <span class="na">LocalHoldoverTimeout</span><span class="pi">:</span> <span class="m">14400</span>
+            <span class="na">MaxInSpecOffset</span><span class="pi">:</span> <span class="m">100</span>
+          <span class="na">ublxCmds</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.25 -z CFG-HW-ANT_CFG_VOLTCTRL,1</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">29.25"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-z"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">CFG-HW-ANT_CFG_VOLTCTRL,1"</span>
+              <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+            <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.25 -e GPS</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">29.25"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-e"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">GPS"</span>
+              <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+            <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.25 -d Galileo</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">29.25"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">Galileo"</span>
+              <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+            <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.25 -d GLONASS</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">29.25"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">GLONASS"</span>
+              <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+            <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.25 -d BeiDou</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">29.25"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">BeiDou"</span>
+              <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+            <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.25 -d SBAS</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">29.25"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-d"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">SBAS"</span>
+              <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">false</span>
+            <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.25 -t -w 5 -v 1 -e SURVEYIN,600,50000</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">29.25"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-t"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-w"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">5"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-v"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">1"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-e"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">SURVEYIN,600,50000"</span>
+              <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">true</span>
+            <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.25 -p MON-HW</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">29.25"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-p"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">MON-HW"</span>
+              <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">true</span>
+            <span class="pi">-</span> <span class="na">args</span><span class="pi">:</span> <span class="c1">#ubxtool -P 29.25 -p CFG-MSG,1,38,300</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-P"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">29.25"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">-p"</span>
+                <span class="pi">-</span> <span class="s2">"</span><span class="s">CFG-MSG,1,38,248"</span>
+              <span class="na">reportOutput</span><span class="pi">:</span> <span class="no">true</span>    
+      <span class="na">ts2phcOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-m"</span>
+      <span class="na">ts2phcConf</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s">[nmea]</span>
+        <span class="s">ts2phc.master 1</span>
+        <span class="s">[global]</span>
+        <span class="s">use_syslog  0</span>
+        <span class="s">verbose 1</span>
+        <span class="s">logging_level 7</span>
+        <span class="s">ts2phc.pulsewidth 100000000</span>
+        <span class="s">ts2phc.nmea_serialport /dev/ttyACM0 </span>
+        <span class="s">[eno8703]</span>
+        <span class="s">ts2phc.extts_polarity rising</span>
+        <span class="s">ts2phc.extts_correction 0</span>
+        <span class="s">ts2phc.master  0</span>
+        <span class="s">ts2phc.channel 0</span>
+        <span class="s">ts2phc.pin_index 1</span>
+        <span class="s"># This should be one section per Carter Flats (e830) card:</span>
+        <span class="s">[enp108s0f0]</span>
+        <span class="s">ts2phc.extts_polarity rising</span>
+        <span class="s">ts2phc.extts_correction 0</span>
+        <span class="s">ts2phc.master 0</span>
+        <span class="s">ts2phc.channel 0</span>
+        <span class="s">ts2phc.pin_index 1</span>
+        <span class="s">[enp110s0f0]</span>
+        <span class="s">ts2phc.extts_polarity rising</span>
+        <span class="s">ts2phc.extts_correction 0</span>
+        <span class="s">ts2phc.master 0</span>
+        <span class="s">ts2phc.channel 0</span>
+        <span class="s">ts2phc.pin_index 1</span>
+      <span class="na">ptp4lConf</span><span class="pi">:</span> <span class="pi">|</span>
+        <span class="s"># All TimeTransmitter ports should be outlined here with 'masterOnly 1'</span>
+        <span class="s">#[eno8303]</span>
+        <span class="s"># ** Host management interface</span>
+        <span class="s">[eno8403]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[eno8503]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[eno8603]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[eno8703]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[eno8803]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[eno8903]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[eno9003]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp108s0f0]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp108s0f1]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp108s0f2]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp108s0f3]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp108s0f4]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp108s0f5]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp108s0f6]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp108s0f7]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp110s0f0]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp110s0f1]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp110s0f2]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp110s0f3]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp110s0f4]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp110s0f5]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp110s0f6]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[enp110s0f7]</span>
+        <span class="s">masterOnly 1</span>
+        <span class="s">[global]</span>
+        <span class="s">#</span>
+        <span class="s"># Default Data Set</span>
+        <span class="s">#</span>
+        <span class="s">twoStepFlag 1</span>
+        <span class="s">priority1 128</span>
+        <span class="s">priority2 128</span>
+        <span class="s">domainNumber 24</span>
+        <span class="s">#utc_offset 37</span>
+        <span class="s">clockClass 6</span>
+        <span class="s">clockAccuracy 0x27</span>
+        <span class="s">offsetScaledLogVariance 0xFFFF</span>
+        <span class="s">free_running 0</span>
+        <span class="s">freq_est_interval 1</span>
+        <span class="s">dscp_event 0</span>
+        <span class="s">dscp_general 0</span>
+        <span class="s">dataset_comparison G.8275.x</span>
+        <span class="s">G.8275.defaultDS.localPriority 128</span>
+        <span class="s">#</span>
+        <span class="s"># Port Data Set</span>
+        <span class="s">#</span>
+        <span class="s">logAnnounceInterval -3</span>
+        <span class="s">logSyncInterval -4</span>
+        <span class="s">logMinDelayReqInterval -4</span>
+        <span class="s">logMinPdelayReqInterval 0</span>
+        <span class="s">announceReceiptTimeout 3</span>
+        <span class="s">syncReceiptTimeout 0</span>
+        <span class="s">delayAsymmetry 0</span>
+        <span class="s">fault_reset_interval 4</span>
+        <span class="s">neighborPropDelayThresh 20000000</span>
+        <span class="s">masterOnly 0</span>
+        <span class="s">G.8275.portDS.localPriority 128</span>
+        <span class="s">#</span>
+        <span class="s"># Run time options</span>
+        <span class="s">#</span>
+        <span class="s">assume_two_step 0</span>
+        <span class="s">logging_level 6</span>
+        <span class="s">path_trace_enabled 0</span>
+        <span class="s">follow_up_info 0</span>
+        <span class="s">hybrid_e2e 0</span>
+        <span class="s">inhibit_multicast_service 0</span>
+        <span class="s">net_sync_monitor 0</span>
+        <span class="s">tc_spanning_tree 0</span>
+        <span class="s">tx_timestamp_timeout 50</span>
+        <span class="s">unicast_listen 0</span>
+        <span class="s">unicast_master_table 0</span>
+        <span class="s">unicast_req_duration 3600</span>
+        <span class="s">use_syslog 1</span>
+        <span class="s">verbose 0</span>
+        <span class="s">summary_interval -4</span>
+        <span class="s">kernel_leap 1</span>
+        <span class="s">check_fup_sync 0</span>
+        <span class="s">#</span>
+        <span class="s"># Servo Options</span>
+        <span class="s">#</span>
+        <span class="s">pi_proportional_const 0.0</span>
+        <span class="s">pi_integral_const 0.0</span>
+        <span class="s">pi_proportional_scale 0.0</span>
+        <span class="s">pi_proportional_exponent -0.3</span>
+        <span class="s">pi_proportional_norm_max 0.7</span>
+        <span class="s">pi_integral_scale 0.0</span>
+        <span class="s">pi_integral_exponent 0.4</span>
+        <span class="s">pi_integral_norm_max 0.3</span>
+        <span class="s">step_threshold 0.0</span>
+        <span class="s">first_step_threshold 0.00002</span>
+        <span class="s">clock_servo pi</span>
+        <span class="s">sanity_freq_limit  200000000</span>
+        <span class="s">ntpshm_segment 0</span>
+        <span class="s">#</span>
+        <span class="s"># Transport options</span>
+        <span class="s">#</span>
+        <span class="s">transportSpecific 0x0</span>
+        <span class="s">ptp_dst_mac 01:1B:19:00:00:00</span>
+        <span class="s">p2p_dst_mac 01:80:C2:00:00:0E</span>
+        <span class="s">udp_ttl 1</span>
+        <span class="s">udp6_scope 0x0E</span>
+        <span class="s">uds_address /var/run/ptp4l</span>
+        <span class="s">#</span>
+        <span class="s"># Default interface options</span>
+        <span class="s">#</span>
+        <span class="s">clock_type BC</span>
+        <span class="s">network_transport L2</span>
+        <span class="s">delay_mechanism E2E</span>
+        <span class="s">time_stamping hardware</span>
+        <span class="s">tsproc_mode filter</span>
+        <span class="s">delay_filter moving_median</span>
+        <span class="s">delay_filter_length 10</span>
+        <span class="s">egressLatency 0</span>
+        <span class="s">ingressLatency 0</span>
+        <span class="s">boundary_clock_jbod 1</span>
+        <span class="s">#</span>
+        <span class="s"># Clock description</span>
+        <span class="s">#</span>
+        <span class="s">productDescription ;;</span>
+        <span class="s">revisionData ;;</span>
+        <span class="s">manufacturerIdentity 00:00:00</span>
+        <span class="s">userDescription ;</span>
+        <span class="s">timeSource 0x20</span>
+  <span class="na">recommend</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">match</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">nodeLabel</span><span class="pi">:</span> <span class="s">node-role.kubernetes.io/$mcp</span>
+      <span class="na">priority</span><span class="pi">:</span> <span class="m">4</span>
+      <span class="na">profile</span><span class="pi">:</span> <span class="s">grandmaster</span></code></pre>
+</div>
+</div>
 <div class="paragraph">
 <p>The following optional <code>PtpOperatorConfig</code> CR configures PTP events reporting for the node.</p>
 </div>
@@ -5357,6 +5655,14 @@ The exact configuration you apply will depend on the node hardware and specific 
     <span class="na">enableEventPublisher</span><span class="pi">:</span> <span class="no">true</span>
     <span class="na">transportHost</span><span class="pi">:</span> <span class="s2">"</span><span class="s">http://ptp-event-publisher-service-NODE_NAME.openshift-ptp.svc.cluster.local:9043"</span></code></pre>
 </div>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../networking/advanced_networking/ptp/configuring-ptp.html#configuring-linuxptp-services-as-grandmaster-clock-gnrd_configuring-ptp">Configuring linuxptp services as a Telecom Grandmaster clock on Intel Granite Rapids-D hardware</a></p>
+</li>
+</ul>
 </div>
 </div>
 <div class="sect2">
