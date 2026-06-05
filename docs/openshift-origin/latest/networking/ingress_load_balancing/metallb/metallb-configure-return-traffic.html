@@ -2913,7 +2913,7 @@
 <div class="ulist">
 <ul>
 <li>
-<p>If you use the <code>sourceIPBy: "LoadBalancerIP"</code> setting in the <code>EgressService</code> CR, you must specify the load-balancer node in the <code>BGPAdvertisement</code> custom resource (CR).</p>
+<p>If you use the <code>sourceIPBy: "LoadBalancerIP"</code> setting in the <code>EgressService</code> CR, you must specify the <code>LoadBalancer</code> node in the <code>BGPAdvertisement</code> custom resource (CR).</p>
 </li>
 <li>
 <p>You can use the <code>sourceIPBy: "Network"</code> setting on clusters that use OVN-Kubernetes configured with the <code>gatewayConfig.routingViaHost</code> specification set to <code>true</code> only. Additionally, if you use the <code>sourceIPBy: "Network"</code> setting, you must schedule the application workload on nodes configured with the network VRF instance.</p>
@@ -2939,11 +2939,25 @@
 <li>
 <p>Install the MetalLB Operator.</p>
 </li>
+<li>
+<p>Create a namespace for your application workload. The examples in this procedure use a namespace called <code>test</code>.</p>
+</li>
 </ul>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
+<li>
+<p>Label the nodes that you want to participate in the VRF configuration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label node &lt;node_name&gt; <span class="nv">vrf</span><span class="o">=</span><span class="nb">true</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The examples in this procedure use the label <code>vrf: "true"</code>.</p>
+</div>
+</li>
 <li>
 <p>Create a <code>NodeNetworkConfigurationPolicy</code> CR to define the VRF instance:</p>
 <div class="olist loweralpha">
@@ -2990,7 +3004,7 @@
       <span class="pi">-</span> <span class="na">ip-to</span><span class="pi">:</span> <span class="s">172.30.0.0/16</span>
         <span class="na">priority</span><span class="pi">:</span> <span class="m">998</span>
         <span class="na">route-table</span><span class="pi">:</span> <span class="m">254</span>
-      <span class="pi">-</span> <span class="na">ip-to</span><span class="pi">:</span> <span class="s">10.132.0.0/14</span>
+      <span class="pi">-</span> <span class="na">ip-to</span><span class="pi">:</span> <span class="s">10.128.0.0/14</span>
         <span class="na">priority</span><span class="pi">:</span> <span class="m">998</span>
         <span class="na">route-table</span><span class="pi">:</span> <span class="m">254</span>
       <span class="pi">-</span> <span class="na">ip-to</span><span class="pi">:</span> <span class="s">169.254.0.0/17</span>
@@ -3028,7 +3042,7 @@
 <dd>
 <p>Specifies the name of the route table ID for the VRF.</p>
 </dd>
-<dt class="hdlist1">`interfaces.name.ens4 `</dt>
+<dt class="hdlist1"><code>interfaces.name.ens4</code></dt>
 <dd>
 <p>Specifies the IPv4 address of the interface associated with the VRF.</p>
 </dd>
@@ -3053,6 +3067,17 @@
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> node-network-vrf.yaml</code></pre>
 </div>
+</div>
+</li>
+<li>
+<p>Verify that the policy is applied by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nncp vrfpolicy</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output must show <code>Available</code> in the <code>STATUS</code> column before you continue to the next step.</p>
 </div>
 </li>
 </ol>
@@ -3168,7 +3193,7 @@
 </dd>
 <dt class="hdlist1"><code>nodeSelectors</code></dt>
 <dd>
-<p>In this example, the <code>EgressService</code> CR configures the source IP address for egress traffic to use the load-balancer service IP address. Therefore, you must specify the load-balancer node for return traffic to use the same return path for the traffic originating from the pod.</p>
+<p>In this example, the <code>EgressService</code> CR configures the source IP address for egress traffic to use the <code>LoadBalancer</code> service IP address. Therefore, you must specify the <code>LoadBalancer</code> node for return traffic to use the same return path for the traffic originating from the pod.</p>
 </dd>
 </dl>
 </div>
@@ -3213,11 +3238,11 @@
 <dl>
 <dt class="hdlist1"><code>metadata.name</code></dt>
 <dd>
-<p>Specifies the name for the egress service. The name of the <code>EgressService</code> resource must match the name of the load-balancer service that you want to modify.</p>
+<p>Specifies the name for the egress service. The name of the <code>EgressService</code> resource must match the name of the <code>LoadBalancer</code> service that you want to modify.</p>
 </dd>
 <dt class="hdlist1"><code>metadata.namespace</code></dt>
 <dd>
-<p>Specifies the namespace for the egress service. The namespace for the <code>EgressService</code> must match the namespace of the load-balancer service that you want to modify. The egress service is namespace-scoped.</p>
+<p>Specifies the namespace for the egress service. The namespace for the <code>EgressService</code> must match the namespace of the <code>LoadBalancer</code> service that you want to modify. The egress service is namespace-scoped.</p>
 </dd>
 <dt class="hdlist1"><code>spec.sourceIPBy</code></dt>
 <dd>
@@ -3229,7 +3254,7 @@
 </dd>
 <dt class="hdlist1"><code>network</code></dt>
 <dd>
-<p>Specifyies the routing table ID for egress traffic. Ensure that the value matches the <code>route-table-id</code> ID defined in the <code>NodeNetworkConfigurationPolicy</code> resource, for example, <code>route-table-id: 2</code>.</p>
+<p>Specifies the routing table ID for egress traffic. Ensure that the value matches the <code>route-table-id</code> ID defined in the <code>NodeNetworkConfigurationPolicy</code> resource, for example, <code>route-table-id: 2</code>.</p>
 </dd>
 </dl>
 </div>
@@ -3251,18 +3276,25 @@
 <div class="title">Verification</div>
 <ol class="arabic">
 <li>
+<p>Get the external IP address for the <code>LoadBalancer</code> service by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get svc &lt;service_name&gt; <span class="nt">-n</span> &lt;namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>&lt;service_name&gt;</code> is the name of your <code>LoadBalancer</code> service and <code>&lt;namespace&gt;</code> is the namespace where the service is deployed. Note the <code>EXTERNAL-IP</code> value from the output.</p>
+</div>
+</li>
+<li>
 <p>Verify that you can access the application endpoint of the pods running behind the MetalLB service by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl &lt;external_ip_address&gt;:&lt;port_number&gt;</code></pre>
 </div>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>&lt;external_ip_address&gt;:&lt;port_number&gt;</code>: Specifies the external IP address and port number to suit your application endpoint.</p>
-</li>
-</ul>
+<div class="paragraph">
+<p>where <code>&lt;external_ip_address&gt;</code> is the <code>EXTERNAL-IP</code> value from the previous step, and <code>&lt;port_number&gt;</code> is the port number of your application endpoint.</p>
 </div>
 </li>
 <li>

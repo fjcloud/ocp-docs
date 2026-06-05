@@ -2799,7 +2799,7 @@
 <li><a href="#telco-ran-du-reference-design-components_telco-ran-du">Telco RAN DU reference design components</a>
 <ul class="sectlevel2">
 <li><a href="#telco-ran-bios-tuning_telco-ran-du">Host firmware tuning</a></li>
-<li><a href="#telco-ran-sysctls_telco-ran-du">Kubelet Settings</a></li>
+<li><a href="#telco-ran-sysctls_telco-ran-du">Kubelet settings</a></li>
 <li><a href="#telco-ran-node-tuning-operator_telco-ran-du">CPU partitioning and performance tuning</a></li>
 <li><a href="#telco-ran-ptp-operator_telco-ran-du">PTP Operator</a></li>
 <li><a href="#telco-ran-sr-iov-operator_telco-ran-du">SR-IOV Operator</a></li>
@@ -2820,6 +2820,7 @@
 <li><a href="#telco-ran-topology-aware-lifecycle-manager-talm_telco-ran-du">Topology Aware Lifecycle Manager</a></li>
 <li><a href="#telco-ran-gitops-operator-and-ztp-plugins_telco-ran-du">GitOps Operator and GitOps ZTP</a></li>
 <li><a href="#telco-ran-agent-based-installer-abi_telco-ran-du">Agent-based installer</a></li>
+<li><a href="#telco-ran-cert-manager-operator_telco-ran-du">cert-manager Operator</a></li>
 </ul>
 </li>
 <li><a href="#telco-ran-du-reference-configuration-crs_telco-ran-du">Telco RAN DU reference configuration CRs</a>
@@ -2886,8 +2887,8 @@ Red Hat is committed to iterating over the telco core and RAN DU RDS to support 
 <thead>
 <tr>
 <th class="tableblock halign-left valign-top">Architecture</th>
-<th class="tableblock halign-left valign-top">Real-time Kernel</th>
-<th class="tableblock halign-left valign-top">Non-Realtime Kernel</th>
+<th class="tableblock halign-left valign-top">Real-time kernel</th>
+<th class="tableblock halign-left valign-top">Non-real-time kernel</th>
 </tr>
 </thead>
 <tbody>
@@ -2903,6 +2904,10 @@ Red Hat is committed to iterating over the telco core and RAN DU RDS to support 
 </tr>
 </tbody>
 </table>
+<div class="paragraph">
+<p>+
+* For <code>aarch64</code> architecture CPUs, the non-real-time configuration uses the standard kernel with a 64k page size.</p>
+</div>
 </div>
 </div>
 </div>
@@ -3007,7 +3012,7 @@ Specific limits, requirements and engineering considerations for individual comp
 </td>
 <td class="content">
 <div class="paragraph">
-<p>For details of the telco RAN DU RDS KPI test results, see the <a href="https://access.redhat.com/articles/7107302">telco RAN DU 4 reference design specification KPI test results</a>.
+<p>For details of the telco RAN DU RDS KPI test results, see the <a href="https://access.redhat.com/articles/7143490">telco RAN DU 4 reference design specification KPI test results</a>.
 This information is only available to customers and partners.</p>
 </div>
 </td>
@@ -3116,6 +3121,13 @@ For workloads with high service level agreement requirements such as RAN DU the 
 </tr>
 </tbody>
 </table>
+<div class="ulist">
+<ul>
+<li>
+<p>The standard mixed-architecture topology uses <code>x86_64</code> control plane nodes and <code>AArch64</code> worker nodes.</p>
+</li>
+</ul>
+</div>
 </dd>
 <dt class="hdlist1">Workloads</dt>
 <dd>
@@ -3125,7 +3137,7 @@ For workloads with high service level agreement requirements such as RAN DU the 
 <p>DU workloads are described in <a href="../scalability_and_performance/telco-ran-du-rds.html#telco-ran-du-application-workloads_telco-ran-du">Telco RAN DU application workloads</a>.</p>
 </li>
 <li>
-<p>DU worker nodes are Intel 3rd Generation Xeon (IceLake) 2.20 GHz or newer with host firmware tuned for maximum performance.</p>
+<p>DU worker nodes are Intel 3rd Generation Xeon (Ice Lake) 2.20 GHz or newer with host firmware tuned for maximum performance.</p>
 </li>
 </ol>
 </div>
@@ -3208,7 +3220,21 @@ You might need to allocate additional cluster resources to meet these requiremen
 <p>Uses 75 pods across 5 namespaces with 4 containers per pod for the vRAN application including its management and control functions</p>
 </li>
 <li>
-<p>Creates 30 <code>ConfigMap</code> CRs and 30 <code>Secret</code> CRs per namespace</p>
+<p>Creates 30 <code>ConfigMap</code> CRs and 30 <code>Secret</code> CRs for each namespace</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The RDS validates mutable <code>ConfigMap</code> CRs. However, use immutable <code>ConfigMap</code> CRs where possible. Immutable resources significantly reduce the load on the API server by eliminating resource watches. A high volume of <code>ConfigMap</code> CRs, up to the validated 30 for vDU, might increase node recovery time during reboots, as volume mount points are recreated. The maximum size for each <code>ConfigMap</code> CR is limited to 1 MB.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 <li>
 <p>Uses no exec probes</p>
@@ -3512,7 +3538,7 @@ Out-of-tree drivers are not supported.</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="telco-ran-sysctls_telco-ran-du"><a class="anchor" href="#telco-ran-sysctls_telco-ran-du"></a>Kubelet Settings</h3>
+<h3 id="telco-ran-sysctls_telco-ran-du"><a class="anchor" href="#telco-ran-sysctls_telco-ran-du"></a>Kubelet settings</h3>
 <div class="paragraph _abstract">
 <p>Configure kubelet settings and sysctls for the telco RAN DU use model, including <code>systemReserved</code> and unsafe sysctl parameters.</p>
 </div>
@@ -3520,7 +3546,13 @@ Out-of-tree drivers are not supported.</p>
 <dl>
 <dt class="hdlist1">New in this release</dt>
 <dd>
-<p>Support for configuring <code>systemReserved</code> settings (cpu and memory).</p>
+<div class="ulist">
+<ul>
+<li>
+<p>No reference design updates in this release</p>
+</li>
+</ul>
+</div>
 </dd>
 </dl>
 </div>
@@ -3529,8 +3561,10 @@ Out-of-tree drivers are not supported.</p>
 Generally, network sysctls are namespaced and you can enable them using the <code>kubeletconfig.experimental</code> annotation in the <code>PerformanceProfile</code> Custom Resource (CR).</p>
 </div>
 <div class="paragraph">
-<p>Additionally, the <code>systemReserved</code> memory can be configured through the same <code>kubeletconfig.experimental</code> annotation to reserve memory for system daemons and kernel processes. An example setting of these parameters as a string of JSON is shown here:
-.Example snippet showing allowedUnsafeSysctls and systemReserved</p>
+<p>Additionally, the <code>systemReserved</code> memory can be configured through the same <code>kubeletconfig.experimental</code> annotation to reserve memory for system daemons and kernel processes.</p>
+</div>
+<div class="paragraph">
+<p>An example setting of these parameters as a string of JSON is shown here:</p>
 </div>
 <div class="listingblock">
 <div class="title">Example snippet showing allowedUnsafeSysctls and systemReserved</div>
@@ -3589,10 +3623,7 @@ You must ensure that these sysctls do not exhaust platform resources.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>There is now optional support for <code>acpi_idle</code> CPUIdle driver.</p>
-</li>
-<li>
-<p>Updates to <code>TunedPerformancePatch</code> to enable the triggering a kernel panic for system recovery and diagnostic purposes when x86_64 architecture nodes become unresponsive. The <code>TunedPerformancePatch</code> configures the <code>kernel.panic_on_unrecovered_nmi</code> sysctl parameter to enable triggering a kernel panic through BMC Non-Maskable Interrupt (NMI) on x86_64 architectures.</p>
+<p>No reference design updates in this release</p>
 </li>
 </ul>
 </div>
@@ -3746,7 +3777,7 @@ To ensure that pods with guaranteed whole CPU QoS have full use of allocated CPU
 <p>The <code>vcio_pci</code> arguments support devices such as the FEC accelerator. You can omit them if they are not required for your workload.</p>
 </li>
 <li>
-<p>To enable the <code>acpi_idle`</code> CPUIdle driver, for example, for Intel FlexRAN, add <code>intel_idle.max_cstate=0</code></p>
+<p>To enable the <code>acpi_idle</code> CPUIdle driver, for example, for Intel FlexRAN, add <code>intel_idle.max_cstate=0</code></p>
 </li>
 </ul>
 </div>
@@ -3857,14 +3888,14 @@ Creating an additional tuned profile which includes the top-level tuned profile 
 <div class="ulist">
 <ul>
 <li>
-<p>OKD 4.20 introduced unassisted holdover for boundary clocks and time synchronous clocks as a Technology Preview feature. This feature is now Generally Available (GA).</p>
+<p>Support for PTP boundary clock without holdover on GNR-D hardware.</p>
 </li>
 </ul>
 </div>
 </dd>
 <dt class="hdlist1">Description</dt>
 <dd>
-<p>Configure Precision Time Protocol (PTP) in cluster nodes.
+<p>Configure PTP in cluster nodes.
 PTP ensures precise timing and reliability in the RAN environment, compared to other clock synchronization protocols, like NTP.</p>
 </dd>
 <dt class="hdlist1">Support includes</dt>
@@ -3904,12 +3935,19 @@ PTP ensures precise timing and reliability in the RAN environment, compared to o
 <ul>
 <li>
 <p>Limited to a maximum of 3 Westport channel NICs</p>
-</li>
+<div class="ulist">
+<ul>
 <li>
 <p>Requires GNSS input to one NIC card, with SMA connections to synchronize additional NICs</p>
 </li>
+</ul>
+</div>
+</li>
 <li>
 <p>HA support N/A</p>
+</li>
+<li>
+<p>GNR-D is not supported for T-GM.</p>
 </li>
 </ul>
 </div>
@@ -3924,6 +3962,9 @@ PTP ensures precise timing and reliability in the RAN environment, compared to o
 <li>
 <p>System clock HA support is optional in 2-NIC configuration.</p>
 </li>
+<li>
+<p>GNR-D is not supported for T-BC.</p>
+</li>
 </ul>
 </div>
 </li>
@@ -3936,6 +3977,28 @@ PTP ensures precise timing and reliability in the RAN environment, compared to o
 </li>
 <li>
 <p>System clock HA support is optional in active/standby 2-port configuration.</p>
+</li>
+<li>
+<p>GNR-D is not supported for T-TSC.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>T-BC without holdover use-case:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>GNR-D hardware with 0, 1, or 2 additional Carter Flats, e830 NICs</p>
+</li>
+<li>
+<p>Time receiver port must be one of the onboard NAC ports.</p>
+</li>
+<li>
+<p>Time transmitters may be configured to any combination of NAC and Carter Flats ports, up to a total of 23.</p>
+</li>
+<li>
+<p>Holdover is not enabled, so any failure of the Time receiver will enter <code>FREERUN</code> state immediately.</p>
 </li>
 </ul>
 </div>
@@ -3958,10 +4021,13 @@ PTP ensures precise timing and reliability in the RAN environment, compared to o
 <div class="ulist">
 <ul>
 <li>
-<p>T-GM, T-BC, and T-TSC</p>
+<p>T-GM, T-BC, T-TSC, and BC-without-holdover</p>
 </li>
 <li>
 <p>Variations with and without HA</p>
+</li>
+<li>
+<p>Variations with and without fast event notification</p>
 </li>
 </ul>
 </div>
@@ -3973,7 +4039,7 @@ PTP ensures precise timing and reliability in the RAN environment, compared to o
 <p>Hierarchical event subscription as described in the O-RAN specification is not supported for PTP events.</p>
 </li>
 <li>
-<p>Cluster Node(s) must have proper NTP configuration to ensure correct time prior to PTP operator taking ownership of node timing.</p>
+<p>Cluster nodes must have proper NTP configuration to ensure correct time prior to PTP operator taking ownership of node timing.</p>
 </li>
 </ul>
 </div>
@@ -4414,7 +4480,7 @@ A sufficient number of cores must be allocated to the reserved set to account fo
 <div class="ulist">
 <ul>
 <li>
-<p>No reference design updates in this release</p>
+<p>OLM profile collection is removed in OKD 4.22. The <code>DisableOLMPprof</code> CR compliance type is now set to <code>mustnothave</code> to remove the previously applied configuration from clusters.</p>
 </li>
 </ul>
 </div>
@@ -4611,10 +4677,6 @@ Enables kdump to capture debug information when a kernel panic occurs.
 The reference CRs that enable kdump have an increased memory reservation based on the set of drivers and kernel modules included in the reference configuration.</p></td>
 </tr>
 <tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">CRI-O wipe disable</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Disables automatic wiping of the CRI-O image cache after unclean shutdown</p></td>
-</tr>
-<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">SR-IOV-related kernel arguments</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Include additional SR-IOV-related arguments in the kernel command line</p></td>
 </tr>
@@ -4657,7 +4719,7 @@ The reference CRs that enable kdump have an increased memory reservation based o
 <div class="ulist">
 <ul>
 <li>
-<p>The CRI-O wipe disable <code>MachineConfig</code> CR is no longer needed as cri-o now handles unclean shutdowns by performing a quick check and repair.</p>
+<p>No reference design updates in this release</p>
 </li>
 </ul>
 </div>
@@ -4954,7 +5016,7 @@ RHACM <code>PolicyGenerator</code> is the recommended generator plugin starting 
 <div class="ulist">
 <ul>
 <li>
-<p>1000 <code>ClusterInstance</code> CRs per ArgoCD application.
+<p>1000 <code>ClusterInstance</code> CRs per ArgoCD application on a hub cluster conforming to the Hub RDS.
 Multiple applications can be used to achieve the maximum number of clusters supported by a single hub cluster</p>
 </li>
 <li>
@@ -5085,6 +5147,54 @@ A container image registry is required for cluster installation.</p>
 </ul>
 </div>
 </div>
+<div class="sect2">
+<h3 id="telco-ran-cert-manager-operator_telco-ran-du"><a class="anchor" href="#telco-ran-cert-manager-operator_telco-ran-du"></a>cert-manager Operator</h3>
+<div class="paragraph _abstract">
+<p>The cert-manager Operator for OKD manages the lifecycle of TLS certificates for cluster components and workloads.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Description</dt>
+<dd>
+<div class="openblock">
+<div class="content">
+<div class="paragraph">
+<p>The cert-manager Operator for OKD manages the lifecycle of TLS certificates for cluster components and workloads.
+cert-manager Operator automates certificate issuance, renewal, and rotation, eliminating manual certificate management.
+The reference configuration includes cert-manager Operator to optionally manage certificates for the API server and ingress controller endpoints.</p>
+</div>
+</div>
+</div>
+</dd>
+<dt class="hdlist1">Limits and requirements</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>You must enable the console capability to use the cert-manager Operator.</p>
+</li>
+<li>
+<p>EUS-to-EUS image-based upgrades are not supported on clusters with the cert-manager Operator installed. Remove the cert-manager Operator before performing the upgrade and reinstall it after the upgrade completes.</p>
+</li>
+<li>
+<p>The reference configuration includes only the <code>ACME DNS01</code> challenge type for platform certificate issuance.</p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Engineering considerations</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Use RHACM <code>CertificatePolicy</code> resources on the hub cluster to monitor certificate expiration and compliance across managed RAN DU clusters.</p>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -5158,7 +5268,7 @@ See "Preparing the GitOps ZTP site configuration repository" for more informatio
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Disconnected registry</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>cluster-tuning/DisableOLMPprof.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Disables performance profiling for OLM.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Removes the obsolete <code>ConfigMap</code> CR that disabled OLM performance profiling in earlier releases. OLM performance profiling collection is removed in OKD 4.22.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 <tr>
@@ -5255,7 +5365,7 @@ See "Preparing the GitOps ZTP site configuration repository" for more informatio
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Lifecycle Agent</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>ibu/ImageBasedUpgrade.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Manage the image-based upgrade process in OpenShift.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Manage the image-based upgrade process in OKD.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
 </tr>
 <tr>
@@ -5339,13 +5449,13 @@ See "Preparing the GitOps ZTP site configuration repository" for more informatio
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Node Tuning Operator</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>node-tuning-operator/aarch64/PerformanceProfile.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Configures node performance settings in an OpenShift cluster, optimizing for low latency and real-time workloads for aarch64 CPUs.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures node performance settings in an OKD cluster, optimizing for low latency and real-time workloads for aarch64 CPUs.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Node Tuning Operator</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>node-tuning-operator/x86_64/PerformanceProfile.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Configures node performance settings in an OpenShift cluster, optimizing for low latency and real-time workloads for x86_64 CPUs.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures node performance settings in an OKD cluster, optimizing for low latency and real-time workloads for x86_64 CPUs.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 <tr>
@@ -5452,6 +5562,12 @@ See "Preparing the GitOps ZTP site configuration repository" for more informatio
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">PTP Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptp-operator/configuration/PtpConfigGnrdBcNoHoldover.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures PTP settings for a PTP Boundary Clock without holdover on GNR-D hardware. Dependent on cluster role.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PTP Operator</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptp-operator/PtpOperatorConfig.yaml</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Configures the PTP Operator settings, specifying node selection criteria for running PTP daemons in the openshift-ptp namespace.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
@@ -5531,7 +5647,7 @@ See "Preparing the GitOps ZTP site configuration repository" for more informatio
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">SR-IOV Operator</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sriov-operator/SriovOperatorConfigForSNO.yaml</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Configures the SR-IOV Network Operator settings for Single Node OpenShift (SNO), including node selection, injector, webhook options, and disabling node drain, in the openshift-sriov-network-operator namespace.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures the SR-IOV Network Operator settings for single-node OpenShift, including node selection, injector, webhook options, and disabling node drain, in the openshift-sriov-network-operator namespace.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 <tr>
@@ -5551,6 +5667,60 @@ See "Preparing the GitOps ZTP site configuration repository" for more informatio
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>sriov-operator/SriovSubscriptionOperGroup.yaml</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Defines the target namespace for the SR-IOV Network Operators, enabling their management and deployment within this namespace.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-nanager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional/cert-manager/certManagerNS.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Defines the cert-manager-operator namespace.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-nanager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional/cert-manager/certManagerOperatorgroup.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Defines the OperatorGroup for cert-nanager Operator.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-nanager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional/cert-manager/certManagerSubscription.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Installs the cert-manager Operator.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-nanager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional/cert-manager/certManagerOperatorStatus.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verifies the installation or upgrade of the cert-manager Operator.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-nanager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional/cert-manager/certManagerClusterIssuer.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures an ACME ClusterIssuer using Let&#8217;s Encrypt with DNS-01 challenge.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-nanager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional/cert-manager/apiServerCertificate.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Creates a certificate for the API Server endpoint.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-nanager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional/cert-manager/ingressCertificate.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Creates a wildcard certificate for the Ingress/Router.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-nanager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional/cert-manager/apiServerConfig.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures OKD to use the cert-manager generated API Server certificate.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-nanager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>optional/cert-manager/ingressControllerConfig.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures OKD to use the cert-manager generated Ingress certificate.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
 </tr>
 </tbody>
 </table>
@@ -5873,38 +6043,52 @@ No patched CRs</span></code></pre>
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">OKD</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.21</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.22</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">cert-manager Operator</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.19</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Cluster Logging Operator</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">6.2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">6.5</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Local Storage Operator</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.21</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.22</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">OpenShift API for Data Protection (OADP)</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">1.5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1.6</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">PTP Operator</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.21</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.22</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">SR-IOV Operator</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.21</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.22</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">SRIOV-FEC Operator</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">2.11</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2.12</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Lifecycle Agent Operator</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">4.21</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.22</p></td>
 </tr>
 </tbody>
 </table>
+<div class="ulist">
+<ul>
+<li>
+<p>The cert-manager Operator is a platform-agnostic Operator. The support lifecycle for the cert-manager Operator is independent from the support lifecycle for OKD. You might need to update to a newer minor version of this Operator at the end of an Operator lifecycle, or when planning to update the OKD cluster to continue support. For support lifecycle details for platform agnostic operators, see <a href="https://access.redhat.com/support/policy/updates/openshift_operators">OpenShift Operator Life Cycles</a>.</p>
+</li>
+<li>
+<p>Cluster Logging Operator will be updated to 6.6 when the aligned Cluster Logging Operator version is released.</p>
+</li>
+</ul>
+</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
