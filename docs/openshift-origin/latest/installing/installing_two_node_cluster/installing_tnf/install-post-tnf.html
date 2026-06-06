@@ -1921,7 +1921,6 @@
             <li><a class="" href="../../../hardware_accelerators/amd-gpu-operator.html">AMD GPU Operator</a></li>
             <li><a class="" href="../../../hardware_accelerators/gaudi-ai-accelerator.html">Intel Gaudi AI accelerators</a></li>
             <li><a class="" href="../../../hardware_accelerators/rdma-remote-direct-memory-access.html">Remote Direct Memory Access (RDMA)</a></li>
-            <li><a class="" href="../../../hardware_accelerators/das-about-dynamic-accelerator-slicer-operator.html">Dynamic Accelerator Slicer (DAS) Operator</a></li>
       </ul>
     </li>
     <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup31"><span id="tgSpan31" class="fa fa-angle-right"></span>Backup and restore</a>
@@ -2805,16 +2804,13 @@
 <div class="paragraph _abstract">
 <p>You can troubleshoot and restore  a two-node OKD cluster with fencing (TNF) after a disruption event. Manually recover services when automated recovery is unavailable, replace degraded control plane nodes, and use the <code>fencing_validator</code> script to verify cluster health.</p>
 </div>
-<div class="paragraph">
-<p>/Module included in the following assemblies:</p>
-</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="installation-manual-recovering-when-auto-recovery-is-unavail_install-post-tnf"><a class="anchor" href="#installation-manual-recovering-when-auto-recovery-is-unavail_install-post-tnf"></a>Manually recovering from a disruption event when automated recovery is unavailable</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You might need to perform manual recovery steps if a disruption event prevents fencing from functioning correctly. In this case, you can run commands directly on the control plane nodes to recover the cluster. There are four main recovery scenarios, which should be attempted in the following order:</p>
+<p>You might need to perform manual recovery steps if a disruption event prevents fencing from functioning correctly. In this case, you can run commands directly on the control plane nodes to recover the cluster. There are five main recovery scenarios, which should be attempted in the following order:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
@@ -2825,7 +2821,10 @@
 <p>Recover from a single-node failure: Restore functionality when only one control plane node is down.</p>
 </li>
 <li>
-<p>Recover from a complete node failure: Restore functionality when both control plane nodes are down.</p>
+<p>Recover from dual node power loss: Restore functionality when both control plane nodes are down and can be restarted.</p>
+</li>
+<li>
+<p>Restore corosync quorum after dual node power loss: Restore corosync quorum when both control plane nodes lost power but only one node can be restarted.</p>
 </li>
 <li>
 <p>Replace a control plane node that cannot be recovered: Replace the node to restore cluster functionality.</p>
@@ -2842,20 +2841,6 @@
 <p>You can connect to the nodes by using SSH.</p>
 </li>
 </ul>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Do an etcd backup before proceeding to ensure that you can restore the cluster if any issues occur.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3013,24 +2998,24 @@
 <li>
 <p>Run the following additional diagnostic commands, if necessary:</p>
 <div class="paragraph">
-<p>Reset the resources on your cluster and instruct Pacemaker to attempt to start them fresh by running the following command:</p>
+<p>Reset the resources on your cluster by running the following command:</p>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs resource cleanup</code></pre>
 </div>
 </div>
-<div class="paragraph">
+</li>
+<li>
 <p>Review all Pacemaker activity on the node by running the following command:</p>
-</div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>journalctl <span class="nt">-u</span> pacemaker</code></pre>
 </div>
 </div>
-<div class="paragraph">
+</li>
+<li>
 <p>Diagnose etcd resource startup issues by running the following command:</p>
-</div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>journalctl <span class="nt">-u</span> pacemaker | <span class="nb">grep </span>podman-etcd</code></pre>
@@ -3046,6 +3031,44 @@
 </div>
 <div class="paragraph">
 <p>If fencing is required but is not functioning, ensure that the Redfish fencing endpoint is accessible and verify that the credentials are correct.</p>
+</div>
+<div class="paragraph">
+<p>If you have verified the failed node is permanently inaccessible but automated fencing cannot function, verify the failed node meets ALL of the following conditions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The node is powered off and cannot be restarted.</p>
+</li>
+<li>
+<p>The node cannot access any shared storage or cluster resources.</p>
+</li>
+<li>
+<p>The node is completely isolated from the cluster network.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Confirm the node is fenced by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs stonith confirm &lt;failed_node_name&gt;</code></pre>
+</div>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the failed node is accessible or can access shared resources, confirming fencing can cause data corruption and cluster failure.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </li>
 <li>
@@ -3070,9 +3093,10 @@
 </div>
 </li>
 <li>
-<p>Recover from a complete node failure:</p>
-<div class="openblock">
-<div class="content">
+<p>Recover from dual node power loss where both nodes are recoverable:</p>
+<div class="paragraph">
+<p>This procedure applies when both control plane nodes lost power and both nodes can be restarted. If only one node can be restarted, proceed to step 4.</p>
+</div>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
@@ -3126,22 +3150,274 @@
 </li>
 </ol>
 </div>
+</li>
+<li>
+<p>Restore corosync quorum after dual node power loss (single node recoverable):</p>
+<div class="paragraph">
+<p>This procedure applies when both control plane nodes lost power and only one node can be restarted. In this scenario, the cluster has lost corosync quorum because the last known state showed both nodes were online before the power loss.</p>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Perform this procedure only when both of the following conditions are met:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Both control plane nodes lost power</p>
+</li>
+<li>
+<p>Only one control plane node can be restarted</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>This scenario typically occurs when you need to replace a control plane node (one node is not recoverable) and the surviving node lost power before the replacement procedure.</p>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Verify that only one node is online by running the following command on the surviving node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs status <span class="nt">--full</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows only one node online. The sample output is as follows:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Cluster name: TNF
+Cluster Summary:
+  * Stack: corosync (Pacemaker is running)
+  * Current DC: NONE
+  * Last updated: Wed Apr 29 16:21:17 2026 on master-0.ostest.test.metalkube.org
+  * Last change:  Wed Apr 29 16:19:25 2026 by root via root on master-1.ostest.test.metalkube.org
+  * 2 nodes configured
+  * 6 resource instances configured
+
+Node List:
+  * Node master-0.ostest.test.metalkube.org (1): UNCLEAN (offline)
+  * Node master-1.ostest.test.metalkube.org (2): UNCLEAN (offline)
+
+Full List of Resources:
+  * Clone Set: kubelet-clone [kubelet]:
+    * kubelet	(systemd:kubelet):	 Stopped
+    * kubelet	(systemd:kubelet):	 Stopped
+  * master-0.ostest.test.metalkube.org_redfish	(stonith:fence_redfish):	 Stopped
+  * master-1.ostest.test.metalkube.org_redfish	(stonith:fence_redfish):	 Stopped
+  * Clone Set: etcd-clone [etcd]:
+    * etcd	(ocf:heartbeat:podman-etcd):	 Stopped
+    * etcd	(ocf:heartbeat:podman-etcd):	 Stopped
+
+Tickets:
+
+PCSD Status:
+  master-0.ostest.test.metalkube.org: Online
+  master-1.ostest.test.metalkube.org: Offline
+
+Daemon Status:
+  corosync: active/enabled
+  pacemaker: active/enabled
+  pcsd: active/enabled</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The PCSD status shows that the master-0 node is Online, and the other is offline.
+BOTH nodes in the node list section are offline because neither has quorum.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">[core@master-0 ~]$</span><span class="w">   </span><span class="nb">sudo </span>pcs quorum status <span class="nt">--debug</span>
+<span class="go">Running: /usr/sbin/corosync-quorumtool -p
+Environment:
+  LC_ALL=C
+
+Finished running: /usr/sbin/corosync-quorumtool -p
+Return value: 2
+--Debug Stdout Start--
+Quorum information
+------------------
+Date:             Wed Apr 29 16:25:55 2026
+Quorum provider:  corosync_votequorum
+Nodes:            1
+Node ID:          1
+Ring ID:          1.e
+Quorate:          No
+
+Votequorum information
+----------------------
+Expected votes:   2
+Highest expected: 2
+Total votes:      1
+Quorum:           1 Activity blocked
+Flags:            2Node WaitForAll
+
+Membership information
+----------------------
+    Nodeid      Votes    Qdevice Name
+         1          1         NR master-0.ostest.test.metalkube.org (local)
+
+--Debug Stdout End--
+--Debug Stderr Start--
+
+--Debug Stderr End--
+
+Error: Unable to get quorum status:</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the failed node is permanently inaccessible before proceeding.</p>
+<div class="paragraph">
+<p>Before confirming to Pacemaker that the failed node is fenced, you must ensure that the failed node meets ALL of the following conditions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The node is powered off and cannot be restarted</p>
+</li>
+<li>
+<p>The node cannot access any shared storage or cluster resources</p>
+</li>
+<li>
+<p>The node is completely isolated from the cluster network</p>
+<div class="paragraph">
+<p>If the failed node is accessible or can access shared resources, DO NOT proceed with this step. Confirming fencing for a node that is still active can cause data corruption and cluster failure.</p>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Confirm to Pacemaker that the failed node is fenced by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs quorum unblock</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The command shows the following sample output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">WARNING: If node 'master-1' is not powered off or it does have access to shared resources, data corruption and/or cluster failure may occur
+Type 'yes' or 'y' to proceed, anything else to cancel:</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace &lt;failed_node_name&gt; with the name of the failed control plane node (for example, control-plane-1).</p>
+</div>
+</li>
+<li>
+<p>Verify that quorum is restored by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs quorum status</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The command shows the following sample output:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Quorum information
+------------------
+Date:             Fri Oct  3 14:15:31 2025
+Quorum provider:  corosync_votequorum
+Nodes:            1
+Node ID:          1
+Ring ID:          1.16
+Quorate:          Yes
+
+Votequorum information
+----------------------
+Expected votes:   2
+Highest expected: 2
+Total votes:      1
+Quorum:           1
+Flags:            2Node Quorate</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Wait 30 seconds for Pacemaker to process the fencing confirmation and begin recovery.</p>
+</li>
+<li>
+<p>Verify that etcd is running on the surviving node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs resource status etcd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If etcd is not running, restart it by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs resource cleanup etcd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wait up to 5 minutes for etcd to start. Check the status periodically by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs resource status etcd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The command shows that the <code>podman-etcd</code> resource is started.
+If the container is started successfully, you can see the logs by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>podman logs etcd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the container is not started, you can see the logs by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>journalctl <span class="nt">-u</span> pacemaker | <span class="nb">grep </span>podman-etcd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The relevant logs are placed at <code>/var/log/paceamaker/pacemaker.log</code>.
+The output must show that etcd is started on the surviving node.</p>
+</div>
+<div class="paragraph">
+<p>After restoring corosync quorum and confirming etcd is running, proceed to step 5 to replace the failed control plane node.</p>
+</div>
+</li>
+</ol>
 </div>
 </li>
 <li>
 <p>If you need to manually recover from an event when one of the nodes is not recoverable, follow the procedure in "Replacing control plane nodes in a two-node OpenShift cluster".</p>
 <div class="paragraph">
-<p>When a cluster loses a single node, it enters the degraded mode. In this state, Pacemaker automatically unblocks quorum and allows the cluster to temporarily operate on the remaining node.</p>
+<p>When a cluster loses a single node, it enters degraded mode. In this state, Pacemaker automatically unblocks quorum and allows the cluster to temporarily operate on the remaining node.</p>
 </div>
 <div class="paragraph">
-<p>If both nodes fail, you must restart both nodes to reestablish quorum so that Pacemaker can resume normal cluster operations.</p>
+<p>If both nodes fail and both can be restarted, Pacemaker reestablishes quorum automatically when both nodes are online.</p>
 </div>
 <div class="paragraph">
-<p>If only one of the two nodes can be restarted, follow the node replacement procedure to manually reestablish quorum on the surviving node.</p>
+<p>If only one node can be restarted, proceed to step 4 to restore corosync quorum manually.</p>
 </div>
 <div class="paragraph">
-<p>If manual recovery is still required and it fails, collect a must-gather and SOS report, and file a bug.</p>
+<p>If manual recovery is still required and it fails, collect a must-gather and sosreport, and file a bug.</p>
 </div>
 </li>
 </ol>
