@@ -479,6 +479,7 @@
                   <li><a class="" href="../rosa_cluster_admin/rosa_nodes/rosa-nodes-about-autoscaling-nodes.html">About autoscaling nodes on a cluster</a></li>
                   <li><a class="" href="../rosa_cluster_admin/rosa_nodes/nodes-cluster-resource-configure.html">Configuring cluster memory to meet container memory and risk requirements</a></li>              </ul>
             </li>
+            <li><a class="" href="../rosa_cluster_admin/rosa-nodes-managing-karpenter.html">Managing compute nodes using Red Hat build of Karpenter</a></li>
             <li><a class="" href="../rosa_cluster_admin/rosa-configuring-pid-limits.html">Configuring PID limits</a></li>
             <li><a class="" href="../rosa_cluster_admin/rosa-multi-arch-cluster-managing.html">Managing multi-architecture clusters</a></li>
       </ul>
@@ -1228,7 +1229,8 @@
         <div id="toc" class="toc">
 <div id="toctitle"></div>
 <ul class="sectlevel1">
-<li><a href="#rosa-upgrade-options_rosa-hcp-upgrading">Update options for Red Hat OpenShift Service on AWS clusters</a></li>
+<li><a href="#rosa-upgrade-options_rosa-hcp-upgrading">Update options for Red Hat OpenShift Service on AWS clusters configured with Red&#160;Hat build of Karpenter</a></li>
+<li><a href="#rosa-nodes-autonode-upgrading-autonode_rosa-hcp-upgrading">Understanding upgrades for Red Hat OpenShift Service on AWS clusters configured with Red&#160;Hat build of Karpenter</a></li>
 <li><a href="#rosa-upgrading-lifecycle-policy_rosa-hcp-upgrading">Life cycle policies and planning</a></li>
 <li><a href="#rosa-hcp-upgrading-channels_rosa-hcp-upgrading">Channels in Red Hat OpenShift Service on AWS clusters</a>
 <ul class="sectlevel2">
@@ -1250,20 +1252,24 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="rosa-upgrade-options_rosa-hcp-upgrading"><a class="anchor" href="#rosa-upgrade-options_rosa-hcp-upgrading"></a>Update options for Red Hat OpenShift Service on AWS clusters</h2>
+<h2 id="rosa-upgrade-options_rosa-hcp-upgrading"><a class="anchor" href="#rosa-upgrade-options_rosa-hcp-upgrading"></a>Update options for Red Hat OpenShift Service on AWS clusters configured with Red&#160;Hat build of Karpenter</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can control the impact of updates to your workload by controlling which parts of the cluster are updated, for example:</p>
+<p>You can control the impact of updates to your workload by controlling which parts of the cluster are updated.</p>
 </div>
 <div class="dlist">
 <dl>
 <dt class="hdlist1">Update only the hosted control plane</dt>
 <dd>
-<p>This initiates update of the hosted control plane. It does not impact your worker nodes.</p>
+<p>This initiates update of the hosted control plane. When the cluster is not configured with Red&#160;Hat build of Karpenter, it does not impact your worker nodes. When the cluster is configured with Red&#160;Hat build of Karpenter, worker nodes that are part of the default <code>EC2NodeClass</code> resource managed by Karpenter are updated along with the hosted control planes.</p>
 </dd>
 <dt class="hdlist1">Update nodes in a machine pool</dt>
 <dd>
 <p>Red Hat OpenShift Service on AWS machine pool updates are designed to fully replace each node in a machine pool during the update process. This provides additional security and stability benefits over performing an in-place update. Updating the nodes in a machine pool initiates a rolling replacement of nodes in the specified machine pool, and temporarily impacts the worker nodes on that machine pool. You can also update multiple machine pools concurrently.</p>
+</dd>
+<dt class="hdlist1">Update nodes in a Karpenter-managed <code>EC2NodeClass</code></dt>
+<dd>
+<p>When Red&#160;Hat build of Karpenter is enabled, <code>OpenshiftEC2NodeClass</code> resource created in the cluster can be upgraded.</p>
 </dd>
 </dl>
 </div>
@@ -1275,7 +1281,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>You cannot update the hosted control plane at the same time as any machine pool update. You will need to update the hosted control plane first, and then update machine pools.</p>
+<p>You cannot update the hosted control plane at the same time as any machine pool update. You must update the hosted control plane first, and then update machine pools.</p>
 </div>
 </td>
 </tr>
@@ -1313,6 +1319,38 @@
 </div>
 <div class="paragraph">
 <p>For more information about these parameters and their usage, see the <em>ROSA CLI reference</em> for <code>rosa edit machinepool</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="rosa-nodes-autonode-upgrading-autonode_rosa-hcp-upgrading"><a class="anchor" href="#rosa-nodes-autonode-upgrading-autonode_rosa-hcp-upgrading"></a>Understanding upgrades for Red Hat OpenShift Service on AWS clusters configured with Red&#160;Hat build of Karpenter</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can upgrade clusters that are configured with Red&#160;Hat build of Karpenter.</p>
+</div>
+<div id="rosa-nodes-autonode-upgrading-autonode-openshiftec2nodeclass_rosa-hcp-upgrading" class="paragraph">
+<p><strong>Default <code>OpenshiftEC2NodeClass</code></strong></p>
+</div>
+<div class="paragraph">
+<p>When you enable Red&#160;Hat build of Karpenter, a default <code>OpenshiftEC2NodeClass</code> resource is created with the same version as that of the hosted control plane. All node pools that reference the default <code>EC2NodeClass</code> are automatically upgraded as part of the hosted control plane upgrade.</p>
+</div>
+<div id="rosa-nodes-autonode-upgrading-autonode-secondary-openshiftec2nodeclass_rosa-hcp-upgrading" class="paragraph">
+<p><strong>Optional <code>OpenshiftEC2NodeClass</code></strong></p>
+</div>
+<div class="paragraph">
+<p>Upgrade behavior depends on whether or not the <code>OpenshiftEC2NodeClass</code> is pinned to a version by using the <code>spec.version</code> field.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Unpinned <code>OpenshiftEC2NodeClass</code></dt>
+<dd>
+<p>By default, <code>OpenshiftEC2NodeClass</code> resources have the same version of the hosted control plane. When the hosted control plane is upgraded, unpinned <code>OpenshiftEC2NodeClass</code> resources are automatically upgraded.</p>
+</dd>
+<dt class="hdlist1">Pinned <code>OpenshiftEC2NodeClass</code></dt>
+<dd>
+<p>In the <code>OpenshiftEC2NodeClass</code> resource, you can specify a valid OpenShift version in <code>spec.version</code>. Specifying this version pins the cluster&#8217;s node pools to a specific version. Any pinned <code>OpenshiftEC2NodeClass</code> resources are not upgraded as part of the hosted control plane upgrade. You can update the <code>spec.version</code> of pinned <code>OpenshiftEC2NodeClass</code> resources to a valid version. Updating this <code>spec.version</code> field initiates the upgrade of all of the node pools that reference its corresponding <code>OpenshiftEC2NodeClass</code> resource.</p>
+</dd>
+</dl>
 </div>
 </div>
 </div>
