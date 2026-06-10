@@ -16,7 +16,7 @@
   
   
 
-  <title>Creating advanced Routes - Ingress and load balancing | Networking | Red Hat OpenShift Service on AWS Branch Build</title>
+  <title>Securing routes through ingress objects - Ingress and load balancing | Networking | Red Hat OpenShift Service on AWS Branch Build</title>
   <link href="https://assets.openshift.net/content/subdomain.css" rel="stylesheet" type="text/css"/>
   <link href="https://docs.okd.io/latest/_stylesheets/search.css" rel="stylesheet" media="screen"/>
   <link href="https://docs.okd.io/latest/_stylesheets/autumn.css" rel="stylesheet"  media="screen"/>
@@ -216,7 +216,7 @@
       <li class="hidden-xs active">Ingress and load balancing</li>
       <li class="hidden-xs active"><a href="../../../networking/ingress_load_balancing/routes/creating-basic-routes.html">Routes</a></li>
       <li class="hidden-xs active">
-        Creating advanced Routes
+        Securing routes through ingress objects
       </li>
       
       <span text-align="right" style="float: right !important">
@@ -832,7 +832,7 @@
                     <li><a class="" href="../../../networking/ingress_load_balancing/routes/creating-basic-routes.html" style="padding-left: 70px;">Creating basic routes</a></li>
                     <li><a class="" href="../../../networking/ingress_load_balancing/routes/securing-routes.html" style="padding-left: 70px;">Securing routes</a></li>
                     <li><a class="" href="../../../networking/ingress_load_balancing/routes/nw-configuring-routes.html" style="padding-left: 70px;">Configuring Routes</a></li>
-                    <li><a class=" active" href="../../../networking/ingress_load_balancing/routes/creating-advanced-routes.html" style="padding-left: 70px;">Creating advanced Routes</a></li>                  </ul>
+                    <li><a class=" active" href="../../../networking/ingress_load_balancing/routes/creating-advanced-routes.html" style="padding-left: 70px;">Securing routes through ingress objects</a></li>                  </ul>
                   </li>
               </ul>
             </li>
@@ -1221,7 +1221,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            Creating advanced routes
+            Securing routes through ingress objects
           </h1>
         </div>
         
@@ -1231,283 +1231,26 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#nw-ingress-creating-an-edge-route-with-a-custom-certificate_creating-advanced-routes">Creating an edge route with a custom certificate</a></li>
-<li><a href="#nw-ingress-creating-a-reencrypt-route-with-a-custom-certificate_creating-advanced-routes">Creating a re-encrypt route with a custom certificate</a></li>
-<li><a href="#nw-ingress-creating-a-passthrough-route_creating-advanced-routes">Creating a passthrough route</a></li>
 <li><a href="#nw-ingress-re-encrypt-route-custom-cert_creating-advanced-routes">Creating a route using the destination CA certificate in the Ingress annotation</a></li>
-<li><a href="#nw-ingress-route-secret-load-external-cert_creating-advanced-routes">Creating a route with externally managed certificates</a></li>
 <li><a href="#nw-ingress-edge-route-default-certificate_creating-advanced-routes">Creating a route using the default certificate through an Ingress object</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>To secure application traffic and serve custom certificates to clients, configure routes by using edge, passthrough, or re-encrypt TLS termination. By using these methods, you can define granular encryption rules, ensuring that traffic is decrypted and re-encrypted according to your specific security requirements.</p>
+<p>You can secure your application traffic by managing certificates directly through ingress objects. This includes creating routes using the destination CA certificate in an ingress annotation or using the default certificate.</p>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="nw-ingress-creating-an-edge-route-with-a-custom-certificate_creating-advanced-routes"><a class="anchor" href="#nw-ingress-creating-an-edge-route-with-a-custom-certificate_creating-advanced-routes"></a>Creating an edge route with a custom certificate</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>To secure traffic by using a custom certificate, configure a route with edge TLS termination by running the <code>oc create route</code> command. This configuration terminates encryption at the Ingress Controller before forwarding traffic to the destination pod.</p>
-</div>
-<div class="paragraph">
-<p>The route specifies the TLS certificate and key that the Ingress Controller uses for the route.</p>
-</div>
-<div class="paragraph">
-<p>The procedure creates a <code>Route</code> resource with a custom certificate and edge TLS termination. The procedure assumes that the certificate/key pair are in the <code>tls.crt</code> and <code>tls.key</code> files in the current working directory. You may also specify a CA certificate if needed to complete the certificate chain. Substitute the actual path names for <code>tls.crt</code>, <code>tls.key</code>, and (optionally) <code>ca.crt</code>. Substitute the name of the service that you want to expose for <code>frontend</code>. Substitute the appropriate hostname for <code>www.example.com</code>.</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You must have a certificate/key pair in PEM-encoded files, where the certificate is valid for the route host.</p>
-</li>
-<li>
-<p>You might have a separate CA certificate in a PEM-encoded file that completes the certificate chain.</p>
-</li>
-<li>
-<p>You must have a service that you want to expose.</p>
-</li>
-</ul>
-</div>
-<div class="admonitionblock note">
+<div class="admonitionblock warning">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-note" title="Note"></i>
+<i class="fa icon-warning" title="Warning"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Password protected key files are not supported. To remove a passphrase from a key file, use the following command:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openssl rsa <span class="nt">-in</span> password_protected_tls.key <span class="nt">-out</span> tls.key</code></pre>
-</div>
+<p>The Ingress Controller maintains a one-way sync for certificates managed through ingress objects. Do not manually apply changes directly to the generated route&#8217;s TLS configuration. Any manual modifications are silently overwritten the next time the parent ingress object is updated or reconciled. This is particularly important to note if you operate a GitOps-managed cluster.</p>
 </div>
 </td>
 </tr>
 </table>
-</div>
-<div class="ulist">
-<div class="title">Procedure</div>
-<ul>
-<li>
-<p>Create a secure <code>Route</code> resource using edge TLS termination and a custom certificate.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create route edge <span class="nt">--service</span><span class="o">=</span>frontend <span class="nt">--cert</span><span class="o">=</span>tls.crt <span class="nt">--key</span><span class="o">=</span>tls.key <span class="nt">--ca-cert</span><span class="o">=</span>ca.crt <span class="nt">--hostname</span><span class="o">=</span>www.example.com</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>If you examine the resulting <code>Route</code> resource, the resource should have a configuration similar to the following example:</p>
-</div>
-<div class="listingblock">
-<div class="title">YAML Definition of the Secure Route</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">route.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Route</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">frontend</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">host</span><span class="pi">:</span> <span class="s">www.example.com</span>
-  <span class="na">to</span><span class="pi">:</span>
-    <span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">frontend</span>
-  <span class="na">tls</span><span class="pi">:</span>
-    <span class="na">termination</span><span class="pi">:</span> <span class="s">edge</span>
-    <span class="na">key</span><span class="pi">:</span> <span class="pi">|-</span>
-      <span class="s">-----BEGIN PRIVATE KEY-----</span>
-      <span class="s">[...]</span>
-      <span class="s">-----END PRIVATE KEY-----</span>
-    <span class="na">certificate</span><span class="pi">:</span> <span class="pi">|-</span>
-      <span class="s">-----BEGIN CERTIFICATE-----</span>
-      <span class="s">[...]</span>
-      <span class="s">-----END CERTIFICATE-----</span>
-    <span class="na">caCertificate</span><span class="pi">:</span> <span class="pi">|-</span>
-      <span class="s">-----BEGIN CERTIFICATE-----</span>
-      <span class="s">[...]</span>
-      <span class="s">-----END CERTIFICATE-----</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>See <code>oc create route edge --help</code> for more options.</p>
-</div>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="nw-ingress-creating-a-reencrypt-route-with-a-custom-certificate_creating-advanced-routes"><a class="anchor" href="#nw-ingress-creating-a-reencrypt-route-with-a-custom-certificate_creating-advanced-routes"></a>Creating a re-encrypt route with a custom certificate</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>To secure traffic by using a custom certificate, configure a route with re-encrypt TLS termination by running the <code>oc create route</code> command. This configuration enables the Ingress Controller to decrypt traffic, and then re-encrypt traffic before forwarding the traffic to the destination pod.</p>
-</div>
-<div class="paragraph">
-<p>The procedure creates a <code>Route</code> resource with a custom certificate and reencrypt TLS termination. The procedure assumes that the certificate/key pair are in the <code>tls.crt</code> and <code>tls.key</code> files in the current working directory. You must also specify a destination CA certificate to enable the Ingress Controller to trust the service&#8217;s certificate. You may also specify a CA certificate if needed to complete the certificate chain. Substitute the actual path names for <code>tls.crt</code>, <code>tls.key</code>, <code>cacert.crt</code>, and (optionally) <code>ca.crt</code>. Substitute the name of the <code>Service</code> resource that you want to expose for <code>frontend</code>. Substitute the appropriate hostname for <code>www.example.com</code>.</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You must have a certificate/key pair in PEM-encoded files, where the certificate is valid for the route host.</p>
-</li>
-<li>
-<p>You may have a separate CA certificate in a PEM-encoded file that completes the certificate chain.</p>
-</li>
-<li>
-<p>You must have a separate destination CA certificate in a PEM-encoded file.</p>
-</li>
-<li>
-<p>You must have a service that you want to expose.</p>
-</li>
-</ul>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Password protected key files are not supported. To remove a passphrase from a key file, use the following command:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>openssl rsa <span class="nt">-in</span> password_protected_tls.key <span class="nt">-out</span> tls.key</code></pre>
-</div>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="ulist">
-<div class="title">Procedure</div>
-<ul>
-<li>
-<p>Create a secure <code>Route</code> resource using reencrypt TLS termination and a custom certificate:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create route reencrypt <span class="nt">--service</span><span class="o">=</span>frontend <span class="nt">--cert</span><span class="o">=</span>tls.crt <span class="nt">--key</span><span class="o">=</span>tls.key <span class="nt">--dest-ca-cert</span><span class="o">=</span>destca.crt <span class="nt">--ca-cert</span><span class="o">=</span>ca.crt <span class="nt">--hostname</span><span class="o">=</span>www.example.com</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>If you examine the resulting <code>Route</code> resource, the resource should have a configuration similar to the following example:</p>
-</div>
-<div class="listingblock">
-<div class="title">YAML Definition of the Secure Route</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">route.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Route</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">frontend</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">host</span><span class="pi">:</span> <span class="s">www.example.com</span>
-  <span class="na">to</span><span class="pi">:</span>
-    <span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">frontend</span>
-  <span class="na">tls</span><span class="pi">:</span>
-    <span class="na">termination</span><span class="pi">:</span> <span class="s">reencrypt</span>
-    <span class="na">key</span><span class="pi">:</span> <span class="pi">|-</span>
-      <span class="s">-----BEGIN PRIVATE KEY-----</span>
-      <span class="s">[...]</span>
-      <span class="s">-----END PRIVATE KEY-----</span>
-    <span class="na">certificate</span><span class="pi">:</span> <span class="pi">|-</span>
-      <span class="s">-----BEGIN CERTIFICATE-----</span>
-      <span class="s">[...]</span>
-      <span class="s">-----END CERTIFICATE-----</span>
-    <span class="na">caCertificate</span><span class="pi">:</span> <span class="pi">|-</span>
-      <span class="s">-----BEGIN CERTIFICATE-----</span>
-      <span class="s">[...]</span>
-      <span class="s">-----END CERTIFICATE-----</span>
-    <span class="na">destinationCACertificate</span><span class="pi">:</span> <span class="pi">|-</span>
-      <span class="s">-----BEGIN CERTIFICATE-----</span>
-      <span class="s">[...]</span>
-      <span class="s">-----END CERTIFICATE-----</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>See <code>oc create route reencrypt --help</code> for more options.</p>
-</div>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="nw-ingress-creating-a-passthrough-route_creating-advanced-routes"><a class="anchor" href="#nw-ingress-creating-a-passthrough-route_creating-advanced-routes"></a>Creating a passthrough route</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>To send encrypted traffic directly to the destination without decryption at the router, configure a route with passthrough termination by running the <code>oc create route</code> command. This configuration requires no key or certificate on the route, as the destination pod handles TLS termination.</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You must have a service that you want to expose.</p>
-</li>
-</ul>
-</div>
-<div class="ulist">
-<div class="title">Procedure</div>
-<ul>
-<li>
-<p>Create a <code>Route</code> resource:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create route passthrough route-passthrough-secured <span class="nt">--service</span><span class="o">=</span>frontend <span class="nt">--port</span><span class="o">=</span>8080</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>If you examine the resulting <code>Route</code> resource, it should look similar to the following:</p>
-</div>
-<div class="listingblock">
-<div class="title">A Secured Route Using Passthrough Termination</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">route.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Route</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">route-passthrough-secured</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">host</span><span class="pi">:</span> <span class="s">www.example.com</span>
-  <span class="na">port</span><span class="pi">:</span>
-    <span class="na">targetPort</span><span class="pi">:</span> <span class="m">8080</span>
-  <span class="na">tls</span><span class="pi">:</span>
-    <span class="na">termination</span><span class="pi">:</span> <span class="s">passthrough</span>
-    <span class="na">insecureEdgeTerminationPolicy</span><span class="pi">:</span> <span class="s">None</span>
-  <span class="na">to</span><span class="pi">:</span>
-    <span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">frontend</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>where:</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>metadata.name</code></dt>
-<dd>
-<p>Specifies the name of the object, which is limited to 63 characters.</p>
-</dd>
-<dt class="hdlist1"><code>tls.termination</code></dt>
-<dd>
-<p>Specifies the <code>termination</code> field is set to <code>passthrough</code>. This is the only required <code>tls</code> field.</p>
-</dd>
-<dt class="hdlist1"><code>tls.insecureEdgeTerminationPolicy</code></dt>
-<dd>
-<p>Specifies the type of edge termination policy. Optional parameter. The only valid values are <code>None</code>, <code>Redirect</code>, or empty for disabled.</p>
-<div class="paragraph">
-<p>The destination pod is responsible for serving certificates for the traffic at the endpoint. This is currently the only method that can support requiring client certificates, also known as two-way authentication.</p>
-</div>
-</dd>
-</dl>
-</div>
-</li>
-</ul>
 </div>
 </div>
 </div>
@@ -1608,127 +1351,6 @@
 </div>
 </dd>
 </dl>
-</div>
-</li>
-</ol>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="nw-ingress-route-secret-load-external-cert_creating-advanced-routes"><a class="anchor" href="#nw-ingress-route-secret-load-external-cert_creating-advanced-routes"></a>Creating a route with externally managed certificates</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>You can configure Red Hat OpenShift Service on AWS routes with third-party certificate management solutions by using the <code>.spec.tls.externalCertificate</code> field of the route API. You can reference externally managed TLS certificates via secrets, eliminating the need for manual certificate management.</p>
-</div>
-<div class="paragraph">
-<p>By using the externally managed certificate, you can reduce errors to ensure a smoother rollout of certificate updates and enable the OpenShift router to serve renewed certificates promptly. You can use externally managed certificates with both edge routes and re-encrypt routes.</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You must have a secret containing a valid certificate or key pair in PEM-encoded format of type <code>kubernetes.io/tls</code>, which includes both <code>tls.key</code> and <code>tls.crt</code> keys. Example command: <code>$ oc create secret tls myapp-tls --cert=server.crt --key=server.key</code>.</p>
-</li>
-</ul>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Create a <code>role</code> object in the same namespace as the secret to allow the router service account read access by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create role secret-reader <span class="nt">--verb</span><span class="o">=</span>get,list,watch <span class="nt">--resource</span><span class="o">=</span>secrets <span class="nt">--resource-name</span><span class="o">=</span>&lt;secret-name&gt; <span class="se">\</span>
-<span class="nt">--namespace</span><span class="o">=</span>&lt;current-namespace&gt;</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>&lt;secret-name&gt;</code>: Specify the actual name of your secret.</p>
-</li>
-<li>
-<p><code>&lt;current-namespace&gt;</code>: Specify the namespace where both your secret and route reside.</p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Create a <code>rolebinding</code> object in the same namespace as the secret and bind the router service account to the newly created role by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-reader-binding <span class="nt">--role</span><span class="o">=</span>secret-reader <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-ingress:router <span class="nt">--namespace</span><span class="o">=</span>&lt;current-namespace&gt;</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>&lt;current-namespace&gt;</code>: Specify the namespace where both your secret and route reside.</p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Create a YAML file that defines the <code>route</code> and specifies the secret containing your certificate using the following example.</p>
-<div class="listingblock">
-<div class="title">YAML definition of the secure route</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">route.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Route</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">myedge</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">test</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">host</span><span class="pi">:</span> <span class="s">myedge-test.apps.example.com</span>
-  <span class="na">tls</span><span class="pi">:</span>
-    <span class="na">externalCertificate</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;secret-name&gt;</span>
-    <span class="na">termination</span><span class="pi">:</span> <span class="s">edge</span>
-    <span class="pi">[</span><span class="nv">...</span><span class="pi">]</span>
-<span class="pi">[</span><span class="nv">...</span><span class="pi">]</span></code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>&lt;secret-name&gt;</code>: Specify the actual name of your secret.</p>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Create a <code>route</code> resource by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;route.yaml&gt;</code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>&lt;route.yaml&gt;</code>: Specify the generated YAML filename.</p>
-<div class="paragraph">
-<p>If the secret exists and has a certificate/key pair, the router will serve the generated certificate if all prerequisites are met.</p>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If <code>.spec.tls.externalCertificate</code> is not provided, the router uses default generated certificates.</p>
-</div>
-<div class="paragraph">
-<p>You cannot provide the <code>.spec.tls.certificate</code> field  or the <code>.spec.tls.key</code> field when using the <code>.spec.tls.externalCertificate</code> field.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-</ul>
 </div>
 </li>
 </ol>
