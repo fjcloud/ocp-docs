@@ -3189,7 +3189,15 @@
                   <li><a class="" href="../../virt/managing_vms/virt-install-virtio-drivers-on-windows-vms.html">Install VirtIO drivers on Windows VMs</a></li>
                   <li><a class="" href="../../virt/managing_vms/virt-update-virtio-drivers.html">Update VirtIO drivers</a></li>
                   <li><a class="" href="../../virt/managing_vms/virt-accessing-vm-consoles.html">Connecting to VM consoles</a></li>
-                  <li><a class="" href="../../virt/managing_vms/virt-accessing-vm-ssh.html">Configuring SSH access to VMs</a></li>
+                <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubSubGroup-41-8-5"><span id="ssgSpan-41-8-5" class="fa fa-caret-right"></span>&nbsp;SSH access</a>
+                  <ul id="topicSubSubGroup-41-8-5" class="nav-tertiary list-unstyled collapse">
+
+                    <li><a class="" href="../../virt/managing_vms/ssh/virt-accessing-vm-ssh.html" style="padding-left: 70px;">SSH access for virtual machines</a></li>
+                    <li><a class="" href="../../virt/managing_vms/ssh/virt-using-virtctl-ssh.html" style="padding-left: 70px;">Configure SSH with the virtctl CLI tool</a></li>
+                    <li><a class="" href="../../virt/managing_vms/ssh/virt-using-secondary-networks-ssh.html" style="padding-left: 70px;">Use a secondary network for SSH access</a></li>
+                    <li><a class="" href="../../virt/managing_vms/ssh/virt-using-services.html" style="padding-left: 70px;">Create a service to connect with SSH</a></li>                  </ul>
+                  </li>
+
                   <li><a class="" href="../../virt/managing_vms/virt-customize-web-console.html">Customize the web console</a></li>
                   <li><a class="" href="../../virt/managing_vms/virt-edit-vms.html">Editing virtual machines</a></li>
                   <li><a class="" href="../../virt/managing_vms/virt-edit-boot-order.html">Editing boot order</a></li>
@@ -3365,7 +3373,8 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#customize-certificates-api-add-named_api-server-certificates">Add an API server named certificate</a></li>
+<li><a href="#customize-certificates-api-add-named_api-server-certificates">Adding an API server named certificate for the first time</a></li>
+<li><a href="#customize-certificates-api-renew-named_api-server-certificates">Updating or renewing an existing API server named certificate</a></li>
 </ul>
 </div>
 <div class="paragraph">
@@ -3391,13 +3400,24 @@ by one that is issued by a CA that clients trust.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="customize-certificates-api-add-named_api-server-certificates"><a class="anchor" href="#customize-certificates-api-add-named_api-server-certificates"></a>Add an API server named certificate</h2>
+<h2 id="customize-certificates-api-add-named_api-server-certificates"><a class="anchor" href="#customize-certificates-api-add-named_api-server-certificates"></a>Adding an API server named certificate for the first time</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The default API server certificate is issued by an internal OpenShift Container Platform cluster Certificate Authority (CA). You can add alternative certificates that the API server will return based on the fully qualified domain name (FQDN) requested by the client, for example when a reverse proxy or load balancer is used.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
 <div class="paragraph">
-<p>The default API server certificate is issued by an internal OpenShift Container Platform
-cluster CA. You can add one or more alternative certificates that the API
-server will return based on the fully qualified domain name (FQDN) requested by
-the client, for example when a reverse proxy or load balancer is used.</p>
+<p>Adding a custom API server named certificate for the first time triggers the <code>kube-apiserver-operator</code> to roll out a new revision of the API server pods. Node reboots are not required.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3406,17 +3426,13 @@ the client, for example when a reverse proxy or load balancer is used.</p>
 <p>You must have a certificate for the FQDN and its corresponding private key. Each should be in a separate PEM format file.</p>
 </li>
 <li>
-<p>The private key must be unencrypted. If your key is encrypted, decrypt it
-before importing it into OpenShift Container Platform.</p>
+<p>The private key must be unencrypted.</p>
 </li>
 <li>
 <p>The certificate must include the <code>subjectAltName</code> extension showing the FQDN.</p>
 </li>
 <li>
-<p>The certificate file can contain one or more certificates in a chain. The
-certificate for the API server FQDN must be the first certificate in the file.
-It can then be followed with any intermediate certificates, and the file should
-end with the root CA certificate.</p>
+<p>The certificate file can contain one or more certificates in a chain. The certificate for the API server FQDN must be the first certificate in the file, followed by intermediate certificates, and ending with the root CA certificate.</p>
 </li>
 </ul>
 </div>
@@ -3428,9 +3444,7 @@ end with the root CA certificate.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Do not provide a named certificate for the internal load balancer (host
-name <code>api-int.&lt;cluster_name&gt;.&lt;base_domain&gt;</code>). Doing so will leave your
-cluster in a degraded state.</p>
+<p>Do not provide a named certificate for the internal load balancer (host name <code>api-int.&lt;cluster_name&gt;.&lt;base_domain&gt;</code>). Doing so will leave your cluster in a degraded state.</p>
 </div>
 </td>
 </tr>
@@ -3440,120 +3454,113 @@ cluster in a degraded state.</p>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Login to the new API as the <code>kubeadmin</code> user.</p>
+<p>Log in to the CLI as the <code>kubeadmin</code> user:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc login <span class="nt">-u</span> kubeadmin <span class="nt">-p</span> &lt;password&gt; https://FQDN:6443</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Get the <code>kubeconfig</code> file.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc config view <span class="nt">--flatten</span> <span class="o">&gt;</span> kubeconfig-newapi</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Create a secret that contains the certificate chain and private key in the
-<code>openshift-config</code> namespace.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret tls &lt;secret&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
-     <span class="nt">--cert</span><span class="o">=</span>&lt;/path/to/cert.crt&gt; <span class="se">\</span><i class="conum" data-value="2"></i><b>(2)</b>
-     <span class="nt">--key</span><span class="o">=</span>&lt;/path/to/cert.key&gt; <span class="se">\</span><i class="conum" data-value="3"></i><b>(3)</b>
-     <span class="nt">-n</span> openshift-config</code></pre>
-</div>
-</div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>&lt;secret&gt;</code> is the name of the secret that will contain the certificate chain and private key.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td><code>&lt;/path/to/cert.crt&gt;</code> is the path to the certificate chain on your local file system.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td><code>&lt;/path/to/cert.key&gt;</code> is the path to the private key associated with this certificate.</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>Update the API server to reference the created secret.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch apiserver cluster <span class="se">\</span>
-     <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="se">\</span>
-     <span class="s1">'{"spec":{"servingCerts": {"namedCertificates":
-</span><span class="gp">     [{"names": ["&lt;FQDN&gt;</span><span class="s1">"],
-</span><span class="gp">     "servingCertificate": {"name": "&lt;secret&gt;</span><span class="s1">"}}]}}}'</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc login <span class="nt">-u</span> kubeadmin <span class="nt">-p</span> &lt;password&gt; https://&lt;fqdn&gt;:6443</code></pre>
 </div>
 </div>
 <div class="paragraph">
 <p>where:</p>
 </div>
+<div class="openblock">
+<div class="content">
 <div class="dlist">
 <dl>
-<dt class="hdlist1">&lt;FQDN&gt;</dt>
+<dt class="hdlist1"><code>&lt;password&gt;</code></dt>
 <dd>
-<p>Replace <code>&lt;FQDN&gt;</code> with the FQDN that the API server should provide the certificate for. Do not include the port number.</p>
+<p>Specifies your cluster administrative password.</p>
 </dd>
-<dt class="hdlist1">&lt;secret&gt;</dt>
+<dt class="hdlist1"><code>&lt;fqdn&gt;</code></dt>
 <dd>
-<p>Replace <code>&lt;secret&gt;</code> with the name used for the secret in the previous step.</p>
+<p>Specifies the fully qualified domain name of the internal cluster API endpoint.</p>
 </dd>
 </dl>
 </div>
-</li>
-<li>
-<p>Examine the <code>apiserver/cluster</code> object and confirm the secret is now
-referenced.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get apiserver cluster <span class="nt">-o</span> yaml</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="c">...
-</span><span class="go">spec:
-  servingCerts:
-    namedCertificates:
-    - names:
-</span><span class="gp">      - &lt;FQDN&gt;</span><span class="w">
-</span><span class="go">      servingCertificate:
-</span><span class="gp">        name: &lt;secret&gt;</span><span class="w">
-</span><span class="c">...</span></code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Check the <code>kube-apiserver</code> operator, and verify that a new revision of the Kubernetes API server rolls out.
-It may take a minute for the operator to detect the configuration change and trigger a new deployment.
-While the new revision is rolling out, <code>PROGRESSING</code> will report <code>True</code>.</p>
+<p>Create a secret that contains the certificate chain and private key in the <code>openshift-config</code> namespace:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret tls &lt;secret_name&gt; <span class="se">\</span>
+     <span class="nt">--cert</span><span class="o">=</span>&lt;path_to_certificate_file&gt; <span class="se">\</span>
+     <span class="nt">--key</span><span class="o">=</span>&lt;path_to_private_key_file&gt; <span class="se">\</span>
+     <span class="nt">-n</span> openshift-config</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;secret_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the new secret resource that will contain the cryptographic key pair.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;path_to_certificate_file&gt;</code></dt>
+<dd>
+<p>Specifies the absolute local path to your custom certificate chain file.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;path_to_private_key_file&gt;</code></dt>
+<dd>
+<p>Specifies the absolute local path to the unencrypted private key file associated with the certificate.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Update the API server to reference the created secret resource:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch apiserver cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'
+</span><span class="go">{
+  "spec": {
+    "servingCerts": {
+      "namedCertificates": [
+        {
+</span><span class="gp">          "names": ["&lt;fqdn&gt;</span><span class="s2">"],
+</span><span class="go">          "servingCertificate": {
+</span><span class="gp">            "name": "&lt;secret_name&gt;</span><span class="s2">"
+</span><span class="go">          }
+        }
+      ]
+    }
+  }
+}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;fqdn&gt;</code></dt>
+<dd>
+<p>Specifies the fully qualified domain name for which the API server serves this custom certificate. Do not include a port number.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;secret_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the secret you created in the previous step.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that a new revision of the Kubernetes API server rolls out by checking the operator status:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteroperators kube-apiserver</code></pre>
 </div>
-</div>
-<div class="paragraph">
-<p>Do not continue to the next step until <code>PROGRESSING</code> is listed as <code>False</code>, as shown in the following output:</p>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME             VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE
-kube-apiserver   Branch Build.0     True        False         False      145m</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>If <code>PROGRESSING</code> is showing <code>True</code>, wait a few minutes and try again.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3563,11 +3570,112 @@ kube-apiserver   Branch Build.0     True        False         False      145m</s
 </td>
 <td class="content">
 <div class="paragraph">
-<p>A new revision of the Kubernetes API server only rolls out if the API server named certificate is added for the first time. When the API server named certificate is renewed, a new revision of the Kubernetes API server does not roll out because the <code>kube-apiserver</code> pods dynamically reload the updated certificate.</p>
+<p>The <code>PROGRESSING</code> status column will change to <code>True</code> while the API server operator deploys the new pod revision configured with your custom certificate. Do not interrupt the process or apply additional configuration updates while the rollout is underway. Continue only after the status returns to <code>False</code> and <code>AVAILABLE</code> reads <code>True</code>.</p>
 </div>
 </td>
 </tr>
 </table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="customize-certificates-api-renew-named_api-server-certificates"><a class="anchor" href="#customize-certificates-api-renew-named_api-server-certificates"></a>Updating or renewing an existing API server named certificate</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Update or renew an expired or expiring named certificate that has already been configured in your cluster to avoid API availability issues. The API server pods dynamically detect and reload the updated certificate asset without disruption.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When an existing API server named certificate is renewed by updating its corresponding secret, a new revision of the Kubernetes API server pods does not roll out. Node reboots are not required.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the renewed certificate is signed by a different root CA than the previous certificate, internal applications or custom pods that communicate with the API server might encounter X509 certificate validation errors. If these client workloads do not automatically hot-reload their truststores, you must manually restart them to force them to pick up the new certificate chain.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have the renewed certificate chain and private key files in PEM format.</p>
+</li>
+<li>
+<p>The secret containing the old certificate already exists in the <code>openshift-config</code> namespace and is actively referenced by the <code>apiserver/cluster</code> configuration.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Log in to the CLI as the <code>kubeadmin</code> user.</p>
+</li>
+<li>
+<p>Update the existing secret resource in the <code>openshift-config</code> namespace with the newly issued certificate and private key:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret tls &lt;existing_secret_name&gt; <span class="se">\</span>
+     <span class="nt">--cert</span><span class="o">=</span>&lt;path_to_new_cert&gt;.crt <span class="se">\</span>
+     <span class="nt">--key</span><span class="o">=</span>&lt;path_to_new_key&gt;.key <span class="se">\</span>
+     <span class="nt">-n</span> openshift-config <span class="se">\</span>
+     <span class="nt">--dry-run</span><span class="o">=</span>client <span class="nt">-o</span> yaml | oc replace <span class="nt">-f</span> -</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;existing_secret_name&gt;</code></dt>
+<dd>
+<p>Specifies the target name of the existing active secret that you are replacing.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;path_to_new_cert&gt;.crt</code></dt>
+<dd>
+<p>Specifies the absolute local file system path to the renewed certificate chain file.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;path_to_new_key&gt;.key</code></dt>
+<dd>
+<p>Specifies the absolute local file system path to the corresponding unencrypted private key file.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the <code>kube-apiserver</code> pods successfully hot-reload the updated assets without initiating a new cluster deployment revision:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteroperators kube-apiserver</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Confirm that the <code>PROGRESSING</code> status column remains <code>False</code>. If the status changes to <code>True</code>, verify that your underlying <code>apiserver/cluster</code> resource parameters were not modified structural layout changes during the substitution.</p>
 </div>
 </li>
 </ol>
