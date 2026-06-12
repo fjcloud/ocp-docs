@@ -2885,12 +2885,16 @@
 <div class="sect1">
 <h2 id="machineset-yaml-azure_creating-machineset-azure"><a class="anchor" href="#machineset-yaml-azure_creating-machineset-azure"></a>Sample YAML for a compute machine set custom resource on Azure</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>This sample YAML defines a compute machine set that runs in the <code>1</code> Microsoft Azure zone in a region and creates nodes that are labeled with
-<code>node-role.kubernetes.io/&lt;role&gt;: ""</code>.</p>
+<div class="paragraph _abstract">
+<p>You can define a machine set YAML to provision nodes by specifying parameters such as <code>vmSize</code> and <code>image</code>. You can use this to automate and scale infrastructure consistently, to ensure compute nodes meet specific workload requirements within the cluster.</p>
 </div>
 <div class="paragraph">
-<p>In this sample, <code>&lt;infrastructure_id&gt;</code> is the infrastructure ID label that is based on the cluster ID that you set when you provisioned the cluster, and
+<p>The sample YAML defines a compute machine set that runs in the <code>1</code> Microsoft Azure zone in a region and creates nodes that are labeled with
+<code>node-role.kubernetes.io/&lt;role&gt;: ""</code>.
+The YAML file specifies a taint to prevent user workloads from being scheduled on infra nodes. After adding the <code>NoSchedule</code> taint on the infrastructure node, existing DNS pods running on that node are marked as <code>misscheduled</code>. You must either delete or <a href="https://access.redhat.com/solutions/6592171">add toleration on <code>misscheduled</code> DNS pods</a>.</p>
+</div>
+<div class="paragraph">
+<p>In the sample, <code>&lt;infrastructure_id&gt;</code> is the infrastructure ID label that is based on the cluster ID that you set when you provisioned the cluster, and
 <code>&lt;role&gt;</code>
 is the node label to add.</p>
 </div>
@@ -2900,10 +2904,10 @@ is the node label to add.</p>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">MachineSet</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">labels</span><span class="pi">:</span>
-    <span class="s">machine.openshift.io/cluster-api-cluster</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="s">machine.openshift.io/cluster-api-machine-role</span><span class="pi">:</span> <span class="s">&lt;role&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="s">machine.openshift.io/cluster-api-cluster</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;</span>
+    <span class="s">machine.openshift.io/cluster-api-machine-role</span><span class="pi">:</span> <span class="s">&lt;role&gt;</span>
     <span class="s">machine.openshift.io/cluster-api-machine-type</span><span class="pi">:</span> <span class="s">&lt;role&gt;</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;-&lt;role&gt;-&lt;region&gt;</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;-&lt;role&gt;-&lt;region&gt;</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
@@ -2931,15 +2935,15 @@ is the node label to add.</p>
           <span class="na">credentialsSecret</span><span class="pi">:</span>
             <span class="na">name</span><span class="pi">:</span> <span class="s">azure-cloud-credentials</span>
             <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-machine-api</span>
-          <span class="na">image</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+          <span class="na">image</span><span class="pi">:</span>
             <span class="na">offer</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
             <span class="na">publisher</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
-            <span class="na">resourceID</span><span class="pi">:</span> <span class="s">/resourceGroups/&lt;infrastructure_id&gt;-rg/providers/Microsoft.Compute/galleries/gallery_&lt;infrastructure_id&gt;/images/&lt;infrastructure_id&gt;-gen2/versions/latest</span> <i class="conum" data-value="5"></i><b>(5)</b>
+            <span class="na">resourceID</span><span class="pi">:</span> <span class="s">/resourceGroups/&lt;infrastructure_id&gt;-rg/providers/Microsoft.Compute/galleries/gallery_&lt;infrastructure_id&gt;/images/&lt;infrastructure_id&gt;-gen2/versions/latest</span>
             <span class="na">sku</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
             <span class="na">version</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
           <span class="na">internalLoadBalancer</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
           <span class="na">kind</span><span class="pi">:</span> <span class="s">AzureMachineProviderSpec</span>
-          <span class="na">location</span><span class="pi">:</span> <span class="s">&lt;region&gt;</span> <i class="conum" data-value="6"></i><b>(6)</b>
+          <span class="na">location</span><span class="pi">:</span> <span class="s">&lt;region&gt;</span>
           <span class="na">managedIdentity</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;-identity</span>
           <span class="na">metadata</span><span class="pi">:</span>
             <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="no">null</span>
@@ -2956,21 +2960,24 @@ is the node label to add.</p>
           <span class="na">sshPrivateKey</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
           <span class="na">sshPublicKey</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
           <span class="na">tags</span><span class="pi">:</span>
-            <span class="s">&lt;custom_tag_name_1&gt;</span><span class="pi">:</span> <span class="s">&lt;custom_tag_value_1&gt;</span> <i class="conum" data-value="7"></i><b>(7)</b>
+            <span class="s">&lt;custom_tag_name_1&gt;</span><span class="pi">:</span> <span class="s">&lt;custom_tag_value_1&gt;</span>
             <span class="s">&lt;custom_tag_name_2&gt;</span><span class="pi">:</span> <span class="s">&lt;custom_tag_value_2&gt;</span>
           <span class="na">subnet</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;-&lt;role&gt;-subnet</span>
           <span class="na">userDataSecret</span><span class="pi">:</span>
             <span class="na">name</span><span class="pi">:</span> <span class="s">worker-user-data</span>
           <span class="na">vmSize</span><span class="pi">:</span> <span class="s">Standard_D4s_v3</span>
           <span class="na">vnet</span><span class="pi">:</span> <span class="s">&lt;infrastructure_id&gt;-vnet</span>
-          <span class="na">zone</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span> <i class="conum" data-value="8"></i><b>(8)</b></code></pre>
+          <span class="na">zone</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the infrastructure ID that is based on the cluster ID that you set when you provisioned the cluster. If you have the OpenShift CLI installed, you can obtain the infrastructure ID by running the following command:
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;infrastructure_id&gt;</code></dt>
+<dd>
+<p>Specifies the infrastructure ID that is based on the cluster ID that you set when you provisioned the cluster. If you have the OpenShift CLI installed, you can obtain the infrastructure ID by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.infrastructureName}{"\n"}'</span> infrastructure cluster</code></pre>
@@ -2995,52 +3002,57 @@ is the node label to add.</p>
     <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.template.spec.providerSpec.value.vnet}{"\n"}'</span> <span class="se">\</span>
     get machineset/&lt;infrastructure_id&gt;-worker-centralus1</code></pre>
 </div>
-</div></td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify the node label to add.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specify the infrastructure ID, node label, and region.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Specify the image details of the boot image for your nodes. You should use the use the latest image when adding a new machine set. If you want to use an Azure Marketplace image, see "Using the Azure Marketplace offering".</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Specify an image that is compatible with your instance type. The Hyper-V generation V2 images created by the installation program have a <code>-gen2</code> suffix, while V1 images have the same name without the suffix.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Specify the region to place machines on.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>Optional: Specify custom tags in your machine set. Provide the tag name in <code>&lt;custom_tag_name&gt;</code> field and the corresponding tag value in <code>&lt;custom_tag_value&gt;</code> field.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>Specify the zone within your region to place machines on.
-Ensure that your region supports the zone that you specify.
-<div class="admonitionblock important">
+</div>
+</dd>
+<dt class="hdlist1"><code>&lt;role&gt;</code></dt>
+<dd>
+<p>Specifies the node label to add.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;infrastructure_id&gt;-&lt;role&gt;-&lt;region&gt;</code></dt>
+<dd>
+<p>Specifies the infrastructure ID, node label, and region.</p>
+</dd>
+</dl>
+</div>
+<div class="admonitionblock note">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-important" title="Important"></i>
+<i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If your region supports availability zones, you must specify the zone.
-Specifying the zone avoids volume node affinity failure when a pod requires a persistent volume attachment.
-To do this, you can create a compute machine set for each zone in the same region.</p>
+<p>The value of the <code>spec.template.spec.providerSpec.value.image</code> parameter specifies the image details for your compute machine set. If you want to use an Azure Marketplace image, see "Using the Azure Marketplace offering".</p>
+</div>
+<div class="paragraph">
+<p>The value of the <code>spec.template.spec.providerSpec.value.image.resourceID</code> parameter specifies an image that is compatible with your instance type. The Hyper-V generation V2 images created by the installation program have a <code>-gen2</code> suffix, while V1 images have the same name without the suffix.</p>
+</div>
+<div class="paragraph">
+<p>The value of the <code>spec.template.spec.providerSpec.value.location</code> parameter specifies the region to place machines on.</p>
 </div>
 </td>
 </tr>
 </table>
-</div></td>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;custom_tag_name_1&gt;</code></dt>
+<dd>
+<p>Optional: Specifies custom tags in your machine set. Provide the tag name in <code>&lt;custom_tag_name&gt;</code> field and the corresponding tag value in <code>&lt;custom_tag_value&gt;</code> field.</p>
+</dd>
+</dl>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The value of the <code>spec.template.spec.providerSpec.value.zone</code> parameter specifies the zone within your region to place machines on. Ensure that your region supports the zone that you specify. If your region supports availability zones, you must specify the zone. Specifying the zone avoids volume node affinity failure when a pod requires a persistent volume attachment. To do this, you can create a compute machine set for each zone in the same region.</p>
+</div>
+</td>
 </tr>
 </table>
 </div>
@@ -3703,8 +3715,8 @@ To launch a Spot VM on Azure, you add <code>spotVMOptions</code> to your compute
 </div>
 <div class="sect2">
 <h3 id="machineset-creating-azure-ephemeral-os_creating-machineset-azure"><a class="anchor" href="#machineset-creating-azure-ephemeral-os_creating-machineset-azure"></a>Creating machines on Ephemeral OS disks by using compute machine sets</h3>
-<div class="paragraph">
-<p>You can launch machines on Ephemeral OS disks on Azure by editing your compute machine set YAML file.</p>
+<div class="paragraph _abstract">
+<p>To improve performance and reduce storage costs, you can host the OS disk directly on the local storage of the virtual machines (VMs) rather than on remote Microsoft Azure Storage. You can launch machines on Ephemeral OS disks on Azure by editing your compute machine set YAML file.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3737,26 +3749,26 @@ To launch a Spot VM on Azure, you add <code>spotVMOptions</code> to your compute
     <span class="s">...</span>
     <span class="s">osDisk</span><span class="pi">:</span>
        <span class="s">...</span>
-       <span class="s">diskSettings</span><span class="pi">:</span> <i class="conum" data-value="1"></i><b>(1)</b>
-         <span class="na">ephemeralStorageLocation</span><span class="pi">:</span> <span class="s">Local</span> <i class="conum" data-value="1"></i><b>(1)</b>
-       <span class="na">cachingType</span><span class="pi">:</span> <span class="s">ReadOnly</span> <i class="conum" data-value="1"></i><b>(1)</b>
+       <span class="s">diskSettings</span><span class="pi">:</span>
+         <span class="na">ephemeralStorageLocation</span><span class="pi">:</span> <span class="s">Local</span>
+       <span class="na">cachingType</span><span class="pi">:</span> <span class="s">ReadOnly</span>
        <span class="na">managedDisk</span><span class="pi">:</span>
-         <span class="na">storageAccountType</span><span class="pi">:</span> <span class="s">Standard_LRS</span> <i class="conum" data-value="2"></i><b>(2)</b>
+         <span class="na">storageAccountType</span><span class="pi">:</span> <span class="s">Standard_LRS</span>
        <span class="s">...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>These lines enable the use of Ephemeral OS disks.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Ephemeral OS disks are only supported for VMs or scale set instances that use the Standard LRS storage account type.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>providerSpec.value.osDisk.diskSettings</code>, <code>providerSpec.value.osDisk.diskSettings.ephemeralStorageLocation</code>, and <code>providerSpec.value.osDisk.cachingType</code></dt>
+<dd>
+<p>Enables the use of Ephemeral OS disks.</p>
+</dd>
+<dt class="hdlist1"><code>providerSpec.value.osDisk.managedDisk.storageAccountType</code></dt>
+<dd>
+<p>Ephemeral OS disks are only supported for VMs or scale set instances that use the Standard LRS storage account type.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -3770,6 +3782,9 @@ To launch a Spot VM on Azure, you add <code>spotVMOptions</code> to your compute
 </td>
 </tr>
 </table>
+</div>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3796,8 +3811,8 @@ To launch a Spot VM on Azure, you add <code>spotVMOptions</code> to your compute
 <div class="sect1">
 <h2 id="machineset-azure-ultra-disk_creating-machineset-azure"><a class="anchor" href="#machineset-azure-ultra-disk_creating-machineset-azure"></a>Machine sets that deploy machines with ultra disks as data disks</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can create a machine set running on Azure that deploys machines with ultra disks. Ultra disks are high-performance storage that are intended for use with the most demanding data workloads.</p>
+<div class="paragraph _abstract">
+<p>You can create a machine set running on Microsoft Azure that deploys machines with ultra disks. Ultra disks are high-performance storage that are intended for use with the most demanding data workloads.</p>
 </div>
 <div class="paragraph">
 <p>You can also create a persistent volume claim (PVC) that dynamically binds to a storage class backed by Azure ultra disks and mounts them to pods.</p>
@@ -3832,8 +3847,8 @@ To launch a Spot VM on Azure, you add <code>spotVMOptions</code> to your compute
 </div>
 <div class="sect2">
 <h3 id="machineset-creating-azure-ultra-disk_creating-machineset-azure"><a class="anchor" href="#machineset-creating-azure-ultra-disk_creating-machineset-azure"></a>Creating machines with ultra disks by using machine sets</h3>
-<div class="paragraph">
-<p>You can deploy machines with ultra disks on Azure by editing your machine set YAML file.</p>
+<div class="paragraph _abstract">
+<p>You can deploy machines with ultra disks on Microsoft Azure by editing your machine set YAML file.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3851,21 +3866,28 @@ To launch a Spot VM on Azure, you add <code>spotVMOptions</code> to your compute
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-machine-api <span class="se">\</span>
-get secret &lt;role&gt;-user-data <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="gp">--template='{{index .data.userData | base64decode}}' | jq &gt;</span><span class="w"> </span>userData.txt <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+get secret &lt;role&gt;-user-data <span class="se">\</span>
+<span class="nt">--template</span><span class="o">=</span><span class="s1">'{{index .data.userData | base64decode}}'</span> | jq <span class="o">&gt;</span> userData.txt</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;role&gt;</code> with <code>worker</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify <code>userData.txt</code> as the name of the new custom secret.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;role&gt;</code></dt>
+<dd>
+<p>Replace with <code>worker</code>.</p>
+</dd>
+<dt class="hdlist1"><code>userData.txt</code></dt>
+<dd>
+<p>Specifies <code>userData.txt</code> as the name of the new custom secret.</p>
+</dd>
+</dl>
+</div>
+</div>
 </div>
 </li>
 <li>
@@ -3880,19 +3902,19 @@ get secret &lt;role&gt;-user-data <span class="se">\ </span><i class="conum" dat
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="json"><span class="nl">"storage"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-  </span><span class="nl">"disks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> <i class="conum" data-value="1"></i><b>(1)</b>
+  </span><span class="nl">"disks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
     </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/dev/disk/azure/scsi1/lun0"</span><span class="p">,</span><span class="w"> <i class="conum" data-value="2"></i><b>(2)</b>
-      </span><span class="nl">"partitions"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> <i class="conum" data-value="3"></i><b>(3)</b>
+      </span><span class="nl">"device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/dev/disk/azure/scsi1/lun0"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"partitions"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
         </span><span class="p">{</span><span class="w">
-          </span><span class="nl">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lun0p1"</span><span class="p">,</span><span class="w"> <i class="conum" data-value="4"></i><b>(4)</b>
-          </span><span class="nl">"sizeMiB"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w"> <i class="conum" data-value="5"></i><b>(5)</b>
+          </span><span class="nl">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"lun0p1"</span><span class="p">,</span><span class="w">
+          </span><span class="nl">"sizeMiB"</span><span class="p">:</span><span class="w"> </span><span class="mi">1024</span><span class="p">,</span><span class="w">
           </span><span class="nl">"startMiB"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w">
         </span><span class="p">}</span><span class="w">
       </span><span class="p">]</span><span class="w">
     </span><span class="p">}</span><span class="w">
   </span><span class="p">],</span><span class="w">
-  </span><span class="nl">"filesystems"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> <i class="conum" data-value="6"></i><b>(6)</b>
+  </span><span class="nl">"filesystems"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
     </span><span class="p">{</span><span class="w">
       </span><span class="nl">"device"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/dev/disk/by-partlabel/lun0p1"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"format"</span><span class="p">:</span><span class="w"> </span><span class="s2">"xfs"</span><span class="p">,</span><span class="w">
@@ -3901,9 +3923,9 @@ get secret &lt;role&gt;-user-data <span class="se">\ </span><i class="conum" dat
   </span><span class="p">]</span><span class="w">
 </span><span class="p">}</span><span class="err">,</span><span class="w">
 </span><span class="nl">"systemd"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
-  </span><span class="nl">"units"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> <i class="conum" data-value="7"></i><b>(7)</b>
+  </span><span class="nl">"units"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
     </span><span class="p">{</span><span class="w">
-      </span><span class="nl">"contents"</span><span class="p">:</span><span class="w"> </span><span class="s2">"[Unit]</span><span class="se">\n</span><span class="s2">Before=local-fs.target</span><span class="se">\n</span><span class="s2">[Mount]</span><span class="se">\n</span><span class="s2">Where=/var/lib/lun0p1</span><span class="se">\n</span><span class="s2">What=/dev/disk/by-partlabel/lun0p1</span><span class="se">\n</span><span class="s2">Options=defaults,pquota</span><span class="se">\n</span><span class="s2">[Install]</span><span class="se">\n</span><span class="s2">WantedBy=local-fs.target</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span><span class="w"> <i class="conum" data-value="8"></i><b>(8)</b>
+      </span><span class="nl">"contents"</span><span class="p">:</span><span class="w"> </span><span class="s2">"[Unit]</span><span class="se">\n</span><span class="s2">Before=local-fs.target</span><span class="se">\n</span><span class="s2">[Mount]</span><span class="se">\n</span><span class="s2">Where=/var/lib/lun0p1</span><span class="se">\n</span><span class="s2">What=/dev/disk/by-partlabel/lun0p1</span><span class="se">\n</span><span class="s2">Options=defaults,pquota</span><span class="se">\n</span><span class="s2">[Install]</span><span class="se">\n</span><span class="s2">WantedBy=local-fs.target</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span><span class="w">
       </span><span class="nl">"enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
       </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"var-lib-lun0p1.mount"</span><span class="w">
     </span><span class="p">}</span><span class="w">
@@ -3911,41 +3933,48 @@ get secret &lt;role&gt;-user-data <span class="se">\ </span><i class="conum" dat
 </span><span class="p">}</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The configuration details for the disk that you want to attach to a node as an ultra disk.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify the <code>lun</code> value that is defined in the <code>dataDisks</code> stanza of the machine set you are using. For example, if the machine set contains <code>lun: 0</code>, specify <code>lun0</code>. You can initialize multiple data disks by specifying multiple <code>"disks"</code> entries in this configuration file. If you specify multiple <code>"disks"</code> entries, ensure that the <code>lun</code> value for each matches the value in the machine set.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The configuration details for a new partition on the disk.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Specify a label for the partition. You might find it helpful to use hierarchical names, such as <code>lun0p1</code> for the first partition of <code>lun0</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Specify the total size in MiB of the partition.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Specify the filesystem to use when formatting a partition. Use the partition label to specify the partition.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>Specify a <code>systemd</code> unit to mount the partition at boot. Use the partition label to specify the partition. You can create multiple partitions by specifying multiple <code>"partitions"</code> entries in this configuration file. If you specify multiple <code>"partitions"</code> entries, you must specify a <code>systemd</code> unit for each.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>For <code>Where</code>, specify the value of <code>storage.filesystems.path</code>. For <code>What</code>, specify the value of <code>storage.filesystems.device</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>"disks"</code></dt>
+<dd>
+<p>Specifies the configuration details for the disk that you want to attach to a node as an ultra disk.</p>
+</dd>
+<dt class="hdlist1"><code>"device"</code></dt>
+<dd>
+<p>Specifies the <code>lun</code> value that is defined in the <code>dataDisks</code> stanza of the machine set you are using. For example, if the machine set contains <code>lun: 0</code>, specify <code>lun0</code>. You can initialize multiple data disks by specifying multiple <code>"disks"</code> entries in this configuration file. If you specify multiple <code>"disks"</code> entries, ensure that the <code>lun</code> value for each matches the value in the machine set.</p>
+</dd>
+<dt class="hdlist1"><code>"partitions"</code></dt>
+<dd>
+<p>Specifies the configuration details for a new partition on the disk.</p>
+</dd>
+<dt class="hdlist1"><code>"label"</code></dt>
+<dd>
+<p>Specifies a label for the partition. You might find it helpful to use hierarchical names, such as <code>lun0p1</code> for the first partition of <code>lun0</code>.</p>
+</dd>
+<dt class="hdlist1"><code>"sizeMiB"</code></dt>
+<dd>
+<p>Specifies the total size in MiB of the partition.</p>
+</dd>
+<dt class="hdlist1"><code>"filesystems"</code></dt>
+<dd>
+<p>Specifies the filesystem to use when formatting a partition. Use the partition label to specify the partition.</p>
+</dd>
+<dt class="hdlist1"><code>"units"</code></dt>
+<dd>
+<p>Specifies a <code>systemd</code> unit to mount the partition at boot. Use the partition label to specify the partition. You can create multiple partitions by specifying multiple <code>"partitions"</code> entries in this configuration file. If you specify multiple <code>"partitions"</code> entries, you must specify a <code>systemd</code> unit for each.</p>
+</dd>
+<dt class="hdlist1"><code>"contents"</code></dt>
+<dd>
+<p>Specifies the value of <code>storage.filesystems.path</code> for <code>Where</code>. Specifies the value of <code>storage.filesystems.device</code> for <code>What</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
 </div>
 </li>
 </ol>
@@ -3955,35 +3984,25 @@ get secret &lt;role&gt;-user-data <span class="se">\ </span><i class="conum" dat
 <p>Extract the disabling template value to a file called <code>disableTemplating.txt</code> by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-machine-api get secret &lt;role&gt;-user-data <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="gp">--template='{{index .data.disableTemplating | base64decode}}' | jq &gt;</span><span class="w"> </span>disableTemplating.txt</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-machine-api get secret &lt;role&gt;-user-data <span class="se">\</span>
+<span class="nt">--template</span><span class="o">=</span><span class="s1">'{{index .data.disableTemplating | base64decode}}'</span> | jq <span class="o">&gt;</span> disableTemplating.txt</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;role&gt;</code> with <code>worker</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>Replace <code>&lt;role&gt;</code> with <code>worker</code>.</p>
 </div>
 </li>
 <li>
 <p>Combine the <code>userData.txt</code> file and <code>disableTemplating.txt</code> file to create a data secret file by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-machine-api create secret generic &lt;role&gt;-user-data-x5 <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="go">--from-file=userData=userData.txt \
---from-file=disableTemplating=disableTemplating.txt</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-machine-api create secret generic &lt;role&gt;-user-data-x5 <span class="se">\</span>
+<span class="nt">--from-file</span><span class="o">=</span><span class="nv">userData</span><span class="o">=</span>userData.txt <span class="se">\</span>
+<span class="nt">--from-file</span><span class="o">=</span><span class="nv">disableTemplating</span><span class="o">=</span>disableTemplating.txt</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>For <code>&lt;role&gt;-user-data-x5</code>, specify the name of the secret. Replace <code>&lt;role&gt;</code> with <code>worker</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>For <code>&lt;role&gt;-user-data-x5</code>, specify the name of the secret. Replace <code>&lt;role&gt;</code> with <code>worker</code>.</p>
 </div>
 </li>
 <li>
@@ -3994,7 +4013,15 @@ get secret &lt;role&gt;-user-data <span class="se">\ </span><i class="conum" dat
 </div>
 </div>
 <div class="paragraph">
-<p>where <code>&lt;machine_set_name&gt;</code> is the machine set that you want to provision machines with ultra disks.</p>
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;machine_set_name&gt;</code></dt>
+<dd>
+<p>Indicates the machine set that you want to provision machines with ultra disks.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -4008,11 +4035,11 @@ get secret &lt;role&gt;-user-data <span class="se">\ </span><i class="conum" dat
     <span class="na">spec</span><span class="pi">:</span>
       <span class="na">metadata</span><span class="pi">:</span>
         <span class="na">labels</span><span class="pi">:</span>
-          <span class="na">disk</span><span class="pi">:</span> <span class="s">ultrassd</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="na">disk</span><span class="pi">:</span> <span class="s">ultrassd</span>
       <span class="na">providerSpec</span><span class="pi">:</span>
         <span class="na">value</span><span class="pi">:</span>
-          <span class="na">ultraSSDCapability</span><span class="pi">:</span> <span class="s">Enabled</span> <i class="conum" data-value="2"></i><b>(2)</b>
-          <span class="na">dataDisks</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+          <span class="na">ultraSSDCapability</span><span class="pi">:</span> <span class="s">Enabled</span>
+          <span class="na">dataDisks</span><span class="pi">:</span>
           <span class="pi">-</span> <span class="na">nameSuffix</span><span class="pi">:</span> <span class="s">ultrassd</span>
             <span class="na">lun</span><span class="pi">:</span> <span class="m">0</span>
             <span class="na">diskSizeGB</span><span class="pi">:</span> <span class="m">4</span>
@@ -4021,25 +4048,36 @@ get secret &lt;role&gt;-user-data <span class="se">\ </span><i class="conum" dat
             <span class="na">managedDisk</span><span class="pi">:</span>
               <span class="na">storageAccountType</span><span class="pi">:</span> <span class="s">UltraSSD_LRS</span>
           <span class="na">userDataSecret</span><span class="pi">:</span>
-            <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;role&gt;-user-data-x5</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;role&gt;-user-data-x5</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify a label to use to select a node that is created by this machine set. This procedure uses <code>disk.ultrassd</code> for this value.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>These lines enable the use of ultra disks.
-For <code>dataDisks</code>, include the entire stanza.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specify the user data secret created earlier. Replace <code>&lt;role&gt;</code> with <code>worker</code>.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.template.spec.metadata.labels.disk</code></dt>
+<dd>
+<p>Specifies a label to use to select a node that is created by this machine set. The example uses <code>disk.ultrassd</code> for this value.</p>
+</dd>
+<dt class="hdlist1"><code>spec.template.spec.providerSpec.value.ultraSSDCapability</code></dt>
+<dd>
+<p>Enables the use of ultra disks.
+For <code>dataDisks</code>, include the entire stanza.</p>
+</dd>
+<dt class="hdlist1"><code>spec.template.spec.providerSpec.value.dataDisks</code></dt>
+<dd>
+<p>Ensure you include the entire stanza for <code>dataDisks</code>.</p>
+</dd>
+<dt class="hdlist1"><code>spec.template.spec.providerSpec.value.userDataSecret.name</code></dt>
+<dd>
+<p>Specifies the user data secret created earlier. Replace <code>&lt;role&gt;</code> with <code>worker</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
 </div>
 </li>
 <li>
@@ -4115,8 +4153,8 @@ For <code>dataDisks</code>, include the entire stanza.</td>
 </div>
 <div class="sect2">
 <h3 id="machineset-troubleshooting-azure-ultra-disk_creating-machineset-azure"><a class="anchor" href="#machineset-troubleshooting-azure-ultra-disk_creating-machineset-azure"></a>Troubleshooting resources for machine sets that enable ultra disks</h3>
-<div class="paragraph">
-<p>Use the information in this section to understand and recover from issues you might encounter.</p>
+<div class="paragraph _abstract">
+<p>You can recover from issues that you might encounter when you enable ultra disks for machine sets. Review fields, such as disk settings, and ensure that the parameters are correctly configured.</p>
 </div>
 <div class="sect3">
 <h4 id="ts-mapi-attach-misconfigure_creating-machineset-azure"><a class="anchor" href="#ts-mapi-attach-misconfigure_creating-machineset-azure"></a>Incorrect ultra disk configuration</h4>
@@ -4655,8 +4693,8 @@ Capacity Reservation.</p>
 <div class="sect1">
 <h2 id="nvidia-gpu-aws-adding-a-gpu-node_creating-machineset-azure"><a class="anchor" href="#nvidia-gpu-aws-adding-a-gpu-node_creating-machineset-azure"></a>Adding a GPU node to an existing OKD cluster</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can copy and modify a default compute machine set configuration to create a GPU-enabled machine set and machines for the Azure cloud provider.</p>
+<div class="paragraph _abstract">
+<p>To provide specialized hardware for compute-intensive workloads that require NVIDIA GPU acceleration, you can copy and modify a default compute machine set configuration to create a GPU-enabled machine set and machines for the Microsoft Azure cloud provider.</p>
 </div>
 <div class="paragraph">
 <p>The following table lists the validated instance types:</p>
@@ -4705,7 +4743,7 @@ Capacity Reservation.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>By default, Azure subscriptions do not have a quota for the Azure instance types with GPU. Customers have to request a quota increase for the Azure instance families listed above.</p>
+<p>By default, Microsoft Azure subscriptions do not have a quota for the Microsoft Azure instance types with GPU. Customers have to request a quota increase for the Microsoft Azure instance families in the preceding list.</p>
 </div>
 </td>
 </tr>
@@ -4715,9 +4753,7 @@ Capacity Reservation.</p>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>View the machines and machine sets that exist in the <code>openshift-machine-api</code> namespace
-by running the following command. Each compute machine set is associated with a different availability zone within the Azure region.
-The installer automatically load balances compute machines across availability zones.</p>
+<p>View the machines and machine sets that exist in the <code>openshift-machine-api</code> namespace by running the following command. Each compute machine set is associated with a different availability zone within the Microsoft Azure region. The installation program automatically load balances compute machines across availability zones.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api</code></pre>
@@ -4981,10 +5017,7 @@ This will be the basis for the GPU-enabled compute machine set definition.</p>
 </div>
 </li>
 <li>
-<p>View the machines and machine sets that exist in the <code>openshift-machine-api</code> namespace
-by running the following command. Each compute machine set is associated with a
-different availability zone within the Azure region.
-The installer automatically load balances compute machines across availability zones.</p>
+<p>View the machines and machine sets that exist in the <code>openshift-machine-api</code> namespace by running the following command. Each compute machine set is associated with a different availability zone within the Microsoft Azure region. The installation program automatically load balances compute machines across availability zones.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineset <span class="nt">-n</span> openshift-machine-api</code></pre>

@@ -4557,6 +4557,386 @@ to the pod. The annotation value is stored as a plain text value.</p>
 </ol>
 </div>
 </div>
+<div class="sect4">
+<h5 id="nw-sriov-change-vf-mtu-running-pod_configuring-sriov-net-attach"><a class="anchor" href="#nw-sriov-change-vf-mtu-running-pod_configuring-sriov-net-attach"></a>Change the MTU value of a virtual function for a running pod</h5>
+<div class="paragraph _abstract">
+<p>You can change the maximum transmission unit (MTU) of a virtual function (VF) for a running pod by omitting the <code>mtu</code> field from the <code>SriovNetworkNodePolicy</code> custom resource (CR) and configuring the physical function (PF) MTU by using the Kubernetes NMState Operator.</p>
+</div>
+<div class="paragraph">
+<p>When the <code>mtu</code> field is set in the <code>SriovNetworkNodePolicy</code> CR, the SR-IOV Network Operator continuously enforces that MTU value on the VF. This reverts any application-level MTU changes and can trigger a node drain. To avoid this conflict, use the following approach:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Omit the <code>mtu</code> field from the <code>SriovNetworkNodePolicy</code> CR. This allows the SR-IOV Network Operator to provision VFs without managing their MTU.</p>
+</li>
+<li>
+<p>Use the Kubernetes NMState Operator to set the MTU of the PF to the required value. A VF cannot have a higher MTU than its parent PF, so you must set the PF MTU first.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>With these configurations in place, a pod that has the <code>NET_ADMIN</code> Linux capability can safely set its own VF MTU without interference from the SR-IOV Network Operator.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you already configured a value for the <code>mtu</code> field in your <code>SriovNetworkNodePolicy</code> CR, removing it might trigger a node drain. Perform this change during a scheduled maintenance window.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You installed the SR-IOV Network Operator.</p>
+</li>
+<li>
+<p>You installed the Kubernetes NMState Operator.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Verify that the <code>mtu</code> field is not present in your <code>SriovNetworkNodePolicy</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get sriovnetworknodepolicy &lt;policy_name&gt; <span class="nt">-n</span> openshift-sriov-network-operator <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.mtu}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;policy_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the <code>SriovNetworkNodePolicy</code> CR.</p>
+<div class="paragraph">
+<p>If the command returns a value, remove the <code>mtu</code> field from the CR by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch sriovnetworknodepolicy &lt;policy_name&gt; <span class="nt">-n</span> openshift-sriov-network-operator <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>json <span class="nt">-p</span><span class="o">=</span><span class="s1">'[{"op": "remove", "path": "/spec/mtu"}]'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The SR-IOV Network Operator reconciles and creates the VFs with the default MTU of 1500.</p>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Verify that the VFs are created with the default MTU by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">chroot</span> /host
+<span class="gp">#</span><span class="w"> </span>ip <span class="nb">link </span>show &lt;vf_interface&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;node_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the node where the PF is located.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;vf_interface&gt;</code></dt>
+<dd>
+<p>Specifies the VF interface name, for example <code>ens3f0v0</code>.</p>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">4: ens3f0v0: &lt;BROADCAST,MULTICAST&gt; mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/ether aa:bb:cc:dd:ee:01 brd ff:ff:ff:ff:ff:ff</code></pre>
+</div>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Create a <code>NodeNetworkConfigurationPolicy</code> CR to set the MTU of the PF:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create a file named <code>nncp-set-pf-mtu.yaml</code> with the following content:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nmstate.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NodeNetworkConfigurationPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">set-pf-mtu</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">nodeSelector</span><span class="pi">:</span>
+    <span class="s">kubernetes.io/hostname</span><span class="pi">:</span> <span class="s">&lt;node_name&gt;</span>
+  <span class="na">desiredState</span><span class="pi">:</span>
+    <span class="na">interfaces</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pf_interface&gt;</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+        <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+        <span class="na">mtu</span><span class="pi">:</span> <span class="s">&lt;mtu_value&gt;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;node_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the node where the PF is located.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;pf_interface&gt;</code></dt>
+<dd>
+<p>Specifies the name of the PF interface, for example <code>ens3f0</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;mtu_value&gt;</code></dt>
+<dd>
+<p>Specifies the required MTU value for the PF, for example <code>9000</code>. This value must be greater than or equal to the MTU that the application sets on the VF.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Apply the CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> nncp-set-pf-mtu.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the NMState policy has been applied successfully by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodenetworkconfigurationpolicy set-pf-mtu</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">NAME          STATUS      REASON
+set-pf-mtu    Available   SuccessfullyConfigured</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wait until the <code>STATUS</code> column shows <code>Available</code> before proceeding.</p>
+</div>
+</li>
+<li>
+<p>Verify that the PF MTU has been updated on the node by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">chroot</span> /host
+<span class="gp">#</span><span class="w"> </span>ip <span class="nb">link </span>show &lt;pf_interface&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;node_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the node where the PF is located.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;pf_interface&gt;</code></dt>
+<dd>
+<p>Specifies the name of the PF interface, for example <code>ens3f0</code>.</p>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">2: ens3f0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 9000 qdisc mq state UP mode DEFAULT group default qlen 1000
+    link/ether aa:bb:cc:dd:ee:ff brd ff:ff:ff:ff:ff:ff</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The VFs retain their default MTU of 1500 at this stage.</p>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Deploy or update the application pod to set the VF MTU at container startup:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create or update the pod spec with a startup command that sets the VF MTU before the application starts:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pod_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">k8s.v1.cni.cncf.io/networks</span><span class="pi">:</span> <span class="s">&lt;sriov_network_name&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">containers</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;container_name&gt;</span>
+      <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;image&gt;</span>
+      <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">/bin/sh"</span><span class="pi">]</span>
+      <span class="na">args</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">-c"</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">ip</span><span class="nv"> </span><span class="s">link</span><span class="nv"> </span><span class="s">set</span><span class="nv"> </span><span class="s">mtu</span><span class="nv"> </span><span class="s">&lt;mtu_value&gt;</span><span class="nv"> </span><span class="s">dev</span><span class="nv"> </span><span class="s">&lt;vf_interface&gt;;</span><span class="nv"> </span><span class="s">&lt;application_command&gt;"</span>
+      <span class="na">securityContext</span><span class="pi">:</span>
+        <span class="na">capabilities</span><span class="pi">:</span>
+          <span class="na">add</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">NET_ADMIN"</span><span class="pi">]</span>
+      <span class="na">resources</span><span class="pi">:</span>
+        <span class="na">requests</span><span class="pi">:</span>
+          <span class="s">&lt;sriov_resource_name&gt;</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span>
+        <span class="na">limits</span><span class="pi">:</span>
+          <span class="s">&lt;sriov_resource_name&gt;</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>command</code> and <code>args</code></dt>
+<dd>
+<p>Sets the VF MTU to the specified value before running the application command.</p>
+</dd>
+<dt class="hdlist1"><code>NET_ADMIN</code></dt>
+<dd>
+<p>The <code>NET_ADMIN</code> Linux capability is required for the container to change network interface settings.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;pod_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the pod.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;namespace&gt;</code></dt>
+<dd>
+<p>Specifies the namespace where the pod runs.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;sriov_network_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the <code>SriovNetwork</code> CR that provides the VF to the pod.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;container_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the container.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;image&gt;</code></dt>
+<dd>
+<p>Specifies the container image to use.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;mtu_value&gt;</code></dt>
+<dd>
+<p>Specifies the required MTU value, for example <code>9000</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;vf_interface&gt;</code></dt>
+<dd>
+<p>Specifies the VF interface name as it is displayed inside the pod, typically <code>net1</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;application_command&gt;</code></dt>
+<dd>
+<p>Specifies the main application command to run after the MTU is set.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;sriov_resource_name&gt;</code></dt>
+<dd>
+<p>Specifies the SR-IOV resource name defined in the <code>spec.resourceName</code> field of the <code>SriovNetworkNodePolicy</code> CR.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Apply the pod spec by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;pod_spec_file&gt;.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;pod_spec_file&gt;</code></dt>
+<dd>
+<p>Specifies the name of the file containing the pod specification.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the VF MTU inside the pod has been set to the expected value by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> &lt;pod_name&gt; <span class="nt">-n</span> &lt;namespace&gt; <span class="nt">--</span> ip <span class="nb">link </span>show &lt;vf_interface&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;pod_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the pod.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;namespace&gt;</code></dt>
+<dd>
+<p>Specifies the namespace where the pod is running.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;vf_interface&gt;</code></dt>
+<dd>
+<p>Specifies the VF interface name inside the pod, for example <code>net1</code>.</p>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">3: net1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 9000 qdisc mq state UP mode DEFAULT group default qlen 1000
+    link/ether 00:00:5E:00:53:01 brd ff:ff:ff:ff:ff:ff</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The example output confirms that the VF MTU matches the value set by the pod startup command. The SR-IOV Network Operator preserves this value because the <code>SriovNetworkNodePolicy</code> CR delegates MTU management to the pod.</p>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+</div>
 </div>
 <div class="sect3">
 <h4 id="configure-sr-iov-operator-parallel-nodes_configuring-sriov-net-attach"><a class="anchor" href="#configure-sr-iov-operator-parallel-nodes_configuring-sriov-net-attach"></a>Configuring parallel node draining during SR-IOV network policy updates</h4>

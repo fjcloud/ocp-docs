@@ -3602,22 +3602,78 @@
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a <code>&lt;service_name&gt;.yaml</code> file. In the file, set the <code>spec.type</code> parameter to <code>LoadBalancer</code>.</p>
-<div class="paragraph">
-<p>Refer to the examples for information about how to request the external IP address that MetalLB assigns to the service.</p>
+<p>Create a deployment and service for your application. Save the following YAML to a file named <code>example-metallb-app.yaml</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">example-metallb</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">example-app</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">example-metallb</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">1</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">example-app</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">example-app</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">example-app</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">registry.access.redhat.com/ubi9/httpd-24:latest</span>
+        <span class="na">ports</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">containerPort</span><span class="pi">:</span> <span class="m">8080</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Service</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">example-metallb-svc</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">example-metallb</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">metallb.io/address-pool</span><span class="pi">:</span> <span class="s">&lt;ipaddresspool_name&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">LoadBalancer</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">example-app</span>
+  <span class="na">ports</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="s">8080</span></code></pre>
+</div>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;ipaddresspool_name&gt;</code> specifies the name of the <code>IPAddressPool</code> resource, for example <code>doc-example-l2</code>. If you do not set this annotation, MetalLB automatically assigns an IP address from any pool that has <code>autoAssign</code> set to <code>true</code>.</p>
+</li>
+</ul>
+</div>
+</div>
 </div>
 </li>
 <li>
-<p>Create the service:</p>
+<p>Create the deployment and service:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;service_name&gt;.yaml</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> example-metallb-app.yaml</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>The following is example output:</p>
 </div>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">service/&lt;service_name&gt;</span><span class="w"> </span>created</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">namespace/example-metallb created
+deployment.apps/example-app created
+service/example-metallb-svc created</span></code></pre>
 </div>
 </div>
 </li>
@@ -3630,17 +3686,20 @@
 <p>Describe the service:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe service &lt;service_name&gt;</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe service example-metallb-svc <span class="nt">-n</span> example-metallb</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>The following is example output:</p>
 </div>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
-<pre class="nowrap">Name:                     &lt;service_name&gt;
-Namespace:                default
+<pre class="nowrap">Name:                     example-metallb-svc
+Namespace:                example-metallb
 Labels:                   &lt;none&gt;
-Annotations:              metallb.io/address-pool: doc-example
-Selector:                 app=service_name
+Annotations:              metallb.io/address-pool: doc-example-l2
+                          metallb.io/ip-allocated-from-pool: doc-example-l2
+Selector:                 app=example-app
 Type:                     LoadBalancer
 IP Family Policy:         SingleStack
 IP Families:              IPv4
@@ -3654,9 +3713,10 @@ Endpoints:                10.244.0.50:8080
 Session Affinity:         None
 External Traffic Policy:  Cluster
 Events:
-  Type    Reason        Age                From             Message
-  ----    ------        ----               ----             -------
-  Normal  nodeAssigned  32m (x2 over 32m)  metallb-speaker  announcing from node "&lt;node_name&gt;"</pre>
+  Type    Reason        Age                From                Message
+  ----    ------        ----               ----                -------
+  Normal  IPAllocated   12s                metallb-controller  Assigned IP ["192.168.100.5"]
+  Normal  nodeAssigned  12s (x2 over 12s)  metallb-speaker     announcing from node "&lt;node_name&gt;"</pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3674,7 +3734,7 @@ Events:
 </dd>
 <dt class="hdlist1"><code>LoadBalancer Ingress</code></dt>
 <dd>
-<p>Specifies the indicates the external IP address if the service is assigned correctly.</p>
+<p>Specifies the external IP address that is assigned to the service.</p>
 </dd>
 <dt class="hdlist1"><code>Events</code></dt>
 <dd>
