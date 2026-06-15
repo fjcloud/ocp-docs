@@ -211,7 +211,7 @@
         
       </li>
       <li class="hidden-xs active">
-        <a href="../cloud_experts_osd_tutorials/osd_index.html">Tutorials</a>
+        <a href="../cloud_experts_osd_tutorials/cloud-experts-osd-update-component-routes.html">Tutorials</a>
       </li>
       
       
@@ -282,7 +282,6 @@
     </li>
     <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup4"><span id="tgSpan4" class="fa fa-angle-down"></span>Tutorials</a>
       <ul id="topicGroup4" class="collapse in list-unstyled">
-            <li><a class="" href="../cloud_experts_osd_tutorials/osd_index.html">Tutorials overview</a></li>
             <li><a class="" href="../cloud_experts_osd_tutorials/cloud-experts-osd-update-component-routes.html">Updating component routes with custom domains and TLS certificates</a></li>
             <li><a class=" active" href="../cloud_experts_osd_tutorials/cloud-experts-osd-create-new-limit-egress.html">Limit egress with Google Cloud Next Generation Firewall</a></li>
       </ul>
@@ -1097,20 +1096,35 @@
 <div class="sectionbody">
 <!-- toc disabled -->
 <div class="paragraph _abstract">
-<p>Use this guide to implement egress restrictions for OpenShift Dedicated on Google Cloud by using Google Cloud&#8217;s Next Generation Firewall (NGFW). NGFW is a fully distributed firewall service that allows fully qualified domain name (FQDN) objects in firewall policy rules. This is necessary for many of the external endpoints that OpenShift Dedicated relies on.</p>
+<p>Implement egress restrictions for OpenShift Dedicated on Google Cloud by using Next Generation Firewall (NGFW), which allows fully qualified domain name (FQDN)-based firewall rules required for OpenShift Dedicated external endpoints.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This content is authored by Red&#160;Hat experts but has not yet been tested on every supported configuration.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="cloud-experts-osd-limit-egress-ngfw-prereqs_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-prereqs_cloud-experts-osd-limit-egress-ngfw"></a>Reviewing your prerequisites</h2>
+<h2 id="cloud-experts-osd-limit-egress-ngfw-setup-environ_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-setup-environ_cloud-experts-osd-limit-egress-ngfw"></a>Setting up your environment</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>The following prerequisites must be met before starting this tutorial.</p>
+<p>Set environment variables so each command in this tutorial uses the same values for OpenShift Dedicated on Google Cloud with your firewall rules.</p>
 </div>
 <div class="ulist">
+<div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have the Google Cloud Command Line Interface (<code>gcloud</code>) installed.</p>
+<p>You have the Google Cloud command-line interface (CLI) (<code>gcloud</code>) installed.</p>
 </li>
 <li>
 <p>You are logged into the Google Cloud CLI and have selected the Google Cloud project where you plan to deploy OpenShift Dedicated.</p>
@@ -1123,56 +1137,56 @@
 <p><code>Compute Network Admin</code></p>
 </li>
 <li>
-<p><code>DNS Administrator</code></p>
+<p><code>Domain Name System (DNS) Administrator</code></p>
 </li>
 </ul>
 </div>
 </li>
 <li>
-<p>You have enabled certain services by running the following commands in your terminal:</p>
+<p>You enabled the required Google Cloud services:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>networksecurity.googleapis.com</code></p>
+</li>
+<li>
+<p><code>networkservices.googleapis.com</code></p>
+</li>
+<li>
+<p><code>servicenetworking.googleapis.com</code></p>
+<div class="paragraph">
+<p>You can enable these services by running the following commands:</p>
+</div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud services <span class="nb">enable </span>networksecurity.googleapis.com</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud services <span class="nb">enable </span>networkservices.googleapis.com</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud services <span class="nb">enable </span>servicenetworking.googleapis.com</code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud services <span class="nb">enable </span>networksecurity.googleapis.com
+<span class="gp">$</span><span class="w"> </span>gcloud services <span class="nb">enable </span>networkservices.googleapis.com
+<span class="gp">$</span><span class="w"> </span>gcloud services <span class="nb">enable </span>servicenetworking.googleapis.com</code></pre>
 </div>
 </div>
 </li>
 </ul>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="cloud-experts-osd-limit-egress-ngfw-setup-environ_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-setup-environ_cloud-experts-osd-limit-egress-ngfw"></a>Setting up your environment</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>You can use environment variables to ensure consistency across the commands within this lab.</p>
+</li>
+</ul>
 </div>
 <div class="ulist">
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>In your terminal, configure the following environment variables:</p>
+<p>Run this command to set the environment variables:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">export project_id=$</span><span class="o">(</span>gcloud config list <span class="nt">--format</span><span class="o">=</span><span class="s2">"value(core.project)"</span><span class="o">)</span>
-<span class="go">export region=us-east1
-export prefix=osd-ngfw
-export service_cidr="172.30.0.0/16"
-export machine_cidr="10.0.0.0/22"
-export pod_cidr="10.128.0.0/14"</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">project_id</span><span class="o">=</span><span class="si">$(</span>gcloud config list <span class="nt">--format</span><span class="o">=</span><span class="s2">"value(core.project)"</span><span class="si">)</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">region</span><span class="o">=</span>us-east1
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">prefix</span><span class="o">=</span>osd-ngfw
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">service_cidr</span><span class="o">=</span><span class="s2">"172.30.0.0/16"</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">machine_cidr</span><span class="o">=</span><span class="s2">"10.0.0.0/22"</span>
+<span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">pod_cidr</span><span class="o">=</span><span class="s2">"10.128.0.0/14"</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>This example uses <code>us-east1</code> as the region to deploy into and the prefix <code>osd-ngfw</code> for the cluster&#8217;s resources. The  default CIDR ranges are assigned for the service and pod networks. The machine CIDR is based on the subnet ranges that will be set later in this tutorial. Modify the parameters to meet your needs.</p>
+<p>This example sets the region to <code>us-east1</code> and the name prefix to <code>osd-ngfw</code>. The service and pod networks use the default Classless Inter-Domain Routing (CIDR) ranges in the export list. You add subnet ranges later in this tutorial. The machine CIDR must fit inside those subnet ranges. Change the exports to match your project.</p>
 </div>
 </li>
 </ul>
@@ -1183,7 +1197,7 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 <h2 id="cloud-experts-osd-limit-egress-ngfw-create-subnets_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-create-subnets_cloud-experts-osd-limit-egress-ngfw"></a>Creating the VPC and subnets</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Before you can deploy a Google Cloud NGFW, you must first create the Virtual Private Cloud (VPC) and subnets that you will use for OpenShift Dedicated:</p>
+<p>Create the Virtual Private Cloud (VPC) and subnets required for deploying Google Cloud Next Generation Firewall (NGFW) with OpenShift Dedicated.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -1221,7 +1235,7 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </div>
 </li>
 <li>
-<p>Create the PSC subnets by running the following command:</p>
+<p>Create the Private Service Connect (PSC) subnets by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks subnets create <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-psc</span> <span class="se">\</span>
@@ -1238,19 +1252,35 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </li>
 </ol>
 </div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify the VPC and subnets were created by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks subnets list <span class="nt">--network</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-vpc</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows the three subnets you created with their internet protocol (IP) ranges and regions.</p>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="cloud-experts-osd-limit-egress-ngfw-deploy-policy_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-deploy-policy_cloud-experts-osd-limit-egress-ngfw"></a>Deploying a global network firewall policy</h2>
+<h2 id="cloud-experts-osd-limit-egress-ngfw-deploy-policy_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-deploy-policy_cloud-experts-osd-limit-egress-ngfw"></a>Deploying a global firewall policy</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can use the <code>gcloud</code> CLI tool to create network firewall policies for your cluster.</p>
+<p>Create a global network firewall policy. Attach it to your VPC so you can control traffic that leaves your OpenShift Dedicated cluster.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a global network firewall policy by running the following command:</p>
+<p>Run this command to create a global network firewall policy:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute network-firewall-policies create <span class="se">\</span>
@@ -1261,25 +1291,42 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </div>
 </li>
 <li>
-<p>Associate the newly created global network firewall policy to the VPC you created above by running the following command:</p>
+<p>Run this command to attach the new policy to the VPC you created earlier:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute network-firewall-policies associations create <span class="se">\</span>
-    <span class="nt">--firewall-policy</span> <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="se">\</span>
-    <span class="nt">--network</span> <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-vpc</span> <span class="se">\</span>
-    <span class="nt">--global-firewall-policy</span></code></pre>
+      <span class="nt">--name</span> <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-vpc-association</span> <span class="se">\</span>
+      <span class="nt">--firewall-policy</span> <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="se">\</span>
+      <span class="nt">--network</span> <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-vpc</span> <span class="se">\</span>
+      <span class="nt">--global-firewall-policy</span></code></pre>
 </div>
 </div>
 </li>
 </ol>
 </div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Run this command to check that the policy exists and is attached to your VPC:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute network-firewall-policies describe <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="nt">--global</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output lists the policy and its link to your VPC.</p>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="cloud-experts-osd-limit-egress-ngfw-create-a-cloud-router_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-create-a-cloud-router_cloud-experts-osd-limit-egress-ngfw"></a>Creating a Cloud Router and a Cloud Network Address Translation gateway</h2>
+<h2 id="cloud-experts-osd-limit-egress-ngfw-create-a-cloud-router_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-create-a-cloud-router_cloud-experts-osd-limit-egress-ngfw"></a>Creating a Cloud Router and Cloud network address translation</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>The Network Address Translation (NAT) gateway enables internet connectivity for your private VMs by masquerading all their traffic under a single public IP address. As the designated exit point, it translates their internal IPs for any outbound requests, such as fetching updates. This process effectively grants them access to the internet without ever exposing their private addresses.</p>
+<p>Create a Cloud Router and Cloud network address translation (NAT). Private VMs can use the internet while their private IP addresses stay hidden.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -1316,13 +1363,29 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </li>
 </ol>
 </div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Check that the Cloud Router and NAT gateway exist by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute routers describe <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-router</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output lists the router and the NAT gateway you created.</p>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="cloud-experts-osd-limit-egress-ngfw-create-private-DNS_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-create-private-DNS_cloud-experts-osd-limit-egress-ngfw"></a>Creating private Domain Name System records for Private Google Access</h2>
+<h2 id="cloud-experts-osd-limit-egress-ngfw-create-private-dns_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-create-private-dns_cloud-experts-osd-limit-egress-ngfw"></a>Creating private Domain Name System records for private Google access</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>The private Domain Name System (DNS) zone optimizes how your resources connect to Google APIs by ensuring traffic never travels over the public internet. It functions by intercepting DNS requests for Google services and resolving them to private IP addresses, forcing the connection onto Google&#8217;s internal network for a faster, more secure data exchange.</p>
+<p>Create a private Domain Name System (DNS) zone to route Google application programming interface (API) traffic through the internal network of Google for faster and more secure connections.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -1379,19 +1442,35 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </li>
 </ol>
 </div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify the private DNS zone and records were created by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud dns record-sets list <span class="nt">--zone</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-googleapis</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows the DNS zone with CNAME and A records for googleapis.com.</p>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="cloud-experts-osd-limit-egress-ngfw-create-firewall-rules_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-create-firewall-rules_cloud-experts-osd-limit-egress-ngfw"></a>Creating the firewall rules</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You need to create some firewall rules to allow your cluster to access the Web.</p>
+<p>Create firewall rules for egress to private IP ranges and to the OpenShift Dedicated domains listed in this procedure. Egress to other external destinations does not match these rules and is not permitted.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a blanket allow rule for private IP (RFC 1918) address space by running the following command:</p>
+<p>Create a blanket allow rule for private IP (Request for Comments (RFC) 1918) address space by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute network-firewall-policies rules create 500 <span class="se">\</span>
@@ -1407,6 +1486,35 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </li>
 <li>
 <p>Create an allow rule for HTTPS (tcp/443) domains required for OpenShift Dedicated by running the following command:</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you receive an error "Cannot have rules with the same priorities", the rule already exists. You can verify it with:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="nv">$ </span>gcloud compute network-firewall-policies rules describe 500 <span class="nt">--firewall-policy</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="nt">--global-firewall-policy</span>
+<span class="nv">$ </span>gcloud compute network-firewall-policies rules describe 600 <span class="nt">--firewall-policy</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="nt">--global-firewall-policy</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To re-create the rules, first delete them:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="nv">$ </span>gcloud compute network-firewall-policies rules delete 500 <span class="nt">--firewall-policy</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="nt">--global-firewall-policy</span>
+<span class="nv">$ </span>gcloud compute network-firewall-policies rules delete 600 <span class="nt">--firewall-policy</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="nt">--global-firewall-policy</span></code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute network-firewall-policies rules create 600 <span class="se">\</span>
@@ -1427,7 +1535,7 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If there is not a matching rule that allows the traffic, it will be blocked by the firewall. To allow access to other resources, such as internal networks or other external endpoints, create additional rules with a priority of less than 1000. For more information on how to create firewall rules, see  <a href="https://cloud.google.com/firewall/docs/use-network-firewall-policies">Use global network firewall policies and rules</a>.</p>
+<p>The firewall blocks any traffic if you did not create any matching rules. To allow access to other resources, such as internal networks or other external endpoints, create additional rules with a priority of less than 1000. For more information on how to create firewall rules, see the <em>Additional resources</em>.</p>
 </div>
 </td>
 </tr>
@@ -1439,35 +1547,38 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </div>
 </div>
 <div class="sect1">
-<h2 id="cloud-experts-osd-limit-egress-ngfw-create-osd-gcp-cluster_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-create-osd-gcp-cluster_cloud-experts-osd-limit-egress-ngfw"></a>Creating your cluster</h2>
+<h2 id="cloud-experts-osd-limit-egress-ngfw-create-osd-gcp-cluster_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-create-osd-gcp-cluster_cloud-experts-osd-limit-egress-ngfw"></a>Cluster creation</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You are now ready to create your OpenShift Dedicated on Google Cloud cluster. For more information, see <a href="https://docs.redhat.com/en/documentation/openshift_dedicated/4/html/openshift_dedicated_clusters_on_google_cloud/osd-creating-a-cluster-on-gcp-with-workload-identity-federation">Creating a cluster on Google Cloud with Workload Identity Federation authentication</a>.</p>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="cloud-experts-osd-limit-egress-ngfw-delete-osd-gcp-cluster_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-delete-osd-gcp-cluster_cloud-experts-osd-limit-egress-ngfw"></a>Deleting your cluster</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>To delete your cluster, see <a href="https://docs.redhat.com/en/documentation/openshift_dedicated/4/html/openshift_dedicated_clusters_on_google_cloud/osd-deleting-a-cluster">Deleting an OpenShift Dedicated cluster on Google Cloud</a>.</p>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="cloud-experts-osd-limit-egress-ngfw-clean-resource_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-clean-resource_cloud-experts-osd-limit-egress-ngfw"></a>Cleaning up resources</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>To prevent ongoing charges, after you delete your cluster you must manually delete the Google Cloud networking infrastructure you created as part of this tutorial. Deleting the cluster will not automatically remove these underlying resources. You can clean up these resources using a combination of gcloud CLI commands and actions within the Google Cloud console.</p>
+<p>Your OpenShift Dedicated cluster on Google Cloud uses the VPC, subnets, and firewall rules from this tutorial.</p>
 </div>
 <div class="paragraph">
-<p>Before you begin the process of cleaning up the resources you created for this tutorial, run the following commands and complete any prompts.</p>
+<p>For detailed instructions on creating a cluster, see <a href="https://docs.redhat.com/en/documentation/openshift_dedicated/4/html/openshift_dedicated_clusters_on_google_cloud/osd-creating-a-cluster-on-gcp-with-workload-identity-federation">Creating a cluster on Google Cloud</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="cloud-experts-osd-limit-egress-ngfw-delete-osd-gcp-cluster_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-delete-osd-gcp-cluster_cloud-experts-osd-limit-egress-ngfw"></a>Cluster deletion</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>When you delete your cluster on Google Cloud, also clean up the network setup from this guide to prevent ongoing charges.</p>
+</div>
+<div class="paragraph">
+<p>For detailed instructions on deleting a cluster, see <a href="https://docs.redhat.com/en/documentation/openshift_dedicated/4/html/openshift_dedicated_clusters_on_google_cloud/osd-deleting-a-cluster">Deleting an OpenShift Dedicated cluster on Google Cloud</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="cloud-experts-osd-limit-egress-ngfw-clean-resources_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#cloud-experts-osd-limit-egress-ngfw-clean-resources_cloud-experts-osd-limit-egress-ngfw"></a>Cleaning up resources</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Delete the Google Cloud networking infrastructure after deleting your cluster to prevent ongoing charges. The cluster deletion does not automatically remove virtual private cloud (VPC) networks, subnets, firewall policies, or domain name system (DNS) zones.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>To authenticate your identity run the following command:</p>
+<p>Authenticate by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud init</code></pre>
@@ -1475,7 +1586,7 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </div>
 </li>
 <li>
-<p>To log in to your Google Cloud account, run the following command:</p>
+<p>Log in to your Google Cloud account by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud auth application-default login</code></pre>
@@ -1483,24 +1594,25 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 </div>
 </li>
 <li>
-<p>To log in to the OpenShift Cluster Manager CLI tool, run the following command:</p>
+<p>Log in to the OpenShift Cluster Manager CLI tool by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ocm login <span class="nt">--use-auth-code</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>You are now ready to clean up the resources you created as part of this tutorial. To respect resource dependencies, delete them in the reverse order of their creation.</p>
+<p>You can now clean up the resources you created as part of this tutorial. To respect resource dependencies, delete them in the reverse order of their creation.</p>
 </div>
 </li>
 <li>
-<p>Delete the firewall policy&#8217;s association with the VPC by running the following command:</p>
+<p>Delete the association of the firewall policy with the VPC by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute network-firewall-policies associations delete <span class="se">\</span>
-    <span class="nt">--firewall-policy</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="se">\</span>
-    <span class="nt">--network</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-vpc</span> <span class="se">\</span>
-    <span class="nt">--global-firewall-policy</span></code></pre>
+      <span class="nt">--name</span> network-<span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-vpc</span> <span class="se">\</span>
+      <span class="nt">--firewall-policy</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="se">\</span>
+      <span class="nt">--global-firewall-policy</span> <span class="se">\</span>
+      <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
@@ -1508,38 +1620,24 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 <p>Delete the global network firewall policy by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute network-firewall-policies delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="nt">--global</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute network-firewall-policies delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span> <span class="nt">--global</span> <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>A managed DNS zone in Google Cloud cannot be deleted until all user-defined record sets are removed. Define variables to target the specific Google Cloud project and the managed DNS zone being cleaned up by running the following command:</p>
+<p>List and delete all user-defined DNS records from the Private DNS zone:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> /tmp/delete_records.sh
-<span class="gp">PROJECT_ID=&lt;your-project-id&gt;</span><span class="w">
-</span><span class="gp">ZONE_NAME=&lt;your-managed-zone-name&gt;</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>List the record sets that are included within the Private DNS zone by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud <span class="se">\</span>
-    dns record-sets list <span class="se">\</span>
-    <span class="nt">--project</span><span class="o">=</span><span class="nv">$PROJECT_ID</span> <span class="se">\</span>
-    <span class="nt">--zone</span><span class="o">=</span><span class="nv">$ZONE_NAME</span> <span class="se">\</span>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud dns record-sets list <span class="se">\</span>
+    <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span> <span class="se">\</span>
+    <span class="nt">--zone</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-googleapis</span> <span class="se">\</span>
     <span class="nt">--filter</span><span class="o">=</span><span class="s2">"type!=NS AND type!=SOA"</span> <span class="se">\</span>
-    <span class="nt">--format</span><span class="o">=</span><span class="s2">"value(name,type)"</span> | <span class="k">while </span><span class="nb">read </span>name <span class="nb">type</span><span class="p">;</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Delete the record sets that are included within that Private DNS Zone by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud <span class="nt">--project</span><span class="o">=</span><span class="nv">$PROJECT_ID</span> dns record-sets delete <span class="s2">"</span><span class="nv">$name</span><span class="s2">"</span> <span class="nt">--zone</span><span class="o">=</span><span class="nv">$ZONE_NAME</span> <span class="nt">--type</span><span class="o">=</span><span class="s2">"</span><span class="nv">$type</span><span class="s2">"</span></code></pre>
+    <span class="nt">--format</span><span class="o">=</span><span class="s2">"value(name,type)"</span> | <span class="k">while </span><span class="nb">read </span>name <span class="nb">type</span><span class="p">;</span> <span class="k">do</span>
+<span class="gp">  gcloud dns record-sets delete "$</span>name<span class="s2">" </span><span class="se">\</span><span class="s2">
+    --project=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span><span class="s2"> </span><span class="se">\</span><span class="s2">
+    --zone=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="s2">-googleapis </span><span class="se">\</span><span class="s2">
+    --type="</span><span class="nv">$type</span><span class="s2">"
+</span><span class="go">done</span></code></pre>
 </div>
 </div>
 </li>
@@ -1547,7 +1645,7 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 <p>Delete the Private DNS Zone by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud dns managed-zones delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-googleapis</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud dns managed-zones delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-googleapis</span> <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
@@ -1557,7 +1655,8 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute routers nats delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-cloudnat-</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span> <span class="se">\</span>
     <span class="nt">--router</span><span class="o">=</span><span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-router</span> <span class="se">\</span>
-    <span class="nt">--router-region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span></code></pre>
+    <span class="nt">--router-region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span> <span class="se">\</span>
+    <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
@@ -1565,7 +1664,7 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 <p>Delete the Cloud Router by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute routers delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-router</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute routers delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-router</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span> <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
@@ -1573,7 +1672,7 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 <p>Delete the reserved IP address by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute addresses delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span>-<span class="k">${</span><span class="nv">region</span><span class="k">}</span><span class="nt">-cloudnatip</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute addresses delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span>-<span class="k">${</span><span class="nv">region</span><span class="k">}</span><span class="nt">-cloudnatip</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span> <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
@@ -1581,7 +1680,7 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 <p>Delete the worker subnet by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks subnets delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-worker</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks subnets delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-worker</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span> <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
@@ -1589,15 +1688,15 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 <p>Delete the control plane subnet by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks subnets delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-control-plane</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks subnets delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-control-plane</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span> <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Delete the PSC subnet by running the following command:</p>
+<p>Delete the Private Service Connect (PSC) subnet by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks subnets delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-psc</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks subnets delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-psc</span> <span class="nt">--region</span><span class="o">=</span><span class="k">${</span><span class="nv">region</span><span class="k">}</span> <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
@@ -1605,11 +1704,59 @@ export pod_cidr="10.128.0.0/14"</span></code></pre>
 <p>Delete the VPC by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-vpc</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute networks delete <span class="k">${</span><span class="nv">prefix</span><span class="k">}</span><span class="nt">-vpc</span> <span class="nt">--project</span><span class="o">=</span><span class="k">${</span><span class="nv">project_id</span><span class="k">}</span></code></pre>
 </div>
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources_cloud-experts-osd-limit-egress-ngfw"><a class="anchor" href="#additional-resources_cloud-experts-osd-limit-egress-ngfw"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://cloud.google.com/compute/docs/regions-zones">Regions and zones (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/vpc/docs/create-modify-vpc-networks">Create and manage VPC networks (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/vpc/docs/subnets">Subnets overview (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/firewall/docs/about-firewalls">Firewall overview (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/firewall/docs/use-network-firewall-policies">Use global network firewall policies and rules (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/nat/docs/overview">Cloud NAT overview (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/network-connectivity/docs/router">Cloud Router overview (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/vpc/docs/configure-private-google-access">Configure Private Google Access (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/dns/docs/zones">DNS zones overview (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/firewall/docs/firewalls">VPC firewall rules overview (Google Cloud)</a></p>
+</li>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/openshift_dedicated/4/html/planning_your_environment/gcp-ccs#osd-gcp-psc-firewall-prerequisites_gcp-ccs">Firewall prerequisites for Google Cloud</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/firewall/docs/use-network-firewall-policies">Use global network firewall policies and rules</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/sdk/gcloud/reference"><code>gcloud</code> command-line tool reference (Google Cloud)</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
