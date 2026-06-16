@@ -3401,6 +3401,7 @@
 <li><a href="#hcp-azure-private-ts_hcp-deploy-azure">Troubleshooting private hosted clusters on Azure</a></li>
 </ul>
 </li>
+<li><a href="#hcp-azure-autoscaling_hcp-deploy-azure">Example: Autoscaling a hosted cluster on Azure</a></li>
 <li><a href="#hcp-azure-delete_hcp-deploy-azure">Deleting an Azure hosted cluster and its resources</a>
 <ul class="sectlevel2">
 <li><a href="#hcp-azure-cluster-delete_hcp-deploy-azure">Deleting a hosted cluster on Azure</a></li>
@@ -5437,6 +5438,93 @@ operator-xxxxx-xxxxx           1/1     Running   0          1m</span></code></pr
 </li>
 </ol>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-azure-autoscaling_hcp-deploy-azure"><a class="anchor" href="#hcp-azure-autoscaling_hcp-deploy-azure"></a>Example: Autoscaling a hosted cluster on Azure</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To balance node pools on your Azure hosted cluster, you can configure autoscaling for the cluster.</p>
+</div>
+<div class="paragraph">
+<p>When you scale up <code>NodePool</code> objects, the Cluster API Provider for Azure provisions individual Azure virtual machines.</p>
+</div>
+<div class="paragraph">
+<p>To configure autoscaling for a hosted cluster on Azure, you edit the <code>spec.autoscaling</code> parameters in the <code>HostedCluster</code> resource. The following example shows a <code>HostedCluster</code> resource with 2 Azure node pools.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This example shows only the autoscaling-related fields.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hypershift.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HostedCluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">my-cluster-namespace</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">autoscaling</span><span class="pi">:</span>
+    <span class="na">scaling</span><span class="pi">:</span> <span class="s">ScaleUpAndScaleDown</span>
+    <span class="na">maxNodesTotal</span><span class="pi">:</span> <span class="m">12</span>
+    <span class="na">expanders</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">Random</span>
+    <span class="na">scaleDown</span><span class="pi">:</span>
+      <span class="na">delayAfterAddSeconds</span><span class="pi">:</span> <span class="m">300</span>
+      <span class="na">unneededDurationSeconds</span><span class="pi">:</span> <span class="m">600</span>
+      <span class="na">utilizationThresholdPercent</span><span class="pi">:</span> <span class="m">40</span>
+    <span class="na">balancingIgnoredLabels</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">custom.label/environment"</span>
+    <span class="na">maxFreeDifferenceRatioPercent</span><span class="pi">:</span> <span class="m">70</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hypershift.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NodePool</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster-nodepool-1</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">my-cluster-namespace</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterName</span><span class="pi">:</span> <span class="s">my-cluster</span>
+  <span class="na">autoScaling</span><span class="pi">:</span>
+    <span class="na">min</span><span class="pi">:</span> <span class="m">1</span>
+    <span class="na">max</span><span class="pi">:</span> <span class="m">6</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">azure</span><span class="pi">:</span>
+      <span class="na">vmSize</span><span class="pi">:</span> <span class="s">Standard_D4s_v3</span>
+      <span class="c1"># ...</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hypershift.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NodePool</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-cluster-nodepool-2</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">my-cluster-namespace</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterName</span><span class="pi">:</span> <span class="s">my-cluster</span>
+  <span class="na">autoScaling</span><span class="pi">:</span>
+    <span class="na">min</span><span class="pi">:</span> <span class="m">1</span>
+    <span class="na">max</span><span class="pi">:</span> <span class="m">6</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">azure</span><span class="pi">:</span>
+      <span class="na">vmSize</span><span class="pi">:</span> <span class="s">Standard_D4s_v3</span>
+      <span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>spec.autoScaling.min</code> must be greater than or equal to <code>1</code>. Scaling from zero (<code>autoScaling.min: 0</code>) is not supported on Azure.</p>
+</li>
+</ul>
 </div>
 </div>
 </div>
