@@ -2812,6 +2812,9 @@
         
         <div id="preamble">
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Automatic volume detachment after non-graceful node shutdowns prevents volumes from remaining attached to failed nodes, enabling faster workload recovery by allowing pods to reschedule and reattach volumes on healthy nodes without manual intervention.</p>
+</div>
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
@@ -2819,25 +2822,25 @@
 <li><a href="#persistent-storage-csi-vol-detach-non-graceful-shutdown-procedure_ephemeral-storage-csi-vol-detach-non-graceful-shutdown">Adding an out-of-service taint manually for automatic volume detachment</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>This feature allows drivers to automatically detach volumes when a node goes down non-gracefully.</p>
-</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="persistent-storage-csi-vol-detach-non-graceful-overview_ephemeral-storage-csi-vol-detach-non-graceful-shutdown"><a class="anchor" href="#persistent-storage-csi-vol-detach-non-graceful-overview_ephemeral-storage-csi-vol-detach-non-graceful-shutdown"></a>Overview</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>A graceful node shutdown occurs when the kubelet&#8217;s node shutdown manager detects the upcoming node shutdown action. Non-graceful shutdowns occur when the kubelet does not detect a node shutdown action, which can occur because of system or hardware failures. Also, the kubelet may not detect a node shutdown action when the shutdown command does not trigger the Inhibitor Locks mechanism used by the kubelet on Linux, or because of a user error, for example, if the shutdownGracePeriod and shutdownGracePeriodCriticalPods details are not configured correctly for that node.</p>
+<div class="paragraph _abstract">
+<p>Non-graceful node shutdowns from hardware failures or system crashes leave volumes attached to failed nodes, blocking pod rescheduling. Applying an out-of-service taint triggers automatic volume detachment from failed nodes, enabling workload recovery without manual volume management.</p>
 </div>
 <div class="paragraph">
-<p>With this feature, when a non-graceful node shutdown occurs, you can manually add an <code>out-of-service</code> taint on the node to allow volumes to automatically detach from the node.</p>
+<p>A graceful node shutdown occurs when the kubelet&#8217;s node shutdown manager detects the upcoming node shutdown action. Non-graceful shutdowns occur when the kubelet does not detect a node shutdown action, which can occur because of system or hardware failures. Also, the kubelet might not detect a node shutdown action when the shutdown command does not trigger the Inhibitor Locks mechanism used by the kubelet on Linux, or because of a user error, for example, if the shutdownGracePeriod and shutdownGracePeriodCriticalPods details are not configured correctly for that node.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="persistent-storage-csi-vol-detach-non-graceful-shutdown-procedure_ephemeral-storage-csi-vol-detach-non-graceful-shutdown"><a class="anchor" href="#persistent-storage-csi-vol-detach-non-graceful-shutdown-procedure_ephemeral-storage-csi-vol-detach-non-graceful-shutdown"></a>Adding an out-of-service taint manually for automatic volume detachment</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>After non-graceful shutdowns, to trigger automatic volume detachment and enable pod rescheduling, apply an out-of-service taint to the node. This recovers workloads faster than manually detaching volumes from failed nodes.</p>
+</div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
@@ -2846,11 +2849,8 @@
 </li>
 </ul>
 </div>
-<div class="paragraph">
-<div class="title">Procedure</div>
-<p>To allow volumes to detach automatically from a node after a non-graceful node shutdown:</p>
-</div>
 <div class="olist arabic">
+<div class="title">Procedure</div>
 <ol class="arabic">
 <li>
 <p>After a node is detected as unhealthy, shut down the worker node.</p>
@@ -2859,17 +2859,13 @@
 <p>Ensure that the node is shutdown by running the following command and checking the status:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get node &lt;node_name&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get node &lt;node_name&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>&lt;node_name&gt; = name of the node that shut down non-gracefully</td>
-</tr>
-</table>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Use the <code>&lt;node_name&gt;</code> to specify the node that shut down non-gracefully.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -2885,6 +2881,9 @@
 </table>
 </div>
 </li>
+</ul>
+</div>
+</li>
 <li>
 <p>Taint the corresponding node object by running the following command:</p>
 <div class="admonitionblock important">
@@ -2895,8 +2894,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Tainting a node this way deletes all pods on that node. This also causes any pods that are backed by
-statefulsets to be evicted, and replacement pods to be created on a different node.</p>
+<p>Tainting a node this way deletes all pods on that node. This also causes any pods that are backed by statefulsets to be evicted, and replacement pods to be created on a different node.</p>
 </div>
 </td>
 </tr>
@@ -2904,25 +2902,21 @@ statefulsets to be evicted, and replacement pods to be created on a different no
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm taint node &lt;node_name&gt; node.kubernetes.io/out-of-service<span class="o">=</span>nodeshutdown:NoExecute <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm taint node &lt;node_name&gt; node.kubernetes.io/out-of-service<span class="o">=</span>nodeshutdown:NoExecute</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>&lt;node_name&gt; = name of the node that shut down non-gracefully</td>
-</tr>
-</table>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Use the <code>&lt;node_name&gt;</code> to specify the node that shut down non-gracefully.</p>
 <div class="paragraph">
 <p>After the taint is applied, the volumes detach from the shutdown node allowing their disks to be attached to a different node.</p>
 </div>
 <div class="paragraph">
-<div class="title">Example</div>
-<p>The resulting YAML file resembles the following:</p>
+<p>The resulting YAML file resembles the following example file:</p>
 </div>
 <div class="listingblock">
+<div class="title">Example node YAML file with out-of-service taint applied</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
   <span class="na">taints</span><span class="pi">:</span>
@@ -2932,6 +2926,9 @@ statefulsets to be evicted, and replacement pods to be created on a different no
 </div>
 </div>
 </li>
+</ul>
+</div>
+</li>
 <li>
 <p>Restart the node.</p>
 </li>
@@ -2939,16 +2936,15 @@ statefulsets to be evicted, and replacement pods to be created on a different no
 <p>Remove the taint from the corresponding node object by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm taint node &lt;node_name&gt; node.kubernetes.io/out-of-service<span class="o">=</span>nodeshutdown:NoExecute- <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm taint node &lt;node_name&gt; node.kubernetes.io/out-of-service<span class="o">=</span>nodeshutdown:NoExecute-</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>&lt;node_name&gt; = name of the node that shut down non-gracefully</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p>Use the <code>&lt;node_name&gt;</code> to specify the node that shut down non-gracefully</p>
+</li>
+</ul>
 </div>
 </li>
 </ol>
