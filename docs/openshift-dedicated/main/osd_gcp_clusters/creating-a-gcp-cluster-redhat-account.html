@@ -1097,6 +1097,7 @@
 <ul class="sectlevel1">
 <li><a href="#osd-creating-a-cluster-on-gcp-prerequisites1_osd-creating-a-gcp-cluster-rh-account">Prerequisites</a></li>
 <li><a href="#osd-create-gcp-cluster-ccs_osd-creating-a-gcp-cluster-rh-account">Creating a cluster on Google Cloud with a Red Hat cloud account using OpenShift Cluster Manager</a></li>
+<li><a href="#osd-configure-machine-pool-root-disk_osd-creating-a-gcp-cluster-rh-account">Configure machine pool root disk sizes for clusters</a></li>
 <li><a href="#next-steps-rh-account_osd-creating-a-gcp-cluster-rh-account">Next steps</a></li>
 </ul>
 </div>
@@ -1128,6 +1129,20 @@
 <div class="sectionbody">
 <div class="paragraph _abstract">
 <p>Through <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>, you can create an OpenShift Dedicated cluster on Google Cloud using a standard cloud provider account owned by Red Hat.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you want to create an OpenShift Dedicated cluster on Google Cloud with the Red Hat OpenShift Cluster Manager command-line interface (<code>ocm</code>), see the instructions for configuring machine pool root disk sizes for clusters</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -1490,6 +1505,144 @@ By default, clusters are created with the delete protection feature disabled.</p
 </td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="osd-configure-machine-pool-root-disk_osd-creating-a-gcp-cluster-rh-account"><a class="anchor" href="#osd-configure-machine-pool-root-disk_osd-creating-a-gcp-cluster-rh-account"></a>Configure machine pool root disk sizes for clusters</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure a custom root disk size for worker nodes in an OpenShift Dedicated cluster on Google Cloud. By customizing the root disk volume size, you can safely host storage intensive workloads or scale space within your infrastructure.</p>
+</div>
+<div class="paragraph">
+<p>First, you create a new cluster and specify a custom disk size for it. Then, you create a new machine pool with distinct disk allocations to handle changing infrastructure requirements for the cluster that you created.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You cannot resize existing cluster and machine pool node volumes. To change root disk sizing for active workloads, you must create a new machine pool with your preferred storage allocation, then migrate your running application and delete the outdated pool.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Red Hat OpenShift Cluster Manager command-line interface (CLI) is installed.</p>
+</li>
+<li>
+<p>Ensure that you have appropriate project quotas and identity permissions configured on your targeted Google Cloud account.</p>
+</li>
+<li>
+<p>You are logged in to the Red Hat OpenShift Cluster Manager CLI.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>In your <code>ocm</code> CLI, create a cluster by running the interactive cluster creation wizard and including the <code>--root-disk-size</code> flag with the target value in gigabytes (GB):</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="nv">$ </span>ocm create cluster <span class="nt">--root-disk-size</span><span class="o">=</span>250 <span class="nt">--interactive</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Complete the prompts that your CLI gives you and specify the Google Cloud platform as your cloud provider and specify your required node sizes. For example:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p><strong>Cluster name:</strong> rc-test</p>
+</li>
+<li>
+<p><strong>Subscription type:</strong> standard cloud provider account owned by Red&#160;Hat.</p>
+</li>
+<li>
+<p><strong>Authentication type:</strong> Workload Identity Federation (WIF)</p>
+</li>
+<li>
+<p><strong>Compute machine type:</strong> e2-standard-4</p>
+</li>
+<li>
+<p><strong>Compute nodes:</strong> 2</p>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>When your CLI gives your cluster a <code>validating</code> or <code>creating</code> state, confirm the cluster configuration in the output summary.</p>
+</li>
+<li>
+<p>Create a machine pool by running the <code>create machine-pool</code> command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="nv">$ </span>ocm create machine-pool <span class="nt">--root-disk-size</span> 320 <span class="nt">--cluster</span> <em>&lt;cluster_id&gt;</em> <span class="nt">--instance-type</span> e2-standard-4 <span class="nt">--replicas</span> 1 <em>&lt;machine_pool_name&gt;</em></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Define the following components:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Target cluster ID</p>
+</li>
+<li>
+<p>Disk capacity</p>
+</li>
+<li>
+<p>Machine compute type</p>
+</li>
+<li>
+<p>Replica scale</p>
+</li>
+<li>
+<p>Unique name</p>
+<div class="paragraph">
+<p>For example, run the following <code>create machine-pool</code> command with all the defined components:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="nv">$ </span>ocm create machine-pool <span class="nt">--root-disk-size</span> 320 <span class="nt">--cluster</span> 2plhcmdsi3kijhr72h04mlrvvsltj9rn <span class="nt">--instance-type</span> e2-standard-4 <span class="nt">--replicas</span> 1 mp2</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Confirm that your CLI gives you a confirmation message, stating that the tracking instance attached successfully. For example:
+<code>Machine pool 'mp2' created on cluster '2plhcmdsi3kijhr72h04mlrvvsltj9rn'</code>.</p>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Go to the cluster that you provisioned.</p>
+</li>
+<li>
+<p>Verify that the root disk value you customized is used by your machine pool by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="nv">$ </span>oc get machineset <em>&lt;MACHINESET_NAME&gt;</em> <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.template.spec.providerSpec.value.disks[*].sizeGb}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Make sure that the output for your value matches the root disk size that you set for your machine pool.</p>
+</li>
+</ol>
 </div>
 </div>
 </div>
