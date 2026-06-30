@@ -2322,6 +2322,7 @@
                   <li><a class="" href="../../../ai_workloads/kueue/monitoring-pending-workloads.html">Monitoring pending workloads</a></li>
                   <li><a class="" href="../../../ai_workloads/kueue/using-cohorts.html">Using cohorts</a></li>
                   <li><a class="" href="../../../ai_workloads/kueue/configuring-fairsharing.html">Configuring fair sharing</a></li>
+                  <li><a class="" href="../../../ai_workloads/kueue/admission-fair-sharing.html">Admission fair sharing</a></li>
                   <li><a class="" href="../../../ai_workloads/kueue/gangscheduling.html">Gang scheduling</a></li>
                   <li><a class="" href="../../../ai_workloads/kueue/running-kueue-jobs.html">Running jobs with quota limits</a></li>
                   <li><a class="" href="../../../ai_workloads/kueue/getting-support.html">Getting support</a></li>              </ul>
@@ -3381,19 +3382,23 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#virt-configuring-highburst-profile_virt-control-plane-tuning">Configuring a highBurst profile</a></li>
+<li><a href="#virt-configuring-tune-rate-limit_virt-control-plane-tuning">Tune the rate limit</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>In OpenShift Virtualization, you can control how the control plane handles concurrency when you create or migrate virtual machines (VMs). For example, you can use the <code>highBurst</code> profile with either the fixed <code>QPS</code> or <code>burst</code> rates to batch create virtual machines (VMs) in a batch, or tune migration settings in the <code>HyperConverged</code> custom resource (CR).</p>
+<p>In OpenShift Virtualization, you can control how the control plane handles concurrency when you create or migrate virtual machines (VMs). For example, set the <code>QPS</code> or <code>burst</code> rates to batch create virtual machines (VMs) in a batch, or tune migration settings in the <code>HyperConverged</code> custom resource (CR).</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="virt-configuring-highburst-profile_virt-control-plane-tuning"><a class="anchor" href="#virt-configuring-highburst-profile_virt-control-plane-tuning"></a>Configuring a highBurst profile</h2>
+<h2 id="virt-configuring-tune-rate-limit_virt-control-plane-tuning"><a class="anchor" href="#virt-configuring-tune-rate-limit_virt-control-plane-tuning"></a>Tune the rate limit</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can use the <code>highBurst</code> profile to create and maintain a large number of virtual machines (VMs) in one cluster.</p>
+<p>You can tune the rate limit when creating and maintaining a large number of virtual machines (VMs) in one cluster.</p>
+</div>
+<div class="paragraph">
+<p>The <code>hco.kubevirt.io/tuningPolicy</code> annotation is used to configure the rate limit. The annotation is only taken into account if the
+<code>annotation</code> tuning policy is applied to the HyperConverged CR.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3403,26 +3408,47 @@
 </li>
 </ul>
 </div>
-<div class="ulist">
+<div class="olist arabic">
 <div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Annotate the HyperConverged CR with the <code>hco.kubevirt.io/tuningPolicy</code> annotation, and a value of a json object with the following fields:</p>
+<div class="ulist">
 <ul>
 <li>
-<p>Apply the following patch to enable the <code>highBurst</code> tuning policy profile:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hyperconvergeds.v1beta1.hco.kubevirt.io kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv <span class="se">\</span>
-  <span class="nt">--type</span><span class="o">=</span>json <span class="nt">-p</span><span class="o">=</span><span class="s1">'[{"op": "add", "path": "/spec/tuningPolicy", \
-  "value": "highBurst"}]'</span></code></pre>
-</div>
+<p><code>qps</code>: indicates the maximum QPS to the apiserver from this client.</p>
+</li>
+<li>
+<p><code>burst</code>: Maximum burst for throttle.</p>
+<div class="paragraph">
+<p>For example, to set the <code>qps</code> to 100 and the <code>burst</code> to 200, use the following command:</p>
 </div>
 </li>
 </ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate hco kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv <span class="s1">'hco.kubevirt.io/tuningPolicy={"qps": 100, "burst": 200}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the following patch to enable the <code>annotation</code> tuning policy:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hco kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>json <span class="nt">-p</span><span class="o">=</span><span class="s1">'[{"op": "add", "path": "/spec/virtualization/tuningPolicy", \
+  "value": "annotation"}]'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 <div class="ulist">
 <div class="title">Verification</div>
 <ul>
 <li>
-<p>Run the following command to verify the <code>highBurst</code> tuning policy profile is enabled:</p>
+<p>Run the following command to verify the rate limit tuning:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubevirt.kubevirt.io/kubevirt-kubevirt-hyperconverged <span class="se">\</span>
