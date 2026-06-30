@@ -2827,6 +2827,11 @@
 <li><a href="#hosted-control-planes-sre-metrics-set">Configuring the SRE metrics set</a></li>
 </ul>
 </li>
+<li><a href="#hcp-cluster-ids_hcp-observability">Customized hosted cluster identifiers</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-cluster-ids-example_hcp-observability">Example: Setting a custom cluster identifier</a></li>
+</ul>
+</li>
 <li><a href="#hosted-control-planes-monitoring-dashboard_hcp-observability">Enabling monitoring dashboards in a hosted cluster</a>
 <ul class="sectlevel2">
 <li><a href="#hosted-control-planes-customize-dashboards_hcp-observability">Dashboard customization</a></li>
@@ -3014,6 +3019,118 @@ cvo:
 </div>
 </div>
 <div class="sect1">
+<h2 id="hcp-cluster-ids_hcp-observability"><a class="anchor" href="#hcp-cluster-ids_hcp-observability"></a>Customized hosted cluster identifiers</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>When you enable observability for hosted control planes, control plane metrics include an <code>_id</code> label that identifies the hosted cluster. You can set <code>spec.clusterID</code> in the <code>HostedCluster</code> custom resource (CR) at creation time to use a stable identifier instead of a randomly assigned UUID.</p>
+</div>
+<div class="paragraph">
+<p>When you forward hosted cluster metrics to an external monitoring system, the <code>_id</code> label is commonly used to identify the cluster. If you reinstall a hosted cluster, specifying the same <code>clusterID</code> value preserves your external monitoring configuration.</p>
+</div>
+<div class="paragraph">
+<p>Each hosted cluster has a unique cluster identifier. The HyperShift Operator uses this identifier in telemetry and in metrics that the control plane operators produce. The identifier is exposed on time series as the <code>_id</code> label.</p>
+</div>
+<div class="paragraph">
+<p>If you do not specify <code>spec.clusterID</code> when you create a <code>HostedCluster</code> CR, the HyperShift controller generates a random RFC4122 UUID and sets the field for you.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>spec.clusterID</code> specification is not the same as the <code>spec.infraID</code> specification. The <code>infraID</code> value identifies cloud infrastructure resources.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="hcp-cluster-ids-example_hcp-observability"><a class="anchor" href="#hcp-cluster-ids-example_hcp-observability"></a>Example: Setting a custom cluster identifier</h3>
+<div class="paragraph _abstract">
+<p>You can set the <code>spec.clusterID</code> value only when you create a <code>HostedCluster</code> custom resource (CR).</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>After you set <code>spec.clusterID</code> is set, you cannot change it. Plan the identifier before you create the hosted cluster.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following example shows a <code>HostedCluster</code> CR with a custom cluster identifier set:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>HostedCluster</code> CR with a custom cluster identifier</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hypershift.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HostedCluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;hosted_cluster_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;hosted_cluster_namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterID</span><span class="pi">:</span> <span class="s">fa45babd-40f3-4085-9b30-8bc3b7df1557</span>
+  <span class="na">controllerAvailabilityPolicy</span><span class="pi">:</span> <span class="s">SingleReplica</span>
+  <span class="na">dns</span><span class="pi">:</span>
+    <span class="na">baseDomain</span><span class="pi">:</span> <span class="s">example.com</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">AWS</span>
+  <span class="na">release</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;ocp_release_image&gt;</span>
+  <span class="na">pullSecret</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;pull_secret_name&gt;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>spec.clusterID</code> value is the UUID that you want to use as the stable cluster identifier in metrics. The value must be a valid RFC4122 UUID: <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code> in hexadecimal digits.</p>
+</div>
+<div class="paragraph">
+<p>The value of <code>spec.clusterID</code> is added as the <code>_id</code> label on control plane metrics through Prometheus relabeling rules on <code>ServiceMonitor</code> and <code>PodMonitor</code> resources. HyperShift Operator metrics for the hosted cluster also use the same <code>_id</code> label, so you can correlate metrics from the management cluster and the hosted control plane in one query.</p>
+</div>
+<div class="paragraph">
+<p>For example, to filter metrics for a specific hosted cluster, use the <code>_id</code> label in a PromQL expression:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="promql">{__name__=~"hypershift_.*", _id="fa45babd-40f3-4085-9b30-8bc3b7df1557"}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>When you enable monitoring dashboards, the <code><em>CLUSTER_ID</em></code> placeholder in the dashboard template is replaced with the same UUID. For more information, see "Dashboard customization".</p>
+</div>
+<div class="sect3">
+<h4 id="hcp-cluster-ids-reusing_hcp-observability"><a class="anchor" href="#hcp-cluster-ids-reusing_hcp-observability"></a>Cluster identifier reuse after a reinstall</h4>
+<div class="paragraph">
+<p>If you delete and re-create a hosted cluster, a new random <code>clusterID</code> is assigned unless you specify one. To keep the same identifier in external monitoring systems, set <code>spec.clusterID</code> in the new <code>HostedCluster</code> CR to the UUID that you used before.</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../hosted_control_planes/hcp-observability.html#hosted-control-planes-customize-dashboards_hcp-observability">Dashboard customization</a></p>
+</li>
+<li>
+<p><a href="../hosted_control_planes/hcp-observability.html#hosted-control-planes-metrics-sets_hcp-observability">Configuring metrics sets for hosted control planes</a></p>
+</li>
+<li>
+<p><a href="../hosted_control_planes/hcp-observability.html#hosted-control-planes-monitoring-dashboard_hcp-observability">Enabling monitoring dashboards in a hosted cluster</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="hosted-control-planes-monitoring-dashboard_hcp-observability"><a class="anchor" href="#hosted-control-planes-monitoring-dashboard_hcp-observability"></a>Enabling monitoring dashboards in a hosted cluster</h2>
 <div class="sectionbody">
 <div class="paragraph">
@@ -3103,6 +3220,17 @@ cvo:
 </tr>
 </tbody>
 </table>
+<div class="paragraph">
+<p>To set a custom cluster identifier when you create the hosted cluster, see "Customized hosted cluster identifiers".</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../hosted_control_planes/hcp-observability.html#hcp-cluster-ids_hcp-observability">Customized hosted cluster identifiers</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
