@@ -2673,7 +2673,7 @@
                     <li><a class="" href="../../virt/managing_vms/advanced_vm_management/virt-configuring-usb-host-passthrough.html" style="padding-left: 70px;">Configuring USB host passthrough</a></li>
                     <li><a class="" href="../../virt/managing_vms/advanced_vm_management/virt-enabling-descheduler-evictions.html" style="padding-left: 70px;">Enabling descheduler evictions on virtual machines</a></li>
                     <li><a class="" href="../../virt/managing_vms/advanced_vm_management/virt-high-availability-for-vms.html" style="padding-left: 70px;">About high availability for virtual machines</a></li>
-                    <li><a class="" href="../../virt/managing_vms/advanced_vm_management/virt-vm-control-plane-tuning.html" style="padding-left: 70px;">Control plane tuning</a></li>
+                    <li><a class="" href="../../virt/managing_vms/advanced_vm_management/virt-vm-control-plane-tuning.html" style="padding-left: 70px;">Tune the control plane</a></li>
                     <li><a class="" href="../../virt/managing_vms/advanced_vm_management/virt-assigning-compute-resources.html" style="padding-left: 70px;">Assigning compute resources</a></li>
                     <li><a class="" href="../../virt/managing_vms/advanced_vm_management/virt-about-multi-queue.html" style="padding-left: 70px;">About multi-queue functionality</a></li>
                     <li><a class="" href="../../virt/managing_vms/advanced_vm_management/virt-managing-virtual-machines-by-using-openshift-gitops.html" style="padding-left: 70px;">Managing virtual machines by using OpenShift GitOps</a></li>
@@ -2833,13 +2833,13 @@
 </li>
 <li><a href="#hcp-dc-virt-hosted_hcp-deploy-dc-virt">Creating a hosted cluster on OKD Virtualization in a disconnected environment</a>
 <ul class="sectlevel2">
-<li><a href="#hcp-virt-reqs_hcp-deploy-dc-virt">Requirements to deploy hosted control planes on OKD Virtualization</a></li>
+<li><a href="#hcp-virt-prereqs_hcp-deploy-dc-virt">Prerequisites to deploy hosted control planes on OKD Virtualization</a></li>
 <li><a href="#hcp-virt-create-hc-cli_hcp-deploy-dc-virt">Creating a hosted cluster with the KubeVirt platform by using the CLI</a></li>
 </ul>
 </li>
 <li><a href="#hcp-virt-ingress-dns_hcp-deploy-dc-virt">Configuring the default ingress and DNS for hosted control planes on OKD Virtualization</a></li>
 <li><a href="#hcp-dc-virt-ingress-dns-custom_hcp-deploy-dc-virt">Customize ingress and DNS behavior</a></li>
-<li><a href="#hcp-virt-hc-base-domain_hcp-deploy-dc-virt">Deploying a hosted cluster that specifies the base domain</a></li>
+<li><a href="#hcp-virt-hc-base-domain_hcp-deploy-dc-virt">Creating a hosted cluster that specifies the base domain</a></li>
 <li><a href="#hcp-virt-load-balancer_hcp-deploy-dc-virt">Setting up the load balancer</a></li>
 <li><a href="#hcp-virt-wildcard-dns_hcp-deploy-dc-virt">Setting up a wildcard DNS</a></li>
 <li><a href="#hcp-dc-finish_hcp-deploy-dc-virt">Finishing the deployment</a>
@@ -3343,26 +3343,91 @@
 <p>As part of the process to deploy hosted control planes on OKD Virtualization in a disconnected environment, you need to create a hosted cluster. A hosted cluster is an OKD cluster with its control plane and API endpoint hosted on a management cluster. The hosted cluster includes the control plane and its corresponding data plane.</p>
 </div>
 <div class="sect2">
-<h3 id="hcp-virt-reqs_hcp-deploy-dc-virt"><a class="anchor" href="#hcp-virt-reqs_hcp-deploy-dc-virt"></a>Requirements to deploy hosted control planes on OKD Virtualization</h3>
-<div class="paragraph">
-<p>As you prepare to deploy hosted control planes on OKD Virtualization, consider the following information:</p>
+<h3 id="hcp-virt-prereqs_hcp-deploy-dc-virt"><a class="anchor" href="#hcp-virt-prereqs_hcp-deploy-dc-virt"></a>Prerequisites to deploy hosted control planes on OKD Virtualization</h3>
+<div class="paragraph _abstract">
+<p>To create an OKD cluster on OKD Virtualization, you must meet several prerequisites.</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Run the management cluster on bare metal.</p>
+<p>You have administrator access to an OKD cluster, version 4.14 or later, specified in the <code>KUBECONFIG</code> environment variable.</p>
 </li>
 <li>
-<p>Each hosted cluster must have a cluster-wide unique name.</p>
+<p>The OKD management cluster must have wildcard DNS routes enabled, as shown in the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch ingresscontroller <span class="nt">-n</span> openshift-ingress-operator default <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>json <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'[{ "op": "add", "path": "/spec/routeAdmission", "value": {wildcardPolicy: "WildcardsAllowed"}}]'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>The OKD management cluster has OKD Virtualization, version 4.14 or later, installed on it. For more information, see "Installing OpenShift Virtualization using the web console".</p>
+</li>
+<li>
+<p>The OKD management cluster is on-premise bare metal.</p>
+</li>
+<li>
+<p>The OKD management cluster must be configured with <code>OVNKubernetes</code> as the default pod network Container Network Interface (CNI). Live migration is supported for nodes only if the CNI is OVN-Kubernetes.</p>
+</li>
+<li>
+<p>The OKD management cluster has a default storage class. For more information, see "Postinstallation storage configuration". The following example shows how to set a default storage class:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch storageclass ocs-storagecluster-ceph-rbd <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>When you configure storage for hosted control planes, consider the recommended etcd practices. To ensure that you meet the latency requirements, dedicate a fast storage device to all hosted control plane etcd instances that run on each control-plane node. You can use LVM storage to configure a local storage class for hosted etcd pods. For more information, see "Recommended etcd practices" and "Persistent storage using Logical Volume Manager storage".</p>
+</li>
+<li>
+<p>On the OKD cluster that hosts the OKD Virtualization virtual machines, you must use a <code>ReadWriteMany</code> (RWX) storage class so that live migration can be enabled.</p>
+</li>
+<li>
+<p>You have a valid pull secret file for the <code>quay.io/openshift-release-dev</code> repository. For more information, see "Install OpenShift on any x86_64 platform with user-provisioned infrastructure".</p>
+</li>
+<li>
+<p>You have installed the hosted control plane command-line interface.</p>
+</li>
+<li>
+<p>You have configured a load balancer. For more information, see "Configuring MetalLB".</p>
+</li>
+<li>
+<p>For optimal network performance, you are using a network maximum transmission unit (MTU) of 9000 or greater on the OKD cluster that hosts the KubeVirt virtual machines. If you use a lower MTU setting, network latency and the throughput of the hosted pods are affected. Enable multiqueue on node pools only when the MTU is 9000 or greater.</p>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You cannot change the MTU value for your cluster as a postinstallation task.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>The multicluster engine Operator has at least one managed OKD cluster. The <code>local-cluster</code> is automatically imported. For more information about the <code>local-cluster</code>, see "Advanced configuration" in the multicluster engine Operator documentation. You can check the status of your hub cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get managedclusters local-cluster</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Ensure each hosted cluster has a cluster-wide unique name.</p>
 </li>
 <li>
 <p>Do not use <code>clusters</code> as a hosted cluster name.</p>
 </li>
 <li>
-<p>A hosted cluster cannot be created in the namespace of a multicluster engine Operator managed cluster.</p>
-</li>
-<li>
-<p>When you configure storage for hosted control planes, consider the recommended etcd practices. To ensure that you meet the latency requirements, dedicate a fast storage device to all hosted control plane etcd instances that run on each control-plane node. You can use LVM storage to configure a local storage class for hosted etcd pods. For more information, see "Recommended etcd practices" and "Persistent storage using Logical Volume Manager storage".</p>
+<p>Do not create a hosted cluster in the namespace of a multicluster engine Operator managed cluster.</p>
 </li>
 </ul>
 </div>
@@ -3514,8 +3579,11 @@ clusters    my-hosted-cluster   &lt;4.x.0&gt;     example-admin-kubeconfig   Com
 <div class="sect1">
 <h2 id="hcp-virt-ingress-dns_hcp-deploy-dc-virt"><a class="anchor" href="#hcp-virt-ingress-dns_hcp-deploy-dc-virt"></a>Configuring the default ingress and DNS for hosted control planes on OKD Virtualization</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Every OKD cluster includes a default application Ingress Controller, which must have an wildcard DNS record associated with it.</p>
+</div>
 <div class="paragraph">
-<p>Every OKD cluster includes a default application Ingress Controller, which must have an wildcard DNS record associated with it. By default, hosted clusters that are created by using OKD Virtualization automatically become a subdomain of the OKD cluster that the virtual machines run on.</p>
+<p>By default, hosted clusters that are created by using OKD Virtualization automatically become a subdomain of the OKD cluster that the virtual machines run on.</p>
 </div>
 <div class="paragraph">
 <p>For example, your OKD cluster might have the following default ingress DNS entry:</p>
@@ -3576,78 +3644,67 @@ clusters    my-hosted-cluster   &lt;4.x.0&gt;     example-admin-kubeconfig   Com
 </div>
 </div>
 <div class="sect1">
-<h2 id="hcp-virt-hc-base-domain_hcp-deploy-dc-virt"><a class="anchor" href="#hcp-virt-hc-base-domain_hcp-deploy-dc-virt"></a>Deploying a hosted cluster that specifies the base domain</h2>
+<h2 id="hcp-virt-hc-base-domain_hcp-deploy-dc-virt"><a class="anchor" href="#hcp-virt-hc-base-domain_hcp-deploy-dc-virt"></a>Creating a hosted cluster that specifies the base domain</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>To create a hosted cluster that specifies a base domain, complete the following steps.</p>
+<div class="paragraph _abstract">
+<p>If you do not want to use the default ingress and DNS behavior, you can configure a KubeVirt hosted cluster with a unique base domain at creation time.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Enter the following command:</p>
+<p>Create the cluster by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>hcp create cluster kubevirt <span class="se">\</span>
-  <span class="nt">--name</span> &lt;hosted_cluster_name&gt; <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="gp">  --node-pool-replicas &lt;worker_count&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
-<span class="gp">  --pull-secret &lt;path_to_pull_secret&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="3"></i><b>(3)</b>
-<span class="gp">  --memory &lt;value_for_memory&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="4"></i><b>(4)</b>
-<span class="gp">  --cores &lt;value_for_cpu&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="5"></i><b>(5)</b>
-<span class="gp">  --base-domain &lt;basedomain&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="6"></i><b>(6)</b>
-<span class="gp">  --arch &lt;architecture_of_the_nodepool&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="7"></i><b>(7)</b>
-<span class="gp">  --release-image &lt;ocp_release_image_for_the_cluster&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="8"></i><b>(8)</b>
-<span class="gp">  --image-content-sources &lt;path_to_image_content_sources_file&gt;</span><span class="w"> </span><span class="se">\ </span><i class="conum" data-value="9"></i><b>(9)</b>
-<span class="gp">  --additional-trust-bundle &lt;path_to_ca_bundle_file&gt;</span><span class="w"> <i class="conum" data-value="10"></i><b>(10)</b>
-</span></code></pre>
+  <span class="nt">--name</span> &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--node-pool-replicas</span> &lt;worker_count&gt; <span class="se">\</span>
+  <span class="nt">--pull-secret</span> &lt;path_to_pull_secret&gt; <span class="se">\</span>
+  <span class="nt">--memory</span> &lt;value_for_memory&gt; <span class="se">\</span>
+  <span class="nt">--cores</span> &lt;value_for_cpu&gt; <span class="se">\</span>
+  <span class="nt">--base-domain</span> &lt;basedomain&gt; <span class="se">\</span>
+  <span class="nt">--arch</span> &lt;architecture_of_the_nodepool&gt; <span class="se">\</span>
+  <span class="nt">--release-image</span> &lt;ocp_release_image_for_the_cluster&gt; <span class="se">\</span>
+  <span class="nt">--image-content-sources</span> &lt;path_to_image_content_sources_file&gt; <span class="se">\</span>
+  <span class="nt">--additional-trust-bundle</span> &lt;path_to_ca_bundle_file&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the name of your hosted cluster.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify the worker count, for example, <code>2</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Specify the path to your pull secret, for example, <code>/user/name/pullsecret</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Specify a value for memory, for example, <code>6Gi</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Specify a value for CPU, for example, <code>2</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>Specify the base domain, for example, <code>hypershift.lab</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>Specify the architecture of the node pool, for example, <code>s390x</code>. The default is <code>amd64</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>Specify the ocp release image for the cluster, for example, <code>quay.io/openshift-release-dev/ocp-release:4.20.14-multi</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="9"></i><b>9</b></td>
-<td>Specify the path to a file with image content sources.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="10"></i><b>10</b></td>
-<td>Specify the path to a file with user CA bundle.</td>
-</tr>
-</table>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>--name</code> specifies the name of your hosted cluster.</p>
+</li>
+<li>
+<p><code>--node-pool-replicas</code> specifies the worker count, for example, <code>2</code>.</p>
+</li>
+<li>
+<p><code>--pull-secret</code> specifies the path to your pull secret, for example, <code>/user/name/pullsecret</code>.</p>
+</li>
+<li>
+<p><code>--memory</code> specifies a value for memory, for example, <code>6Gi</code>.</p>
+</li>
+<li>
+<p><code>--cores</code> specifies a value for CPU, for example, <code>2</code>.</p>
+</li>
+<li>
+<p><code>--base-domain</code> specifies the base domain, for example, <code>hypershift.lab</code>.</p>
+</li>
+<li>
+<p><code>--arch</code> specifies the architecture of the node pool, for example, <code>s390x</code>. The default is <code>amd64</code>.</p>
+</li>
+<li>
+<p><code>--release-image</code> specifies the ocp release image for the cluster, for example, <code>quay.io/openshift-release-dev/ocp-release:4.20.14-multi</code>.</p>
+</li>
+<li>
+<p><code>--image-content-sources</code> specifies the path to a file with image content sources.</p>
+</li>
+<li>
+<p><code>--additional-trust-bundle</code> specifies the path to a file with user CA bundle.</p>
 <div class="paragraph">
 <p>As a result, the hosted cluster has an ingress wildcard that is configured for the cluster name and the base domain, for example, <code>.apps.example.hypershift.lab</code>. The hosted cluster remains in <code>Partial</code> status because after you create a hosted cluster with unique base domain, you must configure the required DNS records and load balancer.</p>
+</div>
+</li>
+</ul>
 </div>
 </li>
 </ol>
@@ -3695,12 +3752,8 @@ example                   example-admin-kubeconfig         Partial    True      
 <p>Replace <code>&lt;4.x.0&gt;</code> with the supported OKD version that you want to use.</p>
 </div>
 </li>
-</ol>
-</div>
-<div class="paragraph">
-<div class="title">Next steps</div>
-<p>To fix the errors in the output, complete the steps in "Setting up the load balancer" and "Setting up a wildcard DNS".</p>
-</div>
+<li>
+<p>To fix any errors in the output, complete the steps in "Setting up the load balancer" and "Setting up a wildcard DNS".</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3715,12 +3768,15 @@ example                   example-admin-kubeconfig         Partial    True      
 </tr>
 </table>
 </div>
+</li>
+</ol>
+</div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="hcp-virt-load-balancer_hcp-deploy-dc-virt"><a class="anchor" href="#hcp-virt-load-balancer_hcp-deploy-dc-virt"></a>Setting up the load balancer</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>Set up the load balancer service that routes ingress traffic to the KubeVirt VMs and assigns a wildcard DNS entry to the load balancer IP address.</p>
 </div>
 <div class="olist arabic">
@@ -3775,27 +3831,28 @@ example                   example-admin-kubeconfig         Partial    True      
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">https-443</span>
     <span class="na">port</span><span class="pi">:</span> <span class="m">443</span>
     <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
-    <span class="na">targetPort</span><span class="pi">:</span> <span class="s">&lt;https_node_port&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="s">&lt;https_node_port&gt;</span>
   <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http-80</span>
     <span class="na">port</span><span class="pi">:</span> <span class="m">80</span>
     <span class="na">protocol</span><span class="pi">:</span> <span class="s">TCP</span>
-    <span class="na">targetPort</span><span class="pi">:</span> <span class="s">&lt;http_node_port&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="na">targetPort</span><span class="pi">:</span> <span class="s">&lt;http_node_port&gt;</span>
   <span class="na">selector</span><span class="pi">:</span>
     <span class="s">kubevirt.io</span><span class="pi">:</span> <span class="s">virt-launcher</span>
   <span class="na">type</span><span class="pi">:</span> <span class="s">LoadBalancer</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the HTTPS node port value that you noted in the previous step.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Specify the HTTP node port value that you noted in the previous step.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;https_node_port&gt;</code> specifies the HTTPS node port value that you noted in the previous step.</p>
+</li>
+<li>
+<p><code>&lt;http_node_port&gt;</code> specifies the HTTP node port value that you noted in the previous step.</p>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3813,8 +3870,8 @@ example                   example-admin-kubeconfig         Partial    True      
 <div class="sect1">
 <h2 id="hcp-virt-wildcard-dns_hcp-deploy-dc-virt"><a class="anchor" href="#hcp-virt-wildcard-dns_hcp-deploy-dc-virt"></a>Setting up a wildcard DNS</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>Set up a wildcard DNS record or CNAME that references the external IP of the load balancer service.</p>
+<div class="paragraph _abstract">
+<p>If you are customizing the ingress and DNS for your hosted cluster, you need to set up a wildcard DNS record or CNAME that references the external IP of the load balancer service.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
