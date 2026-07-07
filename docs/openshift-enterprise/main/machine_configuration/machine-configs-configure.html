@@ -4353,10 +4353,10 @@ MaxRetentionSec=30s
 <div class="ulist">
 <ul>
 <li>
-<p><strong>usbguard</strong>: The <code>usbguard</code> extension protects RHCOS systems from attacks by intrusive USB devices. For more information, see <a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html-single/security_hardening/index#usbguard_protecting-systems-against-intrusive-usb-devices">USBGuard</a> for details.</p>
+<p><strong>usbguard</strong>: The <code>usbguard</code> extension protects RHCOS systems from attacks by intrusive USB devices. For <code>usbguard</code>, you must create additional <code>MachineConfig</code> objects to start and enable the services as described in the following procedure. For more information, see <a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html-single/security_hardening/index#usbguard_protecting-systems-against-intrusive-usb-devices">USBGuard</a>.</p>
 </li>
 <li>
-<p><strong>kerberos</strong>: The <code>kerberos</code> extension provides a mechanism that allows both users and machines to identify themselves to the network to receive defined, limited access to the areas and services that an administrator has configured. For more information, see <a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system-level_authentication_guide/using_kerberos">Using Kerberos</a> for details, including how to set up a Kerberos client and mount a Kerberized NFS share.</p>
+<p><strong>kerberos</strong>: The <code>kerberos</code> extension provides a mechanism that allows both users and machines to identify themselves to the network to receive defined, limited access to the areas and services that an administrator has configured. For more information, see <a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system-level_authentication_guide/using_kerberos">Using Kerberos</a>, including how to set up a Kerberos client and mount a Kerberized NFS share.</p>
 </li>
 <li>
 <p><strong>sandboxed-containers</strong>: The <code>sandboxed-containers</code> extension contains RPMs for Kata, QEMU, and its dependencies. For more information, see <a href="https://docs.redhat.com/en/documentation/openshift_sandboxed_containers/latest">OpenShift Sandboxed Containers</a>.</p>
@@ -4393,54 +4393,81 @@ MaxRetentionSec=30s
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a machine config for extensions: Create a YAML file (for example, <code>80-extensions.yaml</code>) that contains a <code>MachineConfig</code> <code>extensions</code> object. This example tells the cluster to add the <code>usbguard</code> extension.</p>
+<p>Create a Butane configuration file named <code>80-worker-usbguard.bu</code> to add the extension, manage the configuration files, and enable the service.</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span> <span class="no">EOF</span><span class="sh"> &gt; 80-extensions.yaml
-</span><span class="go">apiVersion: machineconfiguration.openshift.io/v1
-kind: MachineConfig
-metadata:
-  labels:
-    machineconfiguration.openshift.io/role: worker
-  name: 80-worker-extensions
-spec:
-  config:
-    ignition:
-      version: 3.5.0
-  extensions:
-    - usbguard
-EOF</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">variant</span><span class="pi">:</span> <span class="s">openshift</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s">Branch Build.0</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">80-worker-usbguard</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">worker</span>
+<span class="na">extensions</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">usbguard</span>
+<span class="na">storage</span><span class="pi">:</span>
+  <span class="na">files</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/usbguard/usbguard-daemon.conf</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="m">0600</span>
+      <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">contents</span><span class="pi">:</span>
+        <span class="na">inline</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">RuleFile=/etc/usbguard/rules.conf</span>
+          <span class="s">PresentDevicePolicy=apply-policy</span>
+          <span class="s">IPCAllowedGroups=wheel</span>
+    <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/usbguard/rules.conf</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="m">0600</span>
+      <span class="na">overwrite</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">contents</span><span class="pi">:</span>
+        <span class="na">inline</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">allow id 1d6b:0002 serial "0000:00:14.0" name "EHCI Host Controller"</span>
+<span class="na">systemd</span><span class="pi">:</span>
+  <span class="na">units</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">usbguard.service</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span></code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Add the machine config to the cluster. Type the following to add the machine config to the cluster:</p>
+<p>Convert the Butane configuration into a <code>MachineConfig</code> manifest by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> 80-extensions.yaml</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>butane 80-worker-usbguard.bu <span class="nt">-o</span> 80-worker-usbguard.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>MachineConfig</code> to the cluster by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> 80-worker-usbguard.yaml</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>This sets all worker nodes to have rpm packages for <code>usbguard</code> installed.</p>
+<p>This sets all compute nodes to install the <code>usbguard</code> RPM package, write the required configuration files, and enable the systemd daemon within a single node rollout cycle.</p>
 </div>
 </li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
 <li>
-<p>Check that the extensions were applied:</p>
+<p>Check that the new machine config was successfully created by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfig 80-worker-extensions</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfig 80-worker-usbguard</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                 GENERATEDBYCONTROLLER IGNITIONVERSION AGE
-80-worker-extensions                       3.5.0           57s</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                GENERATEDBYCONTROLLER IGNITIONVERSION AGE
+80-worker-usbguard                        3.5.0           57s</span></code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Check that the new machine config is now applied and that the nodes are not in a degraded state. It may take a few minutes. The worker pool will show the updates in progress, as each machine successfully has the new machine config applied:</p>
+<p>Check that the machine config is now applied and that the nodes are not in a degraded state. This operation might take a few minutes. The worker pool will show the updates in progress, as each machine successfully has the new machine config applied:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfigpool</code></pre>
@@ -4456,7 +4483,7 @@ worker rendered-worker-d8 False   True     False    3            1              
 </div>
 </li>
 <li>
-<p>Check the extensions. To check that the extension was applied, run:</p>
+<p>After the pool reports <code>UPDATED</code> as <code>True</code>, verify that the extension package was installed and that the service is running normally by debugging a compute node. You can complete these tasks by running the following commands:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get node | <span class="nb">grep </span>worker</code></pre>
@@ -4481,7 +4508,12 @@ ip-10-0-169-2.us-east-2.compute.internal    Ready   worker   102m  v1.35.4</span
 </span><span class="go">To use host binaries, run `chroot /host`
 </span><span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">chroot</span> /host
 <span class="gp">sh-4.4#</span><span class="w"> </span>rpm <span class="nt">-q</span> usbguard
-<span class="go">usbguard-0.7.4-4.el8.x86_64.rpm</span></code></pre>
+<span class="go">usbguard-0.7.4-4.el8.x86_64.rpm
+</span><span class="c">...
+</span><span class="gp">sh-4.4#</span><span class="w"> </span>systemctl status usbguard.service
+<span class="go">usbguard.service - USBGuard daemon
+</span><span class="gp">        Loaded: loaded (/usr/lib/systemd/system/usbguard.service;</span><span class="w"> </span>enabled<span class="p">;</span> preset: disabled<span class="o">)</span>
+<span class="go">        Active: active (running)</span></code></pre>
 </div>
 </div>
 </li>
