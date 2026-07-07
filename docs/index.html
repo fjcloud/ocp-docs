@@ -86,11 +86,59 @@
         display: block;
       }
 
+      /* ── Results header (count + filters) ───────────────── */
+      .search-results-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px 6px;
+        border-bottom: 1px solid #f0f0f0;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .search-results-count {
+        font-size: 11px;
+        color: #999;
+        white-space: nowrap;
+      }
+
+      .search-filter-pills {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+
+      .search-filter-pill {
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        border: 1px solid #ddd;
+        background: #f6f6f6;
+        color: #555;
+        cursor: pointer;
+        transition: background 0.12s, border-color 0.12s, color 0.12s;
+        user-select: none;
+        white-space: nowrap;
+      }
+
+      .search-filter-pill:hover {
+        border-color: #c00;
+        color: #c00;
+      }
+
+      .search-filter-pill.active {
+        background: #c00;
+        border-color: #c00;
+        color: #fff;
+      }
+
+      /* ── Individual result items ─────────────────────────── */
       .search-result-item {
         display: flex;
         align-items: flex-start;
         gap: 12px;
-        padding: 12px 16px;
+        padding: 10px 16px;
         text-decoration: none;
         color: inherit;
         border-bottom: 1px solid #f0f0f0;
@@ -108,8 +156,8 @@
       }
 
       .search-result-icon {
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 30px;
         background: #f0f0f0;
         border-radius: 6px;
         display: flex;
@@ -120,8 +168,8 @@
       }
 
       .search-result-icon svg {
-        width: 16px;
-        height: 16px;
+        width: 15px;
+        height: 15px;
         fill: #666;
       }
 
@@ -131,7 +179,7 @@
       }
 
       .search-result-title {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         color: #c00;
         white-space: nowrap;
@@ -140,30 +188,36 @@
         line-height: 1.4;
       }
 
-      .search-result-product {
+      .search-result-meta {
         font-size: 11px;
         color: #777;
-        margin-top: 2px;
+        margin-top: 1px;
         display: flex;
         align-items: center;
         gap: 5px;
       }
 
       .product-dot {
-        width: 6px;
-        height: 6px;
+        width: 5px;
+        height: 5px;
         border-radius: 50%;
         background: #c00;
         opacity: 0.5;
         flex-shrink: 0;
       }
 
-      .search-result-sim {
+      .search-result-snippet {
         font-size: 11px;
-        color: #bbb;
-        margin-top: 2px;
+        color: #555;
+        margin-top: 3px;
+        line-height: 1.45;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
 
+      /* ── Status / empty states ───────────────────────────── */
       .search-status-row {
         padding: 14px 16px;
         font-size: 13px;
@@ -190,10 +244,16 @@
       }
 
       .search-no-results {
-        padding: 14px 16px;
+        padding: 18px 16px;
         font-size: 13px;
         color: #888;
         text-align: center;
+      }
+
+      .search-no-results strong {
+        display: block;
+        color: #555;
+        margin-bottom: 4px;
       }
     </style>
   </head>
@@ -307,14 +367,38 @@
     </div>
 
     <script type="module">
-      const input    = document.getElementById('docs-search-input');
-      const results  = document.getElementById('docs-search-results');
-      const hint     = document.getElementById('docs-search-hint');
+      const input   = document.getElementById('docs-search-input');
+      const results = document.getElementById('docs-search-results');
+      const hint    = document.getElementById('docs-search-hint');
 
-      let embedFn    = null;   // ternlight embed()
-      let index      = null;   // pre-computed search index
+      let embedFn    = null;
+      let index      = null;
       let loading    = false;
       let focusedIdx = -1;
+      let activeFilter = null;   // product name string or null = all
+
+      // Minimum cosine-similarity (×127 scale) to show a result.
+      // Keeps irrelevant matches out of the dropdown.
+      const SIM_THRESHOLD = 22;
+      const MAX_RESULTS   = 10;
+
+      // ── Vector decoding ─────────────────────────────────────
+      // New format: base64-encoded int8 array (quantized ×127).
+      // Legacy format: plain JSON float32 array (backward compat).
+      function decodeVec(raw) {
+        if (typeof raw === 'string') {
+          // base64 int8
+          const bin = atob(raw);
+          const arr = new Int8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) {
+            const c = bin.charCodeAt(i);
+            arr[i] = c > 127 ? c - 256 : c;
+          }
+          return arr;
+        }
+        // Legacy: plain array → Float32Array
+        return new Float32Array(raw);
+      }
 
       // ── Lazy-load ternlight + index on first focus ──────────
       async function ensureLoaded() {
@@ -331,8 +415,7 @@
           ]);
           await init();
           embedFn = _embed;
-          // Convert plain arrays back to Float32Arrays for fast dot products
-          index = idxData.map(e => ({ ...e, vec: new Float32Array(e.vec) }));
+          index = idxData.map(e => ({ ...e, vec: decodeVec(e.vec) }));
           hideResults();
           loading = false;
           return true;
@@ -344,39 +427,94 @@
       }
 
       // ── Core search ─────────────────────────────────────────
-      function search(query) {
+      // Query is float32; index vecs are Int8Array (new) or Float32Array (legacy).
+      // Either way, the dot product ranks identically to full float32 cosine sim.
+      function search(query, productFilter) {
         const q = embedFn(query);
-        const scored = index.map(entry => {
+        const pool = productFilter
+          ? index.filter(e => e.product === productFilter)
+          : index;
+
+        const scored = pool.map(entry => {
           const v = entry.vec;
           let dot = 0;
           for (let i = 0; i < q.length; i++) dot += q[i] * v[i];
           return { ...entry, sim: dot };
         });
         scored.sort((a, b) => b.sim - a.sim);
-        return scored.slice(0, 8);
+
+        // Apply similarity threshold — hides clearly irrelevant entries
+        const threshold = (pool.length && pool[0].vec instanceof Int8Array) ? SIM_THRESHOLD : SIM_THRESHOLD / 127;
+        return scored.filter(r => r.sim >= threshold).slice(0, MAX_RESULTS);
+      }
+
+      // ── Collect unique product names from index ──────────────
+      function getProducts() {
+        if (!index) return [];
+        const seen = new Set();
+        index.forEach(e => seen.add(e.product));
+        return [...seen].sort();
       }
 
       // ── Render helpers ───────────────────────────────────────
       const docIcon = `<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8" style="fill:none;stroke:#666;stroke-width:2"/><line x1="16" y1="13" x2="8" y2="13" style="stroke:#666;stroke-width:2"/><line x1="16" y1="17" x2="8" y2="17" style="stroke:#666;stroke-width:2"/><polyline points="10,9 9,9 8,9" style="stroke:#666;stroke-width:2"/></svg>`;
 
-      function renderResults(items) {
+      function escHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      function renderResults(items, query) {
         focusedIdx = -1;
+
         if (!items.length) {
-          results.innerHTML = '<div class="search-no-results">No results found.</div>';
+          const hasFilter = activeFilter ? ` in <em>${escHtml(activeFilter)}</em>` : '';
+          results.innerHTML = `<div class="search-no-results"><strong>No results found</strong>Try different keywords${hasFilter}, or browse a product below.</div>`;
           results.classList.add('visible');
           return;
         }
-        results.innerHTML = items.map((r, i) => `
-          <a class="search-result-item" href="${r.url}" data-idx="${i}">
+
+        const products = getProducts();
+        const filterHtml = products.length > 1 ? `
+          <div class="search-filter-pills">
+            ${products.map(p => `<span class="search-filter-pill${activeFilter === p ? ' active' : ''}" data-product="${escHtml(p)}">${escHtml(p)}</span>`).join('')}
+          </div>` : '';
+
+        const countLabel = items.length === MAX_RESULTS
+          ? `Top ${MAX_RESULTS} results`
+          : `${items.length} result${items.length !== 1 ? 's' : ''}`;
+
+        const header = `<div class="search-results-header">
+          <span class="search-results-count">${escHtml(countLabel)}</span>
+          ${filterHtml}
+        </div>`;
+
+        const rows = items.map((r, i) => {
+          const snippetHtml = r.snippet
+            ? `<div class="search-result-snippet">${escHtml(r.snippet)}</div>`
+            : '';
+          return `<a class="search-result-item" href="${escHtml(r.url)}" data-idx="${i}">
             <div class="search-result-icon">${docIcon}</div>
             <div class="search-result-body">
               <div class="search-result-title">${escHtml(r.title)}</div>
-              <div class="search-result-product">
-                <span class="product-dot"></span>${escHtml(r.product)}
-              </div>
+              <div class="search-result-meta"><span class="product-dot"></span>${escHtml(r.product)}</div>
+              ${snippetHtml}
             </div>
-          </a>`).join('');
+          </a>`;
+        }).join('');
+
+        results.innerHTML = header + rows;
         results.classList.add('visible');
+
+        // Attach filter pill click handlers
+        results.querySelectorAll('.search-filter-pill').forEach(pill => {
+          pill.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const p = pill.dataset.product;
+            activeFilter = (activeFilter === p) ? null : p;
+            runSearch(input.value.trim());
+          });
+        });
       }
 
       function showStatus(html) {
@@ -387,10 +525,6 @@
       function hideResults() {
         results.classList.remove('visible');
         focusedIdx = -1;
-      }
-
-      function escHtml(s) {
-        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
       }
 
       // ── Debounced input handler ──────────────────────────────
@@ -410,12 +544,12 @@
           const ready = await ensureLoaded();
           if (!ready) return;
           runSearch(q);
-        }, 220);
+        }, 200);
       });
 
       function runSearch(q) {
-        const items = search(q);
-        renderResults(items);
+        const items = search(q, activeFilter);
+        renderResults(items, q);
       }
 
       // ── Keyboard navigation ──────────────────────────────────
