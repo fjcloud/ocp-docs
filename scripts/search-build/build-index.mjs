@@ -81,6 +81,13 @@ function collectPages(dir, pages = []) {
   return pages;
 }
 
+// Keep the self-hosted WASM assets in sync with the installed package version
+const PKG_BUNDLER = path.resolve(__dirname, 'node_modules/@ternlight/mini/pkg-bundler');
+for (const asset of ['tern_engine_bg.wasm', 'tern_engine_bg.js']) {
+  fs.copyFileSync(path.join(PKG_BUNDLER, asset), path.join(DOCS_ROOT, asset));
+}
+console.log('Copied WASM assets → docs/');
+
 console.log('Scanning docs…');
 const pages = collectPages(DOCS_ROOT);
 console.log(`Found ${pages.length} section pages. Computing embeddings…`);
