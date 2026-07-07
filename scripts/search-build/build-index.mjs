@@ -15,11 +15,9 @@ const DOCS_ROOT = path.resolve(__dirname, '../../docs');
 
 const PRODUCT_LABELS = {
   'openshift-enterprise': 'OpenShift Container Platform',
-  'openshift-origin': 'OKD / OpenShift Origin',
   'openshift-dedicated': 'OpenShift Dedicated',
   'openshift-rosa': 'ROSA Classic',
   'openshift-rosa-hcp': 'ROSA (HCP)',
-  'microshift': 'MicroShift',
   'openshift-aro': 'Azure Red Hat OpenShift',
   'openshift-webscale': 'OpenShift Web-Scale',
   'openshift-dpu': 'OpenShift DPU',
