@@ -3554,11 +3554,12 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">nodeSelector</span><span class="pi">:</span>
     <span class="s">kubernetes.io/hostname</span><span class="pi">:</span> <span class="s">worker-0</span>
-    <span class="na">desiredState</span><span class="pi">:</span>
+  <span class="na">desiredState</span><span class="pi">:</span>
     <span class="na">interfaces</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span>
       <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
       <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+      <span class="na">mtu</span><span class="pi">:</span> <span class="m">9000</span>
       <span class="na">ipv4</span><span class="pi">:</span>
         <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
       <span class="na">ipv6</span><span class="pi">:</span>
@@ -3582,6 +3583,7 @@ Use the following procedure to configure NTP servers on the control plane nodes 
       <span class="na">type</span><span class="pi">:</span> <span class="s">ovs-interface</span>
       <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
       <span class="na">copy-mac-from</span><span class="pi">:</span> <span class="s">enp2s0</span>
+      <span class="na">mtu</span><span class="pi">:</span> <span class="m">9000</span>
       <span class="na">ipv4</span><span class="pi">:</span>
         <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
         <span class="na">dhcp</span><span class="pi">:</span> <span class="no">true</span>
@@ -3619,6 +3621,10 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <dt class="hdlist1"><code>interfaces.state</code></dt>
 <dd>
 <p>Specifies the requested state for the interface after creation.</p>
+</dd>
+<dt class="hdlist1"><code>mtu</code></dt>
+<dd>
+<p>To ensure network stability and performance, you must explicitly declare the MTU in the manifest for every interface. Do not rely on automatic MTU configuration. The MTU configured on a bridge port or VLAN-tagged interface must not exceed the maximum frame size supported by the attached physical medium. A mismatch causes packet fragmentation or connectivity loss.</p>
 </dd>
 <dt class="hdlist1"><code>ipv4.enabled</code></dt>
 <dd>
@@ -3669,10 +3675,10 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <p>For certain situations, you might need to make disruptive changes to a <code>br-ex</code> bridge for planned maintenance or network configuration updates. A <code>br-ex</code> bridge is a gateway for all external network traffic from your workloads, so any change to the bridge might temporarily disconnect pods and virtual machines (VMs) from an external network.</p>
 </div>
 <div class="paragraph">
-<p>The following procedure uses an example to show making disruptive changes to a <code>br-ex</code> bridge that minimizes any impact to running cluster workloads.</p>
+<p>The following procedure shows how to make disruptive changes to a <code>br-ex</code> bridge while minimizing the impact to running cluster workloads.</p>
 </div>
 <div class="paragraph">
-<p>For all the nodes in your cluster to receive the <code>br-ex</code> bridge changes, you must reboot your cluster. Editing the existing <code>MachineConfig</code> object does not force a reboot operation, so you must create an additional <code>MachineConfig</code> object to force a reboot operation for the cluster.</p>
+<p>For all the nodes in your cluster to receive the <code>br-ex</code> bridge changes, you must reboot your cluster. Editing the existing <code>MachineConfig</code> object does not force a reboot operation. You must create an additional <code>MachineConfig</code> object to force a cluster reboot.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3703,7 +3709,7 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Make changes to the NMState configuration file that you created during cluster installation for customizing your <code>br-ex</code> bridge network interface.</p>
+<p>Make changes to the NMState configuration file you created during cluster installation to customize your br-ex bridge network interface.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -3713,6 +3719,9 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <td class="content">
 <div class="paragraph">
 <p>Before you save the <code>MachineConfig</code> object, check the changed parameter values. If you enter wrong values and save the file, you cannot recover the file to its original state and this impacts networking functionality for your cluster.</p>
+</div>
+<div class="paragraph">
+<p>To ensure network stability and performance, you must explicitly declare the MTU in the manifest for every interface. Do not rely on automatic MTU configuration. The MTU configured on a bridge port or VLAN-tagged interface must not exceed the maximum frame size supported by the attached physical medium. A mismatch causes packet fragmentation or connectivity loss.</p>
 </div>
 </td>
 </tr>
@@ -3814,7 +3823,7 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <div class="title">Verification</div>
 <ul>
 <li>
-<p>Use the <code>nmstatectl</code> tool to check the configuration for the <code>br-ex</code> bridge interface by running the following command. The tool checks a node that runs the <code>br-ex</code> bridge interface and not the location where you deployed the <code>MachineConfig</code> objects.</p>
+<p>Use the <code>nmstatectl</code> tool to check the <code>br-ex</code> bridge interface configuration by running the following command. The tool checks a node that runs the <code>br-ex</code> bridge interface. The tool does not check the location where you deployed the <code>MachineConfig</code> objects.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>nmstatectl show br-ex</code></pre>
@@ -3888,7 +3897,62 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 </div>
 </li>
 <li>
-<p>Create a <code>MachineConfig</code> manifest file and define a customized <code>br-ex</code> bridge network configuration in the file. Additionally, ensure that you specify the path to the base64-encoded NMState configuration file so that the contents of this file get embedded in the <code>MachineConfig</code> manifest file.</p>
+<p>Create a <code>MachineConfig</code> manifest file and define a customized <code>br-ex</code> bridge network configuration in the file. Specify the path to the <code>base64-encoded</code> NMState configuration file. This embeds the file contents in the <code>MachineConfig</code> manifest file.</p>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>To ensure network stability and performance, you must explicitly declare the MTU in the manifest for every interface. Do not rely on automatic MTU configuration. The MTU configured on a bridge port or VLAN-tagged interface must not exceed the maximum frame size supported by the attached physical medium. A mismatch causes packet fragmentation or connectivity loss.</p>
+</div>
+<div class="paragraph">
+<p>The following example sets the MTU to <code>9000</code> for both the physical device and the bridge interface in the NMState configuration file. You must base64-encode the file and then embed the output in a <code>MachineConfig</code> manifest file. The <code>MachineConfig</code> manifest file writes to <code>/etc/nmstate/openshift/cluster.yml</code> or a per-node path under <code>/etc/nmstate/openshift/</code>.</p>
+</div>
+<div class="listingblock">
+<div class="title">NMState file before encoding</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+<span class="na">interfaces</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">enp2s0</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+  <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+  <span class="na">mtu</span><span class="pi">:</span> <span class="m">9000</span>
+<span class="c1"># ...</span>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">ovs-interface</span>
+  <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+  <span class="na">copy-mac-from</span><span class="pi">:</span> <span class="s">enp2s0</span>
+  <span class="na">mtu</span><span class="pi">:</span> <span class="m">9000</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">MachineConfig embeds the encoded file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1"># ...</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfig</span>
+  <span class="na">metadata</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+    <span class="na">storage</span><span class="pi">:</span>
+      <span class="na">files</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span>
+          <span class="na">source</span><span class="pi">:</span> <span class="s">data:text/plain;charset=utf-8;base64,&lt;base64_encoded_nmstate_configuration&gt;</span>
+<span class="c1"># ...</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/nmstate/openshift/cluster.yml</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 <li>
 <p>Apply the updates from the <code>MachineConfig</code> object to your cluster by entering the following command:</p>
@@ -3963,7 +4027,7 @@ Use the following procedure to configure NTP servers on the control plane nodes 
 <div class="title">Verification</div>
 <ul>
 <li>
-<p>Use the <code>nmstatectl</code> tool to check the configuration for the <code>br-ex</code> bridge interface by running the following command. The tool checks a node that runs the <code>br-ex</code> bridge interface and not the location where you deployed the <code>MachineConfig</code> objects.</p>
+<p>Use the <code>nmstatectl</code> tool to check the configuration for the <code>br-ex</code> bridge interface by running the following command. The tool checks a node that runs the <code>br-ex</code> bridge interface. The tool does not check the location where you deployed the <code>MachineConfig</code> objects.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>nmstatectl show br-ex</code></pre>
