@@ -1236,6 +1236,9 @@
         
         <div id="preamble">
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Generic ephemeral volumes provide per-pod temporary storage backed by any storage driver that supports dynamic provisioning, unlike <code>emptyDir</code> volumes which are limited to local node storage. This flexibility lets you use network storage backends, control storage classes and volume characteristics, and leverage delayed volume binding for optimal pod scheduling.</p>
+</div>
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
@@ -1252,10 +1255,7 @@
 <h2 id="generic-ephemeral-vols-overview_generic-ephemeral-volumes"><a class="anchor" href="#generic-ephemeral-vols-overview_generic-ephemeral-volumes"></a>Overview of generic ephemeral volumes</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>To manage scratch data by using standard storage drivers, use generic ephemeral volumes. These volumes provide per-pod directories similar to <code>emptyDir</code> volumes but work with any driver that supports persistent volumes and dynamic provisioning, so that you can leverage existing storage infrastructure for temporary needs.</p>
-</div>
-<div class="paragraph">
-<p>Generic ephemeral volumes are specified inline in the pod specification and follow the lifecycle of a pod. They are created and deleted along with the pod.</p>
+<p>Generic ephemeral volumes support network-attached storage, size limits, initial data population, and operations like cloning and snapshotting for temporary storage, with some driver-specific limitations.</p>
 </div>
 <div class="paragraph">
 <p>Generic ephemeral volumes have the following features:</p>
@@ -1296,16 +1296,16 @@
 <h2 id="generic-ephemeral-vols-lifecycle_generic-ephemeral-volumes"><a class="anchor" href="#generic-ephemeral-vols-lifecycle_generic-ephemeral-volumes"></a>Lifecycle and persistent volume claims</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>To bind the lifecycle of storage resources to a specific pod, configure persistent volume claim (PVC) parameters within the volume source of the pod. This setup ensures that the ephemeral volume controller creates the PVC in the same namespace upon pod creation and automatically deletes the PVC when the pod is removed.</p>
+<p>Generic ephemeral volumes follow pod lifecycle through automatically managed persistent volume claims created at pod startup and deleted at termination. Choose volume binding mode and reclaim policy based on this lifecycle behavior.</p>
 </div>
 <div class="paragraph">
-<p>Labels, annotations, and the whole set of fields for persistent volume claims (PVCs) are supported.</p>
+<p>Generic ephemeral volumes are specified inline in the pod spec and follow the pod&#8217;s lifecycle. They are created and deleted along with the pod.</p>
 </div>
 <div class="paragraph">
-<p>The ephemeral volume controller creates a PVC object from the template shown in the <em>Creating generic ephemeral volumes</em> procedure.</p>
+<p>The parameters for a volume claim are allowed inside a volume source of a pod. Labels, annotations, and the whole set of fields for PVCs are supported. When such a pod is created, the ephemeral volume controller then creates an actual PVC object (from the template shown in the <em>Creating generic ephemeral volumes</em> procedure) in the same namespace as the pod, and ensures that the PVC is deleted when the pod is deleted.</p>
 </div>
 <div class="paragraph">
-<p>Volume binding and provisioning can be triggered in one of two ways:</p>
+<p>This triggers volume binding and provisioning in one of two ways:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -1340,10 +1340,10 @@
 <h2 id="generic-ephemeral-security_generic-ephemeral-volumes"><a class="anchor" href="#generic-ephemeral-security_generic-ephemeral-volumes"></a>Security</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can enable the generic ephemeral volume feature so that if a user can create pods, they can also create persistent volume claims (PVCs) indirectly.</p>
+<p>Generic ephemeral volumes allow users who can create pods to indirectly create persistent volume claims (PVCs), even without direct PVC creation permissions. You can restrict this behavior if it conflicts with your security model.</p>
 </div>
 <div class="paragraph">
-<p>The generic ephemeral volume feature works even if these users do not have permission to create PVCs directly. Cluster administrators must be aware of this. If this does not fit your security model, use an admission webhook that rejects objects such as pods that have a generic ephemeral volume.</p>
+<p>To restrict this behavior, use an admission webhook that rejects objects such as pods that have a generic ephemeral volume.</p>
 </div>
 <div class="paragraph">
 <p>The normal namespace quota for PVCs still applies, so even if users are allowed to use this new mechanism, they cannot use it to circumvent other policies.</p>
@@ -1354,7 +1354,7 @@
 <h2 id="generic-ephemeral-vols-pvc-naming_generic-ephemeral-volumes"><a class="anchor" href="#generic-ephemeral-vols-pvc-naming_generic-ephemeral-volumes"></a>Persistent volume claim naming</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>To avoid resource conflicts, review the naming convention for automatically created persistent volume claims (PVCs). Because the system generates names by combining the pod name and volume name with a hyphen, you must ensure manually created resources do not inadvertently match this pattern.</p>
+<p>Automatically created persistent volume claims (PVCs) are named using pod name and volume name with a hyphen separator, potentially causing conflicts with other pods or manual PVCs.</p>
 </div>
 <div class="paragraph">
 <p>For example, <code>pod-a</code> with volume <code>scratch</code> and <code>pod</code> with volume <code>a-scratch</code> both end up with the same PVC name, <code>pod-a-scratch</code>.</p>
@@ -1382,7 +1382,7 @@
 <h2 id="generic-ephemeral-vols-procedure_generic-ephemeral-volumes"><a class="anchor" href="#generic-ephemeral-vols-procedure_generic-ephemeral-volumes"></a>Creating generic ephemeral volumes</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Configure temporary storage by creating generic ephemeral volumes that use drivers that support dynamic provisioning.</p>
+<p>To create ephemeral volumes that are automatically provisioned and deleted with pod lifecycle, define a <code>volumeClaimTemplate</code> in your pod spec specifying storage class, size, and access modes.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -1422,12 +1422,8 @@
                 <span class="na">storage</span><span class="pi">:</span> <span class="s">1Gi</span></code></pre>
 </div>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>volumes.name</code>:: Specifies the name for the generic ephemeral volume.</p>
-</li>
-</ul>
+<div class="paragraph">
+<p>Where <code>spec.volumes.name</code> is the name of the generic ephemeral volume.</p>
 </div>
 </li>
 </ol>
