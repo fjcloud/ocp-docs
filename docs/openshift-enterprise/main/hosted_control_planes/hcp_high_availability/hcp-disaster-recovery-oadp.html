@@ -3384,28 +3384,30 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#prerequisites_hcp-disaster-recovery-oadp">Prerequisites</a></li>
-<li><a href="#prepare-aws-oadp_hcp-disaster-recovery-oadp">Preparing AWS to use OADP</a></li>
-<li><a href="#prepare-bm-dr-oadp_hcp-disaster-recovery-oadp">Preparing bare metal to use OADP</a></li>
-<li><a href="#backing-up-data-plane-oadp_hcp-disaster-recovery-oadp">Backing up the data plane workload</a></li>
-<li><a href="#backing-up-cp-oadp_hcp-disaster-recovery-oadp">Backing up the control plane workload</a>
+<li><a href="#hcp-prepare-aws-oadp_hcp-disaster-recovery-oadp">Preparing AWS to use OADP for disaster recovery</a></li>
+<li><a href="#hcp-prepare-bm-oadp_hcp-disaster-recovery-oadp">Preparing bare metal to use OADP for disaster recovery</a></li>
+<li><a href="#hcp-backup-dp-oadp_hcp-disaster-recovery-oadp">Data plane workload backup</a></li>
+<li><a href="#hcp-backup-cp-oadp_hcp-disaster-recovery-oadp">Control plane workload backup</a>
 <ul class="sectlevel2">
 <li><a href="#hcp-dr-oadp-backup-cp-workload-aws_hcp-disaster-recovery-oadp">Backing up the control plane workload on AWS</a></li>
 <li><a href="#hcp-dr-oadp-backup-cp-workload-bm_hcp-disaster-recovery-oadp">Backing up the control plane workload on a bare-metal platform</a></li>
 </ul>
 </li>
-<li><a href="#hcp-restoring-oadp_hcp-disaster-recovery-oadp">Restoring a hosted cluster by using OADP</a>
+<li><a href="#hcp-restoring-oadp_hcp-disaster-recovery-oadp">Hosted cluster restoration by using OADP</a>
 <ul class="sectlevel2">
 <li><a href="#hcp-dr-oadp-restore_hcp-disaster-recovery-oadp">Restoring a hosted cluster into the same management cluster by using OADP</a></li>
 <li><a href="#hcp-dr-oadp-restore-new-mgmt_hcp-disaster-recovery-oadp">Restoring a hosted cluster into a new management cluster by using OADP</a></li>
 </ul>
 </li>
 <li><a href="#hcp-dr-oadp-observe_hcp-disaster-recovery-oadp">Observing the backup and restore process</a></li>
-<li><a href="#hcp-dr-oadp-observe-velero_hcp-disaster-recovery-oadp">Using the velero CLI to describe the Backup and Restore resources</a></li>
+<li><a href="#hcp-dr-oadp-observe-velero_hcp-disaster-recovery-oadp">Using the Velero CLI to describe the Backup and Restore resources</a></li>
 </ul>
 </div>
+<div class="paragraph _abstract">
+<p>By using the OpenShift API for Data Protection (OADP) Operator for disaster recovery, you can restore hosted cluster namespaces from object storage instead of manually rebuilding every cluster. In addition, you back up etcd as part of the control plane backup, and you can back up hosted clusters independently.</p>
+</div>
 <div class="paragraph">
-<p>You can use the OpenShift API for Data Protection (OADP) Operator to perform disaster recovery on Amazon Web Services (AWS) and bare metal.</p>
+<p>You can use the OADP Operator to perform disaster recovery for hosted control planes on Amazon Web Services (AWS) and bare metal.</p>
 </div>
 <div class="paragraph">
 <p>The disaster recovery process with OpenShift API for Data Protection (OADP) involves the following steps:</p>
@@ -3429,21 +3431,22 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="prerequisites_hcp-disaster-recovery-oadp"><a class="anchor" href="#prerequisites_hcp-disaster-recovery-oadp"></a>Prerequisites</h2>
+<h2 id="hcp-prepare-aws-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-prepare-aws-oadp_hcp-disaster-recovery-oadp"></a>Preparing AWS to use OADP for disaster recovery</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You must meet the following prerequisites on the management cluster:</p>
+<div class="paragraph _abstract">
+<p>Before you can perform disaster recovery for hosted control planes on Amazon Web Services (AWS), you need to meet a few prerequisites and configure OpenShift API for Data Protection (OADP) on AWS S3 compatible storage.</p>
 </div>
 <div class="ulist">
+<div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You <a href="../../backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html#about-installing-oadp">installed the OADP Operator</a>.</p>
+<p>You installed the OADP Operator on the management cluster. For more information, see "About installing OADP" in the <em>Additional resources</em> section.</p>
 </li>
 <li>
-<p>You created a storage class.</p>
+<p>You created a storage class for the management cluster.</p>
 </li>
 <li>
-<p>You have access to the cluster with <code>cluster-admin</code> privileges.</p>
+<p>You have access to the management cluster with <code>cluster-admin</code> privileges.</p>
 </li>
 <li>
 <p>You have access to the OADP subscription through a catalog source.</p>
@@ -3452,32 +3455,24 @@
 <p>You have access to a cloud storage provider that is compatible with OADP, such as S3, Microsoft Azure, Google Cloud, or MinIO.</p>
 </li>
 <li>
-<p>In a disconnected environment, you have access to a self-hosted storage provider, for example <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_data_foundation/">Red&#160;Hat OpenShift Data Foundation</a> or <a href="https://min.io/">MinIO</a>, that is compatible with OADP.</p>
+<p>In a disconnected environment, you have access to a self-hosted storage provider that is compatible with OADP, such as <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_data_foundation/">Red&#160;Hat OpenShift Data Foundation</a> or <a href="https://min.io/">MinIO</a>.</p>
 </li>
 <li>
 <p>Your hosted control planes pods are up and running.</p>
 </li>
 <li>
-<p>You are using a supported version of OADP for your management cluster. For example, if your management cluster is on OpenShift Container Platform 4.20, you must use OADP version 1.5. For more information, see <a href="../../backup_and_restore/application_backup_and_restore/oadp-intro.html#oadp-operator-supported_oadp-api">Support for OpenShift API for Data Protection (OADP)</a>.</p>
+<p>You are using a supported version of OADP for your management cluster. For example, if your management cluster is on OpenShift Container Platform 4.20, you must use OADP version 1.5. For more information, see "Support for OpenShift API for Data Protection (OADP)" in the <em>Additional resources</em> section.</p>
 </li>
 </ul>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="prepare-aws-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#prepare-aws-oadp_hcp-disaster-recovery-oadp"></a>Preparing AWS to use OADP</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>To perform disaster recovery for a hosted cluster, you can use OpenShift API for Data Protection (OADP) on Amazon Web Services (AWS) S3 compatible storage. After creating the <code>DataProtectionApplication</code> object, new <code>velero</code> deployment and <code>node-agent</code> pods are created in the <code>openshift-adp</code> namespace.</p>
-</div>
-<div class="paragraph">
-<p>To prepare AWS to use OADP, see "Configuring the OpenShift API for Data Protection with Multicloud Object Gateway".</p>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
+<div class="ulist">
+<div class="title">Procedure</div>
 <ul>
 <li>
-<p><a href="../../backup_and_restore/application_backup_and_restore/installing/installing-oadp-aws.html#installing-oadp-aws">Configuring the OpenShift API for Data Protection with Multicloud Object Gateway</a></p>
+<p>To prepare AWS to use OADP, follow the steps in "Configuring the OpenShift API for Data Protection with AWS S3 compatible storage" in the <em>Additional resources</em> section.</p>
+<div class="paragraph">
+<p>After you create the <code>DataProtectionApplication</code> object, new <code>velero</code> deployment and <code>node-agent</code> pods are created in the <code>openshift-adp</code> namespace.</p>
+</div>
 </li>
 </ul>
 </div>
@@ -3485,50 +3480,107 @@
 <div class="title">Next steps</div>
 <ul>
 <li>
-<p>Backing up the data plane workload</p>
-</li>
-<li>
-<p>Backing up the control plane workload</p>
+<p>Back up the data plane workload and the control plane workload.</p>
 </li>
 </ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="prepare-bm-dr-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#prepare-bm-dr-oadp_hcp-disaster-recovery-oadp"></a>Preparing bare metal to use OADP</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>To perform disaster recovery for a hosted cluster, you can use OpenShift API for Data Protection (OADP) on bare metal. After creating the <code>DataProtectionApplication</code> object, new <code>velero</code> deployment and <code>node-agent</code> pods are created in the <code>openshift-adp</code> namespace.</p>
-</div>
-<div class="paragraph">
-<p>To prepare bare metal to use OADP, see "Configuring the OpenShift API for Data Protection with AWS S3 compatible storage".</p>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
+<li>
+<p><a href="../../backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html#about-installing-oadp">About installing OADP</a></p>
+</li>
+<li>
+<p><a href="../../backup_and_restore/application_backup_and_restore/oadp-intro.html#oadp-operator-supported_oadp-api">Support for OpenShift API for Data Protection (OADP)</a></p>
+</li>
 <li>
 <p><a href="../../backup_and_restore/application_backup_and_restore/installing/installing-oadp-mcg.html#installing-oadp-mcg">Configuring the OpenShift API for Data Protection with AWS S3 compatible storage</a></p>
 </li>
 </ul>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-prepare-bm-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-prepare-bm-oadp_hcp-disaster-recovery-oadp"></a>Preparing bare metal to use OADP for disaster recovery</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Before you can perform disaster recovery for hosted control planes on bare metal, you need to meet a few prerequisites and configure the OpenShift API for Data Protection (OADP) with Multicloud Object Gateway.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the OADP Operator on the management cluster. For more information, see "About installing OADP" in the <em>Additional resources</em> section.</p>
+</li>
+<li>
+<p>You created a storage class for the management cluster.</p>
+</li>
+<li>
+<p>You have access to the management cluster with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have access to the OADP subscription through a catalog source.</p>
+</li>
+<li>
+<p>You have access to a cloud storage provider that is compatible with OADP, such as S3, Microsoft Azure, Google Cloud, or MinIO.</p>
+</li>
+<li>
+<p>In a disconnected environment, you have access to a self-hosted storage provider that is compatible with OADP, such as <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_data_foundation/">Red&#160;Hat OpenShift Data Foundation</a> or <a href="https://min.io/">MinIO</a>.</p>
+</li>
+<li>
+<p>Your hosted control planes pods are up and running.</p>
+</li>
+<li>
+<p>You are using a supported version of OADP for your management cluster. For example, if your management cluster is on OpenShift Container Platform 4.20, you must use OADP version 1.5. For more information, see "Support for OpenShift API for Data Protection (OADP)" in the <em>Additional resources</em> section.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>To prepare bare metal to use OADP, complete the steps in "Configuring the OpenShift API for Data Protection with Multicloud Object Gateway" in the <em>Additional resources</em> section.</p>
+<div class="paragraph">
+<p>After you create the <code>DataProtectionApplication</code> object, new <code>velero</code> deployment and <code>node-agent</code> pods are created in the <code>openshift-adp</code> namespace.</p>
+</div>
+</li>
+</ul>
+</div>
 <div class="ulist">
 <div class="title">Next steps</div>
 <ul>
 <li>
-<p>Backing up the data plane workload</p>
+<p>Back up the data plane workload and the control plane workload.</p>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../backup_and_restore/application_backup_and_restore/installing/about-installing-oadp.html#about-installing-oadp">About installing OADP</a></p>
 </li>
 <li>
-<p>Backing up the control plane workload</p>
+<p><a href="../../backup_and_restore/application_backup_and_restore/oadp-intro.html#oadp-operator-supported_oadp-api">Support for OpenShift API for Data Protection (OADP)</a></p>
+</li>
+<li>
+<p><a href="../../backup_and_restore/application_backup_and_restore/installing/installing-oadp-aws.html#installing-oadp-aws">Configuring the OpenShift API for Data Protection with Multicloud Object Gateway</a></p>
 </li>
 </ul>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="backing-up-data-plane-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#backing-up-data-plane-oadp_hcp-disaster-recovery-oadp"></a>Backing up the data plane workload</h2>
+<h2 id="hcp-backup-dp-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-backup-dp-oadp_hcp-disaster-recovery-oadp"></a>Data plane workload backup</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>As part of the process to back up and restore by using the OADP Operator, you can back up the data plane workload.</p>
+</div>
 <div class="paragraph">
-<p>If the data plane workload is not important, you can skip this procedure. To back up the data plane workload by using the OADP Operator, see "Backing up applications".</p>
+<p>If the data plane workload is not important, you can skip this procedure.</p>
+</div>
+<div class="paragraph">
+<p>To back up the data plane workload by using the OADP Operator, see "Backing up applications". After you complete those steps, you can restore your hosted cluster by using OADP.</p>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
@@ -3538,21 +3590,16 @@
 </li>
 </ul>
 </div>
-<div class="ulist">
-<div class="title">Next steps</div>
-<ul>
-<li>
-<p>Restoring a hosted cluster by using OADP</p>
-</li>
-</ul>
-</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="backing-up-cp-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#backing-up-cp-oadp_hcp-disaster-recovery-oadp"></a>Backing up the control plane workload</h2>
+<h2 id="hcp-backup-cp-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-backup-cp-oadp_hcp-disaster-recovery-oadp"></a>Control plane workload backup</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can back up the control plane workload by creating the <code>Backup</code> custom resource (CR).</p>
+</div>
 <div class="paragraph">
-<p>You can back up the control plane workload by creating the <code>Backup</code> custom resource (CR). The steps vary depending on whether your platform is AWS or bare metal.</p>
+<p>The steps vary depending on whether your platform is AWS or bare metal.</p>
 </div>
 <div class="sect2">
 <h3 id="hcp-dr-oadp-backup-cp-workload-aws_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-dr-oadp-backup-cp-workload-aws_hcp-disaster-recovery-oadp"></a>Backing up the control plane workload on AWS</h3>
@@ -3995,9 +4042,9 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="hcp-restoring-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-restoring-oadp_hcp-disaster-recovery-oadp"></a>Restoring a hosted cluster by using OADP</h2>
+<h2 id="hcp-restoring-oadp_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-restoring-oadp_hcp-disaster-recovery-oadp"></a>Hosted cluster restoration by using OADP</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can restore a hosted cluster into the same management cluster or into a new management cluster.</p>
 </div>
 <div class="sect2">
@@ -4624,8 +4671,8 @@ hosted-0   hosted-0   3               3               False         False       
 <div class="sect1">
 <h2 id="hcp-dr-oadp-observe_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-dr-oadp-observe_hcp-disaster-recovery-oadp"></a>Observing the backup and restore process</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>When using OpenShift API for Data Protection (OADP) to backup and restore a hosted cluster, you can monitor and observe the process.</p>
+<div class="paragraph _abstract">
+<p>When you use OpenShift API for Data Protection (OADP) to back up and restore a hosted cluster, you can monitor and observe the process.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -4667,10 +4714,10 @@ hosted-0   hosted-0   3               3               False         False       
 </div>
 </div>
 <div class="sect1">
-<h2 id="hcp-dr-oadp-observe-velero_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-dr-oadp-observe-velero_hcp-disaster-recovery-oadp"></a>Using the velero CLI to describe the Backup and Restore resources</h2>
+<h2 id="hcp-dr-oadp-observe-velero_hcp-disaster-recovery-oadp"><a class="anchor" href="#hcp-dr-oadp-observe-velero_hcp-disaster-recovery-oadp"></a>Using the Velero CLI to describe the Backup and Restore resources</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>When using OpenShift API for Data Protection, you can get more details of the <code>Backup</code> and <code>Restore</code> resources by using the <code>velero</code> command-line interface (CLI).</p>
+<div class="paragraph _abstract">
+<p>When you use OpenShift API for Data Protection, you can get more details of the <code>Backup</code> and <code>Restore</code> resources by using the <code>velero</code> command-line interface (CLI).</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -4687,32 +4734,22 @@ hosted-0   hosted-0   3               3               False         False       
 <p>Get details of your <code>Restore</code> custom resource (CR) by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>velero restore describe &lt;restore_resource_name&gt; <span class="nt">--details</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>velero restore describe &lt;restore_resource_name&gt; <span class="nt">--details</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;restore_resource_name&gt;</code> with the name of your <code>Restore</code> resource.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>Replace <code>&lt;restore_resource_name&gt;</code> with the name of your <code>Restore</code> resource.</p>
 </div>
 </li>
 <li>
 <p>Get details of your <code>Backup</code> CR by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>velero restore describe &lt;backup_resource_name&gt; <span class="nt">--details</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>velero restore describe &lt;backup_resource_name&gt; <span class="nt">--details</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;backup_resource_name&gt;</code> with the name of your <code>Backup</code> resource.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>Replace <code>&lt;backup_resource_name&gt;</code> with the name of your <code>Backup</code> resource.</p>
 </div>
 </li>
 </ol>
