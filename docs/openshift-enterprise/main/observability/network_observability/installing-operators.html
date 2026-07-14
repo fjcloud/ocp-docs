@@ -1981,7 +1981,7 @@
             </li>
             <li><a class="" href="../../hosted_control_planes/hcp-authentication-authorization.html">Authentication and authorization for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-machine-config.html">Handling machine configuration for hosted control planes</a></li>
-            <li><a class="" href="../../hosted_control_planes/hcp-using-feature-gates.html">Using feature gates in a hosted cluster</a></li>
+            <li><a class="" href="../../hosted_control_planes/hcp-using-feature-gates.html">Feature gates in a hosted cluster</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-observability.html">Observability for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-networking.html">Networking for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-troubleshooting.html">Troubleshooting hosted control planes</a></li>
@@ -3400,18 +3400,16 @@
 <ul class="sectlevel2">
 <li><a href="#network-observability-loki-secret_network_observability">Creating a secret for Loki storage</a></li>
 <li><a href="#network-observability-lokistack-create_network_observability">Creating a LokiStack custom resource</a></li>
-<li><a href="#logging-creating-new-group-cluster-admin-user-role_network_observability">Creating a new group for the cluster-admin user role</a></li>
-<li><a href="#custom-admin-group-access">Custom admin group access</a></li>
-<li><a href="#loki-deployment-sizing_network_observability">Loki deployment sizing</a></li>
+<li><a href="#network-observability-role-based-access-control-for-loki-logs_network_observability">Role-based access control for Loki logs</a></li>
 <li><a href="#network-observability-lokistack-configuring-ingestion_network_observability">LokiStack ingestion limits and health alerts</a></li>
 </ul>
 </li>
 <li><a href="#network-observability-operator-installation_network_observability">Installing the Network Observability Operator</a>
 <ul class="sectlevel2">
 <li><a href="#network-observability-important-flowcollector-configuration-considerations_network_observability">Important FlowCollector configuration considerations</a></li>
-<li><a href="#network-observability-updating-migrating_network_observability">Migrating removed stored versions of the FlowCollector CRD</a></li>
 </ul>
 </li>
+<li><a href="#network-observability-updating-migrating_network_observability">Migrating removed stored versions of the FlowCollector CRD</a></li>
 <li><a href="#network-observability-multi-tenancy_network_observability">Enabling multi-tenancy in network observability</a></li>
 <li><a href="#network-observability-operator-uninstall_network_observability">Uninstalling the Network Observability Operator</a></li>
 </ul>
@@ -3599,7 +3597,7 @@
 <p>Using the web console, navigate to the <strong>Project</strong> &#8594; <strong>All Projects</strong> dropdown and select <strong>Create Project</strong>.</p>
 </li>
 <li>
-<p>Name the project <code>netobserv</code> and click <strong>Create</strong>.</p>
+<p>Name the project <code>netobserv-loki</code> and click <strong>Create</strong>.</p>
 </li>
 <li>
 <p>Navigate to the Import icon, <strong>+</strong>, in the top right corner. Paste your YAML file into the editor.</p>
@@ -3660,20 +3658,6 @@
 <ul>
 <li>
 <p>After you create the secret, you view the secret listed under <strong>Workloads</strong> &#8594; <strong>Secrets</strong> in the web console.</p>
-</li>
-</ul>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="../../observability/network_observability/installing-operators.html#network-observability-lokistack-create_network_observability">Creating a LokiStack custom resource</a></p>
-</li>
-<li>
-<p><a href="../../observability/network_observability/flowcollector-api.html#network-observability-flowcollector-api-specifications_network_observability">Flow Collector API Reference</a></p>
-</li>
-<li>
-<p><a href="../../observability/network_observability/configuring-operator.html#network-observability-flowcollector-view_network_observability">Flow Collector sample resource</a></p>
 </li>
 </ul>
 </div>
@@ -3776,61 +3760,23 @@
 </div>
 </div>
 <div class="sect2">
-<h3 id="logging-creating-new-group-cluster-admin-user-role_network_observability"><a class="anchor" href="#logging-creating-new-group-cluster-admin-user-role_network_observability"></a>Creating a new group for the cluster-admin user role</h3>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Querying application logs for multiple namespaces as a <code>cluster-admin</code> user, where the sum total of characters of all of the namespaces in the cluster is greater than 5120, results in the error <code>Parse error: input size too long (XXXX &gt; 5120)</code>. For better control over access to logs in LokiStack, make the <code>cluster-admin</code> user a member of the <code>cluster-admin</code> group. If the <code>cluster-admin</code> group does not exist, create it and add the desired users to it.</p>
-</div>
-</td>
-</tr>
-</table>
+<h3 id="network-observability-role-based-access-control-for-loki-logs_network_observability"><a class="anchor" href="#network-observability-role-based-access-control-for-loki-logs_network_observability"></a>Role-based access control for Loki logs</h3>
+<div class="paragraph _abstract">
+<p>Configure role-based access control to grant users permission to view application, infrastructure, or audit logs in Loki.</p>
 </div>
 <div class="paragraph">
-<p>Use the following procedure to create a new group for users with <code>cluster-admin</code> permissions.</p>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Enter the following command to create a new group:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm <span class="nb">groups </span>new cluster-admin</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Enter the following command to add the desired user to the <code>cluster-admin</code> group:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm <span class="nb">groups </span>add-users cluster-admin &lt;username&gt;</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Enter the following command to add <code>cluster-admin</code> user role to the group:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm policy add-cluster-role-to-group cluster-admin cluster-admin</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect2">
-<h3 id="custom-admin-group-access"><a class="anchor" href="#custom-admin-group-access"></a>Custom admin group access</h3>
-<div class="paragraph">
-<p>If you need to see cluster-wide logs without necessarily being an administrator, or if you already have any group defined that you want to use here, you can specify a custom group using the <code>adminGroup</code> field. Users who are members of any group specified in the <code>adminGroups</code> field of the <code>LokiStack</code> custom resource (CR) have the same read access to logs as administrators.</p>
+<p>By default, logging 5.8 and later does not grant users access to logs. You must configure role-based access control to grant users permission to view specific log types.</p>
 </div>
 <div class="paragraph">
-<p>Administrator users have access to all network logs across the cluster.</p>
+<p>For more information on access control for Loki logs, see: "Fine grained access for Loki logs" in the Red&#160;Hat OpenShift Logging Operator documentation.</p>
+</div>
+<div class="sect3">
+<h4 id="grant-non-admin-users-cluster-wide-log-access_network_observability"><a class="anchor" href="#grant-non-admin-users-cluster-wide-log-access_network_observability"></a>Grant non-admin users cluster-wide log access</h4>
+<div class="paragraph">
+<p>Add users to a custom admin group to grant cluster-wide log access without making them cluster administrators. This is useful for senior engineers who need full log visibility but should not have cluster modification privileges.</p>
+</div>
+<div class="paragraph">
+<p>Users who are members of any group specified in the <code>adminGroups</code> field of the <code>LokiStack</code> custom resource (CR) have the same read access to logs as administrators.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example LokiStack CR</div>
@@ -3839,115 +3785,40 @@
 <span class="na">kind</span><span class="pi">:</span> <span class="s">LokiStack</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">loki</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">netobserv</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">netobserv-loki</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">tenants</span><span class="pi">:</span>
-    <span class="na">mode</span><span class="pi">:</span> <span class="s">openshift-network</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">mode</span><span class="pi">:</span> <span class="s">openshift-network</span>
     <span class="na">openshift</span><span class="pi">:</span>
-      <span class="na">adminGroups</span><span class="pi">:</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">adminGroups</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="s">cluster-admin</span>
-      <span class="pi">-</span> <span class="s">custom-admin-group</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+      <span class="pi">-</span> <span class="s">custom-admin-group</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Custom admin groups are only available in this mode.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Entering an empty list <code>[]</code> value for this field disables admin groups.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Overrides the default groups (<code>system:cluster-admins</code>, <code>cluster-admin</code>, <code>dedicated-admin</code>)</td>
-</tr>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="loki-deployment-sizing_network_observability"><a class="anchor" href="#loki-deployment-sizing_network_observability"></a>Loki deployment sizing</h3>
 <div class="paragraph">
-<p>Sizing for Loki follows the format of <code>1x.&lt;size&gt;</code> where the value <code>1x</code> is number of instances and <code>&lt;size&gt;</code> specifies performance capabilities.</p>
+<p>where:</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>It is not possible to change the number <code>1x</code> for the deployment size.</p>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.tenants.mode</code></dt>
+<dd>
+<p>Specifies the tenant mode. Must be <code>openshift-network</code> for network observability.</p>
+</dd>
+<dt class="hdlist1"><code>spec.tenants.openshift.adminGroups</code></dt>
+<dd>
+<p>Specifies the list of groups whose members have cluster-wide log access. Defaults to <code>system:cluster-admins</code>, <code>cluster-admin</code>, and <code>dedicated-admin</code>. Set to <code>[]</code> to disable.</p>
+</dd>
+</dl>
 </div>
-</td>
-</tr>
-</table>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_logging/6.5/html/configuring_logging/configuring-lokistack-storage#logging-loki-log-access_configuring-the-log-store">Fine grained access for Loki logs</a></p>
+</li>
+</ul>
 </div>
-<table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 2. Loki sizing</caption>
-<colgroup>
-<col style="width: 20%;">
-<col style="width: 20%;">
-<col style="width: 20%;">
-<col style="width: 20%;">
-<col style="width: 20%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top"></th>
-<th class="tableblock halign-left valign-top">1x.demo</th>
-<th class="tableblock halign-left valign-top">1x.extra-small</th>
-<th class="tableblock halign-left valign-top">1x.small</th>
-<th class="tableblock halign-left valign-top">1x.medium</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<th class="tableblock halign-left valign-top"><p class="tableblock">Data transfer</p></th>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Demo use only</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">100GB/day</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">500GB/day</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">2TB/day</p></td>
-</tr>
-<tr>
-<th class="tableblock halign-left valign-top"><p class="tableblock">Queries per second (QPS)</p></th>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Demo use only</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">1-25 QPS at 200ms</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">25-50 QPS at 200ms</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">25-75 QPS at 200ms</p></td>
-</tr>
-<tr>
-<th class="tableblock halign-left valign-top"><p class="tableblock">Replication factor</p></th>
-<td class="tableblock halign-left valign-top"><p class="tableblock">None</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
-</tr>
-<tr>
-<th class="tableblock halign-left valign-top"><p class="tableblock">Total CPU requests</p></th>
-<td class="tableblock halign-left valign-top"><p class="tableblock">None</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">14 vCPUs</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">34 vCPUs</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">54 vCPUs</p></td>
-</tr>
-<tr>
-<th class="tableblock halign-left valign-top"><p class="tableblock">Total memory requests</p></th>
-<td class="tableblock halign-left valign-top"><p class="tableblock">None</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">31Gi</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">67Gi</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">139Gi</p></td>
-</tr>
-<tr>
-<th class="tableblock halign-left valign-top"><p class="tableblock">Total disk requests</p></th>
-<td class="tableblock halign-left valign-top"><p class="tableblock">40Gi</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">430Gi</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">430Gi</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">590Gi</p></td>
-</tr>
-</tbody>
-</table>
+</div>
 </div>
 <div class="sect2">
 <h3 id="network-observability-lokistack-configuring-ingestion_network_observability"><a class="anchor" href="#network-observability-lokistack-configuring-ingestion_network_observability"></a>LokiStack ingestion limits and health alerts</h3>
@@ -3993,7 +3864,22 @@
 <div class="title">Additional resources</div>
 <ul>
 <li>
+<p><a href="../../observability/network_observability/installing-operators.html#network-observability-lokistack-create_network_observability">Creating a LokiStack custom resource</a></p>
+</li>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_logging/latest/html/configuring_logging/configuring-lokistack-storage#logging-loki-storage_configuring-the-log-store">Loki object storage</a></p>
+</li>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/red_hat_openshift_logging/latest/html/configuring_logging/configuring-lokistack-storage.html#loki-sizing_configuring-the-log-store">Loki deployment sizing</a></p>
+</li>
+<li>
 <p><a href="https://loki-operator.dev/docs/api.md/#loki-grafana-com-v1-IngestionLimitSpec">LokiStack API reference</a></p>
+</li>
+<li>
+<p><a href="../../observability/network_observability/flowcollector-api.html#network-observability-flowcollector-api-specifications_network_observability">Flow Collector API Reference</a></p>
+</li>
+<li>
+<p><a href="../../observability/network_observability/configuring-operator.html#network-observability-flowcollector-view_network_observability">Flow Collector sample resource</a></p>
 </li>
 </ul>
 </div>
@@ -4137,8 +4023,11 @@
 </ul>
 </div>
 </div>
-<div class="sect2">
-<h3 id="network-observability-updating-migrating_network_observability"><a class="anchor" href="#network-observability-updating-migrating_network_observability"></a>Migrating removed stored versions of the FlowCollector CRD</h3>
+</div>
+</div>
+<div class="sect1">
+<h2 id="network-observability-updating-migrating_network_observability"><a class="anchor" href="#network-observability-updating-migrating_network_observability"></a>Migrating removed stored versions of the FlowCollector CRD</h2>
+<div class="sectionbody">
 <div class="paragraph _abstract">
 <p>Manually remove the deprecated <code>v1alpha1</code> version from the <code>FlowCollector</code> custom resource definition (CRD) <code>storedVersion</code> list to prevent upgrade errors and successfully migrate to Network Observability Operator 1.6.</p>
 </div>
@@ -4261,7 +4150,6 @@
 </div>
 </div>
 </div>
-</div>
 <div class="sect1">
 <h2 id="network-observability-multi-tenancy_network_observability"><a class="anchor" href="#network-observability-multi-tenancy_network_observability"></a>Enabling multi-tenancy in network observability</h2>
 <div class="sectionbody">
@@ -4326,17 +4214,6 @@
 <ul>
 <li>
 <p><a href="../../operators/operator-reference.html#cluster-kube-storage-version-migrator-operator_operator-reference">Kubernetes Storage Version Migrator Operator</a></p>
-</li>
-</ul>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="https://docs.redhat.com/en/documentation/red_hat_streams_for_apache_kafka/2.2">Red Hat AMQ Streams</a></p>
-</li>
-<li>
-<p><a href="../../observability/network_observability/configuring-operator.html#network-observability-flowcollector-kafka-config_network_observability">Configuring the FlowCollector resource with Kafka</a></p>
 </li>
 </ul>
 </div>
