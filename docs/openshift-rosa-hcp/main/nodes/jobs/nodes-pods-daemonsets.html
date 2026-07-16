@@ -1244,6 +1244,9 @@
 <li><a href="#nodes-pods-daemonsets-creating_nodes-pods-daemonsets">Creating daemonsets</a></li>
 </ul>
 </div>
+<div class="paragraph _abstract">
+<p>Daemon sets ensure that pods run on all or specific nodes in a cluster, enabling cluster-wide services such as logging agents, monitoring tools, and shared storage that must be present on every node.</p>
+</div>
 <div class="paragraph">
 <p>As an administrator, you can create and use daemon sets to run replicas of a pod on specific or all nodes in
 a Red Hat OpenShift Service on AWS cluster.</p>
@@ -1328,9 +1331,44 @@ the cluster.</p>
 <div class="sect1">
 <h2 id="nodes-pods-daemonsets-creating_nodes-pods-daemonsets"><a class="anchor" href="#nodes-pods-daemonsets-creating_nodes-pods-daemonsets"></a>Creating daemonsets</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Create a daemon set to automatically deploy and maintain pod replicas across selected nodes in your cluster, using node selectors to control placement.</p>
+</div>
 <div class="paragraph">
 <p>When creating daemon sets, the <code>nodeSelector</code> field is used to indicate the
 nodes on which the daemon set should deploy replicas.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>If you update a daemon set pod template, the existing pod
+replicas are not affected.</p>
+</li>
+<li>
+<p>If you delete a daemon set and then create a new daemon set
+with a different template but the same label selector, it recognizes any
+existing pod replicas as having matching labels and thus does not update them or
+create new replicas despite a mismatch in the pod template.</p>
+</li>
+<li>
+<p>If you change node labels, the daemon set adds pods to nodes that match the new labels and deletes pods from nodes that do not match the new labels.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To update a daemon set, force new pod replicas to be created by deleting the old
+replicas or nodes.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -1372,11 +1410,8 @@ in your namespace, by setting the namespace annotation <code>openshift.io/node-s
 </li>
 </ul>
 </div>
-<div class="paragraph">
-<div class="title">Procedure</div>
-<p>To create a daemon set:</p>
-</div>
 <div class="olist arabic">
+<div class="title">Procedure</div>
 <ol class="arabic">
 <li>
 <p>Define the daemon set yaml file:</p>
@@ -1389,13 +1424,13 @@ in your namespace, by setting the namespace annotation <code>openshift.io/node-s
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">selector</span><span class="pi">:</span>
       <span class="na">matchLabels</span><span class="pi">:</span>
-        <span class="na">name</span><span class="pi">:</span> <span class="s">hello-daemonset</span> <i class="conum" data-value="1"></i><b>(1)</b>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">hello-daemonset</span>
   <span class="na">template</span><span class="pi">:</span>
     <span class="na">metadata</span><span class="pi">:</span>
       <span class="na">labels</span><span class="pi">:</span>
-        <span class="na">name</span><span class="pi">:</span> <span class="s">hello-daemonset</span> <i class="conum" data-value="2"></i><b>(2)</b>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">hello-daemonset</span>
     <span class="na">spec</span><span class="pi">:</span>
-      <span class="na">nodeSelector</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
+      <span class="na">nodeSelector</span><span class="pi">:</span>
         <span class="na">role</span><span class="pi">:</span> <span class="s">worker</span>
       <span class="na">containers</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">image</span><span class="pi">:</span> <span class="s">openshift/hello-openshift</span>
@@ -1411,26 +1446,28 @@ in your namespace, by setting the namespace annotation <code>openshift.io/node-s
 <span class="c1">#...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The label selector that determines which pods belong to the daemon set.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>The pod template&#8217;s label selector. Must match the label selector above.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The node selector that determines on which nodes pod replicas should be deployed.
-A matching label must be present on the node.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.selector.matchLabels.name</code></dt>
+<dd>
+<p>Specifies the label selector that determines which pods belong to the daemon set.</p>
+</dd>
+<dt class="hdlist1"><code>spec.template.metadata.labels.name</code></dt>
+<dd>
+<p>Specifies the pod template&#8217;s label selector. Must match the label selector above.</p>
+</dd>
+<dt class="hdlist1"><code>spec.template.spec.nodeSelector</code></dt>
+<dd>
+<p>Specifies the node selector that determines on which nodes pod replicas should be deployed. A matching label must be present on the node.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
-<p>Create the daemon set object:</p>
+<p>Create the daemon set object by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> daemonset.yaml</code></pre>
@@ -1442,7 +1479,7 @@ A matching label must be present on the node.</td>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Find the daemonset pods:</p>
+<p>Find the daemonset pods by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods</code></pre>
@@ -1457,7 +1494,7 @@ hello-daemonset-e3md9   1/1       Running   0          2m</span></code></pre>
 </div>
 </li>
 <li>
-<p>View the pods to verify the pod has been placed onto the node:</p>
+<p>View the pods to verify the pod has been placed onto the node by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe pod/hello-daemonset-cx6md|grep Node</code></pre>
@@ -1485,39 +1522,6 @@ hello-daemonset-e3md9   1/1       Running   0          2m</span></code></pre>
 </div>
 </li>
 </ol>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="ulist">
-<ul>
-<li>
-<p>If you update a daemon set pod template, the existing pod
-replicas are not affected.</p>
-</li>
-<li>
-<p>If you delete a daemon set and then create a new daemon set
-with a different template but the same label selector, it recognizes any
-existing pod replicas as having matching labels and thus does not update them or
-create new replicas despite a mismatch in the pod template.</p>
-</li>
-<li>
-<p>If you change node labels, the daemon set adds pods to nodes that match the new labels and deletes pods
-from nodes that do not match the new labels.</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>To update a daemon set, force new pod replicas to be created by deleting the old
-replicas or nodes.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 </div>
 </div>
