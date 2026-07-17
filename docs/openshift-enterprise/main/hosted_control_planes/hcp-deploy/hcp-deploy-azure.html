@@ -4345,24 +4345,18 @@ SA_TOKEN_ISSUER_PUBLIC_KEY_PATH="/path/to/serviceaccount-signer.public"</span></
 </div>
 </li>
 <li>
-<p>Create the content for the Azure credentials file as shown in the following example:</p>
+<p>Save the Azure credentials to a local file by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
-  </span><span class="nl">"tenantId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$(az account show --query tenantId -o tsv)"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"subscriptionId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$(az account show --query id -o tsv)"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"resourceGroup"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$RESOURCE_GROUP_NAME"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"aadClientId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$EXTERNAL_DNS_SP_APP_ID"</span><span class="p">,</span><span class="w">
-  </span><span class="nl">"aadClientSecret"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$EXTERNAL_DNS_SP_PASSWORD"</span><span class="w">
-</span><span class="p">}</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Create the credentials file by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;service_principal_filepath&gt;.json</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&gt;</span> <span class="k">${</span><span class="nv">SERVICE_PRINCIPAL_FILEPATH</span><span class="k">}</span> <span class="o">&lt;&lt;</span><span class="no">EOF</span><span class="sh">
+</span><span class="go">{
+</span><span class="gp">  "tenantId": "$</span><span class="o">(</span>az account show <span class="nt">--query</span> tenantId <span class="nt">-o</span> tsv<span class="o">)</span><span class="s2">",
+</span><span class="gp">  "subscriptionId": "$</span><span class="s2">(az account show --query id -o tsv)"</span>,
+<span class="gp">  "resourceGroup": "$</span>RESOURCE_GROUP_NAME<span class="s2">",
+</span><span class="gp">  "aadClientId": "$</span><span class="s2">EXTERNAL_DNS_SP_APP_ID"</span>,
+<span class="gp">  "aadClientSecret": "$</span>EXTERNAL_DNS_SP_PASSWORD<span class="s2">"
+</span><span class="go">}
+EOF</span></code></pre>
 </div>
 </div>
 </li>
@@ -4370,7 +4364,7 @@ SA_TOKEN_ISSUER_PUBLIC_KEY_PATH="/path/to/serviceaccount-signer.public"</span></
 <p>If an existing Kubernetes secret for the Azure credentials exists, delete it by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret/azure-config-file <span class="nt">--namespace</span> <span class="s2">"default"</span> <span class="o">||</span> <span class="nb">true</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret/azure-config-file <span class="nt">--namespace</span> <span class="s2">"hypershift"</span> <span class="o">||</span> <span class="nb">true</span></code></pre>
 </div>
 </div>
 </li>
@@ -4379,9 +4373,12 @@ SA_TOKEN_ISSUER_PUBLIC_KEY_PATH="/path/to/serviceaccount-signer.public"</span></
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic azure-config-file <span class="se">\</span>
-  <span class="nt">--namespace</span> <span class="s2">"default"</span> <span class="se">\</span>
-  <span class="nt">--from-file</span> <span class="k">${</span><span class="nv">SERVICE_PRINCIPAL_FILEPATH</span><span class="k">}</span></code></pre>
+  <span class="nt">--namespace</span> <span class="s2">"hypershift"</span> <span class="se">\</span>
+  <span class="nt">--from-file</span><span class="o">=</span><span class="nv">credentials</span><span class="o">=</span><span class="k">${</span><span class="nv">SERVICE_PRINCIPAL_FILEPATH</span><span class="k">}</span></code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>The secret must be created in the <code>hypershift</code> namespace where the external DNS deployment runs. The <code>credentials</code> key name is required because the external DNS pod mounts the secret at <code>/etc/provider/credentials</code>.</p>
 </div>
 </li>
 <li>
@@ -4394,12 +4391,12 @@ SA_TOKEN_ISSUER_PUBLIC_KEY_PATH="/path/to/serviceaccount-signer.public"</span></
   <span class="na">name</span><span class="pi">:</span> <span class="s">hypershift-operator-install-flags</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">local-cluster</span>
 <span class="na">data</span><span class="pi">:</span>
-  <span class="na">installFlagsToAdd</span><span class="pi">:</span> <span class="s2">"</span><span class="s">--external-dns-provider=azure</span><span class="nv"> </span><span class="s">--external-dns-credentials</span><span class="nv"> </span><span class="s">&lt;secret&gt;</span><span class="nv"> </span><span class="s">--external-dns-domain-filter</span><span class="nv"> </span><span class="s">&lt;dns_zone&gt;"</span>
+  <span class="na">installFlagsToAdd</span><span class="pi">:</span> <span class="s2">"</span><span class="s">--external-dns-provider=azure</span><span class="nv"> </span><span class="s">--external-dns-secret=azure-config-file</span><span class="nv"> </span><span class="s">--external-dns-domain-filter=&lt;dns_zone&gt;"</span>
   <span class="na">installFlagsToRemove</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The <code>data.installFlagsToAdd</code> parameter specifies the flags to pass to the Operator so it detects the DNS.</p>
+<p>The <code>--external-dns-secret</code> flag specifies the name of the Kubernetes secret that contains the Azure credentials. The <code>data.installFlagsToAdd</code> parameter specifies the flags to pass to the Operator so it detects the DNS.</p>
 </div>
 </li>
 <li>
@@ -4505,6 +4502,20 @@ operator-xxxxx-xxxxx           1/1     Running   0          1m</span></code></pr
   <span class="nt">--diagnostics-storage-account-type</span> Managed <span class="se">\</span>
   <span class="nt">--external-dns-domain</span> <span class="s2">"</span><span class="k">${</span><span class="nv">DNS_ZONE_NAME</span><span class="k">}</span><span class="s2">"</span></code></pre>
 </div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For non-production environments, you can create a hosted cluster without external DNS by omitting the <code>--external-dns-domain</code> and <code>--assign-service-principal-roles</code> flags. In that case, the API server is accessible through an Azure load balancer hostname instead of a custom DNS name.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </li>
 </ul>
