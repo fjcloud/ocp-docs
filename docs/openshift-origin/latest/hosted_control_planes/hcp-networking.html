@@ -2859,7 +2859,7 @@
 <li><a href="#hcp-proxy-ignition_hcp-networking">Compute nodes that need to access an ignition endpoint</a></li>
 <li><a href="#hcp-proxy-api_hcp-networking">Compute nodes that need to access the API server</a></li>
 <li><a href="#hcp-proxy-mgmt-cluster_hcp-networking">Management clusters that need external access</a></li>
-<li><a href="#hcp-proxy-addl-network_hcp-networking">Management cluster that uses a proxy and a hosted cluster with a secondary network and no default pod network</a></li>
+<li><a href="#hcp-proxy-addl-network_hcp-networking">Management cluster with a proxy and a hosted cluster with a secondary network and no default pod network</a></li>
 </ul>
 </li>
 </ul>
@@ -4039,8 +4039,11 @@ clusteroperator.config.openshift.io/ingress                                     
 </div>
 <div class="sect2">
 <h3 id="hcp-proxy-cp-workloads_hcp-networking"><a class="anchor" href="#hcp-proxy-cp-workloads_hcp-networking"></a>Control plane workloads that need to access external services</h3>
+<div class="paragraph _abstract">
+<p>Operators that run in the control plane need to access external services through the proxy that is configured for the hosted cluster. The proxy is usually accessible only through the data plane.</p>
+</div>
 <div class="paragraph">
-<p>Operators that run in the control plane need to access external services through the proxy that is configured for the hosted cluster. The proxy is usually accessible only through the data plane. The control plane workloads are as follows:</p>
+<p>The control plane workloads are as follows:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -4081,39 +4084,60 @@ clusteroperator.config.openshift.io/ingress                                     
 </div>
 <div class="sect2">
 <h3 id="hcp-proxy-ignition_hcp-networking"><a class="anchor" href="#hcp-proxy-ignition_hcp-networking"></a>Compute nodes that need to access an ignition endpoint</h3>
+<div class="paragraph _abstract">
+<p>When compute nodes need a proxy to access the ignition endpoint, you must configure the proxy in the user-data stub that is configured on the compute node when it is created.</p>
+</div>
 <div class="paragraph">
-<p>When compute nodes need a proxy to access the ignition endpoint, you must configure the proxy in the user-data stub that is configured on the compute node when it is created. For cases where machines need a proxy to access the ignition URL, the proxy configuration is included in the stub.</p>
+<p>For cases where machines need a proxy to access the ignition URL, the proxy configuration is included in the stub.</p>
 </div>
 <div class="paragraph">
 <p>The stub resembles the following example:</p>
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">---
-{"ignition":{"config":{"merge":[{"httpHeaders":[{"name":"Authorization","value":"Bearer ..."},{"name":"TargetConfigVersionHash","value":"a4c1b0dd"}],"source":"https://ignition.controlplanehost.example.com/ignition","verification":{}}],"replace":{"verification":{}}},"proxy":{"httpProxy":"http://proxy.example.org:3128", "httpsProxy":"https://proxy.example.org:3129", "noProxy":"host.example.org"},"security":{"tls":{"certificateAuthorities":[{"source":"...","verification":{}}]}},"timeouts":{},"version":"3.2.0"},"passwd":{},"storage":{},"systemd":{}}
----</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{"ignition":{"config":{"merge":[{"httpHeaders":[{"name":"Authorization","value":"Bearer ..."},{"name":"TargetConfigVersionHash","value":"a4c1b0dd"}],"source":"https://ignition.controlplanehost.example.com/ignition","verification":{}}],"replace":{"verification":{}}},"proxy":{"httpProxy":"http://proxy.example.org:3128", "httpsProxy":"https://proxy.example.org:3129", "noProxy":"host.example.org"},"security":{"tls":{"certificateAuthorities":[{"source":"...","verification":{}}]}},"timeouts":{},"version":"3.2.0"},"passwd":{},"storage":{},"systemd":{}}</span></code></pre>
 </div>
 </div>
 </div>
 <div class="sect2">
 <h3 id="hcp-proxy-api_hcp-networking"><a class="anchor" href="#hcp-proxy-api_hcp-networking"></a>Compute nodes that need to access the API server</h3>
-<div class="paragraph">
-<p>This use case is relevant to self-managed hosted control planes, not to Red&#160;Hat OpenShift Service on AWS with hosted control planes.</p>
+<div class="paragraph _abstract">
+<p>For communication with the control plane, hosted control planes uses a local proxy in every compute node that listens on IP address 172.20.0.1 and forwards traffic to the API server. If an external proxy is required to access the API server, that local proxy needs to use the external proxy to send traffic out.</p>
 </div>
 <div class="paragraph">
-<p>For communication with the control plane, hosted control planes uses a local proxy in every compute node that listens on IP address 172.20.0.1 and forwards traffic to the API server. If an external proxy is required to access the API server, that local proxy needs to use the external proxy to send traffic out. When a proxy is not needed, hosted control planes uses <code>haproxy</code> for the local proxy, which only forwards packets via TCP. When a proxy is needed, hosted control planes uses a custom proxy, <code>control-plane-operator-kubernetes-default-proxy</code>, to send traffic through the external proxy.</p>
+<p>When a proxy is not needed, hosted control planes uses <code>haproxy</code> for the local proxy, which only forwards packets via TCP. When a proxy is needed, hosted control planes uses a custom proxy, <code>control-plane-operator-kubernetes-default-proxy</code>, to send traffic through the external proxy.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This use case is relevant to self-managed hosted control planes, not to Red&#160;Hat OpenShift Service on AWS.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </div>
 <div class="sect2">
 <h3 id="hcp-proxy-mgmt-cluster_hcp-networking"><a class="anchor" href="#hcp-proxy-mgmt-cluster_hcp-networking"></a>Management clusters that need external access</h3>
+<div class="paragraph _abstract">
+<p>The HyperShift Operator has a controller that monitors the OpenShift global proxy configuration of the management cluster and sets the proxy environment variables on its own deployment.</p>
+</div>
 <div class="paragraph">
-<p>The HyperShift Operator has a controller that monitors the OpenShift global proxy configuration of the management cluster and sets the proxy environment variables on its own deployment. Control plane deployments that need external access are configured with the proxy environment variables of the management cluster.</p>
+<p>Control plane deployments that need external access are configured with the proxy environment variables of the management cluster.</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="hcp-proxy-addl-network_hcp-networking"><a class="anchor" href="#hcp-proxy-addl-network_hcp-networking"></a>Management cluster that uses a proxy and a hosted cluster with a secondary network and no default pod network</h3>
+<h3 id="hcp-proxy-addl-network_hcp-networking"><a class="anchor" href="#hcp-proxy-addl-network_hcp-networking"></a>Management cluster with a proxy and a hosted cluster with a secondary network and no default pod network</h3>
+<div class="paragraph _abstract">
+<p>If a management cluster uses a proxy configuration and you are configuring a hosted cluster with a secondary network but are not attaching the default pod network, add the CIDR of the secondary network to the proxy configuration.</p>
+</div>
 <div class="paragraph">
-<p>If a management cluster uses a proxy configuration and you are configuring a hosted cluster with a secondary network but are not attaching the default pod network, add the CIDR of the secondary network to the proxy configuration. Specifically, you need to add the CIDR of the secondary network to the <code>noProxy</code> section of the proxy configuration for the management cluster. Otherwise, the Kubernetes API server will route some API requests through the proxy. In the hosted cluster configuration, the CIDR of the secondary network is automatically added to the <code>noProxy</code> section.</p>
+<p>Specifically, you need to add the CIDR of the secondary network to the <code>noProxy</code> section of the proxy configuration for the management cluster. Otherwise, the Kubernetes API server will route some API requests through the proxy. In the hosted cluster configuration, the CIDR of the secondary network is automatically added to the <code>noProxy</code> section.</p>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
