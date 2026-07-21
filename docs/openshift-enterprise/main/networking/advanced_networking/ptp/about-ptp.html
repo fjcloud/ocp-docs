@@ -3403,6 +3403,13 @@
 <li><a href="#hardware-requirements_about-ptp">Hardware requirements</a></li>
 </ul>
 </li>
+<li><a href="#ptp-dual-ports-bc_about-ptp">High availability for PTP boundary clocks with dual time receiver ports</a>
+<ul class="sectlevel2">
+<li><a href="#ptp-dual-ports-bc-scenarios_about-ptp">Failover and recovery scenarios</a></li>
+<li><a href="#ptp-dual-ports-bc-hardware-requirements_about-ptp">Hardware requirements</a></li>
+<li><a href="#ptp-dual-ports-bc-limitations_about-ptp">Limitations</a></li>
+</ul>
+</li>
 <li><a href="#ptp-three-card-grandmaster_about-ptp">3-card Intel E810 PTP grandmaster clock</a></li>
 </ul>
 </div>
@@ -3840,6 +3847,71 @@ If any single SFP port or cable failure occurs, the boundary clock stays in sync
 </li>
 <li>
 <p>Use the latest supported NVIDIA drivers and firmware to ensure proper PTP support and to expose a single PHC per NIC.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ptp-dual-ports-bc_about-ptp"><a class="anchor" href="#ptp-dual-ports-bc_about-ptp"></a>High availability for PTP boundary clocks with dual time receiver ports</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>OpenShift Container Platform supports configuring two time receiver (TR) ports on the same network interface controller (NIC) for Precision Time Protocol (PTP) Telecom Boundary Clocks (T-BC), providing high availability by eliminating single points of failure in the upstream timing path.</p>
+</div>
+<div class="paragraph">
+<p>The dual time receiver port configuration uses the Alternate Best Master Clock Algorithm (A-BMCA) to manage port selection and failover. In normal operation, one TR port synchronizes to the upstream timing source while the second port remains in standby. If the active port fails or signal quality degrades, A-BMCA dynamically selects the best available path, ensuring continuous timing synchronization for downstream devices.</p>
+</div>
+<div class="paragraph">
+<p>The <code>PtpConfig</code> custom resource (CR) uses a two-profile architecture: one profile for the time receiver (TR) ports that synchronize from an upstream source, and a separate profile for the time transmitter (TT) port that distributes time downstream on a different PTP domain. Both TR ports share the same Physical Hardware Clock (PHC) on the NIC, so failover relies on A-BMCA reselection rather than switching between separate clock servos.</p>
+</div>
+<div class="sect2">
+<h3 id="ptp-dual-ports-bc-scenarios_about-ptp"><a class="anchor" href="#ptp-dual-ports-bc-scenarios_about-ptp"></a>Failover and recovery scenarios</h3>
+<div class="paragraph">
+<p>The following scenarios describe how the system responds to timing path disruptions:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Port failure</dt>
+<dd>
+<p>If the active upstream path experiences a packet time signal failure due to port failure, the boundary clock briefly enters holdover while the system reselects and resynchronizes to the second configured upstream path. The boundary clock finite state machine (FSM) transitions from <code>HOLDOVER</code> to <code>LOCKED</code> after the backup port reaches the <code>SLAVE</code> state.</p>
+</dd>
+<dt class="hdlist1">Signal degradation</dt>
+<dd>
+<p>If the active upstream path quality degrades below the quality of the standby upstream path, the system selects the best path according to the A-BMCA criterion.</p>
+</dd>
+<dt class="hdlist1">Holdover</dt>
+<dd>
+<p>If both upstream paths are lost, the T-BC enters holdover mode and maintains timing accuracy based on the local oscillator until holdover timeout expires.</p>
+</dd>
+<dt class="hdlist1">Recovery</dt>
+<dd>
+<p>When any upstream path returns and its clock quality is better than the local clock quality, the boundary clock briefly enters holdover during reselection, then recovers and resynchronizes to the upstream clock.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="ptp-dual-ports-bc-hardware-requirements_about-ptp"><a class="anchor" href="#ptp-dual-ports-bc-hardware-requirements_about-ptp"></a>Hardware requirements</h3>
+<div class="paragraph">
+<p>You can configure high availability for dual time receiver (TR) ports on nodes with Intel Westport Channel E810-XXVDA4T NICs for T-BC configurations.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="ptp-dual-ports-bc-limitations_about-ptp"><a class="anchor" href="#ptp-dual-ports-bc-limitations_about-ptp"></a>Limitations</h3>
+<div class="paragraph">
+<p>The dual time receiver port configuration has the following limitations:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Both receiver ports must belong to the same NIC. Configurations where dual receiver ports span across different NICs are not supported for this feature.</p>
+</li>
+<li>
+<p>The G.8275.2 profile is not supported with dual time receiver ports.</p>
+</li>
+<li>
+<p>Using a PTP port as a backup for a global navigation satellite system (GNSS) feed is not supported with this configuration.</p>
 </li>
 </ul>
 </div>

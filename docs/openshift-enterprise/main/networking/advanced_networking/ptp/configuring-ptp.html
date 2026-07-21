@@ -3412,6 +3412,9 @@
 <ul class="sectlevel2">
 <li><a href="#ptp-configuring-linuxptp-services-as-bc-for-dual-nic_configuring-ptp">Configuring linuxptp services as boundary clocks for dual-NIC hardware</a></li>
 <li><a href="#ptp-configuring-linuxptp-services-as-ha-bc-for-dual-nic_configuring-ptp">Configuring linuxptp as a highly available system clock for dual-NIC Intel E810 PTP boundary clocks</a></li>
+<li><a href="#ptp-configuring-linuxptp-services-dual-port-bc_configuring-ptp">Configuring PTP boundary clock high availability with dual time receiver ports</a></li>
+<li><a href="#ptp-verifying-dual-port-bc-failover_configuring-ptp">Verifying the dual-port PTP boundary clock failover configuration</a></li>
+<li><a href="#ptp-dual-port-bc-parameters-reference_configuring-ptp">PtpConfig CR parameters for dual-port boundary clock high availability</a></li>
 <li><a href="#nw-ptp-granite-rapids-boundary-clock-overview_configuring-ptp">Boundary clocks without holdover on Intel Granite Rapids-D hardware</a></li>
 <li><a href="#ptp-configuring-linuxptp-services-as-boundary-clock-gnrd_configuring-ptp">Configuring linuxptp services as a boundary clock without holdover on Intel Granite Rapids-D hardware</a></li>
 </ul>
@@ -8550,6 +8553,629 @@ I1115 09:41:17.117626 4143292 daemon.go:116] -----------------------------------
 </div>
 </div>
 <div class="sect2">
+<h3 id="ptp-configuring-linuxptp-services-dual-port-bc_configuring-ptp"><a class="anchor" href="#ptp-configuring-linuxptp-services-dual-port-bc_configuring-ptp"></a>Configuring PTP boundary clock high availability with dual time receiver ports</h3>
+<div class="paragraph _abstract">
+<p>You can configure a Precision Time Protocol (PTP) Telecom Boundary Clock (T-BC) with dual time receiver ports for high availability by creating a <code>PtpConfig</code> custom resource (CR). The Alternate Best Master Clock Algorithm (A-BMCA) provides automatic failover between upstream timing paths.</p>
+</div>
+<div class="paragraph">
+<p>The configuration uses two profiles: one for the time receiver (TR) ports that synchronize from an upstream source, and one for the time transmitter (TT) port that distributes time downstream on a separate PTP domain.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You are logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have installed the PTP Operator.</p>
+</li>
+<li>
+<p>Your node has a supported multi-port NIC where the ports share a single Physical Hardware Clock (PHC), such as the Intel Westport Channel E810-XXVDA4T.</p>
+</li>
+<li>
+<p>You have identified the interface names for the two ports on the same NIC that will serve as time receiver ports, as well as the interface that will serve as the leading interface for the NIC PHC.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Save the following <code>PtpConfig</code> CR definition in the <code>dual-port-tbc-ptp-config.yaml</code> file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">ptp.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PtpConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">t-bc</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-ptp</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">ran.openshift.io/ztp-deploy-wave</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">profile</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">tbc-tr</span>
+    <span class="na">phc2sysOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-r</span><span class="nv"> </span><span class="s">-n</span><span class="nv"> </span><span class="s">24</span><span class="nv"> </span><span class="s">-N</span><span class="nv"> </span><span class="s">8</span><span class="nv"> </span><span class="s">-R</span><span class="nv"> </span><span class="s">16</span><span class="nv"> </span><span class="s">-u</span><span class="nv"> </span><span class="s">0</span><span class="nv"> </span><span class="s">-m</span><span class="nv"> </span><span class="s">-s</span><span class="nv"> </span><span class="s">&lt;first_tr_interface&gt;"</span>
+    <span class="na">plugins</span><span class="pi">:</span>
+      <span class="na">e810</span><span class="pi">:</span>
+        <span class="na">enableDefaultConfig</span><span class="pi">:</span> <span class="no">false</span>
+        <span class="na">interconnections</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">gnssInput</span><span class="pi">:</span> <span class="no">false</span>
+            <span class="na">id</span><span class="pi">:</span> <span class="s">&lt;leading_interface&gt;</span>
+            <span class="na">part</span><span class="pi">:</span> <span class="s">E810-XXVDA4T</span>
+            <span class="na">phaseOutputConnectors</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s">SMA1</span>
+            <span class="na">upstreamPort</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;first_tr_interface&gt;,&lt;second_tr_interface&gt;"</span>
+        <span class="na">settings</span><span class="pi">:</span>
+          <span class="na">LocalHoldoverTimeout</span><span class="pi">:</span> <span class="m">14400</span>
+          <span class="na">LocalMaxHoldoverOffSet</span><span class="pi">:</span> <span class="m">1500</span>
+          <span class="na">MaxInSpecOffset</span><span class="pi">:</span> <span class="m">100</span>
+        <span class="na">pins</span><span class="pi">:</span>
+          <span class="s">&lt;leading_interface&gt;</span><span class="pi">:</span>
+            <span class="na">SMA1</span><span class="pi">:</span> <span class="s">2 </span><span class="m">1</span>
+            <span class="na">SMA2</span><span class="pi">:</span> <span class="s">2 </span><span class="m">2</span>
+            <span class="s">U.FL1</span><span class="pi">:</span> <span class="s">0 </span><span class="m">1</span>
+            <span class="s">U.FL2</span><span class="pi">:</span> <span class="s">0 </span><span class="m">2</span>
+    <span class="na">ptp4lConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">[&lt;first_tr_interface&gt;]</span>
+      <span class="s">masterOnly 0</span>
+      <span class="s">[&lt;second_tr_interface&gt;]</span>
+      <span class="s">masterOnly 0</span>
+      <span class="s">[global]</span>
+      <span class="s">#</span>
+      <span class="s"># Default Data Set</span>
+      <span class="s">#</span>
+      <span class="s">twoStepFlag 1</span>
+      <span class="s">slaveOnly 1</span>
+      <span class="s">priority1 128</span>
+      <span class="s">priority2 128</span>
+      <span class="s">domainNumber 24</span>
+      <span class="s">clockClass 248</span>
+      <span class="s">clockAccuracy 0xFE</span>
+      <span class="s">offsetScaledLogVariance 0xFFFF</span>
+      <span class="s">free_running 0</span>
+      <span class="s">freq_est_interval 1</span>
+      <span class="s">dscp_event 0</span>
+      <span class="s">dscp_general 0</span>
+      <span class="s">dataset_comparison G.8275.x</span>
+      <span class="s">G.8275.defaultDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Port Data Set</span>
+      <span class="s">#</span>
+      <span class="s">logAnnounceInterval -3</span>
+      <span class="s">logSyncInterval -4</span>
+      <span class="s">logMinDelayReqInterval -4</span>
+      <span class="s">logMinPdelayReqInterval -4</span>
+      <span class="s">announceReceiptTimeout 3</span>
+      <span class="s">syncReceiptTimeout 0</span>
+      <span class="s">delayAsymmetry 0</span>
+      <span class="s">fault_reset_interval -4</span>
+      <span class="s">neighborPropDelayThresh 20000000</span>
+      <span class="s">masterOnly 0</span>
+      <span class="s">G.8275.portDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Run time options</span>
+      <span class="s">#</span>
+      <span class="s">assume_two_step 0</span>
+      <span class="s">logging_level 6</span>
+      <span class="s">path_trace_enabled 0</span>
+      <span class="s">follow_up_info 0</span>
+      <span class="s">hybrid_e2e 0</span>
+      <span class="s">inhibit_multicast_service 0</span>
+      <span class="s">net_sync_monitor 0</span>
+      <span class="s">tc_spanning_tree 0</span>
+      <span class="s">tx_timestamp_timeout 50</span>
+      <span class="s">unicast_listen 0</span>
+      <span class="s">unicast_master_table 0</span>
+      <span class="s">unicast_req_duration 3600</span>
+      <span class="s">use_syslog 1</span>
+      <span class="s">verbose 0</span>
+      <span class="s">summary_interval 0</span>
+      <span class="s">kernel_leap 1</span>
+      <span class="s">check_fup_sync 0</span>
+      <span class="s">clock_class_threshold 135</span>
+      <span class="s">#</span>
+      <span class="s"># Servo Options</span>
+      <span class="s">#</span>
+      <span class="s">pi_proportional_const 0.60</span>
+      <span class="s">pi_integral_const 0.0003</span>
+      <span class="s">pi_proportional_scale 0.0</span>
+      <span class="s">pi_proportional_exponent -0.3</span>
+      <span class="s">pi_proportional_norm_max 0.7</span>
+      <span class="s">pi_integral_scale 0.0</span>
+      <span class="s">pi_integral_exponent 0.4</span>
+      <span class="s">pi_integral_norm_max 0.3</span>
+      <span class="s">step_threshold 2.0</span>
+      <span class="s">first_step_threshold 0.00002</span>
+      <span class="s">max_frequency 900000000</span>
+      <span class="s">clock_servo pi</span>
+      <span class="s">sanity_freq_limit 200000000</span>
+      <span class="s">ntpshm_segment 0</span>
+      <span class="s">#</span>
+      <span class="s"># Transport options</span>
+      <span class="s">#</span>
+      <span class="s">transportSpecific 0x0</span>
+      <span class="s">ptp_dst_mac 01:1B:19:00:00:00</span>
+      <span class="s">p2p_dst_mac 01:80:C2:00:00:0E</span>
+      <span class="s">udp_ttl 1</span>
+      <span class="s">udp6_scope 0x0E</span>
+      <span class="s">uds_address /var/run/ptp4l</span>
+      <span class="s">#</span>
+      <span class="s"># Default interface options</span>
+      <span class="s">#</span>
+      <span class="s">clock_type OC</span>
+      <span class="s">network_transport L2</span>
+      <span class="s">delay_mechanism E2E</span>
+      <span class="s">time_stamping hardware</span>
+      <span class="s">tsproc_mode filter</span>
+      <span class="s">delay_filter moving_median</span>
+      <span class="s">delay_filter_length 10</span>
+      <span class="s">egressLatency 0</span>
+      <span class="s">ingressLatency 0</span>
+      <span class="s">boundary_clock_jbod 0</span>
+    <span class="na">ptp4lOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-2</span><span class="nv"> </span><span class="s">--summary_interval</span><span class="nv"> </span><span class="s">-4"</span>
+    <span class="na">ptpSchedulingPolicy</span><span class="pi">:</span> <span class="s">SCHED_FIFO</span>
+    <span class="na">ptpSchedulingPriority</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">ptpSettings</span><span class="pi">:</span>
+      <span class="na">clockType</span><span class="pi">:</span> <span class="s2">"</span><span class="s">T-BC"</span>
+      <span class="na">inSyncConditionThreshold</span><span class="pi">:</span> <span class="s2">"</span><span class="s">10"</span>
+      <span class="na">inSyncConditionTimes</span><span class="pi">:</span> <span class="s2">"</span><span class="s">12"</span>
+      <span class="na">logReduce</span><span class="pi">:</span> <span class="s2">"</span><span class="s">false"</span>
+      <span class="na">leadingInterface</span><span class="pi">:</span> <span class="s">&lt;leading_interface&gt;</span>
+      <span class="na">upstreamPort</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;first_tr_interface&gt;,&lt;second_tr_interface&gt;"</span>
+    <span class="na">ts2phcConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">[global]</span>
+      <span class="s">use_syslog  0</span>
+      <span class="s">verbose 1</span>
+      <span class="s">logging_level 7</span>
+      <span class="s">ts2phc.pulsewidth 100000000</span>
+      <span class="s">leapfile  /usr/share/zoneinfo/leap-seconds.list</span>
+      <span class="s">domainNumber 24</span>
+      <span class="s">uds_address /var/run/ptp4l.0.socket</span>
+      <span class="s">[&lt;leading_interface&gt;]</span>
+      <span class="s">ts2phc.extts_polarity rising</span>
+      <span class="s">ts2phc.pin_index 1</span>
+      <span class="s">ts2phc.extts_correction -10</span>
+      <span class="s">ts2phc.master 0</span>
+    <span class="na">ts2phcOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-s</span><span class="nv"> </span><span class="s">generic</span><span class="nv"> </span><span class="s">-a</span><span class="nv"> </span><span class="s">--ts2phc.rh_external_pps</span><span class="nv"> </span><span class="s">1"</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">tbc-tt</span>
+    <span class="na">ptp4lConf</span><span class="pi">:</span> <span class="pi">|</span>
+      <span class="s">[&lt;tt_interface&gt;]</span>
+      <span class="s">masterOnly 1</span>
+      <span class="s">[global]</span>
+      <span class="s">#</span>
+      <span class="s"># Default Data Set</span>
+      <span class="s">#</span>
+      <span class="s">twoStepFlag 1</span>
+      <span class="s">slaveOnly 0</span>
+      <span class="s">priority1 128</span>
+      <span class="s">priority2 128</span>
+      <span class="s">domainNumber 25</span>
+      <span class="s"># ... remaining Port Data Set, Run time, Servo, and Transport options</span>
+      <span class="s"># are the same as the tbc-tr profile ...</span>
+      <span class="s">dataset_comparison G.8275.x</span>
+      <span class="s">G.8275.defaultDS.localPriority 128</span>
+      <span class="s">#</span>
+      <span class="s"># Default interface options</span>
+      <span class="s">#</span>
+      <span class="s">clock_type OC</span>
+      <span class="s">network_transport L2</span>
+      <span class="s">delay_mechanism E2E</span>
+      <span class="s">time_stamping hardware</span>
+      <span class="s">tsproc_mode filter</span>
+      <span class="s">delay_filter moving_median</span>
+      <span class="s">delay_filter_length 10</span>
+      <span class="s">egressLatency 0</span>
+      <span class="s">ingressLatency 0</span>
+      <span class="s">boundary_clock_jbod 0</span>
+    <span class="na">ptp4lOpts</span><span class="pi">:</span> <span class="s2">"</span><span class="s">-2</span><span class="nv"> </span><span class="s">--summary_interval</span><span class="nv"> </span><span class="s">-4"</span>
+    <span class="na">ptpSchedulingPolicy</span><span class="pi">:</span> <span class="s">SCHED_FIFO</span>
+    <span class="na">ptpSchedulingPriority</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">ptpSettings</span><span class="pi">:</span>
+      <span class="na">controllingProfile</span><span class="pi">:</span> <span class="s">tbc-tr</span>
+      <span class="na">logReduce</span><span class="pi">:</span> <span class="s2">"</span><span class="s">false"</span>
+  <span class="na">recommend</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">match</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">nodeLabel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">node-role.kubernetes.io/&lt;mcp&gt;"</span>
+    <span class="na">priority</span><span class="pi">:</span> <span class="m">4</span>
+    <span class="na">profile</span><span class="pi">:</span> <span class="s">tbc-tr</span>
+  <span class="pi">-</span> <span class="na">match</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">nodeLabel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">node-role.kubernetes.io/&lt;mcp&gt;"</span>
+    <span class="na">priority</span><span class="pi">:</span> <span class="m">4</span>
+    <span class="na">profile</span><span class="pi">:</span> <span class="s">tbc-tt</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;first_tr_interface&gt;</code></dt>
+<dd>
+<p>Specifies the first time receiver port interface name on the NIC. For example, <code>ens2f1</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;second_tr_interface&gt;</code></dt>
+<dd>
+<p>Specifies the second time receiver port interface name on the same NIC. For example, <code>ens2f3</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;leading_interface&gt;</code></dt>
+<dd>
+<p>Specifies the first port on the NIC, used as the leading interface for the PHC and phase output. For example, <code>ens2f0</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;tt_interface&gt;</code></dt>
+<dd>
+<p>Specifies the time transmitter port interface that distributes synchronized time downstream. For example, <code>ens2f2</code>.</p>
+</dd>
+<dt class="hdlist1"><code>phc2sysOpts: "-r -n 24 -N 8 -R 16 -u 0 -m -s &lt;first_tr_interface&gt;"</code></dt>
+<dd>
+<p>Specifies the <code>phc2sys</code> options for system clock synchronization. The <code>-s</code> flag sets the first time receiver port as the clock source, which also covers the backup port automatically during failover.</p>
+</dd>
+<dt class="hdlist1"><code>plugins.e810</code></dt>
+<dd>
+<p>Specifies the Intel E810 hardware plugin configuration, including pin assignments, holdover settings, and the upstream port list for dual time receiver operation.</p>
+</dd>
+<dt class="hdlist1"><code>ptpSettings.upstreamPort</code></dt>
+<dd>
+<p>Specifies both time receiver interfaces as a comma-separated list. This tells the PTP Operator which ports participate in the dual time receiver failover.</p>
+</dd>
+<dt class="hdlist1"><code>ptpSettings.leadingInterface</code></dt>
+<dd>
+<p>Specifies the leading interface on the NIC for PHC timing coordination.</p>
+</dd>
+<dt class="hdlist1"><code>domainNumber 25</code> (TT profile)</dt>
+<dd>
+<p>Specifies a different PTP domain for the time transmitter profile. The TT profile distributes time on a separate domain from the upstream TR domain.</p>
+</dd>
+<dt class="hdlist1"><code>controllingProfile: tbc-tr</code></dt>
+<dd>
+<p>Specifies that the time transmitter profile is controlled by the time receiver profile.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;mcp&gt;</code></dt>
+<dd>
+<p>Specifies the machine config pool label that selects the target nodes for this configuration.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Create the <code>PtpConfig</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> dual-port-tbc-ptp-config.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the PTP Operator has applied the <code>PtpConfig</code> profiles by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ptpconfig <span class="nt">-n</span> openshift-ptp</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME   AGE
+t-bc   10s</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="ptp-verifying-dual-port-bc-failover_configuring-ptp"><a class="anchor" href="#ptp-verifying-dual-port-bc-failover_configuring-ptp"></a>Verifying the dual-port PTP boundary clock failover configuration</h3>
+<div class="paragraph _abstract">
+<p>After configuring a dual time receiver port Precision Time Protocol (PTP) boundary clock, you can verify that automatic failover works correctly by checking port states and simulating a failure on the active upstream path.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have configured a dual time receiver port boundary clock as described in "Configuring PTP boundary clock high availability with dual time receiver ports".</p>
+</li>
+<li>
+<p>The PTP boundary clock is running and synchronized to an upstream timing source.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Identify the <code>linuxptp-daemon</code> pod on the target node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-ptp <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                            READY   STATUS    RESTARTS   AGE   IP               NODE
+linuxptp-daemon-4xkbb           1/1     Running   0          43m   10.1.196.24      compute-0.example.com
+ptp-operator-657bbb64c8-2f8sj   1/1     Running   0          43m   10.129.0.61      control-plane-1.example.com</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the PTP Operator logs to identify which port is active and which is in standby by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs &lt;linuxptp_daemon_pod&gt; <span class="nt">-n</span> openshift-ptp <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"port.*SLAVE|MASTER_CLOCK_SELECTED|LOCKED"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">ptp4l[1000.100]: port 1 (ens2f1): UNCALIBRATED to SLAVE on MASTER_CLOCK_SELECTED
+ptp4l[1000.200]: BC FSM: HOLDOVER to LOCKED</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In this example, <code>ens2f1</code> is the active time receiver port in the <code>SLAVE</code> state and the boundary clock finite state machine (FSM) has reached the <code>LOCKED</code> state.</p>
+</div>
+</li>
+<li>
+<p>Simulate a failure on the active path by shutting down the active time receiver port. Run the following command on the target node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host ip <span class="nb">link set</span> &lt;active_interface&gt; down</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Monitor the PTP Operator logs to verify that the standby port transitions to active by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-f</span> &lt;linuxptp_daemon_pod&gt; <span class="nt">-n</span> openshift-ptp <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"SLAVE|FAULTY|HOLDOVER|LOCKED|UNCALIBRATED"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">ptp4l[1500.300]: port 1 (ens2f1): SLAVE to FAULTY on FAULT_DETECTED
+ptp4l[1500.400]: BC FSM: T-BC MOVE TO HOLDOVER
+ptp4l[1500.500]: port 2 (ens2f3): UNCALIBRATED to SLAVE on MASTER_CLOCK_SELECTED
+ptp4l[1515.600]: BC FSM: HOLDOVER to LOCKED</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output confirms that the active port (<code>ens2f1</code>) enters the <code>FAULTY</code> state, the boundary clock briefly enters <code>HOLDOVER</code>, and the standby port (<code>ens2f3</code>) transitions to <code>SLAVE</code>. After approximately 15 seconds, the boundary clock FSM returns to the <code>LOCKED</code> state.</p>
+</div>
+</li>
+<li>
+<p>Restore the original active port by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host ip <span class="nb">link set</span> &lt;active_interface&gt; up</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the boundary clock reselects the restored port and returns to the <code>LOCKED</code> state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs &lt;linuxptp_daemon_pod&gt; <span class="nt">-n</span> openshift-ptp <span class="nt">-c</span> linuxptp-daemon-container | <span class="nb">tail</span> <span class="nt">-20</span> | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s2">"SLAVE|HOLDOVER|LOCKED"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">ptp4l[1570.100]: BC FSM: T-BC MOVE TO HOLDOVER
+ptp4l[1570.200]: port 1 (ens2f1): UNCALIBRATED to SLAVE on MASTER_CLOCK_SELECTED
+ptp4l[1585.300]: BC FSM: HOLDOVER to LOCKED</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output confirms that the boundary clock briefly enters <code>HOLDOVER</code> during reselection, the original port returns to <code>SLAVE</code>, and the FSM reaches <code>LOCKED</code> again after approximately 15 seconds.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="ptp-dual-port-bc-parameters-reference_configuring-ptp"><a class="anchor" href="#ptp-dual-port-bc-parameters-reference_configuring-ptp"></a>PtpConfig CR parameters for dual-port boundary clock high availability</h3>
+<div class="paragraph _abstract">
+<p>The following tables describe the <code>PtpConfig</code> custom resource (CR) parameters that are specific to configuring dual time receiver port high availability for Precision Time Protocol (PTP) Telecom Boundary Clocks (T-BC) on Intel Westport Channel E810-XXVDA4T NICs.</p>
+</div>
+<div class="paragraph">
+<p>The T-BC configuration uses two profiles: a time receiver (TR) profile that synchronizes from upstream sources, and a time transmitter (TT) profile that distributes time downstream on a separate PTP domain.</p>
+</div>
+<div class="sect3">
+<h4 id="ptp-dual-port-bc-tr-profile-reference_configuring-ptp"><a class="anchor" href="#ptp-dual-port-bc-tr-profile-reference_configuring-ptp"></a>Time receiver profile parameters</h4>
+<div class="paragraph">
+<p>The following table describes the time receiver (TR) profile parameters used in the dual-port high availability configuration.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 8. Time receiver (TR) profile parameters for dual-port high availability</caption>
+<colgroup>
+<col style="width: 30%;">
+<col style="width: 20%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>phc2sysOpts</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"-r -n 24 -N 8 -R 16 -u 0 -m -s &lt;first_tr_interface&gt;"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the <code>phc2sys</code> options for system clock synchronization. The <code>-s</code> flag sets the first time receiver port as the clock source. During failover, synchronization continues automatically through the backup port without changing this configuration.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>plugins.e810.interconnections.upstreamPort</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"&lt;first_tr_interface&gt;,&lt;second_tr_interface&gt;"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies both time receiver port interfaces as a comma-separated list in the E810 plugin configuration. This enables the PTP Operator to manage failover between the two upstream ports.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>plugins.e810.settings.LocalHoldoverTimeout</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>14400</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the holdover timeout in seconds. The NIC maintains timing accuracy for this duration when both upstream paths are lost.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>plugins.e810.settings.LocalMaxHoldoverOffSet</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1500</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the maximum acceptable offset in nanoseconds during holdover before the clock is considered out of specification.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>plugins.e810.settings.MaxInSpecOffset</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>100</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the maximum offset in nanoseconds that the clock tolerates while in the locked state.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptp4lConf</code> interface sections</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>[&lt;interface&gt;]</code> entries with <code>masterOnly 0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies two interfaces on the same NIC as time receiver ports. Set <code>masterOnly 0</code> for each time receiver port so that both ports can synchronize from an upstream clock.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>slaveOnly</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures the TR profile to operate only as a time receiver. The profile does not distribute time downstream.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>boundary_clock_jbod</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Must remain <code>0</code> for dual-port configurations where both ports share the same Physical Hardware Clock (PHC). Setting this to <code>1</code> causes <code>ptp4l</code> to re-create the clock servo state on failover.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dataset_comparison</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>G.8275.x</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the data set comparison algorithm. The <code>G.8275.x</code> value enables the Alternate Best Master Clock Algorithm (A-BMCA) for selecting the best time source among the receiver ports.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptpSettings.clockType</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"T-BC"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies that the node operates as a Telecom Boundary Clock.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptpSettings.leadingInterface</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&lt;leading_interface&gt;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the first port on the NIC, used for PHC timing coordination and phase output.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptpSettings.upstreamPort</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"&lt;first_tr_interface&gt;,&lt;second_tr_interface&gt;"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies both time receiver interfaces as a comma-separated list for the PTP Operator failover management.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="ptp-dual-port-bc-tt-profile-reference_configuring-ptp"><a class="anchor" href="#ptp-dual-port-bc-tt-profile-reference_configuring-ptp"></a>Time transmitter profile parameters</h4>
+<div class="paragraph">
+<p>The following table describes the time transmitter (TT) profile parameters used in the dual-port high availability configuration.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 9. Time transmitter (TT) profile parameters</caption>
+<colgroup>
+<col style="width: 30%;">
+<col style="width: 20%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>domainNumber</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>25</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies a PTP domain that is different from the TR profile domain. The TT profile distributes time on a separate domain from the upstream source.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>slaveOnly</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Allows the TT profile to operate as a time transmitter, distributing time to downstream devices.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>masterOnly</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1</code> (interface section)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures the TT interface to transmit time only.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ptpSettings.controllingProfile</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>tbc-tr</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the TR profile name that controls this TT profile. The TT profile follows the clock state of the TR profile.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="ptp-dual-port-bc-phc2sys-reference_configuring-ptp"><a class="anchor" href="#ptp-dual-port-bc-phc2sys-reference_configuring-ptp"></a>phc2sysOpts parameter reference</h4>
+<div class="paragraph">
+<p>The following table describes the individual <code>phc2sys</code> flags used in the dual time receiver port configuration.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 10. phc2sys flags for dual time receiver port high availability</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 80%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Flag</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>-r</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Synchronizes the system clock from the PTP hardware clock.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>-n 24</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the PTP domain number. This value must match the <code>domainNumber</code> in the TR profile <code>ptp4lConf</code> section.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>-N 8</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the number of controller updates per clock update for the servo filter.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>-R 16</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the rate of system clock synchronization updates per second.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>-u 0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the number of clock updates for which the servo must remain in a locked state before the clock is considered synchronized. A value of <code>0</code> disables this check.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>-m</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Prints messages to <code>stdout</code>. This flag enables log output for monitoring the <code>phc2sys</code> process.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>-s &lt;first_tr_interface&gt;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the first time receiver port as the clock source for <code>phc2sys</code>. During failover, synchronization continues automatically through the backup port because both ports share the same PHC on the NIC.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../networking/advanced_networking/ptp/about-ptp.html#ptp-dual-ports-bc_about-ptp">High availability for PTP boundary clocks with dual time receiver ports</a></p>
+</li>
+<li>
+<p><a href="../../../networking/advanced_networking/ptp/configuring-ptp.html#configuring-linuxptp-services-as-boundary-clock_configuring-ptp">Configuring linuxptp services as a boundary clock</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect2">
 <h3 id="nw-ptp-granite-rapids-boundary-clock-overview_configuring-ptp"><a class="anchor" href="#nw-ptp-granite-rapids-boundary-clock-overview_configuring-ptp"></a>Boundary clocks without holdover on Intel Granite Rapids-D hardware</h3>
 <div class="paragraph _abstract">
 <p>Intel Granite Rapids-D (GNR-D) server platforms support Precision Time Protocol (PTP) boundary clock (BC) deployments without holdover for high-density Radio Access Network (RAN) sites that use onboard Network Acceleration Complex (NAC) ports and optional Carter Flat expansion network interface cards (NICs).</p>
@@ -9256,7 +9882,7 @@ See "Configuring the PTP fast event notifications publisher" for more informatio
 </div>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 8. PTP ordinary clock CR configuration options</caption>
+<caption class="title">Table 11. PTP ordinary clock CR configuration options</caption>
 <colgroup>
 <col style="width: 25%;">
 <col style="width: 75%;">
@@ -9418,7 +10044,7 @@ I1115 09:41:17.117626 4143292 daemon.go:116] -----------------------------------
 <p>The following table describes the changes that you must make to the reference PTP configuration to use Intel Columbiaville E800 series NICs as ordinary clocks. Make the changes in a <code>PtpConfig</code> custom resource (CR) that you apply to the cluster.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 9. Recommended PTP settings for Intel Columbiaville NIC</caption>
+<caption class="title">Table 12. Recommended PTP settings for Intel Columbiaville NIC</caption>
 <colgroup>
 <col style="width: 50%;">
 <col style="width: 50%;">
@@ -11779,7 +12405,7 @@ Use the binary value to decode the firmware version.
 For example:</p>
 </div>
 <table class="tableblock frame-all grid-all" style="width: 90%;">
-<caption class="title">Table 10. DPLL firmware version</caption>
+<caption class="title">Table 13. DPLL firmware version</caption>
 <colgroup>
 <col style="width: 33.3333%;">
 <col style="width: 66.6667%;">
