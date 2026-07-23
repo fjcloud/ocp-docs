@@ -1280,6 +1280,12 @@
         <div id="toc" class="toc">
 <div id="toctitle"></div>
 <ul class="sectlevel1">
+<li><a href="#oadp-1-6-1-release-notes_oadp-1-6-release-notes">OADP 1.6.1 release notes</a>
+<ul class="sectlevel2">
+<li><a href="#resolved-issues-1-6-1_oadp-1-6-release-notes">Resolved issues</a></li>
+<li><a href="#known-issues-1-6-1_oadp-1-6-release-notes">Known issues</a></li>
+</ul>
+</li>
 <li><a href="#oadp-1-6-0-release-notes_oadp-1-6-release-notes">OADP 1.6.0 release notes</a>
 <ul class="sectlevel2">
 <li><a href="#new-features-1-6-0_oadp-1-6-release-notes">New features</a></li>
@@ -1311,6 +1317,107 @@
 </td>
 </tr>
 </table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="oadp-1-6-1-release-notes_oadp-1-6-release-notes"><a class="anchor" href="#oadp-1-6-1-release-notes_oadp-1-6-release-notes"></a>OADP 1.6.1 release notes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>OpenShift API for Data Protection (OADP) 1.6.1 release notes list resolved and known issues.</p>
+</div>
+<div class="paragraph">
+<p>The following Red Hat Security Advisory (RHSA) is available for OADP 1.6.1:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://access.redhat.com/errata/RHSA-2026:43692">RHSA-2026:43692 - New version of Red&#160;Hat OpenShift API for Data Protection</a></p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="resolved-issues-1-6-1_oadp-1-6-release-notes"><a class="anchor" href="#resolved-issues-1-6-1_oadp-1-6-release-notes"></a>Resolved issues</h3>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">OADP CLI no longer exposes the namespace flag for non-admin operations</dt>
+<dd>
+<p>Before this update, the OADP command-line interface (CLI) exposed the global <code>--namespace</code> or <code>-n</code> flag in the help output of all <code>oc oadp nonadmin</code> commands, even though non-admin operations do not support namespace selection because of multi-tenancy boundaries. As a consequence, if you specified the namespace flag during a non-admin backup or restore operation, the CLI ignored the provided value and used the active <code>oc project</code> context instead, potentially creating resources in an unintended namespace.</p>
+<div class="paragraph">
+<p>With this update, the <code>--namespace</code> flag is hidden from all <code>oc oadp nonadmin</code> subcommands so that it is no longer displayed in the help output and does not accept user input for non-admin operations. As a result, non-admin CLI commands operate correctly only within your current project context, which eliminates the risk of namespace mismatch.</p>
+</div>
+<div class="paragraph">
+<p><a href="https://redhat.atlassian.net/browse/OADP-7955">OADP-7955</a></p>
+</div>
+</dd>
+<dt class="hdlist1">Wildcard handling for <code>excludedClusterScopedResources</code> no longer causes validation failures</dt>
+<dd>
+<p>Before this update, the OADP Operator incorrectly appended default resources to <code>excludedClusterScopedResources</code> in the <code>NonAdminBackup</code> custom resource (CR) when a wildcard (<code>*</code>) was present. As a consequence, <code>FailedValidation</code> errors occurred when you excluded all cluster-scoped resources. With this update, the Operator correctly handles the wildcard without appending default resources. As a result, validation failures no longer occur when you use a wildcard to exclude cluster-scoped resources.</p>
+<div class="paragraph">
+<p><a href="https://redhat.atlassian.net/browse/OADP-7897">OADP-7897</a></p>
+</div>
+</dd>
+<dt class="hdlist1"><code>VolumePolicy</code> support for phase conditions to allow skipping PVCs</dt>
+<dd>
+<p>Before this update, OADP volume policies lacked the capability to evaluate and filter persistent volume claims (PVCs) based on their lifecycle status phase. As a consequence, backups could trigger unwanted warnings or errors for unbound or pending PVCs that you excluded, such as in scaled-down serverless environments.</p>
+<div class="paragraph">
+<p>With this update, volume policy actions have been improved to natively support the phase condition of PVCs. As a result, you can define custom volume policies in your <code>ConfigMap</code> object to automatically skip pending or unbound PVCs during backup operations. For example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">volume-policy</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">velero</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="s">policy.yaml</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">version: v1</span>
+    <span class="s">volumePolicies:</span>
+    <span class="s">- conditions:</span>
+        <span class="s">pvcPhase: ["Pending", "Lost"]</span>
+      <span class="s">action:</span>
+        <span class="s">type: skip</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><a href="https://redhat.atlassian.net/browse/OADP-6428">OADP-6428</a></p>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="known-issues-1-6-1_oadp-1-6-release-notes"><a class="anchor" href="#known-issues-1-6-1_oadp-1-6-release-notes"></a>Known issues</h3>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>CloudStorage</code> bucket creation fails on Google Cloud with WIF authentication</dt>
+<dd>
+<p>When you configure <code>CloudStorage</code> on OpenShift clusters on Google Cloud by using Workload Identity Federation (WIF) authentication, the <code>CloudStorage</code> resource fails to detect that a Google Cloud bucket does not exist. As a consequence, the resource returns a <code>BucketCheckError</code> condition and prevents automatic bucket creation.</p>
+<div class="paragraph">
+<p>To work around this problem, use an existing Google Cloud bucket when configuring <code>CloudStorage</code> on OpenShift clusters on Google Cloud using Workload Identity Federation (WIF) authentication. As a result, the controller skips bucket creation and proceeds with the existing bucket for backup storage.</p>
+</div>
+<div class="paragraph">
+<p><a href="https://redhat.atlassian.net/browse/OADP-8085">OADP-8085</a></p>
+</div>
+</dd>
+<dt class="hdlist1">Non-admin backups of ODF encrypted volumes fail with OADP</dt>
+<dd>
+<p>When the OADP Data Mover backs up an encrypted Red&#160;Hat OpenShift Data Foundation (ODF) volume, it creates a temporary persistent volume claim (PVC) in the <code>openshift-adp</code> namespace. The ceph-csi driver then attempts to fetch the <code>ceph-csi-kms-token</code> secret from the <code>openshift-adp</code> namespace instead of the original application namespace that contains the secret. As a consequence, the <code>NonAdminBackup</code> custom resource (CR) fails with an error similar to the following output:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="nowrap">openshift-adp   2h11m       Warning   ProvisioningFailed     persistentvolumeclaim/NAMESPACE-rh-cf00000c-0000-0000-0000-22abf391t6dr   failed to provision volume with StorageClass "ocs-storagecluster-ceph-rbd-encrypted": rpc error: code = InvalidArgument desc = invalid encryption kms configuration: failed fetching token from openshift-adp/ceph-csi-kms-token: secrets "ceph-csi-kms-token" not found</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To work around this problem, copy <code>ceph-csi-kms-token</code> and the associated Key Management Service (KMS) config map from the application namespace to <code>openshift-adp</code> before running the backup. As a result, the ceph-csi driver can locate the encryption credentials and the backup completes successfully.</p>
+</div>
+<div class="paragraph">
+<p><a href="https://redhat.atlassian.net/browse/OADP-7972">OADP-7972</a></p>
+</div>
+</dd>
+</dl>
+</div>
 </div>
 </div>
 </div>
