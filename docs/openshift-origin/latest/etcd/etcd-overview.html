@@ -2840,8 +2840,20 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#how-etcd-works_etcd-overview">How etcd works</a></li>
-<li><a href="#understand-etcd-performance_etcd-overview">Understanding etcd performance</a></li>
+<li><a href="#understand-etcd-performance_etcd-overview">Factors that affect etcd performance</a>
+<ul class="sectlevel2">
+<li><a href="#etcd-perf-disk-latency_etcd-overview">Effects of disk latency on etcd</a></li>
+<li><a href="#etcd-perf-network-latency-jitter_etcd-overview">Effects of network latency and jitter on etcd</a></li>
+<li><a href="#etcd-perf-consensus-latency_etcd-overview">Effects of consensus latency on etcd</a></li>
+<li><a href="#etcd-perf-rtt_etcd-overview">etcd peer round-trip time impacts on performance</a></li>
+<li><a href="#etcd-perf-db-size_etcd-overview">Effects of database size on etcd</a></li>
+<li><a href="#etcd-perf-kube-api_etcd-overview">Effects of the Kubernetes API transaction rate on etcd</a></li>
 </ul>
+</li>
+</ul>
+</div>
+<div class="paragraph _abstract">
+<p>etcd is the primary Kubernetes data store on OKD. Knowing how disk, network, and consensus latency affect etcd helps you keep the control plane reliable.</p>
 </div>
 <div class="paragraph">
 <p>etcd (pronounced et-see-dee) is a consistent, distributed key-value store that stores small amounts of data across a cluster of machines that can fit entirely in memory. As the core component of many projects, etcd is also the primary data store for Kubernetes, which is the standard system for container orchestration.</p>
@@ -2881,6 +2893,9 @@
 <div class="sect1">
 <h2 id="how-etcd-works_etcd-overview"><a class="anchor" href="#how-etcd-works_etcd-overview"></a>How etcd works</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The etcd Operator deploys and manages the etcd cluster for the OKD control plane by observing state, analyzing differences, and correcting drift.</p>
+</div>
 <div class="paragraph">
 <p>To ensure a reliable approach to cluster configuration and management, etcd uses the etcd Operator. The Operator simplifies the use of etcd on a Kubernetes container platform such as OKD.</p>
 </div>
@@ -2925,8 +2940,11 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="understand-etcd-performance_etcd-overview"><a class="anchor" href="#understand-etcd-performance_etcd-overview"></a>Understanding etcd performance</h2>
+<h2 id="understand-etcd-performance_etcd-overview"><a class="anchor" href="#understand-etcd-performance_etcd-overview"></a>Factors that affect etcd performance</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Disk latency, network latency and jitter, consensus delay, database size, and Kubernetes API transaction rate all influence etcd reliability on OKD.</p>
+</div>
 <div class="paragraph">
 <p>As a consistent distributed key-value store operating as a cluster of replicated nodes, etcd follows the Raft algorithm by electing one node as the leader and the others as followers. The leader maintains the current state of the system current state and ensures that the followers are up-to-date.</p>
 </div>
@@ -2940,35 +2958,34 @@
 <p>When the etcd client requests an action from the leader that requires a quorum, such as writing a value, the leader maintains the client connection open while it writes the local Raft log, broadcasts the log to the followers, and waits for the majority of the followers to acknowledge to have committed the log without failures. The leader sends the acknowledgment to the etcd client and closes the session. If failure notifications are received from the followers and a consensus is not met, the leader returns the error message to the client and closes the session.</p>
 </div>
 <div class="paragraph">
-<div class="title">OKD timer conditions for etcd</div>
 <p>OKD maintains etcd timers that are optimized for each platform. OKD has prescribed validated values that are optimized for each platform provider. The default <code>etcd timers</code> parameters with <code>platform=none</code> or <code>platform=metal</code> values are as follows:</p>
 </div>
 <div class="listingblock">
+<div class="title">OKD timer conditions for etcd</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ETCD_ELECTION_TIMEOUT</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ETCD_ELECTION_TIMEOUT</span>
   <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000"</span>
   <span class="s">...</span>
-<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ETCD_HEARTBEAT_INTERVAL</span> <i class="conum" data-value="2"></i><b>(2)</b>
+<span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ETCD_HEARTBEAT_INTERVAL</span>
   <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">100"</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>This timeout is how long a follower node waits without hearing a heartbeat before it attempts to become the leader.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>The frequency that the leader notifies followers that it is still the leader.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>ETCD_ELECTION_TIMEOUT</code> specifies how long a follower node waits without hearing a heartbeat before it attempts to become the leader.</p>
+</li>
+<li>
+<p><code>ETCD_HEARTBEAT_INTERVAL</code> specifies the frequency that the leader notifies followers that it is still the leader.</p>
+</li>
+</ul>
 </div>
 <div class="paragraph">
 <p>These parameters do not provide all of the information for the control plane or for etcd. An etcd cluster is sensitive to disk latencies. Because etcd must persist proposals to its log, disk activity from other processes might cause long <code>fsync</code> latencies. The consequence is that etcd might miss heartbeats, causing request timeouts and temporary leader loss. During a leader loss and reelection, the Kubernetes API cannot process any request that causes a service-affecting event and instability of the cluster.</p>
 </div>
+<div class="sect2">
+<h3 id="etcd-perf-disk-latency_etcd-overview"><a class="anchor" href="#etcd-perf-disk-latency_etcd-overview"></a>Effects of disk latency on etcd</h3>
 <div class="paragraph">
-<div class="title">Effects of disk latency on etcd</div>
 <p>An etcd cluster is sensitive to disk latencies. To understand the disk latency that etcd experiences by etcd in your control plane environment, run the Flexible I/O Tester (fio) tests or suite, to check etcd disk performance in OKD.</p>
 </div>
 <div class="admonitionblock important">
@@ -3008,8 +3025,10 @@
 <div class="paragraph">
 <p>When your cluster deployments span many data centers that are using disks for etcd that do not meet the suggested latency, service-affecting failures can occur. In addition, the network latency that the control plane can sustain is dramatically reduced.</p>
 </div>
+</div>
+<div class="sect2">
+<h3 id="etcd-perf-network-latency-jitter_etcd-overview"><a class="anchor" href="#etcd-perf-network-latency-jitter_etcd-overview"></a>Effects of network latency and jitter on etcd</h3>
 <div class="paragraph">
-<div class="title">Effects of network latency and jitter on etcd</div>
 <p>Use the tools that are described in the maximum transmission unit (MTU) discovery and validation section to obtain the average and maximum network latency.</p>
 </div>
 <div class="paragraph">
@@ -3024,26 +3043,32 @@
 <div class="paragraph">
 <p>For example, a network with a maximum latency of 80 ms and jitter of 30 ms will experience latencies of 110 ms, which means etcd will miss heartbeats. This condition results in request timeouts and temporary leader loss. During a leader loss and re-election, the Kubernetes API cannot process any request that causes a service-affecting event and instability of the cluster.</p>
 </div>
+</div>
+<div class="sect2">
+<h3 id="etcd-perf-consensus-latency_etcd-overview"><a class="anchor" href="#etcd-perf-consensus-latency_etcd-overview"></a>Effects of consensus latency on etcd</h3>
 <div class="paragraph">
-<div class="title">Effects of consensus latency on etcd</div>
 <p>The procedure can run only on an active cluster. The disk or network test should be completed while you plan a cluster deployment. That test validates and monitors cluster health after a deployment.</p>
 </div>
 <div class="paragraph">
 <p>By using the <code>etcdctl</code> CLI, you can watch the latency for reaching consensus as experienced by etcd. You must identify one of the etcd pods and then retrieve the endpoint health.</p>
 </div>
+</div>
+<div class="sect2">
+<h3 id="etcd-perf-rtt_etcd-overview"><a class="anchor" href="#etcd-perf-rtt_etcd-overview"></a>etcd peer round-trip time impacts on performance</h3>
 <div class="paragraph">
-<div class="title">etcd peer round trip time impacts on performance</div>
-<p>The etcd peer round trip time is not the same as the network round trip time. This calculation is an end-to-end test metric about how quickly replication can occur among members.</p>
+<p>The etcd peer round- trip time (RTT) is not the same as the network RTT. This calculation is an end-to-end test metric about how quickly replication can occur among members.</p>
 </div>
 <div class="paragraph">
-<p>The etcd peer round trip time is the metric that shows the latency of etcd to finish replicating a client request among all the etcd members.
+<p>The etcd peer RTT is the metric that shows the latency of etcd to finish replicating a client request among all the etcd members.
 The OKD console provides dashboards to visualize the various etcd metrics. In the console, click <strong>Observe</strong> &#8594; <strong>Dashboards</strong>.  From the dropdown list, select <strong>etcd</strong>.</p>
 </div>
 <div class="paragraph">
-<p>A plot that summarizes the etcd peer round trip time is near the end of the etcd <strong>Dashboard</strong> page.</p>
+<p>A plot that summarizes the etcd peer RTT is near the end of the etcd <strong>Dashboard</strong> page.</p>
 </div>
+</div>
+<div class="sect2">
+<h3 id="etcd-perf-db-size_etcd-overview"><a class="anchor" href="#etcd-perf-db-size_etcd-overview"></a>Effects of database size on etcd</h3>
 <div class="paragraph">
-<div class="title">Effects of database size on etcd</div>
 <p>The etcd database size has a direct impact on the time to complete the etcd defragmentation process. OKD automatically runs the etcd defragmentation on one etcd member at a time when it detects at least 45% fragmentation. During the defragmentation process, the etcd member cannot process any requests. On small etcd databases, the defragmentation process happens in less than a second. With larger etcd databases, the disk latency directly impacts the fragmentation time, causing additional latency, as operations are blocked while defragmentation happens.</p>
 </div>
 <div class="paragraph">
@@ -3091,13 +3116,15 @@ https://198.18.111.13:2379, 3.5.6, 1.1 GB
 https://198.18.111.14:2379, 3.5.6, 1.1 GB</span></code></pre>
 </div>
 </div>
+</div>
+<div class="sect2">
+<h3 id="etcd-perf-kube-api_etcd-overview"><a class="anchor" href="#etcd-perf-kube-api_etcd-overview"></a>Effects of the Kubernetes API transaction rate on etcd</h3>
 <div class="paragraph">
-<div class="title">Effects of the Kubernetes API transaction rate on etcd</div>
-<p>When you are using a stretched control plane, the Kebernetes API transaction rate depends on the characteristics of the particular deployment. It depends on the combination of the etcd disk latency, the etcd round trip time, and the size of objects that are written to the API. As a result, when you use stretched control planes, the cluster administrators need to test the environment to determine the sustained transaction rate that is possible for their environment. The <code>kube-burner</code> tool can be used for this purpose.</p>
+<p>When you are using a stretched control plane, the Kubernetes API transaction rate depends on the characteristics of the particular deployment. It depends on the combination of the etcd disk latency, the etcd RTT, and the size of objects that are written to the API. As a result, when you use stretched control planes, the cluster administrators need to test the environment to determine the sustained transaction rate that is possible for their environment. The <code>kube-burner</code> tool can be used for this purpose.</p>
 </div>
 <div class="paragraph">
-<div class="title">Determining Kubernetes API transaction rate for your environment</div>
 <p>You cannot determine the transaction rate of the Kubernetes API without measuring it. One of the tools that is used for load testing the control plane is <code>kube-burner</code>. The binary provides a OKD wrapper for testing OKD clusters. It is used to test cluster or node density. For testing the control plane, <code>kube-burner ocp</code> has three workload profiles: <code>cluster-density</code>, <code>cluster-density-v2</code>, and <code>cluster-density-ms</code>. Each workload profile creates a series of resources designed to load the control.</p>
+</div>
 </div>
 </div>
 </div>
