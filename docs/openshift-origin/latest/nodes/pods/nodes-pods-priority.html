@@ -2619,6 +2619,7 @@
                   <li><a class="" href="../../virt/post_installation_configuration/virt-self-validation-checkups.html">Self validation checkups</a></li>
                   <li><a class="" href="../../virt/post_installation_configuration/virt-physical-cores-allocation-vms.html">Allocate physical cores for virtual machines</a></li>
                   <li><a class="" href="../../virt/post_installation_configuration/virt-configuring-higher-vm-workload-density.html">Configuring higher VM workload density</a></li>
+                  <li><a class="" href="../../virt/post_installation_configuration/virt-vm-recovery-from-node-failures.html">Virtual machine recovery from node failures</a></li>
                   <li><a class="" href="../../virt/post_installation_configuration/virt-configuring-certificate-rotation.html">Configuring certificate rotation</a></li>
                   <li><a class="" href="../../virt/post_installation_configuration/virt-kubevirt-redfish.html">Configuring KubeVirt Redfish for VM management</a></li>              </ul>
             </li>
@@ -2855,9 +2856,8 @@
 <li><a href="#nodes-pods-priority-configuring_nodes-pods-priority">Configuring priority and preemption</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>You can enable pod priority and preemption in your cluster. Pod priority indicates the importance of a pod relative to other pods and queues the pods based on that priority. pod preemption allows the cluster to evict, or preempt, lower-priority pods so that higher-priority pods can be scheduled if there is no available space on a suitable node
-pod priority also affects the scheduling order of pods and out-of-resource eviction ordering on the node.</p>
+<div class="paragraph _abstract">
+<p>Pod priority ranks pods by importance to influence scheduling order, sort out-of-resource evictions, and enable preemption, where higher-priority pods can evict lower-priority pods when resources are constrained.</p>
 </div>
 <div class="paragraph">
 <p>To use priority and preemption, you create priority classes that define the relative weight of your pods. Then, reference a priority class in the pod specification to apply that weight for scheduling.</p>
@@ -2867,8 +2867,8 @@ pod priority also affects the scheduling order of pods and out-of-resource evict
 <div class="sect1">
 <h2 id="nodes-pods-priority-about_nodes-pods-priority"><a class="anchor" href="#nodes-pods-priority-about_nodes-pods-priority"></a>Understanding pod priority</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>When you use the Pod Priority and Preemption feature, the scheduler orders pending pods by their priority, and a pending pod is placed ahead of other pending pods with lower priority in the scheduling queue. As a result, the higher priority pod might be scheduled sooner than pods with lower priority if its scheduling requirements are met. If a pod cannot be scheduled, scheduler continues to schedule other lower priority pods.</p>
+<div class="paragraph _abstract">
+<p>Pod priority uses priority classes with integer values to determine scheduling order, with higher-priority pods placed ahead in the queue and scheduled before lower-priority pods when requirements are met.</p>
 </div>
 <div class="sect2">
 <h3 id="admin-guide-priority-preemption-priority-class_nodes-pods-priority"><a class="anchor" href="#admin-guide-priority-preemption-priority-class_nodes-pods-priority"></a>Pod priority classes</h3>
@@ -2954,8 +2954,8 @@ A number of critical components include the <code>system-cluster-critical</code>
 <div class="sect1">
 <h2 id="nodes-pods-priority-preempt-about_nodes-pods-priority"><a class="anchor" href="#nodes-pods-priority-preempt-about_nodes-pods-priority"></a>Understanding pod preemption</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>When a developer creates a pod, the pod goes into a queue. If the developer configured the pod for pod priority or preemption, the scheduler picks a pod from the queue and tries to schedule the pod on a node. If the scheduler cannot find space on an appropriate node that satisfies all the specified requirements of the pod, preemption logic is triggered for the pending pod.</p>
+<div class="paragraph _abstract">
+<p>With pod preemption, the scheduler can evict lower-priority pods from nodes when higher-priority pods cannot find available resources, enabling critical workloads to run even when cluster capacity is constrained.</p>
 </div>
 <div class="paragraph">
 <p>When the scheduler preempts one or more pods on a node, the <code>nominatedNodeName</code> field of higher-priority <code>Pod</code> spec is set to the name of the node, along with the <code>nodename</code> field. The scheduler uses the <code>nominatedNodeName</code> field to keep track of the resources reserved for pods and also provides information to the user about preemptions in the clusters.</p>
@@ -3019,9 +3019,8 @@ A number of critical components include the <code>system-cluster-critical</code>
 <div class="sect1">
 <h2 id="nodes-pods-priority-configuring_nodes-pods-priority"><a class="anchor" href="#nodes-pods-priority-configuring_nodes-pods-priority"></a>Configuring priority and preemption</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You apply pod priority and preemption by creating a priority class object and associating pods to the priority by using the
-<code>priorityClassName</code> in your pod specs.</p>
+<div class="paragraph _abstract">
+<p>Configure pod priority and preemption by creating priority class objects with assigned values and referencing them in pod specifications through the <code>priorityClassName</code> field.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3037,11 +3036,8 @@ A number of critical components include the <code>system-cluster-critical</code>
 </tr>
 </table>
 </div>
-<div class="paragraph">
-<div class="title">Procedure</div>
-<p>To configure your cluster to use priority and preemption:</p>
-</div>
 <div class="olist arabic">
+<div class="title">Procedure</div>
 <ol class="arabic">
 <li>
 <p>Create one or more priority classes:</p>
@@ -3054,36 +3050,39 @@ A number of critical components include the <code>system-cluster-critical</code>
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">scheduling.k8s.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">PriorityClass</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">high-priority</span> <i class="conum" data-value="1"></i><b>(1)</b>
-<span class="na">value</span><span class="pi">:</span> <span class="s">1000000</span> <i class="conum" data-value="2"></i><b>(2)</b>
-<span class="na">preemptionPolicy</span><span class="pi">:</span> <span class="s">PreemptLowerPriority</span> <i class="conum" data-value="3"></i><b>(3)</b>
-<span class="na">globalDefault</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="4"></i><b>(4)</b>
-<span class="na">description</span><span class="pi">:</span> <span class="s2">"</span><span class="s">This</span><span class="nv"> </span><span class="s">priority</span><span class="nv"> </span><span class="s">class</span><span class="nv"> </span><span class="s">should</span><span class="nv"> </span><span class="s">be</span><span class="nv"> </span><span class="s">used</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">XYZ</span><span class="nv"> </span><span class="s">service</span><span class="nv"> </span><span class="s">pods</span><span class="nv"> </span><span class="s">only."</span> <i class="conum" data-value="5"></i><b>(5)</b></code></pre>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">high-priority</span>
+<span class="na">value</span><span class="pi">:</span> <span class="m">1000000</span>
+<span class="na">preemptionPolicy</span><span class="pi">:</span> <span class="s">PreemptLowerPriority</span>
+<span class="na">globalDefault</span><span class="pi">:</span> <span class="no">false</span>
+<span class="na">description</span><span class="pi">:</span> <span class="s2">"</span><span class="s">This</span><span class="nv"> </span><span class="s">priority</span><span class="nv"> </span><span class="s">class</span><span class="nv"> </span><span class="s">should</span><span class="nv"> </span><span class="s">be</span><span class="nv"> </span><span class="s">used</span><span class="nv"> </span><span class="s">for</span><span class="nv"> </span><span class="s">XYZ</span><span class="nv"> </span><span class="s">service</span><span class="nv"> </span><span class="s">pods</span><span class="nv"> </span><span class="s">only."</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The name of the priority class object.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>The priority value of the object.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>Optional. Specifies whether this priority class is preempting or non-preempting. The preemption policy defaults to <code>PreemptLowerPriority</code>, which allows pods of that priority class to preempt lower-priority pods. If the preemption policy is set to <code>Never</code>, pods in that priority class are non-preempting.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Optional. Specifies whether this priority class should be used for pods without a priority class name specified. This field is <code>false</code> by default. Only one priority class with <code>globalDefault</code> set to <code>true</code> can exist in the cluster. If there is no priority class with <code>globalDefault:true</code>, the priority of pods with no priority class name is zero. Adding a priority class with <code>globalDefault:true</code> affects only pods created after the priority class is added and does not change the priorities of existing pods.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>Optional. Describes which pods developers should use with this priority class. Enter an arbitrary text string.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>metadata.name</code></dt>
+<dd>
+<p>Specifies the name of the priority class object.</p>
+</dd>
+<dt class="hdlist1"><code>value</code></dt>
+<dd>
+<p>Specifies the priority value of the object.</p>
+</dd>
+<dt class="hdlist1"><code>preemptionPolicy</code></dt>
+<dd>
+<p>Optional. Specifies whether this priority class is preempting or non-preempting. The preemption policy defaults to <code>PreemptLowerPriority</code>, which allows pods of that priority class to preempt lower-priority pods. If the preemption policy is set to <code>Never</code>, pods in that priority class are non-preempting.</p>
+</dd>
+<dt class="hdlist1"><code>globalDefault</code></dt>
+<dd>
+<p>Optional. Specifies whether this priority class should be used for pods without a priority class name specified. This field is <code>false</code> by default. Only one priority class with <code>globalDefault</code> set to <code>true</code> can exist in the cluster. If there is no priority class with <code>globalDefault:true</code>, the priority of pods with no priority class name is zero. Adding a priority class with <code>globalDefault:true</code> affects only pods created after the priority class is added and does not change the priorities of existing pods.</p>
+</dd>
+<dt class="hdlist1"><code>description</code></dt>
+<dd>
+<p>Optional. Describes which pods developers should use with this priority class. Enter an arbitrary text string.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3124,16 +3123,19 @@ A number of critical components include the <code>system-cluster-critical</code>
       <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
       <span class="na">capabilities</span><span class="pi">:</span>
         <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ALL</span><span class="pi">]</span>
-  <span class="na">priorityClassName</span><span class="pi">:</span> <span class="s">high-priority</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+  <span class="na">priorityClassName</span><span class="pi">:</span> <span class="s">high-priority</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the priority class to use with this pod.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.priorityClassName</code></dt>
+<dd>
+<p>Specifies the priority class to use with this pod.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
