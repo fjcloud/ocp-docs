@@ -2859,10 +2859,8 @@
 <div class="sect1">
 <h2 id="understanding-service-serving_service-serving-certificate"><a class="anchor" href="#understanding-service-serving_service-serving-certificate"></a>Understanding service serving certificates</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>Service serving certificates are intended to support complex
-middleware applications that require encryption. These certificates are
-issued as TLS web server certificates.</p>
+<div class="paragraph _abstract">
+<p>Service serving certificates are TLS web server certificates that OKD issues for middleware applications that require encryption. The <code>service-ca</code> controller stores the certificate and key in a secret and automatically replaces them near expiration.</p>
 </div>
 <div class="paragraph">
 <p>The <code>service-ca</code> controller uses the <code>x509.SHA256WithRSA</code> signature
@@ -2875,7 +2873,7 @@ certificate and key are automatically replaced when they get close to
 expiration.</p>
 </div>
 <div class="paragraph">
-<p>The service CA certificate, which issues the service certificates, is valid for 26 months and is automatically rotated when there is less than 13 months validity left. After rotation, the previous service CA configuration is still trusted until its expiration. This allows a grace period for all affected services to refresh their key material before the expiration. If you do not upgrade your cluster during this grace period, which restarts services and refreshes their key material, you might need to manually restart services to avoid failures after the previous service CA expires.</p>
+<p>The service Certificate Authority (CA) certificate, which issues the service certificates, is valid for 26 months and is automatically rotated when there is less than 13 months validity left. After rotation, the previous service CA configuration is still trusted until its expiration. This allows a grace period for all affected services to refresh their key material before the expiration. If you do not upgrade your cluster during this grace period, which restarts services and refreshes their key material, you might need to manually restart services to avoid failures after the previous service CA expires.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -2904,8 +2902,8 @@ expiration.</p>
 <div class="sect1">
 <h2 id="add-service-certificate_service-serving-certificate"><a class="anchor" href="#add-service-certificate_service-serving-certificate"></a>Add a service certificate</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>To secure communication to your service, generate a signed serving certificate and key pair into a secret in the same namespace as the service.</p>
+<div class="paragraph _abstract">
+<p>To secure internal communication to a service in OKD, you can annotate the service to generate a signed serving certificate and key pair into a secret in the same namespace.</p>
 </div>
 <div class="paragraph">
 <p>The generated certificate is only valid for the internal service DNS name <code>&lt;service.name&gt;.&lt;service.namespace&gt;.svc</code>, and is only valid for internal communications. If your service is a headless service (no <code>clusterIP</code> value set), the generated certificate also contains a wildcard subject in the format of <code>*.&lt;service.name&gt;.&lt;service.namespace&gt;.svc</code>.</p>
@@ -2918,7 +2916,7 @@ expiration.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Because the generated certificates contain wildcard subjects for headless services, you must not use the service CA if your client must differentiate between individual pods. In this case:</p>
+<p>Because the generated certificates contain wildcard subjects for headless services, you must not use the service Certificate Authority (CA) if your client must differentiate between individual pods. In this case:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -2949,21 +2947,17 @@ expiration.</p>
 <p>Annotate the service with <code>service.beta.openshift.io/serving-cert-secret-name</code>:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate service &lt;service_name&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
-     service.beta.openshift.io/serving-cert-secret-name<span class="o">=</span>&lt;secret_name&gt; <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate service &lt;service_name&gt; <span class="se">\</span>
+     service.beta.openshift.io/serving-cert-secret-name<span class="o">=</span>&lt;secret_name&gt;</code></pre>
 </div>
 </div>
-<div class="openblock">
-<div class="content">
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;service_name&gt;</code> with the name of the service to secure.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td><code>&lt;secret_name&gt;</code> will be the name of the generated secret containing the certificate and key pair.
+<div class="ulist">
+<ul>
+<li>
+<p>Replace <code>&lt;service_name&gt;</code> with the name of the service to secure.</p>
+</li>
+<li>
+<p><code>&lt;secret_name&gt;</code> will be the name of the generated secret containing the certificate and key pair.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -2977,11 +2971,6 @@ expiration.</p>
 </td>
 </tr>
 </table>
-</div></td>
-</tr>
-</table>
-</div>
-</div>
 </div>
 <div class="paragraph">
 <p>For example, use the following command to annotate the service <code>test1</code>:</p>
@@ -2990,6 +2979,9 @@ expiration.</p>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate service test1 service.beta.openshift.io/serving-cert-secret-name<span class="o">=</span>test1</code></pre>
 </div>
+</div>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3028,8 +3020,8 @@ mount it, and the pod will run after it becomes available.</p>
 <div class="sect1">
 <h2 id="add-service-certificate-configmap_service-serving-certificate"><a class="anchor" href="#add-service-certificate-configmap_service-serving-certificate"></a>Add the service CA bundle to a config map</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>A pod can access the service Certificate Authority (CA) certificate by mounting a <code>ConfigMap</code> object that has the <code>service.beta.openshift.io/inject-cabundle=true</code> annotation. After annotating the config map, the cluster automatically injects the service CA certificate into the <code>service-ca.crt</code> key on the config map. Access to this CA certificate allows TLS clients to verify connections to services by using service serving certificates.</p>
+<div class="paragraph _abstract">
+<p>To verify TLS connections to services that use serving certificates in OKD, you can inject the service Certificate Authority (CA) certificate into a config map. Annotate the config map so that pods can mount the CA bundle from the <code>service-ca.crt</code> key.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3052,18 +3044,14 @@ mount it, and the pod will run after it becomes available.</p>
 <p>Annotate the config map with the <code>service.beta.openshift.io/inject-cabundle=true</code> annotation by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate configmap &lt;config_map_name&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate configmap &lt;config_map_name&gt; <span class="se">\</span>
      service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;config_map_name&gt;</code> with the name of the config map to annotate.</td>
-</tr>
-</table>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Replace <code>&lt;config_map_name&gt;</code> with the name of the config map to annotate.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3077,6 +3065,9 @@ mount it, and the pod will run after it becomes available.</p>
 </td>
 </tr>
 </table>
+</div>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3122,28 +3113,35 @@ data:
       <span class="na">volumes</span><span class="pi">:</span>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">trusted-ca</span>
         <span class="na">configMap</span><span class="pi">:</span>
-          <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;config_map_name&gt;</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;config_map_name&gt;</span>
           <span class="na">items</span><span class="pi">:</span>
-            <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">ca-bundle.crt</span> <i class="conum" data-value="2"></i><b>(2)</b>
-              <span class="na">path</span><span class="pi">:</span> <span class="s">tls-ca-bundle.pem</span> <i class="conum" data-value="3"></i><b>(3)</b>
+            <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">ca-bundle.crt</span>
+              <span class="na">path</span><span class="pi">:</span> <span class="s">tls-ca-bundle.pem</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Specify the name of the config map that you annotated in an earlier step of the procedure.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td><code>ca-bundle.crt</code> is required as the ConfigMap key.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td><code>tls-ca-bundle.pem</code> is required as the ConfigMap path.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;config_map_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the config map that you annotated in an earlier step of the procedure.</p>
+</dd>
+<dt class="hdlist1">ca-bundle.crt</dt>
+<dd>
+<p>Specifies the <code>ConfigMap</code> key. This is required.</p>
+</dd>
+<dt class="hdlist1">tls-ca-bundle.pem</dt>
+<dd>
+<p>Specifies the <code>ConfigMap</code> path. This is required.</p>
+</dd>
+</dl>
+</div>
+</div>
 </div>
 </li>
 </ol>
@@ -3153,8 +3151,8 @@ data:
 <div class="sect1">
 <h2 id="add-service-certificate-apiservice_service-serving-certificate"><a class="anchor" href="#add-service-certificate-apiservice_service-serving-certificate"></a>Add the service CA bundle to an API service</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can annotate an <code>APIService</code> object with <code>service.beta.openshift.io/inject-cabundle=true</code> to have its <code>spec.caBundle</code> field populated with the service CA bundle. This allows the Kubernetes API server to validate the service CA certificate used to secure the targeted endpoint.</p>
+<div class="paragraph _abstract">
+<p>To allow the Kubernetes API server in OKD to validate the service Certificate Authority (CA) certificate that secures an API service endpoint, you can annotate an <code>APIService</code> object to inject the service CA bundle into the <code>spec.caBundle</code> field.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3163,18 +3161,14 @@ data:
 <p>Annotate the API service with <code>service.beta.openshift.io/inject-cabundle=true</code>:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate apiservice &lt;api_service_name&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate apiservice &lt;api_service_name&gt; <span class="se">\</span>
      service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;api_service_name&gt;</code> with the name of the API service to annotate.</td>
-</tr>
-</table>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Replace <code>&lt;api_service_name&gt;</code> with the name of the API service to annotate.</p>
 <div class="paragraph">
 <p>For example, use the following command to annotate the API service <code>test1</code>:</p>
 </div>
@@ -3182,6 +3176,9 @@ data:
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate apiservice test1 service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
 </div>
+</div>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3215,8 +3212,8 @@ metadata:
 <div class="sect1">
 <h2 id="add-service-certificate-crd_service-serving-certificate"><a class="anchor" href="#add-service-certificate-crd_service-serving-certificate"></a>Add the service CA bundle to a custom resource definition</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can annotate a <code>CustomResourceDefinition</code> (CRD) object with <code>service.beta.openshift.io/inject-cabundle=true</code> to have its <code>spec.conversion.webhook.clientConfig.caBundle</code> field populated with the service CA bundle. This allows the Kubernetes API server to validate the service CA certificate used to secure the targeted endpoint.</p>
+<div class="paragraph _abstract">
+<p>You can annotate a <code>CustomResourceDefinition</code> (CRD) object with <code>service.beta.openshift.io/inject-cabundle=true</code> to have its <code>spec.conversion.webhook.clientConfig.caBundle</code> field populated with the service Certificate Authority (CA) bundle. This allows the Kubernetes API server to validate the service CA certificate used to secure the targeted endpoint.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3239,18 +3236,14 @@ metadata:
 <p>Annotate the CRD with <code>service.beta.openshift.io/inject-cabundle=true</code>:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate crd &lt;crd_name&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate crd &lt;crd_name&gt; <span class="se">\</span>
      service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;crd_name&gt;</code> with the name of the CRD to annotate.</td>
-</tr>
-</table>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Replace <code>&lt;crd_name&gt;</code> with the name of the CRD to annotate.</p>
 <div class="paragraph">
 <p>For example, use the following command to annotate the CRD <code>test1</code>:</p>
 </div>
@@ -3258,6 +3251,9 @@ metadata:
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate crd test1 service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
 </div>
+</div>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3295,8 +3291,8 @@ metadata:
 <div class="sect1">
 <h2 id="add-service-certificate-mutating-webhook_service-serving-certificate"><a class="anchor" href="#add-service-certificate-mutating-webhook_service-serving-certificate"></a>Add the service CA bundle to a mutating webhook configuration</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can annotate a <code>MutatingWebhookConfiguration</code> object with <code>service.beta.openshift.io/inject-cabundle=true</code> to have the <code>clientConfig.caBundle</code> field of each webhook populated with the service CA bundle. This allows the Kubernetes API server to validate the service CA certificate used to secure the targeted endpoint.</p>
+<div class="paragraph _abstract">
+<p>To allow the Kubernetes API server in OKD to validate the service Certificate Authority (CA) certificate that secures a mutating webhook endpoint, you can annotate a <code>MutatingWebhookConfiguration</code> object to inject the service CA bundle into each webhook <code>clientConfig.caBundle</code> field.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3319,18 +3315,14 @@ metadata:
 <p>Annotate the mutating webhook configuration with <code>service.beta.openshift.io/inject-cabundle=true</code>:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate mutatingwebhookconfigurations &lt;mutating_webhook_name&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate mutatingwebhookconfigurations &lt;mutating_webhook_name&gt; <span class="se">\</span>
      service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;mutating_webhook_name&gt;</code> with the name of the mutating webhook configuration to annotate.</td>
-</tr>
-</table>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Replace <code>&lt;mutating_webhook_name&gt;</code> with the name of the mutating webhook configuration to annotate.</p>
 <div class="paragraph">
 <p>For example, use the following command to annotate the mutating webhook configuration <code>test1</code>:</p>
 </div>
@@ -3338,6 +3330,9 @@ metadata:
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate mutatingwebhookconfigurations test1 service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
 </div>
+</div>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3374,8 +3369,8 @@ metadata:
 <div class="sect1">
 <h2 id="add-service-certificate-validating-webhook_service-serving-certificate"><a class="anchor" href="#add-service-certificate-validating-webhook_service-serving-certificate"></a>Add the service CA bundle to a validating webhook configuration</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can annotate a <code>ValidatingWebhookConfiguration</code> object with <code>service.beta.openshift.io/inject-cabundle=true</code> to have the <code>clientConfig.caBundle</code> field of each webhook populated with the service CA bundle. This allows the Kubernetes API server to validate the service CA certificate used to secure the targeted endpoint.</p>
+<div class="paragraph _abstract">
+<p>To allow the Kubernetes API server in OKD to validate the service Certificate Authority (CA) certificate that secures a validating webhook endpoint, you can annotate a <code>ValidatingWebhookConfiguration</code> object to inject the service CA bundle into each webhook <code>clientConfig.caBundle</code> field.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3398,18 +3393,14 @@ metadata:
 <p>Annotate the validating webhook configuration with <code>service.beta.openshift.io/inject-cabundle=true</code>:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate validatingwebhookconfigurations &lt;validating_webhook_name&gt; <span class="se">\</span><i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate validatingwebhookconfigurations &lt;validating_webhook_name&gt; <span class="se">\</span>
      service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;validating_webhook_name&gt;</code> with the name of the validating webhook configuration to annotate.</td>
-</tr>
-</table>
-</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Replace <code>&lt;validating_webhook_name&gt;</code> with the name of the validating webhook configuration to annotate.</p>
 <div class="paragraph">
 <p>For example, use the following command to annotate the validating webhook configuration <code>test1</code>:</p>
 </div>
@@ -3417,6 +3408,9 @@ metadata:
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate validatingwebhookconfigurations test1 service.beta.openshift.io/inject-cabundle<span class="o">=</span><span class="nb">true</span></code></pre>
 </div>
+</div>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3453,10 +3447,8 @@ metadata:
 <div class="sect1">
 <h2 id="rotate-service-serving_service-serving-certificate"><a class="anchor" href="#rotate-service-serving_service-serving-certificate"></a>Manually rotate the generated service certificate</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can rotate the service certificate by deleting the
-associated secret. Deleting the secret results in a new one
-being automatically created, resulting in a new certificate.</p>
+<div class="paragraph _abstract">
+<p>To replace a generated service serving certificate in OKD, you can delete the TLS secret named in the service <code>serving-cert-secret-name</code> annotation. A new secret and certificate pair are created automatically.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3493,17 +3485,15 @@ annotation, as seen below.</p>
 will automatically recreate the secret.</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret &lt;secret&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret &lt;secret&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Replace <code>&lt;secret&gt;</code> with the name of the secret from the previous
-step.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p>Replace <code>&lt;secret&gt;</code> with the name of the secret from the previous step.</p>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3529,11 +3519,11 @@ by obtaining the new secret and examining the <code>AGE</code>.</p>
 <div class="sect1">
 <h2 id="manually-rotate-service-ca_service-serving-certificate"><a class="anchor" href="#manually-rotate-service-ca_service-serving-certificate"></a>Manually rotate the service CA certificate</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The service CA is valid for 26 months and is automatically refreshed when there is less than 13 months validity left.</p>
+<div class="paragraph _abstract">
+<p>To refresh the service Certificate Authority (CA) certificate in OKD outside the automatic renewal cycle, you can delete the <code>signing-key</code> secret in the <code>openshift-service-ca</code> namespace. Restart pods so that services use certificates signed by the new CA.</p>
 </div>
 <div class="paragraph">
-<p>If necessary, you can manually refresh the service CA by using the following procedure.</p>
+<p>The service CA is valid for 26 months and is automatically refreshed when less than 13 months of validity remain.</p>
 </div>
 <div class="admonitionblock warning">
 <table>

@@ -3437,7 +3437,7 @@
 </ul>
 </li>
 <li><a href="#etcd-network-latency-jitter_etcd-performance">Measuring network jitter between control plane nodes</a></li>
-<li><a href="#etcd-peer-round-trip_etcd-performance">How etcd peer round trip time affects performance</a></li>
+<li><a href="#etcd-peer-round-trip_etcd-performance">How etcd peer round-trip time affects performance</a></li>
 <li><a href="#etcd-determine-kube-api-transaction-rate_etcd-performance">Determining Kubernetes API transaction rate for your environment</a></li>
 </ul>
 </div>
@@ -4616,6 +4616,14 @@ etcd-ci-ln-qkgs94t-72292-9clnd-main-0                  4/4     Running          
 </li>
 </ol>
 </div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling-features-about_nodes-cluster-enabling-features">Understanding feature gates</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -4997,8 +5005,11 @@ revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0    
 <div class="sect1">
 <h2 id="etcd-network-latency-jitter_etcd-performance"><a class="anchor" href="#etcd-network-latency-jitter_etcd-performance"></a>Measuring network jitter between control plane nodes</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Measure network jitter between control plane nodes to validate latency for etcd heartbeats. High jitter causes missed heartbeats, leader loss, and Kubernetes API request failures.</p>
+</div>
 <div class="paragraph">
-<p>The value of the heartbeat interval should be around the maximum of the average round-trip time (RTT) between members, normally around 1.5 times the round-trip time. With the OpenShift Container Platform default heartbeat interval of 100 ms, the recommended RTT between control plane nodes is less than approximately 33 ms with a maximum of less than 66 ms (66 ms multiplied by 1.5 equals 99 ms). For more information, see "Setting tuning parameters for etcd". Any network latency that is higher might cause service-affecting events and cluster instability.</p>
+<p>The value of the heartbeat interval should be around the maximum of the average round-trip time (RTT) between members, normally around 1.5 times the RTT. With the OpenShift Container Platform default heartbeat interval of 100 ms, the recommended RTT between control plane nodes is less than approximately 33 ms. The maximum RTT should be less than 66 ms (66 ms multiplied by 1.5 equals 99 ms). For more information, see "Setting tuning parameters for etcd". Any network latency that is higher might cause service-affecting events and cluster instability.</p>
 </div>
 <div class="paragraph">
 <p>The network latency is influenced by many factors, including but not limited to the following factors:</p>
@@ -5020,13 +5031,13 @@ revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0    
 <p>Consider network latency with network jitter for more accurate calculations. <em>Network jitter</em> is the variance in network latency or, more specifically, the variation in the delay of received packets. On ideal network conditions, the jitter is as close to zero as possible. Network jitter affects the network latency calculations for etcd because the actual network latency over time will be the RTT plus or minus jitter. For example, a network with a maximum latency of 80 ms and jitter of 30 ms will experience latencies of 110 ms, which means etcd is missing heartbeats, causing request timeouts and temporary leader loss. During a leader loss and reelection, the Kubernetes API cannot process any request that causes a service-affecting event and instability of the cluster.</p>
 </div>
 <div class="paragraph">
-<p>It&#8217;s important to measure the network jitter among all control plane nodes. To do so, you can use the <code>iPerf3</code> tool in UDP mode.</p>
+<p>It is important to measure the network jitter among all control plane nodes. To do so, you can use the <code>iPerf3</code> tool in UDP mode.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisite</div>
 <ul>
 <li>
-<p>You built your own iPerf image. For more information, see the following Red&#160;Hat Knowledgebase articles</p>
+<p>You built your own <code>iPerf</code>  image. For more information, see the following Red&#160;Hat Knowledgebase articles:</p>
 <div class="ulist">
 <ul>
 <li>
@@ -5044,7 +5055,7 @@ revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0    
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Connect to one of the control plane nodes and run the iPerf container as iPerf server in host network mode. When you are running in server mode, the tool accepts TCP and UDP tests. Enter the following command, being careful to replace <code>&lt;iperf_image&gt;</code> with your iPerf image:</p>
+<p>Connect to one of the control plane nodes and run the <code>iPerf</code>  container as <code>iPerf</code>  server in host network mode. When you are running in server mode, the tool accepts TCP and UDP tests. Enter the following command, being careful to replace <code>&lt;iperf_image&gt;</code> with your <code>iPerf</code>  image:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>podman run <span class="nt">-ti</span> <span class="nt">--rm</span> <span class="nt">--net</span> host &lt;iperf_image&gt; iperf3 <span class="nt">-s</span></code></pre>
@@ -5052,7 +5063,7 @@ revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0    
 </div>
 </li>
 <li>
-<p>Connect to another control plane node and run the iPerf in UDP client mode by entering the following command:</p>
+<p>Connect to another control plane node and run the <code>iPerf3</code> tool in UDP client mode by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>podman run <span class="nt">-ti</span> <span class="nt">--rm</span> <span class="nt">--net</span> host &lt;iperf_image&gt; iperf3 <span class="nt">-u</span> <span class="nt">-c</span> &lt;node_iperf_server&gt; <span class="nt">-t</span> 300</code></pre>
@@ -5075,7 +5086,7 @@ revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0    
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Starting pod/m1-debug ...
 To use host binaries, run `chroot /host`
 Pod IP: 198.18.111.13
-If you don't see a command prompt, try pressing enter.</span></code></pre>
+If you do not see a command prompt, try pressing Enter.</span></code></pre>
 </div>
 </div>
 </li>
@@ -5117,7 +5128,7 @@ iperf Done.</span></code></pre>
 </div>
 </li>
 <li>
-<p>On the iPerf server, the output shows the jitter on every second interval. The average is shown at the end. For the purpose of this test, you want to identify the maximum jitter that is experienced during the test, ignoring the output of the first second as it might contain an invalid measurement. Enter the following command:</p>
+<p>On the <code>iPerf</code> server, the output shows the jitter on every second interval. The average is shown at the end. For the purpose of this test, you want to identify the maximum jitter that is experienced during the test, ignoring the output of the first second as it might contain an invalid measurement. Enter the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>oc debug node/m0</code></pre>
@@ -5129,7 +5140,7 @@ iperf Done.</span></code></pre>
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Starting pod/m0-debug ...
 To use host binaries, run `chroot /host`
 Pod IP: 198.18.111.12
-If you don't see a command prompt, try pressing enter.</span></code></pre>
+If you do not see a command prompt, try pressing Enter.</span></code></pre>
 </div>
 </div>
 </li>
@@ -5197,19 +5208,30 @@ Server listening on 5201
 </li>
 </ol>
 </div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../etcd/etcd-performance.html#etcd-tuning-parameters_etcd-performance">Setting tuning parameters for etcd</a></p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="etcd-peer-round-trip_etcd-performance"><a class="anchor" href="#etcd-peer-round-trip_etcd-performance"></a>How etcd peer round trip time affects performance</h2>
+<h2 id="etcd-peer-round-trip_etcd-performance"><a class="anchor" href="#etcd-peer-round-trip_etcd-performance"></a>How etcd peer round-trip time affects performance</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The etcd peer round-trip time (RTT) metric shows replication latency across members, beyond raw network RTT. Monitor it to detect control plane slowdowns before they affect cluster operations.</p>
+</div>
 <div class="paragraph">
-<p>The etcd peer round trip time is an end-to-end test metric on how quickly something can be replicated among members. It shows the latency of etcd to finish replicating a client request among all the etcd members. The etcd peer round trip time is not the same thing as the network round trip time.</p>
+<p>The etcd peer RTT is an end-to-end test metric on how quickly something can be replicated among members. It shows the latency of etcd to finish replicating a client request among all the etcd members. The etcd peer RTT is not the same thing as the network RTT.</p>
 </div>
 <div class="paragraph">
 <p>You can monitor various etcd metrics on dashboards in the OpenShift Container Platform console. In the console, click <strong>Observe</strong> &#8594; <strong>Dashboards</strong> and from the dropdown list, select <strong>etcd</strong>.</p>
 </div>
 <div class="paragraph">
-<p>Near the end of the <strong>etcd</strong> dashboard, you can find a plot that summarizes the etcd peer round trip time.</p>
+<p>Near the end of the <strong>etcd</strong> dashboard, you can find a plot that summarizes the etcd peer RTT.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -5219,7 +5241,7 @@ Server listening on 5201
 </td>
 <td class="content">
 <div class="paragraph">
-<p>These etcd metrics are collected by the OpenShift metrics system in Prometheus. You can access them from the CLI by following the Red&#160;Hat Knowledgebase solution, <a href="https://access.redhat.com/solutions/5151831">How to query from the command line Prometheus statistics</a>.</p>
+<p>These etcd metrics are collected by the OpenShift Container Platform metrics system in Prometheus. You can access them from the CLI by using a Prometheus query. For more information, see the Red&#160;Hat Knowledgebase solution, "How to query from the command line Prometheus statistics".</p>
 </div>
 </td>
 </tr>
@@ -5234,7 +5256,7 @@ Server listening on 5201
 </div>
 </div>
 <div class="paragraph">
-<p>Queries must be URL-encoded. The following example shows how to retrieve the metrics that are reporting the round trip time (in seconds) for etcd to finish replicating the client requests among the members:</p>
+<p>Queries must be URL-encoded. The following example shows how to retrieve the metrics that are reporting the RTT (in seconds) for etcd to finish replicating the client requests among the members:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -5244,7 +5266,7 @@ Server listening on 5201
 </span><span class="gp">#</span><span class="w"> </span>urlencoded query
 <span class="gp">encoded_query=$</span><span class="o">(</span><span class="nb">printf</span> <span class="s2">"%s"</span> <span class="nv">$query</span> |jq <span class="nt">-sRr</span> @uri<span class="o">)</span>
 <span class="go">
-</span><span class="gp">#</span><span class="w"> </span>querying the OpenShift metrics service
+</span><span class="gp">#</span><span class="w"> </span>querying the metrics service
 <span class="gp">curl -s -X GET -k -H "Authorization: Bearer $</span>TOKEN<span class="s2">" "</span>https://<span class="nv">$THANOS_QUERIER_HOST</span>/api/v1/query?query<span class="o">=</span><span class="nv">$encoded_query</span><span class="s2">" | jq '.data.result[] | .metric.pod,.value[1]'
 </span><span class="go">
 "etcd-m2"
@@ -5260,25 +5282,36 @@ Server listening on 5201
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1">etcd_disk_wal_fsync_duration_seconds_bucket</dt>
+<dt class="hdlist1"><code>etcd_disk_wal_fsync_duration_seconds_bucket</code></dt>
 <dd>
-<p>Reports the etcd WAL fsync duration.</p>
+<p>Reports the etcd write-ahead log (WAL) fsync duration.</p>
 </dd>
-<dt class="hdlist1">etcd_disk_backend_commit_duration_seconds_bucket</dt>
+<dt class="hdlist1"><code>etcd_disk_backend_commit_duration_seconds_bucket</code></dt>
 <dd>
 <p>Reports the etcd backend commit latency duration.</p>
 </dd>
-<dt class="hdlist1">etcd_server_leader_changes_seen_total</dt>
+<dt class="hdlist1"><code>etcd_server_leader_changes_seen_total</code></dt>
 <dd>
 <p>Reports the leader changes.</p>
 </dd>
 </dl>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://access.redhat.com/solutions/5151831">How to query from the command line Prometheus statistics (Red&#160;Hat Knowledgebase)</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="etcd-determine-kube-api-transaction-rate_etcd-performance"><a class="anchor" href="#etcd-determine-kube-api-transaction-rate_etcd-performance"></a>Determining Kubernetes API transaction rate for your environment</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Test sustained Kubernetes API transaction rates for stretched control plane deployments by using <code>kube-burner-ocp</code> density profiles. Validate limits before production workloads exceed etcd capacity.</p>
+</div>
 <div class="paragraph">
 <p>When you are using stretched control planes, the Kubernetes API transaction rate depends on the characteristics of the particular deployment. Specifically, it depends on the following combined factors:</p>
 </div>
@@ -5296,7 +5329,10 @@ Server listening on 5201
 </ul>
 </div>
 <div class="paragraph">
-<p>As a result, when you use stretched control planes, cluster administrators must test the environment to determine the sustained transaction rate that is possible for the environment. The <code>kube-burner</code> tool is useful for that purpose. The binary includes a wrapper for testing OpenShift clusters: <code>kube-burner-ocp</code>. You can use <code>kube-burner-ocp</code> to test cluster or node density. To test the control plane, <code>kube-burner-ocp</code> has three workload profiles: cluster-density, cluster-density-v2, and cluster-density-ms. Each workload profile creates a series of resources that are designed to load the control plane. For more information about each profile, see the <code>kube-burner-ocp</code> workload documentation.</p>
+<p>As a result, when you use stretched control planes, cluster administrators must test the environment to determine the sustained transaction rate that is possible for the environment. The <code>kube-burner</code> tool is useful for that purpose. The binary includes a wrapper for testing OpenShift clusters: <code>kube-burner-ocp</code>. You can use <code>kube-burner-ocp</code> to test cluster or node density.</p>
+</div>
+<div class="paragraph">
+<p>To test the control plane, <code>kube-burner-ocp</code> has three workload profiles: <code>cluster-density</code>, <code>cluster-density-v2</code>, and <code>cluster-density-ms</code>. Each workload profile creates a series of resources that are designed to load the control plane. For more information about each profile, see the <code>kube-burner-ocp</code> workload documentation.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -5310,15 +5346,23 @@ Server listening on 5201
 </div>
 </li>
 <li>
-<p>The OpenShift Container Platform console provides a dashboard with all the relevant API performance information. To access API performance information, click <strong>Observe</strong> &#8594; <strong>Dashboards</strong>, and from the <strong>Dashboards</strong> menu, click <strong>API Performance</strong>.</p>
+<p>The OpenShift Container Platform console provides a dashboard with all the relevant API performance information. To access API performance information, click <strong>Observe</strong> &#8594; <strong>Dashboards</strong>. From the <strong>Dashboards</strong> menu, click <strong>API Performance</strong>.</p>
 </li>
 <li>
-<p>During the run, observe the API performance dashboard in the OpenShift Container Platform console by clicking <strong>Observe</strong> &#8594; <strong>Dashboards</strong>, and from the <strong>Dashboards</strong> menu, click <strong>API Performance</strong>.</p>
+<p>During the run, observe the API performance dashboard in the OpenShift Container Platform console by clicking <strong>Observe</strong> &#8594; <strong>Dashboards</strong>. From the <strong>Dashboards</strong> menu, click <strong>API Performance</strong>.</p>
 <div class="paragraph">
 <p>On the dashboard, notice how the control plane responds during load and the 99th percentile transaction rate it can achieve for the execution of various verbs and request rates by read and write. Use this information and the knowledge of your organization&#8217;s workload to determine the load that the organization can put in the clusters for the specific stretched control plane deployment.</p>
 </div>
 </li>
 </ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://kube-burner.github.io/kube-burner-ocp/latest/">kube-burner-ocp documentation</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
