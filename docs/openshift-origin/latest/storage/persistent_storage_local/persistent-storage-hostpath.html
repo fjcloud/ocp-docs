@@ -2840,13 +2840,21 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#persistent-storage-hostpath-about_persistent-storage-hostpath">Overview</a></li>
+<li><a href="#persistent-storage-hostpath-about_persistent-storage-hostpath">Overview of hostPath</a></li>
 <li><a href="#hostpath-static-provisioning_persistent-storage-hostpath">Statically provisioning hostPath volumes</a></li>
 <li><a href="#persistent-storage-hostpath-pod_persistent-storage-hostpath">Mounting the hostPath share in a privileged pod</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>A hostPath volume in an OKD cluster mounts a file or directory from the host node&#8217;s filesystem into your pod. Most pods will not need a hostPath volume, but it does offer a quick option for testing should an application require it.</p>
+<div class="paragraph _abstract">
+<p>A hostPath volume mounts a file or directory from the host node&#8217;s filesystem into your pod. Use hostPath volumes primarily for testing or development, as they require privileged pods and grant access to the host node&#8217;s filesystem.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="persistent-storage-hostpath-about_persistent-storage-hostpath"><a class="anchor" href="#persistent-storage-hostpath-about_persistent-storage-hostpath"></a>Overview of hostPath</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>A hostPath volume mounts files or directories from the host node&#8217;s filesystem into pods for development and testing on single-node clusters. Because hostPath requires privileged pods and must be statically provisioned, it is not recommended for production. Use network storage with dynamic provisioning instead.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -2862,13 +2870,8 @@
 </tr>
 </table>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="persistent-storage-hostpath-about_persistent-storage-hostpath"><a class="anchor" href="#persistent-storage-hostpath-about_persistent-storage-hostpath"></a>Overview</h2>
-<div class="sectionbody">
 <div class="paragraph">
-<p>OKD supports hostPath mounting for development and testing on a single-node cluster.</p>
+<p>Most pods do not need a hostPath volume, but it does offer a quick option for testing should an application require it.</p>
 </div>
 <div class="paragraph">
 <p>In a production cluster, you would not use hostPath. Instead, a cluster administrator would provision a network resource, such as a GCE Persistent Disk volume, an NFS share, or an Amazon EBS volume. Network resources support the use of storage classes to set up dynamic provisioning.</p>
@@ -2916,6 +2919,9 @@
 <div class="sect1">
 <h2 id="hostpath-static-provisioning_persistent-storage-hostpath"><a class="anchor" href="#hostpath-static-provisioning_persistent-storage-hostpath"></a>Statically provisioning hostPath volumes</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Statically provision hostPath volumes by creating a persistent volume (PV) that maps to a path on the host node&#8217;s filesystem, then creating a persistent volume claim (PVC) that binds to the PV. Dynamic provisioning is not supported for hostPath volumes.</p>
+</div>
 <div class="paragraph">
 <p>A pod that uses a hostPath volume must be referenced by manual (static) provisioning.</p>
 </div>
@@ -2929,39 +2935,35 @@
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">PersistentVolume</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">task-pv-volume</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">task-pv-volume</span>
   <span class="na">labels</span><span class="pi">:</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">local</span>
 <span class="na">spec</span><span class="pi">:</span>
-  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">manual</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">manual</span>
   <span class="na">capacity</span><span class="pi">:</span>
     <span class="na">storage</span><span class="pi">:</span> <span class="s">5Gi</span>
   <span class="na">accessModes</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">ReadWriteOnce</span> <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="pi">-</span> <span class="s">ReadWriteOnce</span>
   <span class="na">persistentVolumeReclaimPolicy</span><span class="pi">:</span> <span class="s">Retain</span>
   <span class="na">hostPath</span><span class="pi">:</span>
-    <span class="na">path</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/mnt/data"</span> <i class="conum" data-value="4"></i><b>(4)</b></code></pre>
+    <span class="na">path</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/mnt/data"</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The name of the volume. This name is how the volume is identified by persistent volume (PV) claims or pods.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Used to bind persistent volume claim (PVC) requests to the PV.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The volume can be mounted as <code>read-write</code> by a single node.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>The configuration file specifies that the volume is at <code>/mnt/data</code> on the cluster&#8217;s node. To avoid corrupting your host system, do not mount to the container root, <code>/</code>, or any path that is the same in the host and the container. You can safely mount the host by using <code>/host</code></td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>metadata.name</code>: Specifies the name of the volume. This name is how the volume is identified by persistent volume (PV) claims or pods.</p>
+</li>
+<li>
+<p><code>spec.storageClassName</code>: The storage class is used to bind persistent volume claim (PVC) requests to the PV.</p>
+</li>
+<li>
+<p><code>spec.accessModes</code>: Specifies the access mode. The volume can be mounted as <code>read-write</code> by a single node.</p>
+</li>
+<li>
+<p><code>spec.hostPath.path</code>: The configuration file specifies that the volume is at <code>/mnt/data</code> on the cluster&#8217;s node. To avoid corrupting your host system, do not mount to the container root, <code>/</code>, or any path that is the same in the host and the container. You can safely mount the host by using <code>/host</code></p>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -3005,8 +3007,11 @@
 <div class="sect1">
 <h2 id="persistent-storage-hostpath-pod_persistent-storage-hostpath"><a class="anchor" href="#persistent-storage-hostpath-pod_persistent-storage-hostpath"></a>Mounting the hostPath share in a privileged pod</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Mount a hostPath share in a privileged pod by referencing an existing persistent volume claim (PVC) in the pod specification. The pod must run as privileged to access the node&#8217;s storage. Do not mount to the container root or any path that matches the host to avoid corrupting the host system.</p>
+</div>
 <div class="paragraph">
-<p>After the persistent volume claim has been created, it can be used inside by an application. The following example demonstrates mounting this share inside of a pod.</p>
+<p>After the PVC has been created, it can be used inside by an application. The following example demonstrates mounting this share inside of a pod.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3026,42 +3031,38 @@
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pod-name</span> <i class="conum" data-value="1"></i><b>(1)</b>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">pod-name</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">containers</span><span class="pi">:</span>
     <span class="s">...</span>
     <span class="s">securityContext</span><span class="pi">:</span>
-      <span class="na">privileged</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">privileged</span><span class="pi">:</span> <span class="no">true</span>
     <span class="na">volumeMounts</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/data</span> <i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="pi">-</span> <span class="na">mountPath</span><span class="pi">:</span> <span class="s">/data</span>
       <span class="na">name</span><span class="pi">:</span> <span class="s">hostpath-privileged</span>
   <span class="s">...</span>
   <span class="na">securityContext</span><span class="pi">:</span> <span class="pi">{}</span>
   <span class="na">volumes</span><span class="pi">:</span>
     <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">hostpath-privileged</span>
       <span class="na">persistentVolumeClaim</span><span class="pi">:</span>
-        <span class="na">claimName</span><span class="pi">:</span> <span class="s">task-pvc-volume</span> <i class="conum" data-value="4"></i><b>(4)</b></code></pre>
+        <span class="na">claimName</span><span class="pi">:</span> <span class="s">task-pvc-volume</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The name of the pod.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>The pod must run as privileged to access the node&#8217;s storage.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The path to mount the host path share inside the privileged pod. Do not mount to the container root, <code>/</code>, or any path that is the same in the host and the container. This can corrupt your host system if the container is sufficiently privileged, such as the host <code>/dev/pts</code> files. It is safe to mount the host by using <code>/host</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>The name of the <code>PersistentVolumeClaim</code> object that has been previously created.</td>
-</tr>
-</table>
+<div class="ulist">
+<ul>
+<li>
+<p><code>metadata.name</code>: Specifies the name of the pod.</p>
+</li>
+<li>
+<p><code>spec.containers.securityContext.privileged</code>: The pod must run as privileged to access the node&#8217;s storage.</p>
+</li>
+<li>
+<p><code>spec.containers.volumeMounts.mountPath</code>: The path to mount the host path share inside the privileged pod. Do not mount to the container root, <code>/</code>, or any path that is the same in the host and the container. This can corrupt your host system if the container is sufficiently privileged, such as the host <code>/dev/pts</code> files. It is safe to mount the host by using <code>/host</code>.</p>
+</li>
+<li>
+<p><code>spec.volumes.persistentVolumeClaim.claimName</code>: Specifies the name of the <code>PersistentVolumeClaim</code> object that has been previously created.</p>
+</li>
+</ul>
 </div>
 </li>
 </ul>
