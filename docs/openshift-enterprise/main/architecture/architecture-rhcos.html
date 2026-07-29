@@ -3448,7 +3448,7 @@
 <h2 id="rhcos-key-features_architecture-rhcos"><a class="anchor" href="#rhcos-key-features_architecture-rhcos"></a>Key RHCOS features</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Before you use Red&#160;Hat Enterprise Linux CoreOS (RHCOS), understand key features so that you can use RHCOS effectively to meet your needs.</p>
+<p>Before you use Red&#160;Hat Enterprise Linux CoreOS (RHCOS), understand key features so that you can use RHCOS to meet your needs.</p>
 </div>
 <div class="paragraph">
 <p>The following list describes key features of the RHCOS operating system:</p>
@@ -3474,7 +3474,7 @@
 <p><strong>rpm-ostree upgrades</strong>: RHCOS features transactional upgrades using the <code>rpm-ostree</code> system. Updates are delivered by means of container images and are part of the OpenShift Container Platform update process. When deployed, the container image is pulled, extracted, and written to disk, then the boot loader is modified to boot into the new version. The machine reboots into the update in a rolling manner to ensure cluster capacity is minimally impacted.</p>
 </li>
 <li>
-<p><strong>bootupd firmware and bootloader updater</strong>: Package managers and hybrid systems such as <code>rpm-ostree</code> do not update the firmware or the boot loader. With <code>bootupd</code>, RHCOS users have access to a cross-distribution, system-agnostic update tool that manages firmware and boot updates in UEFI and legacy BIOS boot modes that run on modern architectures, such as x86_64, ppc64le, and aarch64.</p>
+<p><strong>bootupd firmware and boot loader updater</strong>: Package managers and hybrid systems such as <code>rpm-ostree</code> do not update the firmware or the boot loader. With <code>bootupd</code>, RHCOS users have access to a cross-distribution, system-agnostic update tool that manages firmware and boot updates in UEFI and legacy BIOS boot modes that run on modern architectures, such as x86_64, ppc64le, and aarch64.</p>
 <div class="paragraph">
 <p>For information about how to install <code>bootupd</code>, see the documentation for <em>Updating the bootloader using bootupd</em>.</p>
 </div>
@@ -3577,15 +3577,15 @@
 <div class="sect2">
 <h3 id="rhcos-deployed_architecture-rhcos"><a class="anchor" href="#rhcos-deployed_architecture-rhcos"></a>How to deploy RHCOS</h3>
 <div class="paragraph _abstract">
-<p>Differences between RHCOS installations for OpenShift Container Platform are based on whether if you are deploying on an installer-provisioned or user-provisioned infrastructure.</p>
+<p>Differences between RHCOS installations for OpenShift Container Platform are based on if you are deploying on an installer-provisioned or user-provisioned infrastructure.</p>
 </div>
 <div class="paragraph">
-<p>The following list details the differences between these infrastructure types:</p>
+<p>The following list describes the differences between these infrastructure types:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p><strong>Installer-provisioned infrastructure</strong>: Some cloud environments offer preconfigured infrastructures that allow you to bring up an OpenShift Container Platform cluster with minimal configuration. For these types of installations, you can supply Ignition configs that place content on each node so it is there when the cluster first boots.</p>
+<p><strong>Installer-provisioned infrastructure</strong>: Some cloud environments offer preconfigured infrastructures so that you can start an OpenShift Container Platform cluster with minimal configuration. For these types of installations, you can supply Ignition configs that place content on each node so it is there when the cluster first boots.</p>
 </li>
 <li>
 <p><strong>User-provisioned infrastructure</strong>: If you are provisioning your own infrastructure, you have more flexibility in how you add content to a RHCOS node. For example, you could add kernel arguments when you boot the RHCOS ISO installer to install each system. However, in most cases where configuration is required on the operating system itself, it is best to provide that configuration through an Ignition config.</p>
@@ -3819,7 +3819,16 @@ The primary services are release-image.service followed by bootkube.service. To 
 <p>Inspect machine config pools and individual machine configs to audit node configurations, verify rendered system settings, and identify managed files across your OpenShift Container Platform cluster.</p>
 </div>
 <div class="paragraph">
-<p>Machine config pools manage a cluster of nodes and their corresponding machine configs. Machine configs contain configuration information for a cluster.</p>
+<p>Machine config pools manage a cluster of nodes and their corresponding machine configs.
+Machine configs contain configuration information for a cluster.</p>
+</div>
+<div class="paragraph">
+<p>The Machine Config Operator acts somewhat differently than Ignition when it comes to applying these machine configs.
+The machine configs are read in order (from <code>00*</code> to <code>99*</code>).
+Labels inside the machine configs identify the type of node each is for (master or worker).
+If the same file appears in multiple machine config files, the last one wins.
+So, for example, any file that shows in a <code>99*</code> file would replace the same file that appeared in a <code>00*</code> file.
+The input <code>MachineConfig</code> objects are unioned into a "rendered" <code>MachineConfig</code> object that is used as a target by the Operator and is the value you can see in the machine config pool.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3862,9 +3871,6 @@ master-1638c1aea398413bb918e76632f20799   4.0.0-0.150.0.0-dirty   3.5.0     
 worker-2feef4f8288936489a5a832ca8efe953   4.0.0-0.150.0.0-dirty   3.5.0             16m</span></code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p>The Machine Config Operator acts somewhat differently than Ignition when it comes to applying these machine configs. The machine configs are read in order (from <code>00*</code> to <code>99*</code>). Labels inside the machine configs identify the type of node each is for (master or worker). If the same file appears in multiple machine config files, the last one wins. So, for example, any file that shows in a <code>99*</code> file would replace the same file that appeared in a <code>00*</code> file. The input <code>MachineConfig</code> objects are unioned into a "rendered" <code>MachineConfig</code> object that is used as a target by the operator and is the value you can see in the machine config pool.</p>
-</div>
 </li>
 <li>
 <p>To see what files are being managed from a machine config, look for "Path:" inside a particular <code>MachineConfig</code> object. For example:</p>
@@ -3882,7 +3888,9 @@ worker-2feef4f8288936489a5a832ca8efe953   4.0.0-0.150.0.0-dirty   3.5.0     
 </div>
 </div>
 <div class="paragraph">
-<p>Be sure to give the machine config file a later name (such as <code>10-worker-container-runtime</code>). Remember that the content of each file is in URL-style data. You can then apply the new machine config to the cluster.</p>
+<p>Rememeber to give the machine config file a later name (such as <code>10-worker-container-runtime</code>).
+Also remember that the content of each file is in URL-style data.
+You can then apply the new machine config to the cluster.</p>
 </div>
 </li>
 </ol>
