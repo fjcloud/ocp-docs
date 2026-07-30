@@ -3419,7 +3419,7 @@
 <li><a href="#virt-creating-secondary-udn-namespace_virt-connecting-vm-to-secondary-udn">Creating a namespace for secondary user-defined networks by using the CLI</a>
 <ul class="sectlevel2">
 <li><a href="#virt-attaching-vm-to-secondary-udn_virt-connecting-vm-to-secondary-udn">Attaching a virtual machine to secondary user-defined networks by using the CLI</a></li>
-<li><a href="#additional-resources_virt-connecting-vm-to-secondary-udn">Additional resources</a></li>
+<li><a href="#virt-udn-considerations-ibm-z_virt-connecting-vm-to-secondary-udn">Considerations when running OpenShift Virtualization on IBM Z&#174;</a></li>
 </ul>
 </li>
 </ul>
@@ -3755,20 +3755,6 @@
 <dt class="hdlist1"><code>&lt;filename&gt;</code></dt>
 <dd>
 <p>Specifies the name of your <code>VirtualMachine</code> manifest YAML file.</p>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>When running OpenShift Virtualization on IBM Z&#174;, be aware that certain network interfaces, such as OSA, RoCE, and HiperSockets, only forward network traffic to devices that are registered with the respective interface. As a result, any traffic that is destined for unregistered devices is not forwarded.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
 </dd>
 </dl>
 </div>
@@ -3776,8 +3762,154 @@
 </ol>
 </div>
 </div>
-<div class="sect2 _additional-resources">
-<h3 id="additional-resources_virt-connecting-vm-to-secondary-udn"><a class="anchor" href="#additional-resources_virt-connecting-vm-to-secondary-udn"></a>Additional resources</h3>
+<div class="sect2">
+<h3 id="virt-udn-considerations-ibm-z_virt-connecting-vm-to-secondary-udn"><a class="anchor" href="#virt-udn-considerations-ibm-z_virt-connecting-vm-to-secondary-udn"></a>Considerations when running OpenShift Virtualization on IBM Z&#174;</h3>
+<div class="paragraph _abstract">
+<p>When running OpenShift Virtualization on IBM Z&#174;, the required network configuration depends on the hardware generation and the network adapter in use. Network interfaces on IBM Z&#174; behave differently from standard Ethernet devices, which affects how the bridge forwards virtual machine traffic.</p>
+</div>
+<div class="paragraph">
+<p>Review the following considerations before configuring a user-defined network (UDN) for virtual machines on IBM Z&#174;. Applying the correct settings ensures stable layer 2 connectivity between the virtual machine and the network bridge.</p>
+</div>
+<div class="sect3">
+<h4 id="virt-udn-roce-ibm-z_virt-connecting-vm-to-secondary-udn"><a class="anchor" href="#virt-udn-roce-ibm-z_virt-connecting-vm-to-secondary-udn"></a>Configuring a RoCE adapter for virtual machine networking on IBM Z&#174;</h4>
+<div class="paragraph _abstract">
+<p>On IBM Z&#174; z17, RoCE adapters support promiscuous mode at the hardware level, which forwards traffic for all virtual machine MAC addresses without manual registration. On earlier IBM Z&#174; generations, each virtual machine MAC address must be manually registered with the RoCE interface because promiscuous mode is not available.</p>
+</div>
+<div class="paragraph">
+<p>Use the following procedure to enable promiscuous mode on IBM Z&#174; z17.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the LPAR configuration for the IBM Z&#174; z17 system.</p>
+</li>
+<li>
+<p>You have the name of the RoCE network interface, for example <code>ens329</code>.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Enable promiscuous mode on the RoCE adapter at the hardware level in the LPAR. See <a href="https://www.ibm.com/docs/en/linux-on-systems?topic=mode-configuring-fidparm-support-promiscuous-vf">Configuring FIDPARM to support promiscuous mode on a VF</a></p>
+</li>
+<li>
+<p>Enable promiscuous mode on the corresponding network interface by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ip <span class="nb">link set </span>dev &lt;interface&gt; promisc on</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where <code>&lt;interface&gt;</code> is the name of the RoCE network interface, for example <code>ens329</code>.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that promiscuous mode is active by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ip <span class="nb">link </span>show dev &lt;interface&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">3: ens329: &lt;BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP&gt;</span><span class="w"> </span>mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
+<span class="go">    link/ether 22:4b:c0:53:05:be brd ff:ff:ff:ff:ff:ff
+    altname enp0s0</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The presence of the <code>PROMISC</code> flag confirms that promiscuous mode is active.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect3">
+<h4 id="virt-udn-osa-hipersockets-ibm-z_virt-connecting-vm-to-secondary-udn"><a class="anchor" href="#virt-udn-osa-hipersockets-ibm-z_virt-connecting-vm-to-secondary-udn"></a>Configuring OSA and HiperSockets adapters for virtual machine networking on IBM Z&#174;</h4>
+<div class="paragraph _abstract">
+<p>You can configure OSA and HiperSockets interfaces on IBM Z&#174; for virtual machine networking by enabling Virtual NIC Characteristics (VNICC) attributes on the qeth driver. Without them, the qeth driver silently drops packets destined for virtual machine MAC addresses.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have the bus ID of the qeth network device, for example <code>0.0.1100</code>.</p>
+</li>
+<li>
+<p>The <code>chzdev</code> command-line tool is available on the host node.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Enable flooding on the qeth device by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo </span>1 <span class="o">&gt;</span> /sys/devices/qeth/0.0.1100/vnicc/flooding</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable multicast flooding on the qeth device by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo </span>1 <span class="o">&gt;</span> /sys/devices/qeth/0.0.1100/vnicc/mcast_flooding</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enable MAC address learning on the qeth device by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo </span>1 <span class="o">&gt;</span> /sys/devices/qeth/0.0.1100/vnicc/learning</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Or, enable MAC address learning by using <code>chzdev</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>chzdev &lt;device_bus_id&gt; vnicc/learning<span class="o">=</span>1</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>chzdev</code></dt>
+<dd>
+<p>Specifies the tool to configure IBM Z&#174; devices.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;device_bus_id&gt;</code></dt>
+<dd>
+<p>Specifies the bus ID of the qeth network device, for example <code>0.0.1100</code>.</p>
+</dd>
+<dt class="hdlist1"><code>vnicc/learning=1</code></dt>
+<dd>
+<p>Enables MAC address learning.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect3 _additional-resources">
+<h4 id="additional-resources_virt-connecting-vm-to-secondary-udn"><a class="anchor" href="#additional-resources_virt-connecting-vm-to-secondary-udn"></a>Additional resources</h4>
 <div class="ulist">
 <ul>
 <li>
@@ -3787,6 +3919,7 @@
 <p><a href="../../networking/multiple_networks/secondary_networks/configuring-multi-network-policy.html#configuring-multi-network-policy">Multi-network policy API</a></p>
 </li>
 </ul>
+</div>
 </div>
 </div>
 </div>

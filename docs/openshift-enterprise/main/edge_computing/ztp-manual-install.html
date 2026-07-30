@@ -3419,9 +3419,12 @@
 <li><a href="#ztp-creating-the-site-secrets_ztp-manual-install">Creating the managed bare-metal host secrets</a></li>
 <li><a href="#setting-managed-bare-metal-host-kernel-arguments_ztp-manual-install">Configuring Discovery ISO kernel arguments for manual installations using GitOps ZTP</a></li>
 <li><a href="#ztp-manually-install-a-single-managed-cluster_ztp-manual-install">Installing a single managed cluster</a></li>
+<li><a href="#ztp-late-binding-bare-metal-host-pools_ztp-manual-install">Late binding for bare-metal host pools in GitOps ZTP deployments</a></li>
+<li><a href="#ztp-binding-bmh-to-cluster-using-annotation_ztp-manual-install">Bind bare-metal hosts to clusters using the cluster-reference annotation in GitOps ZTP deployments</a></li>
+<li><a href="#ztp-bmh-cluster-reference-annotation-ref_ztp-manual-install">BareMetalHost cluster-reference annotation</a></li>
 <li><a href="#ztp-checking-the-managed-cluster-status_ztp-manual-install">Monitoring the managed cluster installation status</a></li>
 <li><a href="#ztp-troubleshooting-the-managed-cluster_ztp-manual-install">Troubleshooting the managed cluster</a></li>
-<li><a href="#ztp-installation-crs_ztp-manual-install">RHACM generated cluster installation CRs reference</a></li>
+<li><a href="#ztp-installation-crs_ztp-manual-install">RHACM generated cluster installation CRs</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -4090,6 +4093,370 @@ must match the <code>ClusterInstance</code> namespace.</p>
 </div>
 </div>
 <div class="sect1">
+<h2 id="ztp-late-binding-bare-metal-host-pools_ztp-manual-install"><a class="anchor" href="#ztp-late-binding-bare-metal-host-pools_ztp-manual-install"></a>Late binding for bare-metal host pools in GitOps ZTP deployments</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>In the standard GitOps ZTP flow, the <code>InfraEnv</code> custom resource (CR) references a specific <code>ClusterDeployment</code> CR, and all discovered hosts are automatically associated with that cluster.
+Late binding separates host discovery from cluster assignment, so you can manage a pool of bare-metal hosts independently from cluster lifecycle.</p>
+</div>
+<div class="paragraph">
+<p>With late binding, you create an <code>InfraEnv</code> CR without a <code>ClusterDeployment</code> reference, so that all hosts booted from the discovery ISO remain unbound and available for assignment to any cluster.
+You then use the <code>bmac.agent-install.openshift.io/cluster-reference</code> annotation on <code>BareMetalHost</code> resources to declaratively bind individual hosts to specific <code>ClusterDeployment</code> CRs.
+This annotation-based binding is compatible with GitOps workflows such as ArgoCD.</p>
+</div>
+<div class="paragraph">
+<p>Late binding in the GitOps ZTP workflow is designed for environments where hardware provisioning and cluster creation happen independently.
+Common scenarios include:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>An infrastructure team boots a set of bare-metal servers from a single discovery ISO, and a platform team later assigns subsets of those hosts to different clusters as demand arises.</p>
+</li>
+<li>
+<p>Hardware provisioning and cluster creation are handled by different teams at different times.</p>
+</li>
+<li>
+<p>Spare bare metal capacity must be allocated to clusters as workload requirements change.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If you are deploying a single cluster where all discovered hosts belong to that cluster, use the standard GitOps ZTP flow with a <code>ClusterDeployment</code> reference in the <code>InfraEnv</code> CR.</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../edge_computing/ztp-manual-install.html#ztp-binding-bmh-to-cluster-using-annotation_ztp-manual-install">Bind bare-metal hosts to clusters using the cluster-reference annotation in GitOps ZTP deployments</a></p>
+</li>
+<li>
+<p><a href="../edge_computing/ztp-manual-install.html#ztp-bmh-cluster-reference-annotation-ref_ztp-manual-install"><code>BareMetalHost</code> cluster-reference annotation reference</a></p>
+</li>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.17/html/clusters/cluster_mce_overview#bind-unbind-hosts">Binding and unbinding hosts in the RHACM documentation</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ztp-binding-bmh-to-cluster-using-annotation_ztp-manual-install"><a class="anchor" href="#ztp-binding-bmh-to-cluster-using-annotation_ztp-manual-install"></a>Bind bare-metal hosts to clusters using the cluster-reference annotation in GitOps ZTP deployments</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>In GitOps ZTP deployments, you can declaratively bind individual <code>BareMetalHost</code> resources from a shared <code>InfraEnv</code> pool to specific <code>ClusterDeployment</code> CRs by using the <code>bmac.agent-install.openshift.io/cluster-reference</code> annotation.
+This approach is compatible with GitOps workflows because the binding is managed through annotations on the <code>BareMetalHost</code> resource rather than by patching <code>Agent</code> CRs directly.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have logged in to the hub cluster as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have created an <code>InfraEnv</code> CR without a <code>clusterRef</code> field. If you use the SiteConfig Operator, verify that the generated <code>InfraEnv</code> does not include a <code>clusterRef</code> field.</p>
+</li>
+<li>
+<p>You have <code>BareMetalHost</code> resources that reference the shared <code>InfraEnv</code>. These resources are either generated automatically by the SiteConfig Operator from a <code>ClusterInstance</code> CR, or created manually with the <code>infraenvs.agent-install.openshift.io</code> label set to the name of the <code>InfraEnv</code> CR.</p>
+</li>
+<li>
+<p>You have booted the hosts from the discovery ISO and <code>Agent</code> CRs have been created automatically for the discovered hosts.</p>
+</li>
+<li>
+<p>You have created the target <code>ClusterDeployment</code> and <code>AgentClusterInstall</code> CRs for the cluster that you want to bind hosts to.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Verify that the <code>InfraEnv</code> CR does not have a <code>clusterRef</code> field set:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get infraenv &lt;infraenv_name&gt; <span class="nt">-n</span> &lt;namespace&gt; <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.clusterRef}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the command returns an empty result, the <code>InfraEnv</code> is configured for late binding.
+If a <code>clusterRef</code> value is returned, the <code>BareMetalHost</code> cluster-reference annotation is ignored and you must use the standard binding flow.</p>
+</div>
+</li>
+<li>
+<p>Verify that the <code>Agent</code> CRs exist and are not bound to a cluster:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get agents <span class="nt">-n</span> &lt;namespace&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                   CLUSTER   APPROVED   ROLE          STAGE
+aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb             false      auto-assign
+cccccccc-4444-5555-6666-dddddddddddd             false      auto-assign</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Agents that are not bound to a cluster have an empty <code>CLUSTER</code> column.</p>
+</div>
+</li>
+<li>
+<p>Add the <code>bmac.agent-install.openshift.io/cluster-reference</code> annotation to the <code>BareMetalHost</code> resource to bind it to the target <code>ClusterDeployment</code> CR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate bmh &lt;bmh_name&gt; <span class="nt">-n</span> &lt;namespace&gt; <span class="se">\</span>
+    bmac.agent-install.openshift.io/cluster-reference<span class="o">=</span>&lt;cluster_namespace&gt;/&lt;cluster_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;cluster_namespace&gt;/&lt;cluster_name&gt;</code> with the namespace and name of the target <code>ClusterDeployment</code> CR.</p>
+</div>
+<div class="paragraph">
+<p>Alternatively, you can set the annotation declaratively in the <code>BareMetalHost</code> YAML manifest:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">metal3.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">BareMetalHost</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">worker-01</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">my-infraenv-ns</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">bmac.agent-install.openshift.io/cluster-reference</span><span class="pi">:</span> <span class="s">my-cluster-ns/my-cluster</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">infraenvs.agent-install.openshift.io</span><span class="pi">:</span> <span class="s">my-infraenv</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">online</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">bootMACAddress</span><span class="pi">:</span> <span class="s">00:00:5E:00:53:01</span>
+  <span class="na">bmc</span><span class="pi">:</span>
+    <span class="na">address</span><span class="pi">:</span> <span class="s">redfish-virtualmedia://192.0.2.10/redfish/v1/Systems/1</span>
+    <span class="na">credentialsName</span><span class="pi">:</span> <span class="s">worker-01-bmc-secret</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>bmac.agent-install.openshift.io/cluster-reference</code> annotation value uses the format <code>&lt;namespace&gt;/&lt;name&gt;</code>, referencing the target <code>ClusterDeployment</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify that the <code>Agent</code> CR is bound to the correct <code>ClusterDeployment</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get agents <span class="nt">-n</span> &lt;namespace&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                   CLUSTER      APPROVED   ROLE          STAGE
+aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb   my-cluster   false      auto-assign</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>CLUSTER</code> column shows the name of the target <code>ClusterDeployment</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify the <code>Bound</code> condition on the <code>Agent</code> CR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get agent &lt;agent_name&gt; <span class="nt">-n</span> &lt;namespace&gt; <span class="se">\</span>
+    <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.type=="Bound")]}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A successfully bound agent shows <code>status: "True"</code> and <code>reason: "Bound"</code> in the output.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Agents discovered by using a <code>BareMetalHost</code> resource are automatically approved for installation when the <code>bootMACAddress</code> in the <code>BareMetalHost</code> matches a NIC in the inventory of the discovered host.
+You do not need to manually approve these agents.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Optional: To unbind a host from a cluster before installation starts, set the annotation value to an empty string:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate bmh &lt;bmh_name&gt; <span class="nt">-n</span> &lt;namespace&gt; <span class="se">\</span>
+    bmac.agent-install.openshift.io/cluster-reference<span class="o">=</span><span class="s2">""</span> <span class="nt">--overwrite</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The bare metal agent controller (BMAC) clears the <code>spec.clusterDeploymentName</code> field on the corresponding <code>Agent</code> CR, and the host returns to the unbound pool.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You cannot unbind a host after cluster installation has started.
+If you try to unbind a host that is already installed or in an <code>error</code> or <code>canceled</code> state, the <code>Agent</code> CR <code>Bound</code> condition is set to <code>False</code> with the reason <code>UnbindingPendingUserAction</code>.
+For hosts discovered by using a <code>BareMetalHost</code> resource, the assisted controllers automatically use the <code>BareMetalHost</code> to boot the host back into the discovery ISO to complete the unbinding process.
+For hosts discovered without a <code>BareMetalHost</code> resource, you must manually reboot the host with the discovery ISO.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that all agents are approved and bound to the correct cluster:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get agents <span class="nt">-n</span> &lt;namespace&gt; <span class="nt">-o</span> custom-columns<span class="o">=</span>NAME:.metadata.name,CLUSTER:.spec.clusterDeploymentName.name,APPROVED:.spec.approved</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../edge_computing/ztp-manual-install.html#ztp-late-binding-bare-metal-host-pools_ztp-manual-install">Late binding for bare-metal host pools in GitOps ZTP deployments</a></p>
+</li>
+<li>
+<p><a href="../edge_computing/ztp-manual-install.html#ztp-bmh-cluster-reference-annotation-ref_ztp-manual-install"><code>BareMetalHost</code> cluster-reference annotation reference</a></p>
+</li>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.16/html/clusters/cluster_mce_overview#binding-and-unbinding-hosts">Binding and unbinding hosts in the RHACM documentation</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ztp-bmh-cluster-reference-annotation-ref_ztp-manual-install"><a class="anchor" href="#ztp-bmh-cluster-reference-annotation-ref_ztp-manual-install"></a>BareMetalHost cluster-reference annotation</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The <code>bmac.agent-install.openshift.io/cluster-reference</code> annotation on <code>BareMetalHost</code> resources controls the declarative binding of discovered hosts to <code>ClusterDeployment</code> CRs.
+You can use this annotation to bind, unbind, or leave hosts unchanged in a late binding workflow.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Cluster-reference annotation states</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Annotation state</th>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Effect on Agent CR</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set with cluster reference</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>&lt;namespace&gt;/&lt;name&gt;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets <code>spec.clusterDeploymentName</code> to the referenced <code>ClusterDeployment</code> CR. The <code>Agent</code> is bound to the specified cluster.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set with empty string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>""</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Clears <code>spec.clusterDeploymentName</code>. The <code>Agent</code> is unbound from its current cluster and returns to the unbound pool.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Not set</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">N/A</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No change to the <code>Agent</code> CR cluster reference. The host remains in its current state.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. Constraints and precedence rules</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Constraint</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>InfraEnv</code> <code>clusterRef</code> takes precedence</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If the <code>InfraEnv</code> CR has a <code>clusterRef</code> field set, the <code>BareMetalHost</code> cluster-reference annotation is ignored.
+The <code>InfraEnv</code> CR must not have a <code>clusterRef</code> for late binding to work.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unbinding is blocked after installation starts</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">You can only unbind a host before cluster installation begins.
+After the installation starts, setting the annotation to an empty string results in an <code>UnbindingPendingUserAction</code> state on the <code>Agent</code> CR.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ClusterDeployment</code> CR must exist</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <code>ClusterDeployment</code> CR referenced by the annotation must exist in the specified namespace.
+If the <code>ClusterDeployment</code> CR does not exist, the binding fails.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">One <code>InfraEnv</code> CR per host</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Each <code>BareMetalHost</code> CR is associated with a single <code>InfraEnv</code> CR through the <code>infraenvs.agent-install.openshift.io</code> label.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 3. Related BareMetalHost bare metal agent controller (BMAC) annotations</caption>
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Annotation</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bmac.agent-install.openshift.io/cluster-reference</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Binds the host to a specific <code>ClusterDeployment</code> CR. Value format: <code>&lt;namespace&gt;/&lt;name&gt;</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bmac.agent-install.openshift.io/hostname</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets the hostname for the agent during deployment.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bmac.agent-install.openshift.io/role</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets the role of the host, such as <code>master</code> or <code>worker</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bmac.agent-install.openshift.io/installer-args</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Passes additional arguments to the OpenShift Container Platform installer.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bmac.agent-install.openshift.io/ignition-config-overrides</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Provides ignition configuration overrides for the host.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
 <h2 id="ztp-checking-the-managed-cluster-status_ztp-manual-install"><a class="anchor" href="#ztp-checking-the-managed-cluster-status_ztp-manual-install"></a>Monitoring the managed cluster installation status</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
@@ -4262,10 +4629,10 @@ Sno0026    agent-baremetal                               false                  
 </div>
 </div>
 <div class="sect1">
-<h2 id="ztp-installation-crs_ztp-manual-install"><a class="anchor" href="#ztp-installation-crs_ztp-manual-install"></a>RHACM generated cluster installation CRs reference</h2>
+<h2 id="ztp-installation-crs_ztp-manual-install"><a class="anchor" href="#ztp-installation-crs_ztp-manual-install"></a>RHACM generated cluster installation CRs</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Red&#160;Hat Advanced Cluster Management (RHACM) supports deploying OpenShift Container Platform on single-node clusters, three-node clusters, and standard clusters with a specific set of installation custom resources (CRs) that you generate using <code>ClusterInstance</code> CRs for each cluster.</p>
+<p>Red&#160;Hat Advanced Cluster Management (RHACM) supports deploying OpenShift Container Platform on single-node clusters, three-node clusters, and standard clusters with a specific set of installation custom resources (CRs) that you generate by using <code>ClusterInstance</code> CRs for each cluster.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -4285,7 +4652,7 @@ Sno0026    agent-baremetal                               false                  
 <p>The following table lists the installation CRs that are automatically applied by the RHACM assisted service when it installs clusters using the <code>ClusterInstance</code> CRs that you configure.</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 1. Cluster installation CRs generated by RHACM</caption>
+<caption class="title">Table 4. Cluster installation CRs generated by RHACM</caption>
 <colgroup>
 <col style="width: 14.2857%;">
 <col style="width: 42.8571%;">
@@ -4301,13 +4668,15 @@ Sno0026    agent-baremetal                               false                  
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>BareMetalHost</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Contains the connection information for the Baseboard Management Controller (BMC) of the target bare-metal host.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Contains the connection information for the Baseboard Management Controller (BMC) of the target bare-metal host.
+In late binding scenarios where the <code>InfraEnv</code> CR is not bound to a <code>ClusterDeployment</code> CR, the optional <code>bmac.agent-install.openshift.io/cluster-reference</code> annotation on the <code>BareMetalHost</code> CR declaratively binds the host to a specific <code>ClusterDeployment</code> CR.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Provides access to the BMC to load and start the discovery image on the target server by using the Redfish protocol.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>InfraEnv</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Contains information for installing OpenShift Container Platform on the target bare-metal host.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Used with <code>ClusterDeployment</code> to generate the discovery ISO for the managed cluster.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Used with <code>ClusterDeployment</code> to generate the discovery ISO for the managed cluster.
+Can also be created without a <code>ClusterDeployment</code> reference to enable late binding, where hosts are bound to clusters individually by using the <code>BareMetalHost</code> cluster-reference annotation.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>AgentClusterInstall</code></p></td>
@@ -4322,7 +4691,7 @@ Sno0026    agent-baremetal                               false                  
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>NMStateConfig</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Provides network configuration information such as <code>MAC</code> address to <code>IP</code> mapping, DNS server, default route, and other network settings.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Sets up a static IP address for the managed cluster’s Kube API server.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets up a static IP address for the managed cluster&#8217;s Kube API server.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>Agent</code></p></td>
@@ -4337,7 +4706,7 @@ Sno0026    agent-baremetal                               false                  
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>KlusterletAddonConfig</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Contains the list of services provided by the hub to be deployed to the <code>ManagedCluster</code> resource.</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Tells the hub which addon services to deploy to the <code>ManagedCluster</code> resource.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Tells the hub which add-on services to deploy to the <code>ManagedCluster</code> resource.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>Namespace</code></p></td>
