@@ -2837,20 +2837,21 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#identity-provider-overview_configuring-google-identity-provider">About identity providers in OKD</a></li>
-<li><a href="#identity-provider-google-about_configuring-google-identity-provider">About Google authentication</a></li>
+<li><a href="#identity-provider-overview_configuring-google-identity-provider">Identity providers in OKD</a></li>
+<li><a href="#identity-provider-google-about_configuring-google-identity-provider">Google authentication</a></li>
 <li><a href="#identity-provider-creating-secret_configuring-google-identity-provider">Creating the secret</a></li>
-<li><a href="#identity-provider-google-CR_configuring-google-identity-provider">Sample Google CR</a></li>
+<li><a href="#identity-provider-google-CR_configuring-google-identity-provider">Sample Google custom resource</a></li>
 <li><a href="#add-identity-provider_configuring-google-identity-provider">Adding an identity provider to your cluster</a></li>
+<li><a href="#additional-resources-google-identity-provider_configuring-google-identity-provider">Additional resources</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>Configure the <code>google</code> identity provider using the <a href="https://developers.google.com/identity/protocols/OpenIDConnect">Google OpenID Connect integration</a>.</p>
+<div class="paragraph _abstract">
+<p>Configure a Google identity provider so users can authenticate to OKD with Google accounts. When configured, sign-in is permitted only for Google accounts in that hosted domain.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="identity-provider-overview_configuring-google-identity-provider"><a class="anchor" href="#identity-provider-overview_configuring-google-identity-provider"></a>About identity providers in OKD</h2>
+<h2 id="identity-provider-overview_configuring-google-identity-provider"><a class="anchor" href="#identity-provider-overview_configuring-google-identity-provider"></a>Identity providers in OKD</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
 <p>You can configure identity providers by creating a custom resource (CR) that describes the provider and adding it to the cluster. Identity providers enable user authentication in OKD beyond the default <code>kubeadmin</code> user.</p>
@@ -2863,7 +2864,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>OKD user names containing <code>/</code>, <code>:</code>, and <code>%</code> are not supported.</p>
+<p>OKD usernames containing <code>/</code>, <code>:</code>, and <code>%</code> are not supported.</p>
 </div>
 </td>
 </tr>
@@ -2872,10 +2873,13 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="identity-provider-google-about_configuring-google-identity-provider"><a class="anchor" href="#identity-provider-google-about_configuring-google-identity-provider"></a>About Google authentication</h2>
+<h2 id="identity-provider-google-about_configuring-google-identity-provider"><a class="anchor" href="#identity-provider-google-about_configuring-google-identity-provider"></a>Google authentication</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>By using Google as an identity provider, you can authenticate to your server. You can use the <code>hostedDomain</code> configuration attribute to limit authentication to members of a specific hosted domain.</p>
+</div>
 <div class="paragraph">
-<p>Using Google as an identity provider allows any Google user to authenticate to your server. You can limit authentication to members of a specific hosted domain with the <code>hostedDomain</code> configuration attribute.</p>
+<p>Google authentication uses OpenID Connect through the cluster OAuth server.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -2896,29 +2900,22 @@
 <div class="sect1">
 <h2 id="identity-provider-creating-secret_configuring-google-identity-provider"><a class="anchor" href="#identity-provider-creating-secret_configuring-google-identity-provider"></a>Creating the secret</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>Identity providers use OKD <code>Secret</code> objects in the <code>openshift-config</code> namespace to contain the client secret, client certificates, and keys.</p>
+<div class="paragraph _abstract">
+<p>Create a Secret in the <code>openshift-config</code> namespace to store identity provider client secrets, certificates, or keys, so the OAuth custom resource (CR) can reference them.</p>
 </div>
-<div class="ulist">
+<div class="olist arabic">
 <div class="title">Procedure</div>
-<ul>
+<ol class="arabic">
 <li>
-<p>Create a <code>Secret</code> object containing a string by using the following command:</p>
+<p>Create a <code>Secret</code> object containing the client secret by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic &lt;secret_name&gt; <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">clientSecret</span><span class="o">=</span>&lt;secret&gt; <span class="nt">-n</span> openshift-config</code></pre>
 </div>
 </div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-tip" title="Tip"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>You can alternatively apply the following YAML to create the secret:</p>
-</div>
+</li>
+<li>
+<p>Optional: Apply the following YAML to create the secret:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
@@ -2931,32 +2928,26 @@
   <span class="na">clientSecret</span><span class="pi">:</span> <span class="s">&lt;base64_encoded_client_secret&gt;</span></code></pre>
 </div>
 </div>
-</td>
-</tr>
-</table>
-</div>
 </li>
 <li>
-<p>You can define a <code>Secret</code> object containing the contents of a file by using the following command:</p>
+<p>Create a <code>Secret</code> object from a file by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic &lt;secret_name&gt; <span class="nt">--from-file</span><span class="o">=</span>&lt;path_to_file&gt; <span class="nt">-n</span> openshift-config</code></pre>
 </div>
 </div>
 </li>
-</ul>
+</ol>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="identity-provider-google-CR_configuring-google-identity-provider"><a class="anchor" href="#identity-provider-google-CR_configuring-google-identity-provider"></a>Sample Google CR</h2>
+<h2 id="identity-provider-google-CR_configuring-google-identity-provider"><a class="anchor" href="#identity-provider-google-CR_configuring-google-identity-provider"></a>Sample Google custom resource</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The following custom resource (CR) shows the parameters and acceptable
-values for a Google identity provider.</p>
+<div class="paragraph _abstract">
+<p>Review the custom resource (CR) fields and acceptable values for configuring a Google identity provider in OKD. Use these definitions to set client credentials and hosted domain restrictions before applying the configuration to the cluster.</p>
 </div>
 <div class="listingblock">
-<div class="title">Google CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">OAuth</span>
@@ -2964,52 +2955,49 @@ values for a Google identity provider.</p>
   <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">identityProviders</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">googleidp</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">mappingMethod</span><span class="pi">:</span> <span class="s">claim</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">googleidp</span>
+    <span class="na">mappingMethod</span><span class="pi">:</span> <span class="s">claim</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">Google</span>
     <span class="na">google</span><span class="pi">:</span>
-      <span class="na">clientID</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">...</span><span class="pi">}</span> <i class="conum" data-value="3"></i><b>(3)</b>
-      <span class="na">clientSecret</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+      <span class="na">clientID</span><span class="pi">:</span> <span class="pi">{</span><span class="nv">...</span><span class="pi">}</span>
+      <span class="na">clientSecret</span><span class="pi">:</span>
         <span class="na">name</span><span class="pi">:</span> <span class="s">google-secret</span>
-      <span class="na">hostedDomain</span><span class="pi">:</span> <span class="s2">"</span><span class="s">example.com"</span> <i class="conum" data-value="5"></i><b>(5)</b></code></pre>
+      <span class="na">hostedDomain</span><span class="pi">:</span> <span class="s2">"</span><span class="s">example.com"</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>This provider name is prefixed to the Google numeric user ID to form an
-identity name. It is also used to build the redirect URL.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Controls how mappings are established between this provider&#8217;s identities and <code>User</code> objects.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>The client ID of a <a href="https://console.developers.google.com/">registered
-Google project</a>. The project must be configured with a redirect URI of
-<code>https://oauth-openshift.apps.&lt;cluster-name&gt;.&lt;cluster-domain&gt;/oauth2callback/&lt;idp-provider-name&gt;</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>Reference to an OKD <code>Secret</code> object containing the client secret
-issued by Google.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>A
-<a href="https://developers.google.com/identity/protocols/OpenIDConnect#hd-param">hosted domain</a>
-used to restrict sign-in accounts. Optional if the <code>lookup</code> <code>mappingMethod</code>
-is used. If empty, any Google account is allowed to authenticate.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.identityProviders.name</code></dt>
+<dd>
+<p>Specifies the provider name, which is prefixed to the Google numeric user ID to form an identity name. The provider name is also used to build the redirect URL.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.mappingMethod</code></dt>
+<dd>
+<p>Specifies how mappings are established between identities from this provider and <code>User</code> objects.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.google.clientID</code></dt>
+<dd>
+<p>Specifies the client ID from the Google Cloud project where you create the OAuth client. The project must be configured with a redirect URI of
+<code>https://oauth-openshift.apps.&lt;cluster-name&gt;.&lt;cluster-domain&gt;/oauth2callback/&lt;idp-provider-name&gt;</code>.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.google.clientSecret</code></dt>
+<dd>
+<p>Specifies a reference to an OKD <code>Secret</code> object containing the client secret issued by Google.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.google.hostedDomain</code></dt>
+<dd>
+<p>Specifies a hosted domain used to restrict sign-in accounts. Optional if the <code>lookup</code> <code>mappingMethod</code> is used. If empty, any Google account is allowed to authenticate.</p>
+</dd>
+</dl>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
 <li>
-<p>See <a href="../../authentication/understanding-identity-provider.html#identity-provider-parameters_understanding-identity-provider">Identity provider parameters</a> for information on parameters, such as <code>mappingMethod</code>, that are common to all identity providers.</p>
+<p><a href="../../authentication/understanding-identity-provider.html#identity-provider-parameters_understanding-identity-provider">Identity provider parameters</a></p>
 </li>
 </ul>
 </div>
@@ -3018,21 +3006,20 @@ is used. If empty, any Google account is allowed to authenticate.</td>
 <div class="sect1">
 <h2 id="add-identity-provider_configuring-google-identity-provider"><a class="anchor" href="#add-identity-provider_configuring-google-identity-provider"></a>Adding an identity provider to your cluster</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>After you install your cluster, add an identity provider to it so your
-users can authenticate.</p>
+<div class="paragraph _abstract">
+<p>Apply the OAuth custom resource (CR) to add an identity provider to your cluster so users can authenticate with external credentials instead of the default <code>kubeadmin</code> user.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Create an OKD cluster.</p>
+<p>You installed an OKD cluster.</p>
 </li>
 <li>
-<p>Create the custom resource (CR) for your identity providers.</p>
+<p>You defined the CR for your identity provider.</p>
 </li>
 <li>
-<p>You must be logged in as an administrator.</p>
+<p>You are logged in as an administrator.</p>
 </li>
 </ul>
 </div>
@@ -3040,7 +3027,7 @@ users can authenticate.</p>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Apply the defined CR:</p>
+<p>Apply the defined CR by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;/path/to/CR&gt;</code></pre>
@@ -3071,7 +3058,7 @@ users can authenticate.</p>
 </div>
 </li>
 <li>
-<p>Log in to the cluster, passing in the token to authenticate.</p>
+<p>Log in to the cluster by running the following command, passing in the token to authenticate:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc login <span class="nt">--token</span><span class="o">=</span>&lt;token&gt;</code></pre>
@@ -3085,7 +3072,7 @@ users can authenticate.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>This identity provider does not support logging in with a user name and password.</p>
+<p>This identity provider does not support logging in with a username and password.</p>
 </div>
 </td>
 </tr>
@@ -3093,7 +3080,7 @@ users can authenticate.</p>
 </div>
 </li>
 <li>
-<p>Confirm that the user logged in successfully, and display the user name.</p>
+<p>Confirm that the user logged in successfully and that the username displays by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">whoami</span></code></pre>
@@ -3101,6 +3088,18 @@ users can authenticate.</p>
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="additional-resources-google-identity-provider_configuring-google-identity-provider"><a class="anchor" href="#additional-resources-google-identity-provider_configuring-google-identity-provider"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://developers.google.com/identity/protocols/OpenIDConnect">OpenID Connect (Google Identity documentation)</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
