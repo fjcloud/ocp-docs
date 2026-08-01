@@ -2836,6 +2836,7 @@
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
 <li><a href="#oadp-pod-crash-resource-request-velero_pods-crash-or-restart-due-to-lack-of-memory-or-cpu">Setting resource requests for a Velero pod</a></li>
+<li><a href="#velero-oomkilled-large-kopia-repos_pods-crash-or-restart-due-to-lack-of-memory-or-cpu">Velero server terminates with OOMKilled when accessing large Kopia repositories</a></li>
 <li><a href="#oadp-pod-crash-resource-request-retics_pods-crash-or-restart-due-to-lack-of-memory-or-cpu">Setting resource requests for a Restic pod</a></li>
 <li><a href="#setting-resource-requests-for-a-nodeagent-pod_pods-crash-or-restart-due-to-lack-of-memory-or-cpu">Setting resource requests for a nodeAgent pod</a></li>
 </ul>
@@ -2898,6 +2899,92 @@
 </div>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="velero-oomkilled-large-kopia-repos_pods-crash-or-restart-due-to-lack-of-memory-or-cpu"><a class="anchor" href="#velero-oomkilled-large-kopia-repos_pods-crash-or-restart-due-to-lack-of-memory-or-cpu"></a>Velero server terminates with OOMKilled when accessing large Kopia repositories</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>If the Velero server accesses large Kopia repositories, the Velero pod might crash and report an <code>OOMKilled</code> event.</p>
+</div>
+<div class="paragraph">
+<p>During operations that access large Kopia repositories, such as backup deletion or checking repository existence, the Velero pod crashes and reports an <code>OOMKilled</code> event.</p>
+</div>
+<div class="paragraph">
+<p>This issue is typically caused by high memory usage when the Velero server loads many Kopia index blobs and related repository metadata. When the Backup Repository controller accesses a large-scale repository, the required memory can exceed the default limits.</p>
+</div>
+<div class="paragraph">
+<p>To resolve this issue, identify the peak memory usage and increase the memory limits in the <code>DataProtectionApplication</code> (DPA) custom resource (CR) so that the Velero server has enough memory to load the repository metadata.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check the Velero logs around the time of the <code>OOMKilled</code> event for repository-open or index-loading activity.</p>
+</li>
+<li>
+<p>Note the approximate maximum memory usage observed for the Velero pod by using a command such as <code>oc top pods</code>.</p>
+</li>
+<li>
+<p>Edit the <code>DataProtectionApplication</code> CR:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit dpa <em>&lt;dpa_name&gt;</em> <span class="nt">-n</span> openshift-adp</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;dpa_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of your <code>DataProtectionApplication</code> CR.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Increase the Velero container memory request or limit in the <code>spec.configuration.velero.podConfig</code> block to exceed the observed peak. For example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">resourceAllocations</span><span class="pi">:</span>
+          <span class="na">limits</span><span class="pi">:</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s"><em>&lt;memory_limit&gt;</em></span>
+          <span class="na">requests</span><span class="pi">:</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s">512Mi</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;memory_limit&gt;</code></dt>
+<dd>
+<p>Specifies a value that exceeds the maximum memory usage you observed in the logs, for example, <code>2Gi</code>.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Save your changes.</p>
+<div class="paragraph">
+<p>The Velero pod redeploys automatically with the new limits.</p>
+</div>
+</li>
+<li>
+<p>Monitor the environment and repeat the process if necessary until <code>OOMKilled</code> events no longer occur.</p>
+</li>
+<li>
+<p>Record the final stable memory values for your environment to use for future sizing guidance.</p>
+</li>
+</ol>
 </div>
 </div>
 </div>
