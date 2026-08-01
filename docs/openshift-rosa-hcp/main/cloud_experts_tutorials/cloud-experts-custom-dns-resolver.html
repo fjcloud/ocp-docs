@@ -1245,10 +1245,13 @@
 <div class="sectionbody">
 <!-- toc disabled -->
 <div class="paragraph _abstract">
-<p>Use a custom Dynamic Host Configuration Protocol (DHCP) option set to customize your Virtual Private Cloud (VPC) with your own Domain Name System (DNS) server, domain name, and more. Red Hat OpenShift Service on AWS clusters support using custom DHCP option sets. By default, Red Hat OpenShift Service on AWS clusters require setting the "domain name servers" option to <code>AmazonProvidedDNS</code> to ensure successful cluster creation and operation. Customers who want to use custom DNS servers for DNS resolution must do additional configuration to ensure successful Red Hat OpenShift Service on AWS cluster creation and operation.</p>
+<p>Use a custom Dynamic Host Configuration Protocol (DHCP) option set to customize your Virtual Private Cloud (VPC) with your own Domain Name System (DNS) server, domain name, and more. Red Hat OpenShift Service on AWS clusters support using custom DHCP option sets.</p>
 </div>
 <div class="paragraph">
-<p>In this tutorial, we will configure our DNS server to forward DNS lookups for specific DNS zones (further detailed below) to an Amazon Route 53 Inbound Resolver. For more information, see <em>Additional resources</em>.</p>
+<p>By default, Red Hat OpenShift Service on AWS clusters require setting the "domain name servers" option to <code>AmazonProvidedDNS</code> to ensure successful cluster creation and operation. If you want to use custom DNS servers for DNS resolution, you must do additional configuration to ensure successful Red Hat OpenShift Service on AWS cluster creation and operation.</p>
+</div>
+<div class="paragraph">
+<p>In this tutorial, you configure a DNS server to forward DNS lookups for specific DNS zones to an Amazon Route 53 Inbound Resolver. For more information, see <em>Additional resources</em>.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -1341,7 +1344,7 @@
 <h2 id="cloud-experts-custom-dns-resolver-create-inbound-resolver_cloud-experts-custom-dns-resolver"><a class="anchor" href="#cloud-experts-custom-dns-resolver-create-inbound-resolver_cloud-experts-custom-dns-resolver"></a>Create an Amazon Route 53 Inbound Resolver</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Use the following procedure to deploy an <a href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resolver.html">Amazon Route 53 Inbound Resolver</a> in the VPC we plan to deploy the cluster into.</p>
+<p>Deploy an Amazon Route 53 Inbound Resolver in the Virtual Private Cloud (VPC) where you plan to deploy the cluster. With the inbound resolver, your DNS server can forward queries to Route 53.</p>
 </div>
 <div class="admonitionblock warning">
 <table>
@@ -1351,7 +1354,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>In this example, we deploy the Amazon Route 53 Inbound Resolver into the same VPC the cluster will use. If you want to deploy it into a separate VPC, you must manually associate the private hosted zone(s) detailed below <strong>once cluster creation is started</strong>. You cannot associate the zone before the cluster creation process begins. Failure to associate the private hosted zone during the cluster creation process will result in cluster creation failures.</p>
+<p>In this example, the <a href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resolver.html">Amazon Route 53 Inbound Resolver</a> is deployed into the same VPC the cluster uses. If you want to deploy it into a separate VPC, you must manually associate the private hosted zone(s) <strong>once cluster creation is started</strong>. You cannot associate the zone before the cluster creation process begins. Failure to associate the private hosted zone during the cluster creation process will result in cluster creation failures.</p>
 </div>
 </td>
 </tr>
@@ -1393,7 +1396,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The above command attaches Amazon Route 53 Inbound Resolver endpoints to <em>all subnets</em> in the provided VPC using dynamically allocated IP addresses. If you prefer to manually specify the subnets and/or IP addresses, run the following command instead:</p>
+<p>The above command attaches Amazon Route 53 Inbound Resolver endpoints to <em>all subnets</em> in the provided VPC using dynamically allocated IP addresses. If you prefer to manually specify the subnets, the IP addresses, or both, run the following command instead:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1402,14 +1405,27 @@
   <span class="nt">--creator-request-id</span> rosa-<span class="si">$(</span><span class="nb">date</span> <span class="s1">'+%Y-%m-%d'</span><span class="si">)</span> <span class="se">\</span>
   <span class="nt">--security-group-ids</span> <span class="k">${</span><span class="nv">SG_ID</span><span class="k">}</span> <span class="se">\</span>
   <span class="nt">--direction</span> INBOUND <span class="se">\</span>
-  <span class="nt">--ip-addresses</span> <span class="nv">SubnetId</span><span class="o">=</span>&lt;subnet_ID&gt;,Ip<span class="o">=</span>&lt;endpoint_IP&gt; <span class="nv">SubnetId</span><span class="o">=</span>&lt;subnet_ID&gt;,Ip<span class="o">=</span>&lt;endpoint_IP&gt; <span class="se">\/</span>/
-<span class="gp">  --region $</span><span class="o">{</span>REGION<span class="o">}</span> <span class="se">\</span>
+  <span class="nt">--ip-addresses</span> <span class="nv">SubnetId</span><span class="o">=</span>&lt;subnet_ID&gt;,Ip<span class="o">=</span>&lt;endpoint_IP&gt; <span class="nv">SubnetId</span><span class="o">=</span>&lt;subnet_ID&gt;,Ip<span class="o">=</span>&lt;endpoint_IP&gt; <span class="se">\</span>
+  <span class="nt">--region</span> <span class="k">${</span><span class="nv">REGION</span><span class="k">}</span> <span class="se">\</span>
   <span class="nt">--output</span> text <span class="se">\</span>
   <span class="nt">--query</span> <span class="s1">'ResolverEndpoint.Id'</span><span class="si">)</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Replace <code>&lt;subnet_ID&gt;</code> with the subnet IDs and <code>&lt;endpoint_IP&gt;</code> with the static IP addresses you want inbound resolver endpoints added to.</p>
+<p>+
+where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;subnet_ID&gt;</code></dt>
+<dd>
+<p>Specifies the subnet ID you want inbound resolver endpoints added to.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;endpoint_IP&gt;</code></dt>
+<dd>
+<p>Specifies the static IP addresses you want inbound resolver endpoints added to.</p>
+</dd>
+</dl>
 </div>
 </td>
 </tr>
@@ -1445,7 +1461,10 @@
 <h2 id="cloud-experts-custom-dns-resolver-configure-dns-server-hcp_cloud-experts-custom-dns-resolver"><a class="anchor" href="#cloud-experts-custom-dns-resolver-configure-dns-server-hcp_cloud-experts-custom-dns-resolver"></a>Configure your DNS server</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Red Hat OpenShift Service on AWS clusters require you to configure your DNS server to forward the necessary private hosted zones to your Amazon Route 53 Inbound Resolver:</p>
+<p>Configure your Domain Name System (DNS) server to forward the private hosted zones to your Amazon Route 53 Inbound Resolver so the Red Hat OpenShift Service on AWS cluster can resolve internal DNS names after creation.</p>
+</div>
+<div class="paragraph">
+<p>The following private hosted zones must be forwarded:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -1464,9 +1483,9 @@
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Before the cluster is created, configure your DNS server to forward all DNS requests for <code>&lt;cluster-name&gt;.hypershift.local</code> to your Amazon Route 53 Inbound Resolver endpoints. For BIND DNS servers, edit your <code>/etc/named.conf</code> file in your favorite text editor and add a new zone using the below example:</p>
+<p>Before the cluster is created, configure your DNS server to forward all DNS requests for <code>&lt;cluster-name&gt;.hypershift.local</code> to your Amazon Route 53 Inbound Resolver endpoints.</p>
 <div class="paragraph">
-<p><strong>For example</strong></p>
+<p>If you use a BIND DNS server, add a new zone to the <code>/etc/named.conf</code> file using the following example:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1500,7 +1519,7 @@
 <p>Create your cluster.</p>
 </li>
 <li>
-<p>Once your cluster has begun the creation process, locate the newly created private hosted zone:</p>
+<p>After your cluster has begun the creation process, locate the newly created private hosted zone:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws route53 list-hosted-zones-by-vpc <span class="se">\</span>
@@ -1510,10 +1529,8 @@
   <span class="nt">--output</span> table</code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p><strong>Example output</strong></p>
-</div>
 <div class="listingblock">
+<div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight"><code data-lang="text">--------------------------------------------------
 |             ListHostedZonesByVPC               |
@@ -1531,7 +1548,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>It may take a few minutes for the cluster creation process to create the private hosted zones in Route 53. If you do not see an <code>p3.openshiftapps.com</code> domain, wait a few minutes and run the command again.</p>
+<p>It may take a few minutes for the cluster creation process to create the private hosted zones in Route 53. If you do not see a <code>p3.openshiftapps.com</code> domain, wait a few minutes and run the command again.</p>
 </div>
 </td>
 </tr>
@@ -1539,10 +1556,7 @@
 </div>
 </li>
 <li>
-<p>Once you know the unique ID of the cluster domain, configure your DNS server to forward all DNS requests for <code>rosa.&lt;domain-prefix&gt;.&lt;unique-ID&gt;.p3.openshiftapps.com</code> to your Amazon Route 53 Inbound Resolver endpoints. For BIND DNS servers, edit your <code>/etc/named.conf</code> file in your favorite text editor and add a new zone using the below example:</p>
-<div class="paragraph">
-<p><strong>For example</strong></p>
-</div>
+<p>When you know the unique ID of the cluster domain, configure your DNS server to forward all DNS requests for <code>rosa.&lt;domain-prefix&gt;.&lt;unique-ID&gt;.p3.openshiftapps.com</code> to your Amazon Route 53 Inbound Resolver endpoints. If you use a BIND DNS server, add a new zone to the <code>/etc/named.conf</code> file using the following example:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">zone "rosa.&lt;domain-prefix&gt;</span>.&lt;unique-ID&gt;.p3.openshiftapps.com<span class="s2">" {
@@ -1555,9 +1569,6 @@
 </span><span class="gp">  };</span><span class="w">
 </span><span class="gp">};</span></code></pre>
 </div>
-</div>
-</li>
-</ol>
 </div>
 <div class="openblock">
 <div class="content">
@@ -1573,6 +1584,9 @@
 </div>
 </div>
 </div>
+</li>
+</ol>
+</div>
 </div>
 </div>
 <div class="sect1 _additional-resources">
@@ -1587,7 +1601,7 @@
 <p><a href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resolver.html">Amazon Route 53 Inbound Resolver</a></p>
 </li>
 <li>
-<p><a href="../rosa_hcp/rosa-hcp-sts-creating-a-cluster-quickly.html#rosa-hcp-sts-creating-a-cluster-quickly">Create your cluster</a></p>
+<p><a href="../rosa_hcp/rosa-hcp-sts-creating-a-cluster-quickly.html#rosa-hcp-sts-creating-a-cluster-quickly">Creating Red Hat OpenShift Service on AWS clusters using the default options</a></p>
 </li>
 </ul>
 </div>
