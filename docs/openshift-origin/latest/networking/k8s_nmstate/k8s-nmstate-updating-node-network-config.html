@@ -2785,6 +2785,7 @@
                   <li><a class="" href="../../virt/monitoring/virt-exposing-custom-metrics-for-vms.html">Virtual machine custom metrics</a></li>
                   <li><a class="" href="../../virt/monitoring/virt-exposing-downward-metrics.html">Virtual machine downward metrics</a></li>
                   <li><a class="" href="../../virt/monitoring/virt-monitoring-vm-health.html">Virtual machine health checks</a></li>
+                  <li><a class="" href="../../virt/monitoring/virt-standalone-observability-controller.html">Standalone observability controller</a></li>
                   <li><a class="" href="../../virt/monitoring/virt-runbooks.html">Runbooks</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-34-12"><span id="sgSpan-34-12" class="fa fa-caret-right"></span>&nbsp;Support</a>
@@ -2883,6 +2884,7 @@
 <li><a href="#virt-example-nmstate-multiple-interfaces_k8s-nmstate-updating-node-network-config">Example: Multiple interfaces in the same node network configuration policy</a></li>
 <li><a href="#virt-example-vf-host-services_k8s-nmstate-updating-node-network-config">Example: Node network configuration policy for virtual functions</a></li>
 <li><a href="#virt-example-host-vrf_k8s-nmstate-updating-node-network-config">Example: Network interface with a VRF instance node network configuration policy</a></li>
+<li><a href="#virt-example-predictable-route-table-id_k8s-nmstate-updating-node-network-config">Example: Network interface with a predictable route table ID</a></li>
 </ul>
 </li>
 <li><a href="#virt-creating-infiniband-interface-on-nodes_k8s-nmstate-updating-node-network-config">Creating an IP over InfiniBand interface on nodes</a></li>
@@ -5143,7 +5145,78 @@ It includes samples values that you must replace with your own information.</p>
 </li>
 </ul>
 </div>
-<div class="ulist">
+</div>
+<div class="sect2">
+<h3 id="virt-example-predictable-route-table-id_k8s-nmstate-updating-node-network-config"><a class="anchor" href="#virt-example-predictable-route-table-id_k8s-nmstate-updating-node-network-config"></a>Example: Network interface with a predictable route table ID</h3>
+<div class="paragraph _abstract">
+<p>To simplify network administration and reduce configuration errors in OKD, configure routes by using names instead of Virtual Routing and Forwarding (VRF) routing table ID numbers.</p>
+</div>
+<div class="paragraph">
+<p>Using human-readable names ensures that network routes are easier to identify and maintain without tracking abstract numerical identifiers.</p>
+</div>
+<div class="paragraph">
+<p>The following <code>NodeNetworkConfigurationPolicy</code> (NNCP) YAML file shows an example of creating a VRF instance and applying a route to the VRF instance. The VRF instance uses the stable method of referencing the VRF by name rather than a potentially shifting ID.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nmstate.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NodeNetworkConfigurationPolicy</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">vrf-predictable-policy</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">nodeSelector</span><span class="pi">:</span>
+    <span class="na">vrf</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+  <span class="na">maxUnavailable</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">desiredState</span><span class="pi">:</span>
+    <span class="na">interfaces</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">vrf0</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">vrf</span>
+        <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+        <span class="na">vrf</span><span class="pi">:</span>
+          <span class="na">route-table-id</span><span class="pi">:</span> <span class="m">100</span>
+          <span class="na">port</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s">eth1</span>
+            <span class="pi">-</span> <span class="s">eth2</span>
+    <span class="na">routes</span><span class="pi">:</span>
+      <span class="na">config</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">destination</span><span class="pi">:</span> <span class="s">198.51.200.0/24</span>
+          <span class="na">route-type</span><span class="pi">:</span> <span class="s">blackhole</span>
+          <span class="na">vrf-name</span><span class="pi">:</span> <span class="s">vrf0</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.nodeSelector.vrf</code></dt>
+<dd>
+<p>Specifies the application of the policy only to nodes that have the <code>vrf: true</code> label. This configuration prevents accidental network changes on nodes that do not require VRF support.</p>
+</dd>
+<dt class="hdlist1"><code>spec.desiredState.interfaces.type</code></dt>
+<dd>
+<p>Specifies the creation of a VRF-type interface.</p>
+</dd>
+<dt class="hdlist1"><code>spec.desiredState.interfaces.vrf.route-table-id</code></dt>
+<dd>
+<p>Specifies the <code>route-table-id</code> that the <code>vrf</code> name maps to in the routing table.</p>
+</dd>
+<dt class="hdlist1"><code>spec.desiredState.routes.config.route-type</code></dt>
+<dd>
+<p>Specifies the route type. NetworkManager supports the <code>unicast</code>, <code>local</code>, <code>blackhole</code>, <code>unreachable</code>, <code>prohibit</code>, and <code>throw</code> route types. The default is unicast. The example sets a <code>blackhole</code> route that drops any packets within the IP address range of this route. The range for the <code>blackhole</code> route is the destination CIDR, such as <code>198.51.200.0/24</code>.</p>
+</dd>
+<dt class="hdlist1"><code>spec.desiredState.routes.config.vrf-name</code></dt>
+<dd>
+<p>Specifies a stable link in that if a policy changes the <code>route-table-id</code> parameter to a different value, the route automatically follows the <code>vrf0</code> name to the new ID. You do not need to manually update the route configuration.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
 <li>
