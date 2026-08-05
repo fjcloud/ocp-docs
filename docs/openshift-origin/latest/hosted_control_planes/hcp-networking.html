@@ -2843,16 +2843,29 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#hcp-networking-overview_hcp-networking">Networking overview for hosted control planes</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-networking-considerations_hcp-networking">Control plane and data plane networking considerations</a></li>
+<li><a href="#hcp-networking-dhcp_hcp-networking">DHCP requirements for hosted control planes</a></li>
+</ul>
+</li>
 <li><a href="#hcp-isolation-overview_hcp-networking">Network isolation for hosted clusters</a>
 <ul class="sectlevel2">
 <li><a href="#hcp-isolation_hcp-networking">Control plane isolation</a></li>
+</ul>
+</li>
+<li><a href="#hcp-networking-firewall_hcp-networking">Firewall, port, and service requirements for hosted control planes</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-bm-firewall-port-svc-reqs_hcp-networking">Bare metal firewall, port, and service requirements</a></li>
+<li><a href="#hcp-virt-firewall-port_hcp-networking">OKD Virtualization firewall and port requirements</a></li>
+<li><a href="#hcp-non-bm-firewall-port-svc-reqs_hcp-networking">Firewall, port, and service requirements for non-bare-metal agent machines</a></li>
+<li><a href="#hcp-ingress-egress-example_hcp-networking">Example firewall configuration</a></li>
 </ul>
 </li>
 <li><a href="#hcp-ingress-egress-reqs_hcp-networking">Ingress and egress requirements for hosted control planes</a>
 <ul class="sectlevel2">
 <li><a href="#hcp-ingress-reqs_hcp-networking">Ingress requirements for hosted control planes</a></li>
 <li><a href="#hcp-egress-reqs_hcp-networking">Egress requirements for hosted control planes</a></li>
-<li><a href="#hcp-ingress-egress-example_hcp-networking">Example firewall configuration</a></li>
 <li><a href="#hcp-bm-ingress_hcp-networking">Handling ingress in a hosted cluster on bare metal</a></li>
 </ul>
 </li>
@@ -2870,6 +2883,73 @@
 </div>
 <div class="paragraph _abstract">
 <p>Ensure optimal performance with hosted control planes by configuring network settings. Those settings include internal subnets and proxy support for control-plane workloads, compute nodes, management clusters, and hosted clusters.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-networking-overview_hcp-networking"><a class="anchor" href="#hcp-networking-overview_hcp-networking"></a>Networking overview for hosted control planes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Proper network design can ensure the performance, automation, and security of hosted control planes. Your network configuration depends on the segmentation that you need and the provider that you use, such as a cloud provider, bare metal on the Agent platform, or OKD Virtualization.</p>
+</div>
+<div class="paragraph">
+<p>For example, for hosted control planes on OKD Virtualization, you can create <code>NodePool</code> virtual machines (VMs) with different network configurations, including using the pod network and bridging an external network into the VMs. Network latency and throughput are important factors to ensure control-plane communication, workload traffic, and storage access. The use of dedicated physical network adapters can ensure adequate throughput and low latency for all components.</p>
+</div>
+<div class="sect2">
+<h3 id="hcp-networking-considerations_hcp-networking"><a class="anchor" href="#hcp-networking-considerations_hcp-networking"></a>Control plane and data plane networking considerations</h3>
+<div class="paragraph">
+<p>When you consider your networking configuration for hosted control planes, remember the structure of the control plane and data plane:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Control plane</dt>
+<dd>
+<p>The control plane includes pods that run on the management cluster in a dedicated namespace. The pods expose the hosted control plane <code>kube-apiserver</code> component, OAuth, Ignition server, and Konnectivity service. Hosted cluster nodes access those services through the data plane network, so the services must be reachable from the data plane network, even if a firewall is in place.</p>
+<div class="paragraph">
+<p>The management cluster hosts different control planes, and their services are exposed through its network. Network segmentation by API is not currently supported.</p>
+</div>
+</dd>
+<dt class="hdlist1">Data plane</dt>
+<dd>
+<p>The data plane includes the compute, storage, and networking where workloads and applications run. It has a minimum of 2 compute nodes.</p>
+<div class="paragraph">
+<p>For example, the data plane includes compute nodes that are represented by bare-metal servers or VMs that are hosted on OKD Virtualization. For OKD Virtualization, you can host different data planes on the management cluster. For bare-metal servers or an external OKD Virtualization cluster, you can host data planes by external infrastructure.</p>
+</div>
+<div class="paragraph">
+<p>Some VLAN-based network segmentation is possible if the following conditions are true:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>All of the configured VLANs can route traffic to the endpoints of the API, OAuth, Ignition server, and Konnectivity service.</p>
+</li>
+<li>
+<p>Hosted cluster users can access the API and OAuth.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The node pools in hosted clusters on the data plane depend on the components that run on the control plane, such as Konnectivity, Ignition, and OAuth. By default, you install those components by using a <code>Route</code> endpoint publishing strategy, and admit them on the default ingress controller, which is often installed on primary networks from the management cluster. To segment this implementation on a secondary network, you must change several network flows between the control plane and the data plane.</p>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-networking-dhcp_hcp-networking"><a class="anchor" href="#hcp-networking-dhcp_hcp-networking"></a>DHCP requirements for hosted control planes</h3>
+<div class="paragraph">
+<p>The requirements for Dynamic Host Configuration Protocol (DHCP) differ depending on your platform provider:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>For bare metal providers, you can use dynamic or manual IP segmentation, so a DHCP server is not mandatory. Ensure that the same node always has the same IP address.</p>
+</li>
+<li>
+<p>For OKD Virtualization, dynamic IP assignment is the only option, so a DHCP server is mandatory.</p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
@@ -3004,6 +3084,325 @@
 <div class="paragraph">
 <p>To achieve physical or virtual machine (VM) isolation, you need to use a "shared-nothing" approach, where each control plane has its own dedicated node. Nodes for a specific hosted cluster are tainted and labeled with a specific <code>hypershift.openshift.io/hosted-cluster</code> value. Security involves the use of a network policy and physical network access control lists (ACLs) across hosted clusters.</p>
 </div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-networking-firewall_hcp-networking"><a class="anchor" href="#hcp-networking-firewall_hcp-networking"></a>Firewall, port, and service requirements for hosted control planes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Ensure that you meet the firewall, port, and service requirements so that ports can communicate between the management cluster, the control plane, and hosted clusters.</p>
+</div>
+<div class="sect2">
+<h3 id="hcp-bm-firewall-port-svc-reqs_hcp-networking"><a class="anchor" href="#hcp-bm-firewall-port-svc-reqs_hcp-networking"></a>Bare metal firewall, port, and service requirements</h3>
+<div class="paragraph _abstract">
+<p>You must meet the firewall, port, and service requirements so that ports can communicate between the management cluster, the control plane, and hosted clusters.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Services run on their default ports. However, if you use the <code>NodePort</code> publishing strategy, services run on the port that is assigned by the <code>NodePort</code> service.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Use firewall rules, security groups, or other access controls to restrict access to only required sources. Avoid exposing ports publicly unless necessary. For production deployments, use a load balancer to simplify access through a single IP address.</p>
+</div>
+<div class="paragraph">
+<p>If your hub cluster has a proxy configuration, ensure that it can reach the hosted cluster API endpoint by adding all hosted cluster API endpoints to the <code>noProxy</code> field on the <code>Proxy</code> object. For more information, see "Configuring the cluster-wide proxy".</p>
+</div>
+<div class="paragraph">
+<p>A hosted control plane exposes the following services on bare metal:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>APIServer</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>APIServer</code> service runs on port 6443 by default and requires ingress access for communication between the control plane components.</p>
+</li>
+<li>
+<p>If you use MetalLB load balancing, allow ingress access to the IP range that is used for load balancer IP addresses.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>OAuthServer</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>OAuthServer</code> service runs on port 443 by default when you use the route and ingress to expose the service.</p>
+</li>
+<li>
+<p>If you use the <code>NodePort</code> publishing strategy, use a firewall rule for the <code>OAuthServer</code> service.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>Konnectivity</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>Konnectivity</code> service runs on port 443 by default when you use the route and ingress to expose the service.</p>
+</li>
+<li>
+<p>The <code>Konnectivity</code> agent establishes a reverse tunnel to allow the control plane to access the network for the hosted cluster. The agent uses egress to connect to the <code>Konnectivity</code> server. The server is exposed by using either a route on port 443 or a manually assigned <code>NodePort</code>.</p>
+</li>
+<li>
+<p>If the cluster API server address is an internal IP address, allow access from the workload subnets to the IP address on port 6443.</p>
+</li>
+<li>
+<p>If the address is an external IP address, allow egress on port 6443 to that external IP address from the nodes.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>Ignition</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>Ignition</code> service runs on port 443 by default when you use the route and ingress to expose the service.</p>
+</li>
+<li>
+<p>If you use the <code>NodePort</code> publishing strategy, use a firewall rule for the <code>Ignition</code> service.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>You do not need the following services on bare metal:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>OVNSbDb</code></p>
+</li>
+<li>
+<p><code>OIDC</code></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-virt-firewall-port_hcp-networking"><a class="anchor" href="#hcp-virt-firewall-port_hcp-networking"></a>OKD Virtualization firewall and port requirements</h3>
+<div class="paragraph _abstract">
+<p>Ensure that you meet the firewall and port requirements so that ports can communicate between the management cluster, the control plane, and hosted clusters.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>kube-apiserver</code> service runs on port 6443 by default and requires ingress access for communication between the control plane components.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If you use the <code>NodePort</code> publishing strategy, ensure that the node port that is assigned to the <code>kube-apiserver</code> service is exposed.</p>
+</li>
+<li>
+<p>If you use MetalLB load balancing, allow ingress access to the IP range that is used for load balancer IP addresses.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>If you use the <code>NodePort</code> publishing strategy, use a firewall rule for the <code>ignition-server</code> and <code>Oauth-server</code> settings.</p>
+</li>
+<li>
+<p>The <code>konnectivity</code> agent, which establishes a reverse tunnel to allow bi-directional communication on the hosted cluster, requires egress access to the cluster API server address on port 6443. With that egress access, the agent can reach the <code>kube-apiserver</code> service.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If the cluster API server address is an internal IP address, allow access from the workload subnets to the IP address on port 6443.</p>
+</li>
+<li>
+<p>If the address is an external IP address, allow egress on port 6443 to that external IP address from the nodes.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>If you change the default port of 6443, adjust the rules to reflect that change.</p>
+</li>
+<li>
+<p>Ensure that you open any ports that are required by the workloads that run in the clusters.</p>
+</li>
+<li>
+<p>Use firewall rules, security groups, or other access controls to restrict access to only required sources. Avoid exposing ports publicly unless necessary.</p>
+</li>
+<li>
+<p>For production deployments, use a load balancer to simplify access through a single IP address.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-non-bm-firewall-port-svc-reqs_hcp-networking"><a class="anchor" href="#hcp-non-bm-firewall-port-svc-reqs_hcp-networking"></a>Firewall, port, and service requirements for non-bare-metal agent machines</h3>
+<div class="paragraph _abstract">
+<p>You must meet the firewall and port requirements so that ports can communicate between the management cluster, the control plane, and hosted clusters.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Services run on their default ports. However, if you use the <code>NodePort</code> publishing strategy, services run on the port that is assigned by the <code>NodePort</code> service.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Use firewall rules, security groups, or other access controls to restrict access to only required sources. Avoid exposing ports publicly unless necessary. For production deployments, use a load balancer to simplify access through a single IP address.</p>
+</div>
+<div class="paragraph">
+<p>A hosted control plane exposes the following services on non-bare-metal agent machines:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>APIServer</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>APIServer</code> service runs on port 6443 by default and requires ingress access for communication between the control plane components.</p>
+</li>
+<li>
+<p>If you use MetalLB load balancing, allow ingress access to the IP range that is used for load balancer IP addresses.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>OAuthServer</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>OAuthServer</code> service runs on port 443 by default when you use the route and ingress to expose the service.</p>
+</li>
+<li>
+<p>If you use the <code>NodePort</code> publishing strategy, use a firewall rule for the <code>OAuthServer</code> service.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>Konnectivity</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>Konnectivity</code> service runs on port 443 by default when you use the route and ingress to expose the service.</p>
+</li>
+<li>
+<p>The <code>Konnectivity</code> agent establishes a reverse tunnel to allow the control plane to access the network for the hosted cluster. The agent uses egress to connect to the <code>Konnectivity</code> server. The server is exposed by using either a route on port 443 or a manually assigned <code>NodePort</code>.</p>
+</li>
+<li>
+<p>If the cluster API server address is an internal IP address, allow access from the workload subnets to the IP address on port 6443.</p>
+</li>
+<li>
+<p>If the address is an external IP address, allow egress on port 6443 to that external IP address from the nodes.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>Ignition</code></p>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>Ignition</code> service runs on port 443 by default when you use the route and ingress to expose the service.</p>
+</li>
+<li>
+<p>If you use the <code>NodePort</code> publishing strategy, use a firewall rule for the <code>Ignition</code> service.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>You do not need the following services on non-bare-metal agent machines:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>OVNSbDb</code></p>
+</li>
+<li>
+<p><code>OIDC</code></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-ingress-egress-example_hcp-networking"><a class="anchor" href="#hcp-ingress-egress-example_hcp-networking"></a>Example firewall configuration</h3>
+<div class="paragraph _abstract">
+<p>Review an example of what the firewall configuration looks like for a typical hosted control planes on AWS deployment that uses <code>Route</code> service publishing.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Ingress rules</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Port <code>6443</code>/TCP: Kubernetes API server, from compute nodes and external clients</p>
+</li>
+<li>
+<p>Port <code>443</code>/TCP: OpenShift Router for Ignition or Konnectivity routes, from compute nodes</p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Egress rules</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Port <code>443</code>/TCP: HTTPS, to container registries, routes, and external services</p>
+</li>
+<li>
+<p>Port <code>6443</code>/TCP: Management cluster API, to management cluster</p>
+</li>
+<li>
+<p>Port <code>53</code>/TCP and UDP: DNS, to DNS servers</p>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>If you use <code>NodePort</code> or <code>LoadBalancer</code> service publishing instead of <code>Route</code> service publishing, the following rules apply:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Port <code>8091</code>/TCP: Konnectivity server, from compute nodes</p>
+</li>
+<li>
+<p>Port <code>8443</code>/TCP: Ignition Proxy, from compute nodes during the bootstrap process, <code>NodePort</code> publishing strategy only</p>
+</li>
+<li>
+<p>Port <code>9090</code>/TCP: Ignition server, from compute nodes during the bootstrap process, <code>NodePort</code> publishing strategy only</p>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -3295,61 +3694,6 @@
 </tr>
 </tbody>
 </table>
-</div>
-<div class="sect2">
-<h3 id="hcp-ingress-egress-example_hcp-networking"><a class="anchor" href="#hcp-ingress-egress-example_hcp-networking"></a>Example firewall configuration</h3>
-<div class="paragraph _abstract">
-<p>Review an example of what the firewall configuration looks like for a typical hosted control planes on AWS deployment that uses <code>Route</code> service publishing.</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">Ingress rules</dt>
-<dd>
-<div class="ulist">
-<ul>
-<li>
-<p>Port <code>6443</code>/TCP: Kubernetes API server, from compute nodes and external clients</p>
-</li>
-<li>
-<p>Port <code>443</code>/TCP: OpenShift Router for Ignition or Konnectivity routes, from compute nodes</p>
-</li>
-</ul>
-</div>
-</dd>
-<dt class="hdlist1">Egress rules</dt>
-<dd>
-<div class="ulist">
-<ul>
-<li>
-<p>Port <code>443</code>/TCP: HTTPS, to container registries, routes, and external services</p>
-</li>
-<li>
-<p>Port <code>6443</code>/TCP: Management cluster API, to management cluster</p>
-</li>
-<li>
-<p>Port <code>53</code>/TCP and UDP: DNS, to DNS servers</p>
-</li>
-</ul>
-</div>
-</dd>
-</dl>
-</div>
-<div class="paragraph">
-<p>If you use <code>NodePort</code> or <code>LoadBalancer</code> service publishing instead of <code>Route</code> service publishing, the following rules apply:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>Port <code>8091</code>/TCP: Konnectivity server, from compute nodes</p>
-</li>
-<li>
-<p>Port <code>8443</code>/TCP: Ignition Proxy, from compute nodes during the bootstrap process, <code>NodePort</code> publishing strategy only</p>
-</li>
-<li>
-<p>Port <code>9090</code>/TCP: Ignition server, from compute nodes during the bootstrap process, <code>NodePort</code> publishing strategy only</p>
-</li>
-</ul>
-</div>
 </div>
 <div class="sect2">
 <h3 id="hcp-bm-ingress_hcp-networking"><a class="anchor" href="#hcp-bm-ingress_hcp-networking"></a>Handling ingress in a hosted cluster on bare metal</h3>
