@@ -2841,6 +2841,9 @@
         
         <div id="preamble">
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can restore kubelet certificates on your OKD cluster by approving pending certificate signing requests (CSRs) after control plane certificates expire. Approved CSRs return nodes to a healthy state.</p>
+</div>
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
@@ -2852,20 +2855,25 @@
 <div class="sect1">
 <h2 id="dr-scenario-3-recovering-expired-certs_dr-recovering-expired-certs"><a class="anchor" href="#dr-scenario-3-recovering-expired-certs_dr-recovering-expired-certs"></a>Recovering from expired control plane certificates</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The cluster can automatically recover from expired control plane certificates.</p>
+<div class="paragraph _abstract">
+<p>You can restore kubelet certificates by manually approving pending <code>node-bootstrapper</code> certificate signing requests (CSRs) and, on user-provisioned installations, kubelet serving CSRs. Approved CSRs return nodes to a healthy state after control plane certificates expire.</p>
 </div>
-<div class="paragraph">
-<p>However, you must manually approve the pending <code>node-bootstrapper</code> certificate signing requests (CSRs) to recover kubelet certificates. For user-provisioned installations, you might also need to approve pending kubelet serving CSRs.</p>
-</div>
-<div class="paragraph">
-<p>Use the following steps to approve the pending CSRs:</p>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have access to the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Get the list of current CSRs:</p>
+<p>Get the list of current CSRs by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get csr</code></pre>
@@ -2874,45 +2882,39 @@
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="nowrap">NAME        AGE    SIGNERNAME                                    REQUESTOR                                                                   CONDITION
-csr-2s94x   8m3s   kubernetes.io/kubelet-serving                 system:node:&lt;node_name&gt;                                                     Pending <i class="conum" data-value="1"></i><b>(1)</b>
-csr-4bd6t   8m3s   kubernetes.io/kubelet-serving                 system:node:&lt;node_name&gt;                                                     Pending
-csr-4hl85   13m    kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending <i class="conum" data-value="2"></i><b>(2)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME        AGE    SIGNERNAME                                    REQUESTOR                                                                   CONDITION
+</span><span class="gp">csr-2s94x   8m3s   kubernetes.io/kubelet-serving                 system:node:&lt;node_name&gt;</span><span class="w">                                                     </span>Pending
+<span class="gp">csr-4bd6t   8m3s   kubernetes.io/kubelet-serving                 system:node:&lt;node_name&gt;</span><span class="w">                                                     </span>Pending
+<span class="go">csr-4hl85   13m    kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
 csr-zhhhp   3m8s   kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
-...</pre>
+</span><span class="c">...</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>A pending kubelet service CSR (for user-provisioned installations).</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>A pending <code>node-bootstrapper</code> CSR.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>In the example output, CSRs with a <code>SIGNERNAME</code> of <code>kubernetes.io/kubelet-serving</code> are kubelet serving CSRs. You see this CSR type on user-provisioned installations. CSRs with a <code>SIGNERNAME</code> of <code>kubernetes.io/kube-apiserver-client-kubelet</code> and a <code>node-bootstrapper</code> requestor are <code>node-bootstrapper</code> CSRs that you must approve to restore kubelet certificates.</p>
 </div>
 </li>
 <li>
-<p>Review the details of a CSR to verify that it is valid:</p>
+<p>Review the details of a CSR to verify that it is valid by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe csr &lt;csr_name&gt; <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe csr &lt;csr_name&gt;</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td><code>&lt;csr_name&gt;</code> is the name of a CSR from the list of current CSRs.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;csr_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of a CSR from the list of current CSRs.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
-<p>Approve each valid <code>node-bootstrapper</code> CSR:</p>
+<p>Approve each valid <code>node-bootstrapper</code> CSR by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm certificate approve &lt;csr_name&gt;</code></pre>
@@ -2920,7 +2922,7 @@ csr-zhhhp   3m8s   kubernetes.io/kube-apiserver-client-kubelet   system:servicea
 </div>
 </li>
 <li>
-<p>For user-provisioned installations, approve each valid kubelet serving CSR:</p>
+<p>For user-provisioned installations, approve each valid kubelet serving CSR by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm certificate approve &lt;csr_name&gt;</code></pre>
