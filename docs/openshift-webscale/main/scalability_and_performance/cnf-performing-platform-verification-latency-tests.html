@@ -406,7 +406,13 @@
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>LATENCY_TEST_CPUS</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Specifies the number of CPUs that the pod running the latency tests uses. If you do not set the variable, the default configuration includes all isolated CPUs.</p>
+<p>Specifies the number of CPUs that the pod running the latency tests uses. If you do not set the variable, the default configuration includes all isolated CPUs. When <code>LATENCY_TEST_MEMORY</code> is unset, this value is also used to calculate the default memory request and limit for the latency test pod.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>LATENCY_TEST_MEMORY</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Specifies the memory request and limit for the pod that runs the latency tests. If you do not set the variable, the test allocates 32Mi of memory per <code>LATENCY_TEST_CPUS</code>, with a minimum of 1Gi. To override the calculated value, set <code>LATENCY_TEST_MEMORY</code> to a valid Kubernetes quantity greater than <code>0</code>, for example <code>2Gi</code>.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -522,17 +528,31 @@
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>podman run <span class="nt">-v</span> <span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span>/:/kubeconfig:Z <span class="nt">-e</span> <span class="nv">KUBECONFIG</span><span class="o">=</span>/kubeconfig/kubeconfig <span class="se">\</span>
-<span class="nt">-e</span> <span class="nv">LATENCY_TEST_RUNTIME</span><span class="o">=</span>600<span class="se">\</span>
+<span class="nt">-e</span> <span class="nv">LATENCY_TEST_RUNTIME</span><span class="o">=</span>600 <span class="se">\</span>
 <span class="nt">-e</span> <span class="nv">MAXIMUM_LATENCY</span><span class="o">=</span>20 <span class="se">\</span>
 registry.redhat.io/openshift4/cnf-tests-rhel9:vBranch Build /usr/bin/test-run.sh <span class="se">\</span>
 <span class="nt">--ginkgo</span>.v <span class="nt">--ginkgo</span>.timeout<span class="o">=</span><span class="s2">"24h"</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The LATENCY_TEST_RUNTIME is shown in seconds, in this case 600 seconds (10 minutes). The test runs successfully when the maximum observed latency is lower than MAXIMUM_LATENCY (20 μs).</p>
+<p>The <code>LATENCY_TEST_RUNTIME</code> is shown in seconds, in this case 600 seconds (10 minutes). The test runs successfully when the maximum observed latency is lower than <code>MAXIMUM_LATENCY</code> (20 μs).</p>
 </div>
 <div class="paragraph">
 <p>If the results exceed the latency threshold, the test fails.</p>
+</div>
+</li>
+<li>
+<p>Optional: To override the default memory request and limit for the latency test pod, set the <code>LATENCY_TEST_MEMORY</code> variable. Use this option when the default value, which is the greater of <code>32Mi</code> multiplied by <code>LATENCY_TEST_CPUS</code> or <code>1Gi</code>, is not enough for your test. For example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>podman run <span class="nt">-v</span> <span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span>/:/kubeconfig:Z <span class="nt">-e</span> <span class="nv">KUBECONFIG</span><span class="o">=</span>/kubeconfig/kubeconfig <span class="se">\</span>
+<span class="nt">-e</span> <span class="nv">LATENCY_TEST_RUNTIME</span><span class="o">=</span>600 <span class="se">\</span>
+<span class="nt">-e</span> <span class="nv">LATENCY_TEST_CPUS</span><span class="o">=</span>40 <span class="se">\</span>
+<span class="nt">-e</span> <span class="nv">LATENCY_TEST_MEMORY</span><span class="o">=</span>2Gi <span class="se">\</span>
+<span class="nt">-e</span> <span class="nv">MAXIMUM_LATENCY</span><span class="o">=</span>20 <span class="se">\</span>
+registry.redhat.io/openshift4/cnf-tests-rhel9:vBranch Build /usr/bin/test-run.sh <span class="se">\</span>
+<span class="nt">--ginkgo</span>.v <span class="nt">--ginkgo</span>.timeout<span class="o">=</span><span class="s2">"24h"</span></code></pre>
+</div>
 </div>
 </li>
 <li>
@@ -602,6 +622,9 @@ registry.redhat.io/openshift4/cnf-tests-rhel9:vBranch Build <span class="se">\</
 </div>
 <div class="paragraph">
 <p>The <code>hwlatdetect</code> test runs for 10 minutes (600 seconds). The test runs successfully when the maximum observed latency is lower than <code>MAXIMUM_LATENCY</code> (20 μs).</p>
+</div>
+<div class="paragraph">
+<p>If you do not set <code>LATENCY_TEST_MEMORY</code>, the test allocates 32Mi of memory per <code>LATENCY_TEST_CPUS</code>, with a minimum of <code>1Gi</code>. To override that value, set <code>LATENCY_TEST_MEMORY</code> to a valid Kubernetes quantity, for example <code>2Gi</code>.</p>
 </div>
 <div class="paragraph">
 <p>If the results exceed the latency threshold, the test fails.</p>
@@ -844,6 +867,9 @@ registry.redhat.io/openshift4/cnf-tests-rhel9:vBranch Build <span class="se">\</
 <p>The command runs the <code>cyclictest</code> tool for 10 minutes (600 seconds). The test runs successfully when the maximum observed latency is lower than <code>MAXIMUM_LATENCY</code> (in this example, 20 μs). Latency spikes of 20 μs and above are generally not acceptable for telco RAN workloads.</p>
 </div>
 <div class="paragraph">
+<p>If you do not set <code>LATENCY_TEST_MEMORY</code>, the test allocates 32Mi of memory per <code>LATENCY_TEST_CPUS</code>, with a minimum of <code>1Gi</code>. To override that value, set <code>LATENCY_TEST_MEMORY</code> to a valid Kubernetes quantity, for example <code>2Gi</code>.</p>
+</div>
+<div class="paragraph">
 <p>If the results exceed the latency threshold, the test fails.</p>
 </div>
 <div class="admonitionblock important">
@@ -1006,6 +1032,9 @@ registry.redhat.io/openshift4/cnf-tests-rhel9:vBranch Build <span class="se">\</
 <p><code>LATENCY_TEST_CPUS</code> specifies the number of CPUs to test with the <code>oslat</code> command.</p>
 </div>
 <div class="paragraph">
+<p>If you do not set <code>LATENCY_TEST_MEMORY</code>, the test allocates 32Mi of memory per <code>LATENCY_TEST_CPUS</code>, with a minimum of <code>1Gi</code>. To override that value, set <code>LATENCY_TEST_MEMORY</code> to a valid Kubernetes quantity, for example <code>2Gi</code>.</p>
+</div>
+<div class="paragraph">
 <p>The command runs the <code>oslat</code> tool for 10 minutes (600 seconds). The test runs successfully when the maximum observed latency is lower than <code>MAXIMUM_LATENCY</code> (20 μs).</p>
 </div>
 <div class="paragraph">
@@ -1026,7 +1055,7 @@ registry.redhat.io/openshift4/cnf-tests-rhel9:vBranch Build <span class="se">\</
 </table>
 </div>
 <div class="paragraph">
-<p>In this example failure output, the measured latency is outside the maximum allowed value.</p>
+<p>The following shows a sample output:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -1061,6 +1090,9 @@ FAIL! -- 0 Passed | 1 Failed | 0 Pending | 2 Skipped
 --- FAIL: TestTest (161.42s)
 FAIL</span></code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>In this example, the measured latency is outside the maximum allowed value as indicated by the line "The current latency 304 is bigger than the expected one".</p>
 </div>
 </li>
 </ul>
@@ -1522,6 +1554,9 @@ oc get nodes</code></pre>
 <div class="paragraph">
 <p>If this command does not work, an error related to spanning across DNS, MTU size, or firewall access might be occurring.</p>
 </div>
+</li>
+<li>
+<p>If the latency test pod is terminated with an <code>OOMKilled</code> status when you use a high <code>LATENCY_TEST_CPUS</code> value, set the <code>LATENCY_TEST_MEMORY</code> environment variable to a larger memory quantity, for example <code>2Gi</code>, and run the test again.</p>
 </li>
 </ul>
 </div>
