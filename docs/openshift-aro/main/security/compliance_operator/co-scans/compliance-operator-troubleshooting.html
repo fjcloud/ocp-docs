@@ -368,6 +368,11 @@
 <li><a href="#compliance-anatomy-scan-setting-scan-binding-lifecycle_compliance-troubleshooting">The ScanSetting and ScanSettingBinding objects lifecycle and debugging</a></li>
 <li><a href="#compliance-suite-lifecycle-debugging_compliance-troubleshooting">ComplianceSuite custom resource lifecycle and debugging</a></li>
 <li><a href="#compliance-scan-lifecycle-debugging_compliance-troubleshooting">ComplianceScan custom resource lifecycle and debugging</a></li>
+<li><a href="#compliance-scan-pending-phase_compliance-troubleshooting">Pending phase</a></li>
+<li><a href="#compliance-scan-launching-phase_compliance-troubleshooting">Launching phase</a></li>
+<li><a href="#compliance-scan-running-phase_compliance-troubleshooting">Running phase</a></li>
+<li><a href="#compliance-scan-aggregating-phase_compliance-troubleshooting">Aggregating phase</a></li>
+<li><a href="#compliance-scan-done-phase_compliance-troubleshooting">Done phase</a></li>
 <li><a href="#compliance-remediation-lifecycle-debugging_compliance-troubleshooting">ComplianceRemediation controller lifecycle and debugging</a></li>
 <li><a href="#compliance-operator-useful-labels_compliance-troubleshooting">Useful labels</a></li>
 </ul>
@@ -530,7 +535,7 @@
 <h3 id="compliance-suite-lifecycle-debugging_compliance-troubleshooting"><a class="anchor" href="#compliance-suite-lifecycle-debugging_compliance-troubleshooting"></a>ComplianceSuite custom resource lifecycle and debugging</h3>
 <div class="paragraph">
 <p>The <code>ComplianceSuite</code> CR is a wrapper around <code>ComplianceScan</code> CRs. The <code>ComplianceSuite</code> CR is handled by controller tagged with <code>logger=suitectrl</code>.
-This controller handles creating scans from a suite, reconciling and aggregating individual Scan statuses into a single Suite status. If a suite is set to execute periodically, the <code>suitectrl</code> also handles creating a <code>CronJob</code> CR that re-runs the scans in the suite after the initial run is done:</p>
+This controller handles creating scans from a suite, reconciling and aggregating individual Scan statuses into a single Suite status. If a suite is set to run periodically, the <code>suitectrl</code> also handles creating a <code>CronJob</code> CR that re-runs the scans in the suite after the initial run is done:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -553,14 +558,15 @@ This controller handles creating scans from a suite, reconciling and aggregating
 <div class="paragraph">
 <p>The <code>ComplianceScan</code> CRs are handled by the <code>scanctrl</code> controller. This is also where the actual scans happen and the scan results are created. Each scan goes through several phases:</p>
 </div>
-<div class="sect3">
-<h4 id="compliance-scan-pending-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-pending-phase_compliance-troubleshooting"></a>Pending phase</h4>
+</div>
+<div class="sect2">
+<h3 id="compliance-scan-pending-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-pending-phase_compliance-troubleshooting"></a>Pending phase</h3>
 <div class="paragraph">
 <p>The scan is validated for correctness in this phase. If some parameters such as storage size are invalid, the scan transitions to DONE with ERROR result, otherwise proceeds to the Launching phase.</p>
 </div>
 </div>
-<div class="sect3">
-<h4 id="compliance-scan-launching-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-launching-phase_compliance-troubleshooting"></a>Launching phase</h4>
+<div class="sect2">
+<h3 id="compliance-scan-launching-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-launching-phase_compliance-troubleshooting"></a>Launching phase</h3>
 <div class="paragraph">
 <p>In this phase, several config maps that contain either environment for the scanner pods or directly the script that the scanner pods will be evaluating. List the config maps:</p>
 </div>
@@ -600,8 +606,8 @@ rhcos4-e8-worker-ip-10-0-169-90.eu-north-1.compute.internal-pod   0/2     Comple
 <p>The scan then proceeds to the Running phase.</p>
 </div>
 </div>
-<div class="sect3">
-<h4 id="compliance-scan-running-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-running-phase_compliance-troubleshooting"></a>Running phase</h4>
+<div class="sect2">
+<h3 id="compliance-scan-running-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-running-phase_compliance-troubleshooting"></a>Running phase</h3>
 <div class="paragraph">
 <p>The running phase waits until the scanner pods finish. The following terms and processes are in use in the running phase:</p>
 </div>
@@ -611,7 +617,7 @@ rhcos4-e8-worker-ip-10-0-169-90.eu-north-1.compute.internal-pod   0/2     Comple
 <p><strong>init container</strong>: There is one init container called <code>content-container</code>. It runs the <strong>contentImage</strong> container and executes a single command that copies the <strong>contentFile</strong> to the <code>/content</code> directory shared with the other containers in this pod.</p>
 </li>
 <li>
-<p><strong>scanner</strong>: This container runs the scan. For node scans, the container mounts the node filesystem as <code>/host</code> and mounts the content delivered by the init container. The container also mounts the <code>entrypoint</code> <code>ConfigMap</code> created in the Launching phase and executes it. The default script in the entrypoint <code>ConfigMap</code> executes OpenSCAP and stores the result files in the <code>/results</code> directory shared between the pod&#8217;s containers. Logs from this pod can be viewed to determine what the OpenSCAP scanner checked. More verbose output can be viewed with the <code>debug</code> flag.</p>
+<p><strong>scanner</strong>: This container runs the scan. For node scans, the container mounts the node filesystem as <code>/host</code> and mounts the content delivered by the init container. The container also mounts the <code>entrypoint</code> <code>ConfigMap</code> created in the Launching phase and executes it. The default script in the entrypoint <code>ConfigMap</code> executes OpenSCAP and stores the result files in the <code>/results</code> directory shared between the containers in the pod. Logs from this pod can be viewed to determine what the OpenSCAP scanner checked. More verbose output can be viewed with the <code>debug</code> flag.</p>
 </li>
 <li>
 <p><strong>logcollector</strong>: The logcollector container waits until the scanner container finishes. Then, it uploads the full ARF results to the <code>ResultServer</code> and separately uploads the XCCDF results along with scan result and OpenSCAP result code as a <code>ConfigMap.</code> These result config maps are labeled with the scan name (<code>compliance.openshift.io/scan-name=rhcos4-e8-worker</code>):</p>
@@ -663,10 +669,10 @@ rhcos4-e8-worker-ip-10-0-169-90.eu-north-1.compute.internal-pod   0/2     Comple
 <p>When the scanner pods are done, the scans move on to the Aggregating phase.</p>
 </div>
 </div>
-<div class="sect3">
-<h4 id="compliance-scan-aggregating-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-aggregating-phase_compliance-troubleshooting"></a>Aggregating phase</h4>
+<div class="sect2">
+<h3 id="compliance-scan-aggregating-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-aggregating-phase_compliance-troubleshooting"></a>Aggregating phase</h3>
 <div class="paragraph">
-<p>In the aggregating phase, the scan controller spawns yet another pod called the aggregator pod. Its purpose it to take the result <code>ConfigMap</code> objects, read the results and for each check result create the corresponding Kubernetes object. If the check failure can be automatically remediated, a <code>ComplianceRemediation</code> object is created. To provide human-readable metadata for the checks and remediations, the aggregator pod also mounts the OpenSCAP content using an init container.</p>
+<p>In the aggregating phase, the scan controller spawns yet another pod called the aggregator pod. Its purpose is to take the result <code>ConfigMap</code> objects, read the results and for each check result create the corresponding Kubernetes object. If the check failure can be automatically remediated, a <code>ComplianceRemediation</code> object is created. To provide human-readable metadata for the checks and remediations, the aggregator pod also mounts the OpenSCAP content by using an init container.</p>
 </div>
 <div class="paragraph">
 <p>When a config map is processed by an aggregator pod, it is labeled the <code>compliance-remediations/processed</code> label. The result of this phase are <code>ComplianceCheckResult</code> objects:</p>
@@ -708,10 +714,10 @@ rhcos4-e8-worker-audit-rules-execution-setfiles            NotApplied</span></co
 <p>After these CRs are created, the aggregator pod exits and the scan moves on to the Done phase.</p>
 </div>
 </div>
-<div class="sect3">
-<h4 id="compliance-scan-done-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-done-phase_compliance-troubleshooting"></a>Done phase</h4>
+<div class="sect2">
+<h3 id="compliance-scan-done-phase_compliance-troubleshooting"><a class="anchor" href="#compliance-scan-done-phase_compliance-troubleshooting"></a>Done phase</h3>
 <div class="paragraph">
-<p>In the final scan phase, the scan resources are cleaned up if needed and the <code>ResultServer</code> deployment is either scaled down (if the scan was one-time) or deleted if the scan is continuous; the next scan instance would then recreate the deployment again.</p>
+<p>In the final scan phase, the scan resources are cleaned up if needed and the <code>ResultServer</code> deployment is either scaled down (if the scan was one-time) or deleted if the scan is continuous; the next scan instance would then re-create the deployment again.</p>
 </div>
 <div class="paragraph">
 <p>It is also possible to trigger a re-run of a scan in the Done phase by annotating it:</p>
@@ -724,7 +730,6 @@ annotate compliancescans/rhcos4-e8-worker compliance.openshift.io/rescan<span cl
 </div>
 <div class="paragraph">
 <p>After the scan reaches the Done phase, nothing else happens on its own unless the remediations are set to be applied automatically with <code>autoApplyRemediations: true</code>. The Azure Red Hat OpenShift administrator would now review the remediations and apply them as needed. If the remediations are set to be applied automatically, the <code>ComplianceSuite</code> controller takes over in the Done phase, pauses the machine config pool to which the scan maps to and applies all the remediations in one go. If a remediation is applied, the <code>ComplianceRemediation</code> controller takes over.</p>
-</div>
 </div>
 </div>
 <div class="sect2">
@@ -755,7 +760,7 @@ annotate compliancescans/rhcos4-e8-worker compliance.openshift.io/rescan<span cl
 </div>
 </div>
 <div class="paragraph">
-<p>The remediations the <code>mc</code> currently consists of are listed in the machine config&#8217;s annotations:</p>
+<p>The remediations the <code>mc</code> currently consists of are listed in the annotations of the machine config:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -771,7 +776,7 @@ Annotations:  remediation/rhcos4-e8-worker-audit-rules-dac-modification-chmod:</
 </div>
 </div>
 <div class="paragraph">
-<p>The <code>ComplianceRemediation</code> controller&#8217;s algorithm works like this:</p>
+<p>The <code>ComplianceRemediation</code> controller algorithm works like this:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -869,7 +874,7 @@ rhcos4-e8-worker-audit-rules-dac-modification-chmod   PASS     medium</span></co
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>To increase the Operator&#8217;s memory limits to 500 Mi, create the following patch file named <code>co-memlimit-patch.yaml</code>:</p>
+<p>To increase the Operator memory limits to 500 Mi, create the following patch file named <code>co-memlimit-patch.yaml</code>:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
@@ -896,7 +901,7 @@ rhcos4-e8-worker-audit-rules-dac-modification-chmod   PASS     medium</span></co
 <h2 id="operator-resource-constraints_compliance-troubleshooting"><a class="anchor" href="#operator-resource-constraints_compliance-troubleshooting"></a>Configuring Operator resource constraints</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can configure the <code>resources</code> field in the <code>compliance-operator</code> subscription object to define resource constraints for all the containers in the pod created by the Operator Lifecycle Manager (OLM).</p>
+<p>You can configure the <code>resources</code> field in the <code>compliance-operator</code> subscription object to define resource constraints for all the containers in the pod created by the Operator Lifecycle Manager (OLM), so the Operator pods have enough CPU and memory.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -1106,18 +1111,18 @@ ocp4-pci-dss-api-checks-pod   0/2     Init:OOMKilled   8 (6m19s ago)   26m</span
 <h2 id="support_compliance-troubleshooting"><a class="anchor" href="#support_compliance-troubleshooting"></a>Getting support</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>If you experience difficulty with a procedure described in this documentation, or with Azure Red Hat OpenShift in general, visit the Red Hat Customer Portal.</p>
+<p>Red&#160;Hat offers several support channels to help you troubleshoot issues and get the most from Azure Red Hat OpenShift.</p>
 </div>
 <div class="paragraph">
-<p>From the Red Hat Customer Portal, you can:</p>
+<p>From the Red&#160;Hat Customer Portal, you can:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Search or browse through the Red Hat Knowledgebase of articles and solutions relating to Red Hat products.</p>
+<p>Search or browse through the Red&#160;Hat Knowledgebase of articles and solutions about Red&#160;Hat products.</p>
 </li>
 <li>
-<p>Submit a support case to Red Hat Support.</p>
+<p>Submit a support case to Red&#160;Hat Support.</p>
 </li>
 <li>
 <p>Access other product documentation.</p>
@@ -1125,10 +1130,10 @@ ocp4-pci-dss-api-checks-pod   0/2     Init:OOMKilled   8 (6m19s ago)   26m</span
 </ul>
 </div>
 <div class="paragraph">
-<p>To identify issues with your cluster, you can use Red&#160;Hat Lightspeed in <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>. Red&#160;Hat Lightspeed provides details about issues and, if available, information on how to solve a problem.</p>
+<p>To identify issues with your cluster, you can use Red&#160;Hat Lightspeed in <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>. Red&#160;Hat Lightspeed provides details about issues and, if available, information about how to solve a problem.</p>
 </div>
 <div class="paragraph">
-<p>To suggest improvements or report errors, provide specific details such as the section name and Azure Red Hat OpenShift version.</p>
+<p>To suggest improvements or report errors, give specific details such as the section name and Azure Red Hat OpenShift version.</p>
 </div>
 </div>
 </div>

@@ -2143,7 +2143,7 @@
                   <ul id="topicSubSubGroup-31-4-28" class="nav-tertiary list-unstyled collapse">
 
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/troubleshooting.html" style="padding-left: 70px;">Troubleshooting OADP</a></li>
-                    <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/velero-cli-tool.html" style="padding-left: 70px;">Velero CLI tool</a></li>
+                    <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-cli-tool.html" style="padding-left: 70px;">OADP CLI tool</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/pods-crash-or-restart-due-to-lack-of-memory-or-cpu.html" style="padding-left: 70px;">Pods crash or restart due to lack of memory or CPU</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/restoring-workarounds-for-velero-backups-that-use-admission-webhooks.html" style="padding-left: 70px;">Restoring workarounds for Velero backups that use admission webhooks</a></li>
                     <li><a class="" href="../../../backup_and_restore/application_backup_and_restore/troubleshooting/oadp-installation-issues.html" style="padding-left: 70px;">OADP installation issues</a></li>
@@ -2856,7 +2856,7 @@
 <li><a href="#compliance-unapplying_compliance-remediation">Unapplying a remediation</a></li>
 <li><a href="#compliance-removing-kubeletconfig_compliance-remediation">Removing a KubeletConfig remediation</a></li>
 <li><a href="#compliance-inconsistent_compliance-remediation">Inconsistent ComplianceScan</a></li>
-<li><a href="#additional-resources">Additional resources</a></li>
+<li><a href="#additional-resources_compliance-remediation">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -3022,7 +3022,16 @@ ocp4-moderate-fips-mode-enabled-on-all-nodes                   FAIL     high</sp
 <h2 id="compliance-review_compliance-remediation"><a class="anchor" href="#compliance-review_compliance-remediation"></a>Reviewing a remediation</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can review a <code>ComplianceRemediation</code> object and its owning <code>ComplianceCheckResult</code> object to understand what a check verifies, its severity and security controls, and how the remediation fixes the issue. After the first scan, check for remediations with the state <code>MissingDependencies</code>.</p>
+<p>You can review a <code>ComplianceRemediation</code> object and the <code>ComplianceCheckResult</code> object to understand what a check verifies, its severity and security controls, and how the remediation fixes the issue. After the first scan, check for remediations with the state <code>MissingDependencies</code>.</p>
+</div>
+<div class="paragraph">
+<p>The <code>ComplianceCheckResult</code> object includes human-readable descriptions of what the check does and what security hardening it enforces.</p>
+</div>
+<div class="paragraph">
+<p>The remediation payload is stored in the <code>spec.current</code> attribute. The payload can be any Kubernetes object, but because this remediation was produced by a node scan, the remediation payload in the following example is a <code>MachineConfig</code> object. For Platform scans, the remediation payload is often a different kind of an object (for example, a <code>ConfigMap</code> or <code>Secret</code> object). Typically, applying that remediation is up to the administrator. Otherwise, the Compliance Operator would have required a very broad set of permissions to manipulate any generic Kubernetes object. An example of remediating a Platform check is provided later in the text.</p>
+</div>
+<div class="paragraph">
+<p>To see exactly what the remediation does when applied, the <code>MachineConfig</code> object contents use the Ignition objects for the configuration. See the link to "Ignition specification" in Additional resources for further information about the format. In the following example, the <code>spec.config.storage.files[0].path</code> attribute specifies the file that is being created by this remediation (<code>/etc/sysctl.d/75-sysctl_net_ipv4_conf_all_accept_redirects.conf</code>) and the <code>spec.config.storage.files[0].contents.source</code> attribute specifies the contents of that file.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3052,12 +3061,9 @@ ocp4-moderate-fips-mode-enabled-on-all-nodes                   FAIL     high</sp
   <span class="na">applicationState</span><span class="pi">:</span> <span class="s">NotApplied</span></code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p>The remediation payload is stored in the <code>spec.current</code> attribute. The payload can be any Kubernetes object, but because this remediation was produced by a node scan, the remediation payload in the above example is a <code>MachineConfig</code> object. For Platform scans, the remediation payload is often a different kind of an object (for example, a <code>ConfigMap</code> or <code>Secret</code> object), but typically applying that remediation is up to the administrator, because otherwise the Compliance Operator would have required a very broad set of permissions to manipulate any generic Kubernetes object. An example of remediating a Platform check is provided later in the text.</p>
-</div>
-<div class="paragraph">
-<p>To see exactly what the remediation does when applied, the <code>MachineConfig</code> object contents use the Ignition objects for the configuration. See the <a href="https://coreos.github.io/ignition/specs/">Ignition specification</a> for further information about the format. In our example, <code>the spec.config.storage.files[0].path</code> attribute specifies the file that is being create by this remediation (<code>/etc/sysctl.d/75-sysctl_net_ipv4_conf_all_accept_redirects.conf</code>) and the <code>spec.config.storage.files[0].contents.source</code> attribute specifies the contents of that file.</p>
-</div>
+</li>
+<li>
+<p>Use the following Python script to view the contents:</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3072,9 +3078,6 @@ ocp4-moderate-fips-mode-enabled-on-all-nodes                   FAIL     high</sp
 </tr>
 </table>
 </div>
-</li>
-<li>
-<p>Use the following Python script to view the contents:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="s2">"net.ipv4.conf.all.accept_redirects%3D0"</span> | python3 <span class="nt">-c</span> <span class="s2">"import sys, urllib.parse; print(urllib.parse.unquote(''.join(sys.stdin.readlines())))"</span></code></pre>
@@ -3384,7 +3387,7 @@ patch complianceremediations/&lt;scan-name&gt;-sysctl-net-ipv4-conf-all-accept-r
 <h2 id="compliance-manual_compliance-remediation"><a class="anchor" href="#compliance-manual_compliance-remediation"></a>Remediating a platform check manually</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Typically, administrators must manually remediate checks for Platform scans.</p>
+<p>You must manually remediate checks from Platform scans so you can fix findings that the Compliance Operator cannot apply automatically.</p>
 </div>
 <div class="paragraph">
 <p>Manual remediations are necessary for the following reasons:</p>
@@ -3455,6 +3458,20 @@ annotate compliancescans/rhcos4-e8-worker compliance.openshift.io/rescan<span cl
 <div class="paragraph">
 <p>The previously applied remediation contents would then be stored in the <code>spec.outdated</code> attribute of a <code>ComplianceRemediation</code> object and the new updated contents would be stored in the <code>spec.current</code> attribute. After updating the content to a newer version, the administrator then needs to review the remediation. If the <code>spec.outdated</code> attribute exists, it would be used to render the resulting <code>MachineConfig</code> object. After the <code>spec.outdated</code> attribute is removed, the Compliance Operator re-renders the resulting <code>MachineConfig</code> object, which causes the Operator to push the configuration to the nodes.</p>
 </div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The Compliance Operator does not automatically resolve dependency issues that can occur between remediations. Users should perform a rescan after remediations are applied to ensure accurate results.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
@@ -3514,6 +3531,17 @@ workers-scan-no-empty-passwords   Applied</span></code></pre>
 </li>
 <li>
 <p>Verify that the nodes apply the newer remediation version and reboot.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="compliance-unapplying_compliance-remediation"><a class="anchor" href="#compliance-unapplying_compliance-remediation"></a>Unapplying a remediation</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can unapply a remediation that was previously applied to roll back a change when you need to revert it.</p>
+</div>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -3527,17 +3555,6 @@ workers-scan-no-empty-passwords   Applied</span></code></pre>
 </td>
 </tr>
 </table>
-</div>
-</li>
-</ol>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="compliance-unapplying_compliance-remediation"><a class="anchor" href="#compliance-unapplying_compliance-remediation"></a>Unapplying a remediation</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>You can unapply a remediation that was previously applied.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3563,20 +3580,6 @@ patch complianceremediations/rhcos4-moderate-worker-sysctl-net-ipv4-conf-all-acc
 <td class="content">
 <div class="paragraph">
 <p>All affected nodes with the remediation will be rebooted.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The Compliance Operator does not automatically resolve dependency issues that can occur between remediations. Users should perform a rescan after remediations are applied to ensure accurate results.</p>
 </div>
 </td>
 </tr>
@@ -3793,12 +3796,15 @@ annotate compliancescans/rhcos4-e8-worker compliance.openshift.io/rescan<span cl
 </div>
 </div>
 <div class="sect1 _additional-resources">
-<h2 id="additional-resources"><a class="anchor" href="#additional-resources"></a>Additional resources</h2>
+<h2 id="additional-resources_compliance-remediation"><a class="anchor" href="#additional-resources_compliance-remediation"></a>Additional resources</h2>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
 <li>
 <p><a href="../../../nodes/nodes/nodes-nodes-managing.html#nodes-nodes-managing-about_nodes-nodes-managing">Modifying nodes</a></p>
+</li>
+<li>
+<p><a href="https://coreos.github.io/ignition/specs/">Ignition specification</a></p>
 </li>
 <li>
 <p><a href="https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/9/html/security_hardening/assembly_installing-the-system-in-fips-mode_security-hardening">Installing the system in FIPS mode</a></p>
