@@ -2844,7 +2844,7 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#scheduled-by-default-scheduler">Scheduled by default scheduler</a></li>
+<li><a href="#nodes-pods-daemonsets-about_nodes-pods-daemonsets">Daemon set scheduling</a></li>
 <li><a href="#nodes-pods-daemonsets-creating_nodes-pods-daemonsets">Creating daemonsets</a></li>
 <li><a href="#additional-resources">Additional resources</a></li>
 </ul>
@@ -2858,7 +2858,7 @@ an OKD cluster.</p>
 </div>
 <div class="paragraph">
 <p>A daemon set ensures that all (or some) nodes run a copy of a pod. As nodes are added to the cluster, pods are added to the cluster.
-As nodes are removed from the cluster, those pods are removed through garbage collection. Deleting a daemon set will clean up the pods it created.</p>
+As nodes are removed from the cluster, those pods are removed through garbage collection. Deleting a daemon set cleans up the pods it created.</p>
 </div>
 <div class="paragraph">
 <p>You can use daemon sets to create shared storage, run a logging pod on every node in
@@ -2886,10 +2886,13 @@ This results in frequent pod recreates on the nodes that got unselected by the m
 </div>
 </div>
 <div class="sect1">
-<h2 id="scheduled-by-default-scheduler"><a class="anchor" href="#scheduled-by-default-scheduler"></a>Scheduled by default scheduler</h2>
+<h2 id="nodes-pods-daemonsets-about_nodes-pods-daemonsets"><a class="anchor" href="#nodes-pods-daemonsets-about_nodes-pods-daemonsets"></a>Daemon set scheduling</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>A daemon set ensures that all eligible nodes run a copy of a pod by using the default scheduler, which replaces the original daemon set controller scheduling approach for improved consistency and preemption support.</p>
+</div>
 <div class="paragraph">
-<p>A daemon set ensures that all eligible nodes run a copy of a pod. Normally, the node that a pod runs on is selected by the Kubernetes scheduler. However, daemon set pods are created and scheduled by the daemon set controller. That introduces the following issues:</p>
+<p>Normally, the node that a pod runs on is selected by the Kubernetes scheduler. However, daemon set pods are created and scheduled by the daemon set controller. That introduces the following issues:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -2897,14 +2900,15 @@ This results in frequent pod recreates on the nodes that got unselected by the m
 <p>Inconsistent pod behavior: Normal pods waiting to be scheduled are created and in Pending state, but daemon set pods are not created in <code>Pending</code> state. This is confusing to the user.</p>
 </li>
 <li>
-<p>Pod preemption is handled by default scheduler. When preemption is enabled, the daemon set controller will make scheduling decisions without considering pod priority and preemption.</p>
+<p>Pod preemption is handled by default scheduler. When preemption is enabled, the daemon set controller makes scheduling decisions without considering pod priority and preemption.</p>
 </li>
 </ul>
 </div>
 <div class="paragraph">
-<p>The <strong>ScheduleDaemonSetPods</strong> feature, enabled by default in OKD, lets you schedule daemon sets using the default scheduler instead of the daemon set controller, by adding the <code>NodeAffinity</code> term to the daemon set pods, instead of the <code>spec.nodeName</code> term. The default scheduler is then used to bind the pod to the target host. If node affinity of the daemon set pod already exists, it is replaced. The daemon set controller only performs these operations when creating or modifying daemon set pods, and no changes are made to the <code>spec.template</code> of the daemon set.</p>
+<p>The <strong>ScheduleDaemonSetPods</strong> feature, enabled by default in OKD, lets you schedule daemon sets using the default scheduler instead of the daemon set controller, by adding the <code>nodeAffinity</code> term to the daemon set pods, instead of the <code>spec.nodeName</code> term. The default scheduler is then used to bind the pod to the target host. If node affinity of the daemon set pod already exists, it is replaced. The daemon set controller only performs these operations when creating or modifying daemon set pods, and no changes are made to the <code>spec.template</code> of the daemon set.</p>
 </div>
 <div class="listingblock">
+<div class="title">Example <code>nodeAffinity</code> in a daemon set pod</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
 <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
@@ -2954,7 +2958,7 @@ replicas are not affected.</p>
 <li>
 <p>If you delete a daemon set and then create a new daemon set
 with a different template but the same label selector, it recognizes any
-existing pod replicas as having matching labels and thus does not update them or
+existing pod replicas as having matching labels. It does not update them or
 create new replicas despite a mismatch in the pod template.</p>
 </li>
 <li>
@@ -2974,8 +2978,7 @@ replicas or nodes.</p>
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Before you start using daemon sets, disable the default project-wide node selector
-in your namespace, by setting the namespace annotation <code>openshift.io/node-selector</code> to an empty string:</p>
+<p>The default project-wide node selector in your namespace is set to an empty string by using the <code>openshift.io/node-selector</code> annotation:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch namespace myproject <span class="nt">-p</span> <span class="se">\</span>
@@ -3009,7 +3012,7 @@ in your namespace, by setting the namespace annotation <code>openshift.io/node-s
 </div>
 </li>
 <li>
-<p>If you are creating a new project, overwrite the default node selector:</p>
+<p>If you are creating a new project, the default node selector is overwritten:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm new-project &lt;name&gt; <span class="nt">--node-selector</span><span class="o">=</span><span class="s2">""</span></code></pre>
@@ -3082,12 +3085,13 @@ in your namespace, by setting the namespace annotation <code>openshift.io/node-s
 </div>
 </div>
 </li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
 <li>
-<p>To verify that the pods were created, and that each node has a pod replica:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>Find the daemonset pods by entering the following command:</p>
+<p>Verify that the pods were created and that each node has a pod replica by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods</code></pre>
@@ -3102,7 +3106,7 @@ hello-daemonset-e3md9   1/1       Running   0          2m</span></code></pre>
 </div>
 </li>
 <li>
-<p>View the pods to verify the pod has been placed onto the node by entering the following command:</p>
+<p>Verify that the pods are placed onto the correct nodes by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe pod/hello-daemonset-cx6md|grep Node</code></pre>
@@ -3114,22 +3118,8 @@ hello-daemonset-e3md9   1/1       Running   0          2m</span></code></pre>
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Node:        openshift-node01.hostname.com/10.14.20.134</span></code></pre>
 </div>
 </div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe pod/hello-daemonset-e3md9|grep Node</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Node:        openshift-node02.hostname.com/10.14.20.137</span></code></pre>
-</div>
-</div>
 </li>
-</ol>
-</div>
-</li>
-</ol>
+</ul>
 </div>
 </div>
 </div>
