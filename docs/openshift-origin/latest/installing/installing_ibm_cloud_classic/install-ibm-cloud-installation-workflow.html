@@ -3188,11 +3188,14 @@ bridge-slave-eth2  f31c3353-54b7-48de-893a-02d2b34c4736  ethernet  eth2</span></
 <div class="sect1">
 <h2 id="configuring-the-public-subnet_install-ibm-cloud-installation-workflow"><a class="anchor" href="#configuring-the-public-subnet_install-ibm-cloud-installation-workflow"></a>Configuring the public subnet</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>All of the OKD cluster nodes must be on the public subnet. IBM Cloud&#174; Bare Metal (Classic) does not provide a DHCP server on the subnet. Set it up separately on the provisioner node.</p>
+<div class="paragraph _abstract">
+<p>To offer DHCP services for OKD cluster nodes on the public subnet in IBM Cloud&#174; Bare Metal (Classic), you can install and configure <code>dnsmasq</code> on the provisioner node.</p>
 </div>
 <div class="paragraph">
-<p>You must reset the BASH variables defined when preparing the provisioner node. Rebooting the provisioner node after preparing it will delete the BASH variables previously set.</p>
+<p>All of the OKD cluster nodes must be on the public subnet. IBM Cloud&#174; Bare Metal (Classic) does not offer a DHCP server on the subnet. Set it up separately on the provisioner node.</p>
+</div>
+<div class="paragraph">
+<p>You must reset the BASH variables defined when preparing the provisioner node. Rebooting the provisioner node after preparing it will delete the BASH variables set before.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3222,27 +3225,28 @@ except-interface=lo
 bind-dynamic
 log-dhcp
 
-dhcp-range=&lt;ip_addr&gt;,&lt;ip_addr&gt;,&lt;pub_cidr&gt; <i class="conum" data-value="1"></i><b>(1)</b>
-dhcp-option=baremetal,121,0.0.0.0/0,&lt;pub_gateway&gt;,&lt;prvn_priv_ip&gt;,&lt;prvn_pub_ip&gt; <i class="conum" data-value="2"></i><b>(2)</b>
+dhcp-range=&lt;ip_addr&gt;,&lt;ip_addr&gt;,&lt;pub_cidr&gt;
+dhcp-option=baremetal,121,0.0.0.0/0,&lt;pub_gateway&gt;,&lt;prvn_priv_ip&gt;,&lt;prvn_pub_ip&gt;
 
 dhcp-hostsfile=/var/lib/dnsmasq/dnsmasq.hostsfile</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>Set the DHCP range. Replace both instances of <code>&lt;ip_addr&gt;</code> with one unused IP address from the public subnet so that the <code>dhcp-range</code> for the <code>baremetal</code> network begins and ends with the same the IP address. Replace <code>&lt;pub_cidr&gt;</code> with the CIDR of the public subnet.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Set the DHCP option. Replace <code>&lt;pub_gateway&gt;</code> with the IP address of the gateway for the <code>baremetal</code> network. Replace <code>&lt;prvn_priv_ip&gt;</code> with the IP address of the provisioner node&#8217;s private IP address on the <code>provisioning</code> network. Replace <code>&lt;prvn_pub_ip&gt;</code> with the IP address of the provisioner node&#8217;s public IP address on the <code>baremetal</code> network.</td>
-</tr>
-</table>
-</div>
 <div class="paragraph">
-<p>To retrieve the value for <code>&lt;pub_cidr&gt;</code>, execute:</p>
+<p>where:</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>dhcp-range</code></dt>
+<dd>
+<p>Specifies the DHCP range for the <code>baremetal</code> network. Replace both instances of <code>&lt;ip_addr&gt;</code> with one unused IP address from the public subnet so that the range begins and ends with the same IP address. Replace <code>&lt;pub_cidr&gt;</code> with the CIDR of the public subnet.</p>
+</dd>
+<dt class="hdlist1"><code>dhcp-option</code></dt>
+<dd>
+<p>Specifies the DHCP option for the <code>baremetal</code> network. Replace <code>&lt;pub_gateway&gt;</code> with the IP address of the gateway for the <code>baremetal</code> network. Replace <code>&lt;prvn_priv_ip&gt;</code> with the private IP address of the provisioner node on the <code>provisioning</code> network. Replace <code>&lt;prvn_pub_ip&gt;</code> with the public IP address of the provisioner node on the <code>baremetal</code> network.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>To retrieve the value for <code>&lt;pub_cidr&gt;</code>, run the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ibmcloud sl subnet detail &lt;publicsubnetid&gt; <span class="nt">--output</span> JSON | jq .cidr</code></pre>
@@ -3251,9 +3255,9 @@ dhcp-hostsfile=/var/lib/dnsmasq/dnsmasq.hostsfile</code></pre>
 <div class="paragraph">
 <p>Replace <code>&lt;publicsubnetid&gt;</code> with the ID of the public subnet.</p>
 </div>
-<div class="paragraph">
-<p>To retrieve the value for <code>&lt;pub_gateway&gt;</code>, execute:</p>
-</div>
+</li>
+<li>
+<p>To retrieve the value for <code>&lt;pub_gateway&gt;</code>, run the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ibmcloud sl subnet detail &lt;publicsubnetid&gt; <span class="nt">--output</span> JSON | jq .gateway <span class="nt">-r</span></code></pre>
@@ -3262,9 +3266,9 @@ dhcp-hostsfile=/var/lib/dnsmasq/dnsmasq.hostsfile</code></pre>
 <div class="paragraph">
 <p>Replace <code>&lt;publicsubnetid&gt;</code> with the ID of the public subnet.</p>
 </div>
-<div class="paragraph">
-<p>To retrieve the value for <code>&lt;prvn_priv_ip&gt;</code>, execute:</p>
-</div>
+</li>
+<li>
+<p>To retrieve the value for <code>&lt;prvn_priv_ip&gt;</code>, run the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ibmcloud  sl hardware detail &lt;<span class="nb">id</span><span class="o">&gt;</span> <span class="nt">--output</span> JSON | <span class="se">\</span>
@@ -3274,9 +3278,9 @@ dhcp-hostsfile=/var/lib/dnsmasq/dnsmasq.hostsfile</code></pre>
 <div class="paragraph">
 <p>Replace <code>&lt;id&gt;</code> with the ID of the provisioner node.</p>
 </div>
-<div class="paragraph">
-<p>To retrieve the value for <code>&lt;prvn_pub_ip&gt;</code>, execute:</p>
-</div>
+</li>
+<li>
+<p>To retrieve the value for <code>&lt;prvn_pub_ip&gt;</code>, run the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ibmcloud sl hardware detail &lt;<span class="nb">id</span><span class="o">&gt;</span> <span class="nt">--output</span> JSON | jq .primaryIpAddress <span class="nt">-r</span></code></pre>
@@ -3284,6 +3288,12 @@ dhcp-hostsfile=/var/lib/dnsmasq/dnsmasq.hostsfile</code></pre>
 </div>
 <div class="paragraph">
 <p>Replace <code>&lt;id&gt;</code> with the ID of the provisioner node.</p>
+</div>
+</li>
+</ol>
+</div>
+</dd>
+</dl>
 </div>
 </li>
 <li>
@@ -3495,8 +3505,11 @@ CGroup: /system.slice/dnsmasq.service
 <div class="sect1">
 <h2 id="configuring-the-install-config-file_install-ibm-cloud-installation-workflow"><a class="anchor" href="#configuring-the-install-config-file_install-ibm-cloud-installation-workflow"></a>Configuring the install-config.yaml file</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To configure OKD for IBM Cloud&#174; Bare Metal (Classic) infrastructure, you can edit the <code>install-config.yaml</code> file to set the required IPMI privilege level and hardware parameters for your bare-metal nodes.</p>
+</div>
 <div class="paragraph">
-<p>The <code>install-config.yaml</code> file requires some additional details. Most of the information is teaching the installer and the resulting cluster enough about the available IBM Cloud&#174; Bare Metal (Classic) hardware so that it is able to fully manage it. The material difference between installing on bare metal and installing on IBM Cloud&#174; Bare Metal (Classic) is that you must explicitly set the privilege level for IPMI in the BMC section of the <code>install-config.yaml</code> file.</p>
+<p>The <code>install-config.yaml</code> file requires some additional details. Most of the information is teaching the installation program and the resulting cluster enough about the available IBM Cloud&#174; Bare Metal (Classic) hardware so that it is able to fully manage it. The material difference between installing on bare metal and installing on IBM Cloud&#174; Bare Metal (Classic) is that you must explicitly set the privilege level for IPMI in the BMC section of the <code>install-config.yaml</code> file.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3531,37 +3544,37 @@ CGroup: /system.slice/dnsmasq.service
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-master-0</span>
         <span class="na">role</span><span class="pi">:</span> <span class="s">master</span>
         <span class="na">bmc</span><span class="pi">:</span>
-          <span class="na">address</span><span class="pi">:</span> <span class="s">ipmi://10.196.130.145?privilegelevel=OPERATOR</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="na">address</span><span class="pi">:</span> <span class="s">ipmi://10.196.130.145?privilegelevel=OPERATOR</span>
           <span class="na">username</span><span class="pi">:</span> <span class="s">root</span>
           <span class="na">password</span><span class="pi">:</span> <span class="s">&lt;password&gt;</span>
-        <span class="na">bootMACAddress</span><span class="pi">:</span> <span class="s">00:e0:ed:6a:ca:b4</span> <i class="conum" data-value="2"></i><b>(2)</b>
+        <span class="na">bootMACAddress</span><span class="pi">:</span> <span class="s">00:e0:ed:6a:ca:b4</span>
         <span class="na">rootDeviceHints</span><span class="pi">:</span>
           <span class="na">deviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/dev/sda"</span>
       <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-worker-0</span>
         <span class="na">role</span><span class="pi">:</span> <span class="s">worker</span>
         <span class="na">bmc</span><span class="pi">:</span>
-          <span class="na">address</span><span class="pi">:</span> <span class="s">ipmi://&lt;out-of-band-ip&gt;?privilegelevel=OPERATOR</span> <i class="conum" data-value="1"></i><b>(1)</b>
+          <span class="na">address</span><span class="pi">:</span> <span class="s">ipmi://&lt;out-of-band-ip&gt;?privilegelevel=OPERATOR</span>
           <span class="na">username</span><span class="pi">:</span> <span class="s">&lt;user&gt;</span>
           <span class="na">password</span><span class="pi">:</span> <span class="s">&lt;password&gt;</span>
-        <span class="na">bootMACAddress</span><span class="pi">:</span> <span class="s">&lt;NIC1_mac_address&gt;</span> <i class="conum" data-value="2"></i><b>(2)</b>
+        <span class="na">bootMACAddress</span><span class="pi">:</span> <span class="s">&lt;NIC1_mac_address&gt;</span>
         <span class="na">rootDeviceHints</span><span class="pi">:</span>
           <span class="na">deviceName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">/dev/sda"</span>
 <span class="na">pullSecret</span><span class="pi">:</span> <span class="s1">'</span><span class="s">&lt;pull_secret&gt;'</span>
 <span class="na">sshKey</span><span class="pi">:</span> <span class="s1">'</span><span class="s">&lt;ssh_pub_key&gt;'</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The <code>bmc.address</code> provides a <code>privilegelevel</code> configuration setting with the value set to <code>OPERATOR</code>. This is required for IBM Cloud&#174; Bare Metal (Classic) infrastructure.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Add the MAC address of the private <code>provisioning</code> network NIC for the corresponding node.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>bmc.address</code></dt>
+<dd>
+<p>Specifies the IPMI address with <code>privilegelevel=OPERATOR</code>. IBM Cloud&#174; Bare Metal (Classic) infrastructure requires this privilege level.</p>
+</dd>
+<dt class="hdlist1"><code>bootMACAddress</code></dt>
+<dd>
+<p>Specifies the MAC address of the private <code>provisioning</code> network NIC for the corresponding node.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -3585,6 +3598,9 @@ CGroup: /system.slice/dnsmasq.service
 </tr>
 </table>
 </div>
+</dd>
+</dl>
+</div>
 </li>
 <li>
 <p>Create a directory to store the cluster configuration:</p>
@@ -3603,7 +3619,7 @@ CGroup: /system.slice/dnsmasq.service
 </div>
 </li>
 <li>
-<p>Ensure all bare metal nodes are powered off prior to installing the OKD cluster:</p>
+<p>Power off all bare-metal nodes before installing the OKD cluster:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ipmitool <span class="nt">-I</span> lanplus <span class="nt">-U</span> &lt;user&gt; <span class="nt">-P</span> &lt;password&gt; <span class="nt">-H</span> &lt;management_server_ip&gt; power off</code></pre>
@@ -3611,7 +3627,7 @@ CGroup: /system.slice/dnsmasq.service
 </div>
 </li>
 <li>
-<p>Remove old bootstrap resources if any are left over from a previous deployment attempt:</p>
+<p>Remove old bootstrap resources if any remain from an earlier deployment try:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="bash"><span class="k">for </span>i <span class="k">in</span> <span class="si">$(</span><span class="nb">sudo </span>virsh list | <span class="nb">tail</span> <span class="nt">-n</span> +3 | <span class="nb">grep </span>bootstrap | <span class="nb">awk</span> <span class="o">{</span><span class="s1">'print $2'</span><span class="o">}</span><span class="si">)</span><span class="p">;</span>
