@@ -2859,6 +2859,15 @@
 <li><a href="#hcp-customize-dashboards_hcp-observability">Dashboard customization</a></li>
 </ul>
 </li>
+<li><a href="#hcp-cp-metrics-overview_hcp-observability">Control plane metrics for hosted control planes</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-cp-metrics-architecture_hcp-observability">Metrics forwarding architecture</a></li>
+<li><a href="#hcp-cp-metrics-enable_hcp-observability">Enabling metrics forwarding</a></li>
+<li><a href="#hcp-cp-query-metrics_hcp-observability">Querying control plane metrics in hosted clusters by using the CLI</a></li>
+<li><a href="#hcp-cp-query-metrics-console_hcp-observability">Querying control plane metrics in hosted clusters by using the web console</a></li>
+<li><a href="#hcp-cp-metrics-dashboards_hcp-observability">Importing control plane health dashboards</a></li>
+</ul>
+</li>
 <li><a href="#hcp-connectivity-metrics_hcp-observability">Connectivity monitoring for hosted control planes</a>
 <ul class="sectlevel2">
 <li><a href="#hcp-connect-data-plane_hcp-observability">Connectivity monitoring from the control plane to the data plane</a></li>
@@ -3258,6 +3267,508 @@ cvo:
 </table>
 <div class="paragraph">
 <p>To set a custom cluster identifier when you create the hosted cluster, see "Customized hosted cluster identifiers".</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-cp-metrics-overview_hcp-observability"><a class="anchor" href="#hcp-cp-metrics-overview_hcp-observability"></a>Control plane metrics for hosted control planes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can observe hosted control plane health from the hosted cluster monitoring stack when metrics forwarding is enabled.</p>
+</div>
+<div class="paragraph">
+<p>With propagated metrics, you can diagnose API server, etcd, Operator, and scheduling issues from the hosted cluster web console and CLI without management cluster credentials.</p>
+</div>
+<div class="paragraph">
+<p>This capability is available in OKD 4.22 and later.</p>
+</div>
+<div class="paragraph">
+<p>Before OKD 4.22, control plane components for hosted control planes ran on the management cluster and were invisible to the Cluster Monitoring Operator stack in the hosted cluster. Hosted cluster administrators could not query metrics such as <code>apiserver_request_total</code>, <code>etcd_mvcc_db_total_size_in_bytes</code>, or <code>csv_succeeded</code> from the hosted cluster Prometheus.</p>
+</div>
+<div class="paragraph">
+<p>With metrics forwarding, selected control plane metrics are propagated from the management cluster into the hosted cluster platform Prometheus.</p>
+</div>
+<div class="paragraph">
+<p>After you enable forwarding on the <code>HostedCluster</code> resource, you can use familiar PromQL queries, alerts, and dashboards.</p>
+</div>
+<div class="sect2">
+<h3 id="hcp-cp-metrics-architecture_hcp-observability"><a class="anchor" href="#hcp-cp-metrics-architecture_hcp-observability"></a>Metrics forwarding architecture</h3>
+<div class="paragraph">
+<p>When you enable metrics forwarding, hosted control planes deploys components on both the management cluster and the hosted cluster.</p>
+</div>
+<div class="paragraph">
+<p>On the management cluster, in the hosted control plane namespace, the following steps take place:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>endpoint-resolver</code> deployment discovers pod IP addresses for control plane components.</p>
+</li>
+<li>
+<p>The <code>metrics-proxy</code> deployment scrapes control plane pods, applies per-component metric filters, injects OKD-compatible labels, and serves aggregated metrics at paths, such as <code>/metrics/kube-apiserver</code> and <code>/metrics/etcd</code>, behind a TLS-passthrough Route.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>On the hosted cluster, in the <code>openshift-monitoring</code> namespace, the following steps take place:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>control-plane-metrics-forwarder</code> deployment runs HAProxy and TCP-proxies scrape requests to the management cluster <code>metrics-proxy</code> Route.</p>
+</li>
+<li>
+<p>A <code>PodMonitor</code> named <code>control-plane-metrics-forwarder</code> configures platform Prometheus to scrape the forwarder using mutual TLS (mTLS).</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The data path is as follows:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Platform Prometheus in the hosted cluster discovers the <code>PodMonitor</code> and scrapes the metrics-forwarder.</p>
+</li>
+<li>
+<p>The metrics-forwarder forwards the scrape over mTLS to the management cluster <code>metrics-proxy</code> Route.</p>
+</li>
+<li>
+<p>The metrics-proxy scrapes control plane pods through the endpoint-resolver and returns filtered, relabeled metrics.</p>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-cp-metrics-enable_hcp-observability"><a class="anchor" href="#hcp-cp-metrics-enable_hcp-observability"></a>Enabling metrics forwarding</h3>
+<div class="paragraph _abstract">
+<p>Enable metrics forwarding so that you can observe hosted control plane health from the hosted cluster monitoring stack.</p>
+</div>
+<div class="paragraph">
+<p>If you are a hosted cluster administrator without management cluster access, ask a platform administrator enable metrics forwarding on your <code>HostedCluster</code> resource.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have a hosted cluster that is version 4.22 or later.</p>
+</li>
+<li>
+<p>You have the multicluster engine for Kubernetes Operator version 2.17 or later.</p>
+</li>
+<li>
+<p>You are logged in to the management cluster. Alternatively, you can use a <code>kubeconfig</code> file with access to the namespace that contains the <code>HostedCluster</code> resource. The <code>HostedCluster</code> object exists on the management cluster; annotating it from a hosted cluster <code>kubeconfig</code> file fails or targets the wrong resource.</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>Add the <code>hypershift.openshift.io/enable-metrics-forwarding=true</code> annotation to the <code>HostedCluster</code> resource on the management cluster by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate hostedcluster <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  hypershift.openshift.io/enable-metrics-forwarding<span class="o">=</span><span class="nb">true</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;hosted_cluster_namespace&gt;</code> with the namespace of the hosted cluster and <code>&lt;hosted_cluster_name&gt;</code> with the name of the hosted cluster.</p>
+</div>
+</li>
+<li>
+<p>To disable metrics forwarding, remove the annotation by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate hostedcluster <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  hypershift.openshift.io/enable-metrics-forwarding-</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-cp-query-metrics_hcp-observability"><a class="anchor" href="#hcp-cp-query-metrics_hcp-observability"></a>Querying control plane metrics in hosted clusters by using the CLI</h3>
+<div class="paragraph _abstract">
+<p>After you enable metrics forwarding, you can verify that control plane metrics are ingested and query them from the CLI.</p>
+</div>
+<div class="paragraph">
+<p>Use the same PromQL patterns as standalone OKD clusters because the metrics-proxy injects compatible labels.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Metrics forwarding is enabled on the <code>HostedCluster</code> resource. For enablement steps, see "Enabling metrics forwarding".</p>
+</li>
+<li>
+<p>You have <code>cluster-admin</code> access to the hosted cluster.</p>
+</li>
+<li>
+<p>At least two minutes have elapsed since you enabled forwarding so Prometheus can complete initial scrapes.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Verify that the <code>control-plane-metrics-forwarder</code> deployment exists in the <code>openshift-monitoring</code> namespace:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment control-plane-metrics-forwarder <span class="nt">-n</span> openshift-monitoring</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Control plane metrics are available when the Cluster Monitoring Operator and platform Prometheus are running, even if no compute nodes are scheduled. Data-plane node and workload metrics still require compute nodes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Verify that the <code>control-plane-metrics-forwarder</code> <code>PodMonitor</code> exists:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get podmonitor control-plane-metrics-forwarder <span class="nt">-n</span> openshift-monitoring</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: Verify that management-cluster components are running by logging in to the management cluster:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment endpoint-resolver metrics-proxy <span class="nt">-n</span> &lt;hcp_namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;hcp_namespace&gt;</code> with the namespace for your hosted cluster. Typically, the format of the namespace is <code>&lt;hosted_cluster_namespace&gt;-&lt;hosted_cluster_name&gt;</code>.</p>
+</div>
+</li>
+<li>
+<p>Enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get route metrics-proxy <span class="nt">-n</span> &lt;hcp_namespace&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that Prometheus scraped targets for the forwarder report:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-monitoring prometheus-k8s-0 <span class="nt">-c</span> prometheus <span class="nt">--</span> <span class="se">\</span>
+  curl <span class="nt">-s</span> http://localhost:9090/api/v1/targets <span class="se">\</span>
+  | jq <span class="s1">'.data.activeTargets[] | select(.scrapePool | contains("control-plane-metrics-forwarder")) | {scrapePool, scrapeUrl: .scrapeUrl, health}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You should see one target per forwarded component with the status of <code>"health": "up"</code>.</p>
+</div>
+</li>
+<li>
+<p>Confirm that Kubernetes API server metrics are ingested by querying <code>apiserver_request_total</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-monitoring prometheus-k8s-0 <span class="nt">-c</span> prometheus <span class="nt">--</span> <span class="se">\</span>
+  curl <span class="nt">-gs</span> <span class="s1">'http://localhost:9090/api/v1/query?query=apiserver_request_total{job="apiserver"}'</span> <span class="se">\</span>
+  | jq <span class="s1">'.data.result | length'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A nonzero result confirms that API server metrics are available in the guest cluster monitoring stack.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../operators/understanding/olm/olm-understanding-metrics.html#olm-metrics_olm-understanding-metrics">Exposed metrics</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-cp-query-metrics-console_hcp-observability"><a class="anchor" href="#hcp-cp-query-metrics-console_hcp-observability"></a>Querying control plane metrics in hosted clusters by using the web console</h3>
+<div class="paragraph _abstract">
+<p>After you enable metrics forwarding, you can verify that control plane metrics are ingested and query them from the web console.</p>
+</div>
+<div class="paragraph">
+<p>Use the same PromQL patterns as standalone OKD clusters because the metrics-proxy injects compatible labels.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Metrics forwarding is enabled on the <code>HostedCluster</code> resource. For enablement steps, see "Enabling metrics forwarding".</p>
+</li>
+<li>
+<p>You have <code>cluster-admin</code> access to the hosted cluster.</p>
+</li>
+<li>
+<p>At least two minutes have elapsed since you enabled forwarding so Prometheus can complete initial scrapes.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Log in to the OKD web console for the hosted cluster.</p>
+</li>
+<li>
+<p>Click <strong>Observe</strong> &#8594; <strong>Metrics</strong>.</p>
+</li>
+<li>
+<p>In the query field, enter a PromQL expression and run the query.</p>
+<div class="paragraph">
+<p>Use the following examples:</p>
+</div>
+<div class="listingblock">
+<div class="title">Operator health</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">csv_succeeded{job="olm-operator-metrics"} == 0</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This query lists CSVs that are not in the <code>Succeeded</code> state.</p>
+</div>
+<div class="listingblock">
+<div class="title">API server request rate</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">sum(rate(apiserver_request_total{job="apiserver"}[5m])) by (verb, code)</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Scheduler activity</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">sum(rate(scheduler_schedule_attempts_total[5m])) by (result)</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This query is available on OKD 4.22 and later with metrics forwarding enabled.</p>
+</div>
+<div class="listingblock">
+<div class="title">Workload-oriented API saturation</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">apiserver_current_inflight_requests{job="apiserver"}</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Scheduling backlog</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">scheduler_pending_pods</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Controller workqueue depth</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">workqueue_depth{job="kube-controller-manager"}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For <code>csv_succeeded</code> and other OLM metrics, see "Exposed metrics".</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Prometheus targets for <code>control-plane-metrics-forwarder</code> scrape pools report the <code>health: up</code> status.</p>
+</li>
+<li>
+<p>PromQL queries for <code>apiserver_request_total{job="apiserver"}</code> return nonzero results.</p>
+</li>
+<li>
+<p>Example queries in the web console return time series for enabled components.</p>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../operators/understanding/olm/olm-understanding-metrics.html#olm-metrics_olm-understanding-metrics">Exposed metrics</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-cp-metrics-dashboards_hcp-observability"><a class="anchor" href="#hcp-cp-metrics-dashboards_hcp-observability"></a>Importing control plane health dashboards</h3>
+<div class="paragraph _abstract">
+<p>You can import a sample Grafana dashboard that visualizes propagated control plane metrics in the hosted cluster web console. The dashboard covers API server, etcd, cluster Operators, scheduler, controller manager, and OLM health panels.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Metrics forwarding is enabled and verified.</p>
+</li>
+<li>
+<p>The HyperShift Operator uses <code>METRICS_SET=All</code> or <code>METRICS_SET=SRE</code> with a matching <code>sre-metric-set</code> <code>ConfigMap</code> object in the hosted control plane namespace. The default <code>Telemetry</code> metrics set forwards only a small metric subset and leaves most dashboard panels empty.</p>
+</li>
+<li>
+<p>You have <code>cluster-admin</code> access to the hosted cluster.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Download the sample dashboard JSON file by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-LO</span> https://raw.githubusercontent.com/openshift/hypershift/main/contrib/metrics/guest-control-plane-dashboard.json</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you deploy user-workload Grafana through the Grafana Operator, import the dashboard JSON as a <code>GrafanaDashboard</code> custom resource instead of using a console <code>ConfigMap</code> object.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create a <code>ConfigMap</code> object from the dashboard file in the <code>openshift-config-managed</code> namespace by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create configmap guest-control-plane-dashboard <span class="se">\</span>
+  <span class="nt">--from-file</span><span class="o">=</span>guest-control-plane-dashboard.json<span class="o">=</span>guest-control-plane-dashboard.json <span class="se">\</span>
+  <span class="nt">-n</span> openshift-config-managed</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Label the <code>ConfigMap</code> object so the console discovers it as a dashboard by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label configmap guest-control-plane-dashboard <span class="se">\</span>
+  console.openshift.io/dashboard<span class="o">=</span><span class="nb">true</span> <span class="se">\</span>
+  <span class="nt">-n</span> openshift-config-managed</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Log in to the web console and click <strong>Observe</strong> &#8594; <strong>Dashboards</strong>.</p>
+</li>
+<li>
+<p>Select the <strong>Hosted Cluster Control Plane</strong> dashboard.</p>
+</li>
+<li>
+<p>Optional: If you use <code>METRICS_SET=SRE</code> on the HyperShift Operator, configure the Operator and create or update the <code>sre-metric-set</code> <code>ConfigMap</code> object in the hosted control plane namespace with relabel configurations that forward the dashboard metric names.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Log in to the management cluster and set the metrics set on the HyperShift Operator by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">set env</span> <span class="nt">-n</span> hypershift deployment/operator <span class="nv">METRICS_SET</span><span class="o">=</span>SRE</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Replace <code>&lt;hcp_namespace&gt;</code> with your hosted control plane namespace and create the <code>ConfigMap</code> object:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ConfigMap</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">sre-metric-set</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;hcp_namespace&gt;</span>
+<span class="na">data</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span> <span class="pi">|</span>
+    <span class="s">kubeAPIServer:</span>
+      <span class="s">- action: keep</span>
+        <span class="s">sourceLabels: ["__name__"]</span>
+        <span class="s">regex: "(apiserver_request_total|apiserver_request_duration_seconds_bucket|apiserver_current_inflight_requests|apiserver_storage_objects)"</span>
+    <span class="s">etcd:</span>
+      <span class="s">- action: keep</span>
+        <span class="s">sourceLabels: ["__name__"]</span>
+        <span class="s">regex: "(etcd_mvcc_db_total_size_in_bytes|etcd_mvcc_db_total_size_in_use_in_bytes|etcd_disk_wal_fsync_duration_seconds_bucket|etcd_disk_backend_commit_duration_seconds_bucket|etcd_network_peer_round_trip_time_seconds_bucket|etcd_server_leader_changes_seen_total|etcd_server_has_leader)"</span>
+    <span class="s">kubeControllerManager:</span>
+      <span class="s">- action: keep</span>
+        <span class="s">sourceLabels: ["__name__"]</span>
+        <span class="s">regex: "(workqueue_depth|workqueue_adds_total)"</span>
+    <span class="s">kubeScheduler:</span>
+      <span class="s">- action: keep</span>
+        <span class="s">sourceLabels: ["__name__"]</span>
+        <span class="s">regex: "(scheduler_e2e_scheduling_duration_seconds_count|scheduler_schedule_attempts_total|scheduler_pending_pods)"</span>
+    <span class="s">cvo:</span>
+      <span class="s">- action: keep</span>
+        <span class="s">sourceLabels: ["__name__"]</span>
+        <span class="s">regex: "(cluster_version|cluster_operator_up|cluster_operator_conditions)"</span>
+    <span class="s">olm:</span>
+      <span class="s">- action: keep</span>
+        <span class="s">sourceLabels: ["__name__"]</span>
+        <span class="s">regex: "(csv_succeeded)"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This configuration forwards 20 metric names across five components that the dashboard uses.</p>
+</div>
+<div class="paragraph">
+<p>For full <code>SRE</code> metrics set configuration, see "Configuring the SRE metrics set".</p>
+</div>
+</li>
+<li>
+<p>Apply the <code>ConfigMap</code> object on the management cluster:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> sre-metric-set.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The Control Plane Operator detects the <code>ConfigMap</code> object change and updates the <code>metrics-proxy</code> configuration.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>The dashboard is displayed under <strong>Observe</strong> &#8594; <strong>Dashboards</strong> in the web console.</p>
+</li>
+<li>
+<p>Panels display data when the configured metrics set includes the required metric names.</p>
+</li>
+<li>
+<p>The etcd database size panels show current use relative to the 8 GB limit.</p>
+</li>
+</ul>
 </div>
 </div>
 </div>
