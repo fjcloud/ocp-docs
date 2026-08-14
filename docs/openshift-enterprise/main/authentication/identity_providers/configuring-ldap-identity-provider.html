@@ -3423,12 +3423,12 @@
 <li><a href="#identity-provider-about-ldap_configuring-ldap-identity-provider">About LDAP authentication</a></li>
 <li><a href="#identity-provider-creating-ldap-secret_configuring-ldap-identity-provider">Creating the LDAP secret</a></li>
 <li><a href="#identity-provider-creating-configmap_configuring-ldap-identity-provider">Creating a 'ConfigMap'</a></li>
-<li><a href="#identity-provider-ldap-CR_configuring-ldap-identity-provider">Sample LDAP CR</a></li>
+<li><a href="#identity-provider-ldap-CR_configuring-ldap-identity-provider">Sample LDAP custom resource</a></li>
 <li><a href="#add-identity-provider_configuring-ldap-identity-provider">Adding an identity provider to your cluster</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>Configure the <code>ldap</code> identity provider to validate user names and passwords against an LDAPv3 server, using simple bind authentication.</p>
+<div class="paragraph _abstract">
+<p>Configure an LDAP identity provider so users can log in to OpenShift Container Platform with usernames and passwords validated against your LDAPv3 directory.</p>
 </div>
 </div>
 </div>
@@ -3457,41 +3457,37 @@
 <div class="sect1">
 <h2 id="identity-provider-about-ldap_configuring-ldap-identity-provider"><a class="anchor" href="#identity-provider-about-ldap_configuring-ldap-identity-provider"></a>About LDAP authentication</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Review how usernames and passwords are validated against the LDAP directory so you can configure the LDAP identity provider correctly.</p>
+</div>
 <div class="paragraph">
-<p>During authentication, the LDAP directory is searched for an entry that matches
-the provided user name. If a single unique match is found, a simple bind is
-attempted using the distinguished name (DN) of the entry plus the provided
+<p>During authentication, the LDAP directory is searched for an entry that matches the provided username. If a single unique match is found, a simple bind is attempted using the distinguished name (DN) of the entry plus the provided
 password.</p>
 </div>
 <div class="paragraph">
-<p>These are the steps taken:</p>
+<p>LDAP authentication uses the following process:</p>
 </div>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Generate a search filter by combining the attribute and filter in the
-configured <code>url</code> with the user-provided user name.</p>
+<p>Generates a search filter by combining the attribute and filter in the configured <code>url</code> with the user-provided username.</p>
 </li>
 <li>
-<p>Search the directory using the generated filter. If the search does not return
-exactly one entry, deny access.</p>
+<p>Searches the directory using the generated filter. Denies access if the search does not return exactly one entry.</p>
 </li>
 <li>
-<p>Attempt to bind to the LDAP server using the DN of the entry retrieved from
-the search, and the user-provided password.</p>
+<p>Attempts to bind to the LDAP server using the DN of the entry retrieved from the search, and the user-provided password.</p>
 </li>
 <li>
-<p>If the bind is unsuccessful, deny access.</p>
+<p>Denies access if the bind is unsuccessful.</p>
 </li>
 <li>
-<p>If the bind is successful, build an identity using the configured attributes
-as the identity, email address, display name, and preferred user name.</p>
+<p>Builds an identity using the configured attributes as the identity, email address, display name, and preferred username if the bind is successful.</p>
 </li>
 </ol>
 </div>
 <div class="paragraph">
-<p>The configured <code>url</code> is an RFC 2255 URL, which specifies the LDAP host and
-search parameters to use. The syntax of the URL is:</p>
+<p>The configured <code>url</code> is an RFC 2255 URL, which specifies the LDAP host and search parameters to use. The syntax of the URL is:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -3528,7 +3524,7 @@ search parameters to use. The syntax of the URL is:</p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p>The name and port of the LDAP server. Defaults to
-<code>localhost:389</code> for ldap and <code>localhost:636</code> for LDAPS.</p>
+<code>localhost:389</code> for LDAP and <code>localhost:636</code> for LDAPS.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -3547,10 +3543,10 @@ it could also specify a subtree in the directory.</p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p>The attribute to search for. Although RFC 2255 allows a
-comma-separated list of attributes, only the first attribute will be used, no
+comma-separated list of attributes, only the first attribute is used, no
 matter how many are provided. If no attributes are provided, the default is to
-use <code>uid</code>. It is recommended to choose an attribute that will be unique across
-all entries in the subtree you will be using.</p>
+use <code>uid</code>. It is recommended to choose an attribute that is unique across
+all entries in the subtree you are using.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -3574,8 +3570,7 @@ If the scope is not provided, the default is to use a scope of <code>sub</code>.
 </tbody>
 </table>
 <div class="paragraph">
-<p>When doing searches, the attribute, filter, and provided user name are combined
-to create a search filter that looks like:</p>
+<p>During a search, the attribute and filter from the configured <code>url</code> are combined with the user-provided username to create a search filter in the following format:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -3591,49 +3586,43 @@ to create a search filter that looks like:</p>
 </div>
 </div>
 <div class="paragraph">
-<p>When a client attempts to connect using a user name of <code>bob</code>, the resulting
-search filter will be <code>(&amp;(enabled=true)(cn=bob))</code>.</p>
+<p>When a client attempts to connect using username <code>bob</code>, the resulting search filter is <code>(&amp;(enabled=true)(cn=bob))</code>.</p>
 </div>
 <div class="paragraph">
-<p>If the LDAP directory requires authentication to search, specify a <code>bindDN</code> and
-<code>bindPassword</code> to use to perform the entry search.</p>
+<p>If the LDAP directory requires authentication to search, specify a <code>bindDN</code> and <code>bindPassword</code> to use to perform the entry search.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="identity-provider-creating-ldap-secret_configuring-ldap-identity-provider"><a class="anchor" href="#identity-provider-creating-ldap-secret_configuring-ldap-identity-provider"></a>Creating the LDAP secret</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>To use the identity provider, you must define an OpenShift Container Platform <code>Secret</code> object that contains the <code>bindPassword</code> field.</p>
+<div class="paragraph _abstract">
+<p>Create a secret that contains the LDAP bind password in the <code>openshift-config</code> namespace so the identity provider can authenticate to the directory.</p>
 </div>
 <div class="ulist">
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>Create a <code>Secret</code> object that contains the <code>bindPassword</code> field:</p>
+<p>Create a <code>Secret</code> object that contains the <code>bindPassword</code> field by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic ldap-secret <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">bindPassword</span><span class="o">=</span>&lt;secret&gt; <span class="nt">-n</span> openshift-config <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic ldap-secret <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">bindPassword</span><span class="o">=</span>&lt;secret&gt; <span class="nt">-n</span> openshift-config</code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The secret key containing the bindPassword for the <code>--from-literal</code> argument must be called <code>bindPassword</code>.</td>
-</tr>
-</table>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-tip" title="Tip"></i>
-</td>
-<td class="content">
 <div class="paragraph">
-<p>You can alternatively apply the following YAML to create the secret:</p>
+<p>where:</p>
 </div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;secret&gt;</code></dt>
+<dd>
+<p>Specifies the LDAP bind password value for the <code>--from-literal</code> argument. The key name must be <code>bindPassword</code>.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Alternatively, apply the following YAML to create the secret:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
@@ -3645,10 +3634,6 @@ search filter will be <code>(&amp;(enabled=true)(cn=bob))</code>.</p>
 <span class="na">data</span><span class="pi">:</span>
   <span class="na">bindPassword</span><span class="pi">:</span> <span class="s">&lt;base64_encoded_bind_password&gt;</span></code></pre>
 </div>
-</div>
-</td>
-</tr>
-</table>
 </div>
 </li>
 </ul>
@@ -3695,14 +3680,12 @@ search filter will be <code>(&amp;(enabled=true)(cn=bob))</code>.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="identity-provider-ldap-CR_configuring-ldap-identity-provider"><a class="anchor" href="#identity-provider-ldap-CR_configuring-ldap-identity-provider"></a>Sample LDAP CR</h2>
+<h2 id="identity-provider-ldap-CR_configuring-ldap-identity-provider"><a class="anchor" href="#identity-provider-ldap-CR_configuring-ldap-identity-provider"></a>Sample LDAP custom resource</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>The following custom resource (CR) shows the parameters and acceptable values for an
-LDAP identity provider.</p>
+<div class="paragraph _abstract">
+<p>Review the sample LDAP custom resource (CR) and acceptable parameter values so you can configure attribute mappings, bind credentials, and connection settings for the LDAP identity provider.</p>
 </div>
 <div class="listingblock">
-<div class="title">LDAP CR</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">OAuth</span>
@@ -3710,89 +3693,79 @@ LDAP identity provider.</p>
   <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">identityProviders</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ldapidp</span> <i class="conum" data-value="1"></i><b>(1)</b>
-    <span class="na">mappingMethod</span><span class="pi">:</span> <span class="s">claim</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ldapidp</span>
+    <span class="na">mappingMethod</span><span class="pi">:</span> <span class="s">claim</span>
     <span class="na">type</span><span class="pi">:</span> <span class="s">LDAP</span>
     <span class="na">ldap</span><span class="pi">:</span>
       <span class="na">attributes</span><span class="pi">:</span>
-        <span class="na">id</span><span class="pi">:</span> <i class="conum" data-value="3"></i><b>(3)</b>
+        <span class="na">id</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="s">dn</span>
-        <span class="na">email</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+        <span class="na">email</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="s">mail</span>
-        <span class="na">name</span><span class="pi">:</span> <i class="conum" data-value="5"></i><b>(5)</b>
+        <span class="na">name</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="s">cn</span>
-        <span class="na">preferredUsername</span><span class="pi">:</span> <i class="conum" data-value="6"></i><b>(6)</b>
+        <span class="na">preferredUsername</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="s">uid</span>
-      <span class="na">bindDN</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span> <i class="conum" data-value="7"></i><b>(7)</b>
-      <span class="na">bindPassword</span><span class="pi">:</span> <i class="conum" data-value="8"></i><b>(8)</b>
+      <span class="na">bindDN</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+      <span class="na">bindPassword</span><span class="pi">:</span>
         <span class="na">name</span><span class="pi">:</span> <span class="s">ldap-secret</span>
-      <span class="na">ca</span><span class="pi">:</span> <i class="conum" data-value="9"></i><b>(9)</b>
+      <span class="na">ca</span><span class="pi">:</span>
         <span class="na">name</span><span class="pi">:</span> <span class="s">ca-config-map</span>
-      <span class="na">insecure</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="10"></i><b>(10)</b>
-      <span class="na">url</span><span class="pi">:</span> <span class="s2">"</span><span class="s">ldaps://ldaps.example.com/ou=users,dc=acme,dc=com?uid"</span> <i class="conum" data-value="11"></i><b>(11)</b></code></pre>
+      <span class="na">insecure</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">url</span><span class="pi">:</span> <span class="s2">"</span><span class="s">ldaps://ldaps.example.com/ou=users,dc=acme,dc=com?uid"</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>This provider name is prefixed to the returned user ID to form an identity
-name.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>Controls how mappings are established between this provider&#8217;s identities and <code>User</code> objects.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>List of attributes to use as the identity. First non-empty attribute is
-used. At least one attribute is required. If none of the listed attribute
-have a value, authentication fails. Defined attributes are retrieved as raw,
-allowing for binary values to be used.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>List of attributes to use as the email address. First non-empty
-attribute is used.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="5"></i><b>5</b></td>
-<td>List of attributes to use as the display name. First non-empty
-attribute is used.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="6"></i><b>6</b></td>
-<td>List of attributes to use as the preferred user name when provisioning a
-user for this identity. First non-empty attribute is used.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="7"></i><b>7</b></td>
-<td>Optional DN to use to bind during the search phase. Must be set if
-<code>bindPassword</code> is defined.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="8"></i><b>8</b></td>
-<td>Optional reference to an OpenShift Container Platform <code>Secret</code> object containing the bind
-password. Must be set if <code>bindDN</code> is defined.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="9"></i><b>9</b></td>
-<td>Optional: Reference to an OpenShift Container Platform <code>ConfigMap</code> object containing the
-PEM-encoded certificate authority bundle to use in validating server
-certificates for the configured URL. Only used when <code>insecure</code> is <code>false</code>.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="10"></i><b>10</b></td>
-<td>When <code>true</code>, no TLS connection is made to the server. When <code>false</code>,
-<code>ldaps://</code> URLs connect using TLS, and <code>ldap://</code> URLs are upgraded to TLS.
-This must be set to <code>false</code> when <code>ldaps://</code> URLs are in use, as these
-URLs always attempt to connect using TLS.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="11"></i><b>11</b></td>
-<td>An RFC 2255 URL which specifies the LDAP host and search parameters to use.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.identityProviders.name</code></dt>
+<dd>
+<p>Specifies the provider name. The provider name is prefixed to the returned user ID to form an identity</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.mappingMethod</code></dt>
+<dd>
+<p>Specifies how mappings are established between the identities of this provider and <code>User</code> objects.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.ldap.attributes.id</code></dt>
+<dd>
+<p>Specifies the list of attributes to use as the identity. The first non-empty attribute is used. At least one attribute is required. If none of the listed attributes have a value, authentication fails. Defined attributes are retrieved as raw, allowing binary values to be used.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.ldap.attributes.email</code></dt>
+<dd>
+<p>Specifies the list of attributes to use as the email address. The first non-empty attribute is used.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.ldap.attributes.name</code></dt>
+<dd>
+<p>Specifies the list of attributes to use as the display name. The first non-empty attribute is used.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.ldap.attributes.preferredUsername</code></dt>
+<dd>
+<p>Specifies the list of attributes to use as the preferred username when provisioning a user for this identity. The first non-empty attribute is used.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.ldap.bindDN</code></dt>
+<dd>
+<p>Specifies the optional DN to use to bind during the search phase. Must be set if <code>bindPassword</code> is defined.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.ldap.bindPassword</code></dt>
+<dd>
+<p>Specifies an optional reference to an OpenShift Container Platform <code>Secret</code> object containing the bind
+password. Must be set if <code>bindDN</code> is defined.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.ldap.ca</code></dt>
+<dd>
+<p>Specifies an optional reference to an OpenShift Container Platform <code>ConfigMap</code> object containing the Privacy-Enhanced Mail (PEM)-encoded certificate authority bundle to use in validating server certificates for the configured URL. Only used when <code>insecure</code> is <code>false</code>.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.ldap.insecure</code></dt>
+<dd>
+<p>Specifies whether a TLS connection is made to the server. When <code>true</code>, no TLS connection is made to the server. When <code>false</code>, <code>ldaps://</code> URLs connect using TLS, and <code>ldap://</code> URLs are upgraded to TLS. This must be set to <code>false</code> when <code>ldaps://</code> URLs are in use, as these URLs always attempt to connect using TLS.</p>
+</dd>
+<dt class="hdlist1"><code>spec.identityProviders.ldap.url</code></dt>
+<dd>
+<p>Specifies an RFC 2255 URL for the LDAP host and search parameters to use.</p>
+</dd>
+</dl>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3802,9 +3775,7 @@ URLs always attempt to connect using TLS.</td>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>To whitelist users for an LDAP integration, use the <code>lookup</code> mapping method.
-Before a login from LDAP would be allowed, a cluster administrator must create
-an <code>Identity</code> object and a <code>User</code> object for each LDAP user.</p>
+<p>To allowlist users for an LDAP integration, use the <code>lookup</code> mapping method. Before a login from LDAP is allowed, a cluster administrator must create an <code>Identity</code> object and a <code>User</code> object for each LDAP user.</p>
 </div>
 </td>
 </tr>
@@ -3814,7 +3785,7 @@ an <code>Identity</code> object and a <code>User</code> object for each LDAP use
 <div class="title">Additional resources</div>
 <ul>
 <li>
-<p>See <a href="../../authentication/understanding-identity-provider.html#identity-provider-parameters_understanding-identity-provider">Identity provider parameters</a> for information on parameters, such as <code>mappingMethod</code>, that are common to all identity providers.</p>
+<p><a href="../../authentication/understanding-identity-provider.html#identity-provider-parameters_understanding-identity-provider">Identity provider parameters</a></p>
 </li>
 </ul>
 </div>

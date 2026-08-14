@@ -3419,11 +3419,17 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#dr-restoring-etcd-quorum-ha_about-dr">Restoring etcd quorum for high availability clusters</a></li>
+<li><a href="#dr-scenario-2-restoring-cluster-state-about_about-dr">About restoring to an earlier cluster state</a></li>
+<li><a href="#dr-restoring-cluster-state-sno_about-dr">Restoring to an earlier cluster state for a single node</a></li>
+<li><a href="#dr-scenario-2-restoring-cluster-state_about-dr">Restoring to an earlier cluster state for more than one node</a></li>
+<li><a href="#dr-scenario-cluster-state-issues_about-dr">Issues and workarounds for restoring a persistent storage state</a></li>
+<li><a href="#dr-scenario-3-recovering-expired-certs_about-dr">Recovering from expired control plane certificates</a></li>
 <li><a href="#dr-testing-restore-procedures_about-dr">Testing restore procedures</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>You can restore your OpenShift Container Platform cluster after a disaster by choosing the recovery path for etcd quorum loss, expired certificates, or rollback to an earlier state. Choose the option that matches your failure type before you begin recovery.</p>
+<p>To return your cluster to a working state after quorum loss, control plane failure, or expired certificates, follow the disaster recovery procedures for your situation. You can restore etcd quorum, restore the cluster from an etcd snapshot, or recover from expired control plane certificates.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3439,29 +3445,20 @@
 </tr>
 </table>
 </div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">Quorum restoration</dt>
-<dd>
-<p>This solution handles situations where you have lost the majority of your control plane hosts, leading to etcd quorum loss and the cluster going offline. This solution does not require an etcd backup.</p>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
+</div>
+</div>
+<div class="sect1">
+<h2 id="dr-restoring-etcd-quorum-ha_about-dr"><a class="anchor" href="#dr-restoring-etcd-quorum-ha_about-dr"></a>Restoring etcd quorum for high availability clusters</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can restore etcd quorum on high availability (HA) clusters by running the <code>quorum-restore.sh</code> script on a recovery host. Restored quorum returns the OpenShift Container Platform API to read/write mode when quorum loss takes the cluster offline.</p>
+</div>
 <div class="paragraph">
-<p>If you have a majority of your control plane nodes still available and have an etcd quorum, you can replace a single unhealthy etcd member instead of performing quorum restoration.</p>
+<p>The <code>quorum-restore.sh</code> script creates a new single-member etcd cluster from the local data directory on the recovery host. No prior backup is required.</p>
 </div>
-</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>For high availability (HA) clusters, a three-node HA cluster requires you to shut down etcd on two hosts to avoid a cluster split. On four-node and five-node HA clusters, you must shut down three hosts. Quorum requires a majority of nodes. The minimum number of nodes required for quorum on a three-node HA cluster is two. On four-node and five-node HA clusters, the minimum number of nodes required for quorum is three. If you start a new cluster from backup on your recovery host, the other etcd members might still be able to form quorum and continue service.</p>
 </div>
-</dd>
-<dt class="hdlist1">Restoring to an earlier cluster state</dt>
-<dd>
-<p>This solution handles situations where you want to restore your cluster to an earlier state, for example, if an administrator deletes something critical. If you have taken an etcd backup, you can restore your cluster to an earlier state.</p>
 <div class="admonitionblock warning">
 <table>
 <tr>
@@ -3470,21 +3467,749 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Restoring to an earlier cluster state is a destructive and destabilizing action to take on a running cluster. This procedure should only be used as a last resort.</p>
-</div>
-<div class="paragraph">
-<p>Before you restore, understand the impact a state rollback can have on your cluster.</p>
+<p>You might experience data loss if the host that runs the restoration does not have all data replicated to it.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
-</dd>
-<dt class="hdlist1">Recovering from expired control plane certificates</dt>
-<dd>
-<p>This solution handles situations where your control plane certificates have expired. For example, if you shut down your cluster before the first certificate rotation, which occurs 24 hours after installation, your certificates are not rotated and expire. You can follow this procedure to recover from expired control plane certificates.</p>
-</dd>
-</dl>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Quorum restoration should not be used to decrease the number of nodes outside of the restoration process. Decreasing the number of nodes results in an unsupported cluster configuration.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have SSH access to the node used to restore quorum.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Select a control plane host to use as the recovery host. You run the restore operation on this host.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>List the running etcd pods by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-etcd <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>etcd <span class="nt">--field-selector</span><span class="o">=</span><span class="s2">"status.phase==Running"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Choose a pod and run the following command to obtain its IP address:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-etcd &lt;etcd-pod&gt; <span class="nt">-c</span> etcdctl <span class="nt">--</span> etcdctl endpoint status <span class="nt">-w</span> table</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note the IP address of a member that is not a learner and has the highest Raft index.</p>
+</div>
+</li>
+<li>
+<p>List nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}[{.metadata.name},{.status.addresses[?(@.type=="InternalIP")].address}]{end}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note the node name that corresponds to the IP address of the chosen etcd member.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Using SSH, connect to the chosen recovery node and run the following command to restore etcd quorum:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo</span> <span class="nt">-E</span> /usr/local/bin/quorum-restore.sh</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>After a few minutes, the nodes that went down are automatically synchronized with the node that the recovery script was run on. Any remaining online nodes automatically rejoin the new etcd cluster created by the <code>quorum-restore.sh</code> script. This process takes a few minutes.</p>
+</div>
+</li>
+<li>
+<p>Exit the SSH session.</p>
+</li>
+<li>
+<p>Return to a three-node configuration if any nodes are offline. Repeat the following steps for each node that is offline to delete and re-create them. After the machines are re-created, a new revision is forced and etcd automatically scales up.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>If you use a user-provisioned bare-metal installation, you can re-create a control plane machine by using the same method that you used to originally create it. For more information, see "Installing a user-provisioned cluster on bare metal".</p>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not delete and re-create the machine for the recovery host.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>If you are running installer-provisioned infrastructure, or you used the Machine API to create your machines, follow these steps:</p>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not delete and re-create the machine for the recovery host.</p>
+</div>
+<div class="paragraph">
+<p>For bare-metal installations on installer-provisioned infrastructure, control plane machines are not re-created. For more information, see "Replacing a bare-metal control plane node".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>In a terminal that hass access to the cluster as a <code>cluster-admin</code> user, obtain the machine for one of the offline nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                        PHASE     TYPE        REGION      ZONE         AGE     NODE                           PROVIDERID                              STATE
+clustername-8qw5l-master-0                  Running   m4.xlarge   us-east-1   us-east-1a   3h37m   ip-10-0-131-183.ec2.internal   aws:///us-east-1a/i-0ec2782f8287dfb7e   stopped
+clustername-8qw5l-master-1                  Running   m4.xlarge   us-east-1   us-east-1b   3h37m   ip-10-0-143-125.ec2.internal   aws:///us-east-1b/i-096c349b700a19631   running
+clustername-8qw5l-master-2                  Running   m4.xlarge   us-east-1   us-east-1c   3h37m   ip-10-0-154-194.ec2.internal    aws:///us-east-1c/i-02626f1dba9ed5bba  running
+clustername-8qw5l-worker-us-east-1a-wbtgd   Running   m4.large    us-east-1   us-east-1a   3h28m   ip-10-0-129-226.ec2.internal   aws:///us-east-1a/i-010ef6279b4662ced   running
+clustername-8qw5l-worker-us-east-1b-lrdxb   Running   m4.large    us-east-1   us-east-1b   3h28m   ip-10-0-144-248.ec2.internal   aws:///us-east-1b/i-0cb45ac45a166173b   running
+clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us-east-1c   3h28m   ip-10-0-170-181.ec2.internal   aws:///us-east-1c/i-06861c00007751b0a   running</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the example output, <code>clustername-8qw5l-master-0</code> is the control plane machine for the offline node, <code>ip-10-0-131-183.ec2.internal</code>.</p>
+</div>
+</li>
+<li>
+<p>Delete the machine of the offline node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete machine <span class="nt">-n</span> openshift-machine-api clustername-8qw5l-master-0</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Specify the name of the control plane machine for the offline node.</p>
+</div>
+<div class="paragraph">
+<p>A new machine is automatically provisioned after deleting the machine of the offline node.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Verify that a new machine has been created by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                        PHASE          TYPE        REGION      ZONE         AGE     NODE                           PROVIDERID                              STATE
+clustername-8qw5l-master-1                  Running        m4.xlarge   us-east-1   us-east-1b   3h37m   ip-10-0-143-125.ec2.internal   aws:///us-east-1b/i-096c349b700a19631   running
+clustername-8qw5l-master-2                  Running        m4.xlarge   us-east-1   us-east-1c   3h37m   ip-10-0-154-194.ec2.internal    aws:///us-east-1c/i-02626f1dba9ed5bba  running
+clustername-8qw5l-master-3                  Provisioning   m4.xlarge   us-east-1   us-east-1a   85s     ip-10-0-173-171.ec2.internal    aws:///us-east-1a/i-015b0888fe17bc2c8  running
+clustername-8qw5l-worker-us-east-1a-wbtgd   Running        m4.large    us-east-1   us-east-1a   3h28m   ip-10-0-129-226.ec2.internal   aws:///us-east-1a/i-010ef6279b4662ced   running
+clustername-8qw5l-worker-us-east-1b-lrdxb   Running        m4.large    us-east-1   us-east-1b   3h28m   ip-10-0-144-248.ec2.internal   aws:///us-east-1b/i-0cb45ac45a166173b   running
+clustername-8qw5l-worker-us-east-1c-pkg26   Running        m4.large    us-east-1   us-east-1c   3h28m   ip-10-0-170-181.ec2.internal   aws:///us-east-1c/i-06861c00007751b0a   running</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the example output, <code>clustername-8qw5l-master-3</code> is being created and is ready after the phase changes from <code>Provisioning</code> to <code>Running</code>.</p>
+</div>
+<div class="paragraph">
+<p>It might take a few minutes for the new machine to be created. The etcd cluster Operator automatically synchronizes when the machine or node returns to a healthy state.</p>
+</div>
+</li>
+<li>
+<p>Repeat these steps for each node that is offline.</p>
+</li>
+<li>
+<p>Wait until the control plane recovers by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm wait-for-stable-cluster</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>It can take up to 15 minutes for the control plane to recover.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Troubleshooting</div>
+<ul>
+<li>
+<p>If you see no progress rolling out the etcd static pods, you can force redeployment from the etcd cluster Operator by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd cluster <span class="nt">-p</span><span class="o">=</span><span class="s1">'{"spec": {"forceRedeploymentReason": "recovery-'</span><span class="s2">"</span><span class="si">$(</span><span class="nb">date</span> <span class="nt">--rfc-3339</span><span class="o">=</span>ns <span class="si">)</span><span class="s2">"</span><span class="s1">'"}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../installing/installing_bare_metal/upi/installing-bare-metal.html#installing-bare-metal">Installing a user-provisioned cluster on bare metal</a></p>
+</li>
+<li>
+<p><a href="../../../installing/installing_bare_metal/bare-metal-expanding-the-cluster.html#replacing-a-bare-metal-control-plane-node_bare-metal-expanding">Replacing a bare-metal control plane node</a></p>
+</li>
+<li>
+<p><a href="../../../backup_and_restore/control_plane_backup_and_restore/replacing-unhealthy-etcd-member.html#replacing-unhealthy-etcd-member">Replacing an unhealthy etcd member</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="dr-scenario-2-restoring-cluster-state-about_about-dr"><a class="anchor" href="#dr-scenario-2-restoring-cluster-state-about_about-dr"></a>About restoring to an earlier cluster state</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To assess restore risks before you choose rollback as a last resort, review how an etcd snapshot restore affects your OpenShift Container Platform cluster, including Operators, workloads, and persistent storage.</p>
+</div>
+<div class="paragraph">
+<p>You can use an etcd backup to restore your cluster to an earlier state. This can be used to recover from the following situations:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The cluster has lost the majority of control plane hosts and quorum.</p>
+</li>
+<li>
+<p>An administrator has deleted something critical and must restore to recover the cluster.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If applicable, you might also need to recover from expired control plane certificates.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Restoring to an earlier cluster state is a destructive and destabilizing action to take on a running cluster. This should only be used as a last resort.</p>
+</div>
+<div class="paragraph">
+<p>If you cannot retrieve data using the Kubernetes API server, then etcd is available and you should not restore using an etcd backup.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Restoring etcd effectively takes a cluster back in time and all clients experience a conflicting, parallel history. This can impact the behavior of watching components like kubelets, Kubernetes controller managers, persistent volume controllers, and OpenShift Container Platform Operators, including the network Operator.</p>
+</div>
+<div class="paragraph">
+<p>It can cause Operator churn when the content in etcd does not match the actual content on disk, causing Operators for the Kubernetes API server, Kubernetes controller manager, Kubernetes scheduler, and etcd to get stuck when files on disk conflict with content in etcd. This can require manual actions to resolve the issues.</p>
+</div>
+<div class="paragraph">
+<p>In extreme cases, the cluster can lose track of persistent volumes, delete critical workloads that no longer exist, reimage machines, and rewrite CA bundles with expired certificates.</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/scenario-3-expired-certs.html#dr-recovering-expired-certs">Recovering from expired control plane certificates</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="dr-restoring-cluster-state-sno_about-dr"><a class="anchor" href="#dr-restoring-cluster-state-sno_about-dr"></a>Restoring to an earlier cluster state for a single node</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To restore your OpenShift Container Platform cluster on a single node, use a saved etcd snapshot to roll back to an earlier state after quorum loss or critical data deletion.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When you restore your cluster, you must use an etcd backup that was taken from the same z-stream release. For example, an OpenShift Container Platform Branch Build.2 cluster must use an etcd backup that was taken from Branch Build.2.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role through a certificate-based <code>kubeconfig</code> file.</p>
+</li>
+<li>
+<p>You have SSH access to control plane hosts.</p>
+</li>
+<li>
+<p>You have a backup directory containing both the <code>etcd</code> snapshot and the resources for the static pods, which were from the same backup. The file names in the directory must be in the following formats: <code>snapshot_&lt;datetimestamp&gt;.db</code> and <code>static_kuberesources_&lt;datetimestamp&gt;.tar.gz</code>.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Use SSH to connect to the single node and copy the etcd backup to the <code>/home/core</code> directory by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cp</span> &lt;etcd_backup_directory&gt; /home/core</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>To restore the cluster from an earlier backup on the single node, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo</span> <span class="nt">-E</span> /usr/local/bin/cluster-restore.sh /home/core/&lt;etcd_backup_directory&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Exit the SSH session.</p>
+</li>
+<li>
+<p>Monitor the recovery progress of the control plane by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm wait-for-stable-cluster</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>It can take up to 15 minutes for the control plane to recover.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="dr-scenario-2-restoring-cluster-state_about-dr"><a class="anchor" href="#dr-scenario-2-restoring-cluster-state_about-dr"></a>Restoring to an earlier cluster state for more than one node</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To restore your OpenShift Container Platform cluster with more than one control plane node to an earlier state, use a saved etcd snapshot after quorum loss or critical data deletion.</p>
+</div>
+<div class="paragraph">
+<p>For a Two-Node with Fencing (TNF) setup, a single surviving node can continue to operate in degraded mode. Use a saved etcd backup to restore an earlier cluster state if only one node is operational, or when both nodes have failed and you need to restart the cluster from a known safe state. In both cases, perform the restore procedure on a single node. The peer node automatically synchronizes data with the restored node when it rejoins the cluster.</p>
+</div>
+<div class="paragraph">
+<p>Before you restore from backup on the recovery host, shut down etcd on enough control plane nodes so the remaining members cannot form a quorum:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Shut down etcd on 2 hosts in a 3-node cluster.</p>
+</li>
+<li>
+<p>Shut down etcd on 3 hosts in a 4-node or 5-node cluster.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If too few hosts are shut down, the other etcd members might still form a quorum and continue service while you restore.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If your cluster uses a control plane machine set, see "Recovering a degraded etcd Operator" in the control plane machine set troubleshooting topic for an etcd recovery procedure. For OpenShift Container Platform on a single node, follow the procedure to restore to an earlier cluster state for a single node.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When you restore your cluster, you must use an etcd backup that was taken from the same z-stream release. For example, an OpenShift Container Platform Branch Build.2 cluster must use an etcd backup that was taken from Branch Build.2.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role through a certificate-based <code>kubeconfig</code> file, like the one that was used during installation.</p>
+</li>
+<li>
+<p>You have a healthy control plane host to use as the recovery host.</p>
+</li>
+<li>
+<p>You have SSH access to control plane hosts.</p>
+</li>
+<li>
+<p>You have a backup directory containing both the <code>etcd</code> snapshot and the resources for the static pods, which were from the same backup. The file names in the directory must be in the following formats: <code>snapshot_&lt;datetimestamp&gt;.db</code> and <code>static_kuberesources_&lt;datetimestamp&gt;.tar.gz</code>.</p>
+</li>
+<li>
+<p>Control plane nodes are accessible or bootable.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For non-recovery control plane nodes, it is not required to establish SSH connectivity or to stop the static pods. You can delete and re-create other non-recovery, control plane machines, one by one.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Select a control plane host to use as the recovery host. This is the host that you run the restore operation on.</p>
+</li>
+<li>
+<p>Establish SSH connectivity to each of the control plane nodes, including the recovery host.</p>
+<div class="paragraph">
+<p><code>kube-apiserver</code> becomes inaccessible after the restore process starts, so you cannot access the control plane nodes. Establish SSH connectivity to each control plane host in a separate terminal.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you do not complete this step, you cannot access the control plane hosts to complete the restore procedure, and you cannot recover your cluster from this state.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Using SSH, connect to each control plane node to disbale etcd by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo</span> <span class="nt">-E</span> /usr/local/bin/disable-etcd.sh</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Copy the etcd backup directory to the recovery control plane host.</p>
+<div class="paragraph">
+<p>This procedure assumes that you copied the <code>backup</code> directory containing the etcd snapshot and the resources for the static pods to the <code>/home/core/</code> directory of your recovery control plane host.</p>
+</div>
+</li>
+<li>
+<p>Use SSH to connect to the recovery host. Restore the cluster from an earlier backup by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo</span> <span class="nt">-E</span> /usr/local/bin/cluster-restore.sh /home/core/&lt;etcd-backup-directory&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Exit the SSH session.</p>
+</li>
+<li>
+<p>When the API responds, turn off the etcd Operator quorum guard by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"unsupportedConfigOverrides": {"useUnsupportedUnsafeNonHANonProductionUnstableEtcd": true}}}'</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For a TNF setup, do not:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Change the etcd Operator quorum setting.</p>
+</li>
+<li>
+<p>Turn the etcd Operator quorum off.</p>
+</li>
+<li>
+<p>Turn the etcd Operator quorum back on.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Monitor the recovery progress of the control plane by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm wait-for-stable-cluster</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>It can take up to 15 minutes for the control plane to recover. Wait for the control plane to recover before using the next step.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Enable the quorum guard by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"unsupportedConfigOverrides": null}}'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<div class="title">Troubleshooting</div>
+<p>If the etcd static pods do not roll out, you can manually force an etcd redeployment from the <code>cluster-etcd-operator</code> by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd cluster <span class="nt">-p</span><span class="o">=</span><span class="s1">'{"spec": {"forceRedeploymentReason": "recovery-'</span><span class="s2">"</span><span class="si">$(</span><span class="nb">date</span> <span class="nt">--rfc-3339</span><span class="o">=</span>ns <span class="si">)</span><span class="s2">"</span><span class="s1">'"}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
+</div>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../../machine_management/control_plane_machine_management/cpmso-troubleshooting.html#cpmso-ts-etcd-degraded_cpmso-troubleshooting">Recovering a degraded etcd Operator</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="dr-scenario-cluster-state-issues_about-dr"><a class="anchor" href="#dr-scenario-cluster-state-issues_about-dr"></a>Issues and workarounds for restoring a persistent storage state</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To restore workloads safely after an etcd snapshot restore, identify and resolve outdated persistent storage references, including volumes, credentials, attachments, and devices on your OpenShift Container Platform cluster.</p>
+</div>
+<div class="paragraph">
+<p>If your OpenShift Container Platform cluster uses persistent storage of any form, a state of the cluster is typically stored outside etcd. When you restore from an etcd backup, the status of the workloads in OpenShift Container Platform is also restored. However, if the etcd snapshot is old, the status might be invalid or outdated.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The contents of persistent volumes (PVs) are never part of the etcd snapshot. When you restore an OpenShift Container Platform cluster from an etcd snapshot, non-critical workloads might gain access to critical data, or vice-versa.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following are some example scenarios that produce an out-of-date status:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>MySQL database is running in a pod backed up by a PV object. Restoring OpenShift Container Platform from an etcd snapshot does not bring back the volume on the storage provider, and does not produce a running MySQL pod, despite the pod repeatedly attempting to start. You must manually restore this pod by restoring the volume on the storage provider, and then editing the PV to point to the new volume.</p>
+</li>
+<li>
+<p>Pod P1 is using volume A, which is attached to node X. If the etcd snapshot is taken while another pod uses the same volume on node Y, then when the etcd restore is performed, pod P1 might not be able to start correctly due to the volume still being attached to node Y. OpenShift Container Platform is not aware of the attachment, and does not automatically detach it. When this occurs, the volume must be manually detached from node Y so that the volume can attach on node X, and then pod P1 can start.</p>
+</li>
+<li>
+<p>Cloud provider or storage provider credentials were updated after the etcd snapshot was taken. This causes any CSI drivers or Operators that depend on those credentials to not work. You might have to manually update the credentials required by those drivers or Operators.</p>
+</li>
+<li>
+<p>A device is removed or renamed from OpenShift Container Platform nodes after the etcd snapshot is taken. The Local Storage Operator creates symlinks for each PV that it manages from <code>/dev/disk/by-id</code> or <code>/dev</code> directories. This situation might cause the local PVs to refer to devices that no longer exist.</p>
+<div class="paragraph">
+<p>To fix this problem, an administrator must:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Manually remove the PVs with invalid devices.</p>
+</li>
+<li>
+<p>Remove symlinks from respective nodes.</p>
+</li>
+<li>
+<p>Delete <code>LocalVolume</code> or <code>LocalVolumeSet</code> objects. For more information, see "Deleting the Local Storage Operator resources".</p>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="dr-scenario-3-recovering-expired-certs_about-dr"><a class="anchor" href="#dr-scenario-3-recovering-expired-certs_about-dr"></a>Recovering from expired control plane certificates</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can restore kubelet certificates by manually approving pending <code>node-bootstrapper</code> certificate signing requests (CSRs) and, on user-provisioned installations, kubelet serving CSRs. Approved CSRs return nodes to a healthy state after control plane certificates expire.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have access to the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Get the list of current CSRs by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get csr</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME        AGE    SIGNERNAME                                    REQUESTOR                                                                   CONDITION
+</span><span class="gp">csr-2s94x   8m3s   kubernetes.io/kubelet-serving                 system:node:&lt;node_name&gt;</span><span class="w">                                                     </span>Pending
+<span class="gp">csr-4bd6t   8m3s   kubernetes.io/kubelet-serving                 system:node:&lt;node_name&gt;</span><span class="w">                                                     </span>Pending
+<span class="go">csr-4hl85   13m    kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
+csr-zhhhp   3m8s   kubernetes.io/kube-apiserver-client-kubelet   system:serviceaccount:openshift-machine-config-operator:node-bootstrapper   Pending
+</span><span class="c">...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the example output, CSRs with a <code>SIGNERNAME</code> of <code>kubernetes.io/kubelet-serving</code> are kubelet serving CSRs. You see this CSR type on user-provisioned installations. CSRs with a <code>SIGNERNAME</code> of <code>kubernetes.io/kube-apiserver-client-kubelet</code> and a <code>node-bootstrapper</code> requestor are <code>node-bootstrapper</code> CSRs that you must approve to restore kubelet certificates.</p>
+</div>
+</li>
+<li>
+<p>Review the details of a CSR to verify that it is valid by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe csr &lt;csr_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>&lt;csr_name&gt;</code> is the name of a CSR from the list of current CSRs.</p>
+</div>
+</li>
+<li>
+<p>Approve each valid <code>node-bootstrapper</code> CSR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm certificate approve &lt;csr_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>For user-provisioned installations, approve each valid kubelet serving CSR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm certificate approve &lt;csr_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -3600,19 +4325,7 @@
 <div class="title">Additional resources</div>
 <ul>
 <li>
-<p><a href="../../../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/quorum-restoration.html#dr-quorum-restoration">Quorum restoration</a></p>
-</li>
-<li>
-<p><a href="../../../backup_and_restore/control_plane_backup_and_restore/replacing-unhealthy-etcd-member.html#replacing-unhealthy-etcd-member">Replacing an unhealthy etcd member</a></p>
-</li>
-<li>
-<p><a href="../../../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/scenario-2-restoring-cluster-state.html#dr-restoring-cluster-state">Restoring to an earlier cluster state</a></p>
-</li>
-<li>
-<p><a href="../../../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/scenario-2-restoring-cluster-state.html#dr-scenario-2-restoring-cluster-state-about_dr-restoring-cluster-state">About restoring cluster state</a></p>
-</li>
-<li>
-<p><a href="../../../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/scenario-3-expired-certs.html#dr-recovering-expired-certs">Recovering from expired control plane certificates</a></p>
+<p><a href="../../../backup_and_restore/control_plane_backup_and_restore/disaster_recovery/scenario-2-restoring-cluster-state.html#dr-restoring-cluster-state">Restoring to a previous cluster state</a></p>
 </li>
 </ul>
 </div>
