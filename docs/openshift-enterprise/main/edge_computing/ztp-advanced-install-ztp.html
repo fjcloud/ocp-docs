@@ -3415,10 +3415,11 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#ztp-customizing-the-install-extra-manifests_ztp-advanced-install-ztp">Customizing extra installation manifests in the GitOps ZTP pipeline</a></li>
+<li><a href="#ztp-configuring-cluster-network-mtu_ztp-advanced-install-ztp">Configuring cluster network MTU at installation time</a></li>
 <li><a href="#ztp-deleting-node-clusterinstance_ztp-advanced-install-ztp">Deleting a node by using the ClusterInstance CR</a></li>
 </ul>
 </div>
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can use <code>ClusterInstance</code> custom resources (CRs) to deploy custom functionality and configurations in your managed clusters at installation time.</p>
 </div>
 </div>
@@ -3536,6 +3537,231 @@
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ztp-configuring-cluster-network-mtu_ztp-advanced-install-ztp"><a class="anchor" href="#ztp-configuring-cluster-network-mtu_ztp-advanced-install-ztp"></a>Configuring cluster network MTU at installation time</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can explicitly set the cluster network maximum transmission unit (MTU) during installation by including a <code>Network</code> custom resource (CR) as an extra manifest in the GitOps Zero Touch Provisioning (ZTP) pipeline.</p>
+</div>
+<div class="paragraph">
+<p>Setting the cluster network MTU with additional headroom during deployment prevents the need for a Day 2 MTU update that requires at least two rolling reboots of all cluster nodes.</p>
+</div>
+<div class="paragraph">
+<p>During installation, the Cluster Network Operator (CNO) automatically calculates the cluster network MTU based on the primary network interface MTU.
+When you enable IPsec at installation time, the calculation includes both the OVN-Kubernetes overhead of 100 bytes and the IPsec overhead.
+If you plan to enable IPsec or another encapsulation technology as a Day 2 operation, the calculated MTU includes only the OVN-Kubernetes overhead and might be insufficient.</p>
+</div>
+<div class="paragraph">
+<p>By explicitly setting the cluster network MTU at installation time, you can include additional headroom for those future needs and avoid a disruptive MTU migration.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The cluster network MTU value must be lower than the machine network MTU by at least 100 bytes to account for OVN-Kubernetes overlay overhead.
+If you plan to enable IPsec as a Day 2 operation, allow an additional 46 bytes for IPsec headroom.
+For example, with a machine network MTU of <code>9100</code> bytes, set the cluster network MTU to <code>8900</code> bytes, which accounts for the following offset:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>OVN-Kubernetes overhead: 100 bytes</p>
+</li>
+<li>
+<p>IPsec headroom: 46 bytes</p>
+</li>
+<li>
+<p>Extra headroom: 54 bytes</p>
+</li>
+<li>
+<p>Total offset: 200 bytes</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To avoid selecting an MTU value that a node cannot support, verify the maximum MTU (<code>maxmtu</code>) that the network interface accepts by running the <code>ip -d link</code> command.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have configured the hub cluster to provision managed clusters by using the GitOps ZTP pipeline.</p>
+</li>
+<li>
+<p>You have a Git repository where you manage your custom site configuration data. The repository must be accessible from the hub cluster and be defined as a source repository for the Argo CD application.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>In your <code>ClusterInstance</code> CR, set the machine network MTU on the network interface for all nodes.</p>
+<div class="paragraph">
+<p>The following example configures a VLAN interface with MTU <code>9100</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">siteconfig.open-cluster-management.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterInstance</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">site1-sno-du"</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">site1-sno-du"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">nodes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">hostName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">node1.example.com"</span>
+      <span class="na">nodeNetwork</span><span class="pi">:</span>
+        <span class="na">interfaces</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">bond0.120"</span>
+            <span class="na">macAddress</span><span class="pi">:</span> <span class="s2">"</span><span class="s">00:00:00:00:00:00"</span>
+        <span class="na">config</span><span class="pi">:</span>
+          <span class="na">interfaces</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">bond0.120</span>
+              <span class="na">type</span><span class="pi">:</span> <span class="s">vlan</span>
+              <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+              <span class="na">mtu</span><span class="pi">:</span> <span class="m">9100</span>
+              <span class="na">ipv4</span><span class="pi">:</span>
+                <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+                <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
+                <span class="na">address</span><span class="pi">:</span>
+                  <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s2">"</span><span class="s">192.168.120.15"</span>
+                    <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">25</span>
+              <span class="na">vlan</span><span class="pi">:</span>
+                <span class="na">base-iface</span><span class="pi">:</span> <span class="s">bond0</span>
+                <span class="na">id</span><span class="pi">:</span> <span class="m">120</span>
+  <span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a <code>Network</code> CR manifest file named <code>set-cluster-mtu.yaml</code> that sets the cluster network MTU:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Network</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">defaultNetwork</span><span class="pi">:</span>
+    <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+      <span class="na">mtu</span><span class="pi">:</span> <span class="s">8900</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>mtu</code></dt>
+<dd>
+<p>Specifies the cluster network MTU value. This value must be at least 100 bytes less than the machine network MTU. In this example, the value is 200 bytes less than the machine network MTU of 9100 to allow headroom for IPsec and other future requirements.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>In your <code>clusterinstance</code> directory, place the manifest file in an extra manifests subdirectory:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">clusterinstance/
+├── site1-sno-du.yaml
+├── extra-manifest/
+│   └── set-cluster-mtu.yaml
+└── kustomization.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create or update the <code>kustomization.yaml</code> file to package the extra manifest into a <code>ConfigMap</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kustomize.config.k8s.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Kustomization</span>
+<span class="na">resources</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">site1-sno-du.yaml</span>
+<span class="na">configMapGenerator</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cluster-mtu-extra-manifests</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">site1-sno-du</span>
+    <span class="na">files</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">extra-manifest/set-cluster-mtu.yaml</span>
+<span class="na">generatorOptions</span><span class="pi">:</span>
+  <span class="na">disableNameSuffixHash</span><span class="pi">:</span> <span class="no">true</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>In your <code>ClusterInstance</code> CR, reference the <code>ConfigMap</code> in the <code>extraManifestsRefs</code> field:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">siteconfig.open-cluster-management.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterInstance</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">site1-sno-du"</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">site1-sno-du"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">site1-sno-du"</span>
+  <span class="na">networkType</span><span class="pi">:</span> <span class="s2">"</span><span class="s">OVNKubernetes"</span>
+  <span class="na">extraManifestsRefs</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cluster-mtu-extra-manifests</span>
+  <span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Commit the <code>ClusterInstance</code> CR, the <code>set-cluster-mtu.yaml</code> manifest, and the <code>kustomization.yaml</code> to your Git repository and push the changes.</p>
+<div class="paragraph">
+<p>During cluster provisioning, the SiteConfig Operator applies the <code>Network</code> CR as an extra manifest, and the CNO uses the specified MTU value instead of auto-calculating it.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>After the cluster installation is complete, verify the cluster network MTU by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get networks.operator.openshift.io cluster <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Network</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="c1"># ...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="c1"># ...</span>
+  <span class="na">defaultNetwork</span><span class="pi">:</span>
+    <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+      <span class="c1"># ...</span>
+      <span class="na">mtu</span><span class="pi">:</span> <span class="s">8900</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../edge_computing/ztp-advanced-install-ztp.html#ztp-customizing-the-install-extra-manifests_ztp-advanced-install-ztp">Customizing extra installation manifests in the GitOps ZTP pipeline</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>

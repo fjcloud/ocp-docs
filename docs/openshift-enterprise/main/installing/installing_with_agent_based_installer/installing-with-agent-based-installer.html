@@ -3425,6 +3425,7 @@
 <li><a href="#installation-user-infra-machines-advanced-disk_installing-with-agent-based-installer">Creating disk partitions</a></li>
 <li><a href="#installing-ocp-agent-ztp_installing-with-agent-based-installer">Using ZTP manifests</a></li>
 <li><a href="#installing-ocp-agent-encrypt_installing-with-agent-based-installer">Encrypting the disk</a></li>
+<li><a href="#installing-ocp-agent-cluster-network-mtu_installing-with-agent-based-installer">Configuring cluster network MTU at installation time</a></li>
 </ul>
 </li>
 <li><a href="#installing-ocp-agent-boot_installing-with-agent-based-installer">Creating and booting the agent image</a></li>
@@ -4652,6 +4653,193 @@ To avoid this situation, it is highly recommended to reset the TPM chip in the B
 <ul>
 <li>
 <p><a href="../../installing/install_config/installing-customizing.html#installation-special-config-storage_installing-customizing">About disk encryption</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="installing-ocp-agent-cluster-network-mtu_installing-with-agent-based-installer"><a class="anchor" href="#installing-ocp-agent-cluster-network-mtu_installing-with-agent-based-installer"></a>Configuring cluster network MTU at installation time</h3>
+<div class="paragraph _abstract">
+<p>You can explicitly set the cluster network maximum transmission unit (MTU) during installation by placing a <code>Network</code> custom resource (CR) as an additional manifest in the <code>openshift</code> directory of your Agent-based Installer configuration.</p>
+</div>
+<div class="paragraph">
+<p>Setting the cluster network MTU with additional headroom during deployment prevents the need for a Day 2 MTU update that requires at least two rolling reboots of all cluster nodes.</p>
+</div>
+<div class="paragraph">
+<p>During installation, the Cluster Network Operator (CNO) automatically calculates the cluster network MTU based on the primary network interface MTU.
+When you enable IPsec at installation time, the calculation includes both the OVN-Kubernetes overhead of 100 bytes and the IPsec overhead.
+If you plan to enable IPsec or another encapsulation technology as a Day 2 operation, the calculated MTU includes only the OVN-Kubernetes overhead and might be insufficient.</p>
+</div>
+<div class="paragraph">
+<p>By explicitly setting the cluster network MTU at installation time, you can include additional headroom for those future needs and avoid a disruptive MTU migration.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The cluster network MTU value must be lower than the machine network MTU by at least 100 bytes to account for OVN-Kubernetes overlay overhead.
+If you plan to enable IPsec as a Day 2 operation, allow an additional 46 bytes for IPsec headroom.
+For example, with a machine network MTU of <code>9100</code> bytes, set the cluster network MTU to <code>8900</code> bytes, which accounts for the following offset:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>OVN-Kubernetes overhead: 100 bytes</p>
+</li>
+<li>
+<p>IPsec headroom: 46 bytes</p>
+</li>
+<li>
+<p>Extra headroom: 54 bytes</p>
+</li>
+<li>
+<p>Total offset: 200 bytes</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To avoid selecting an MTU value that a node cannot support, verify the maximum MTU (<code>maxmtu</code>) that the network interface accepts by running the <code>ip -d link</code> command.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have created the <code>install-config.yaml</code> and <code>agent-config.yaml</code> files for your installation.</p>
+</li>
+<li>
+<p>You have created the <code>openshift</code> subdirectory within your installation directory as described in "Creating a directory to contain additional manifests".</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>In your <code>agent-config.yaml</code> file, set the machine network MTU on the network interface for each host by using NMState configuration.</p>
+<div class="paragraph">
+<p>The following example configures an Ethernet interface with MTU <code>9100</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">AgentConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">sno-cluster</span>
+<span class="na">rendezvousIP</span><span class="pi">:</span> <span class="s">192.168.111.80</span>
+<span class="na">hosts</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">hostname</span><span class="pi">:</span> <span class="s">master-0</span>
+    <span class="na">interfaces</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eno1</span>
+        <span class="na">macAddress</span><span class="pi">:</span> <span class="s">00:ef:44:21:e6:a5</span>
+    <span class="na">networkConfig</span><span class="pi">:</span>
+      <span class="na">interfaces</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eno1</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+          <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+          <span class="na">mtu</span><span class="pi">:</span> <span class="m">9100</span>
+          <span class="na">ipv4</span><span class="pi">:</span>
+            <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+            <span class="na">dhcp</span><span class="pi">:</span> <span class="no">false</span>
+            <span class="na">address</span><span class="pi">:</span>
+              <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s2">"</span><span class="s">192.168.111.80"</span>
+                <span class="na">prefix-length</span><span class="pi">:</span> <span class="s">24</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a <code>Network</code> CR manifest file named <code>set-cluster-mtu.yaml</code> that sets the cluster network MTU:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Network</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">defaultNetwork</span><span class="pi">:</span>
+    <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+      <span class="na">mtu</span><span class="pi">:</span> <span class="s">8900</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>mtu</code></dt>
+<dd>
+<p>Specifies the cluster network MTU value. This value must be at least 100 bytes less than the machine network MTU. In this example, the value is 200 bytes less than the machine network MTU of 9100 to allow headroom for IPsec and other future requirements.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Place the <code>set-cluster-mtu.yaml</code> manifest file in the <code>openshift</code> subdirectory of your installation directory:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">&lt;installation_directory&gt;/
+├── install-config.yaml
+├── agent-config.yaml
+└── openshift/
+    └── set-cluster-mtu.yaml</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Manifests in the <code>openshift</code> directory cannot override default cluster manifests. This restriction does not affect the <code>Network</code> CR for cluster network MTU because MTU configuration is not part of the default manifest set.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Create the agent image and boot your servers as described in "Creating and booting the agent image".</p>
+<div class="paragraph">
+<p>During cluster installation, the installation program applies the <code>Network</code> CR as an additional manifest, and the CNO uses the specified MTU value instead of auto-calculating it.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>After the cluster installation is complete, verify the cluster network MTU by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get networks.operator.openshift.io cluster <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operator.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Network</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="c1"># ...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="c1"># ...</span>
+  <span class="na">defaultNetwork</span><span class="pi">:</span>
+    <span class="na">ovnKubernetesConfig</span><span class="pi">:</span>
+      <span class="c1"># ...</span>
+      <span class="na">mtu</span><span class="pi">:</span> <span class="s">8900</span></code></pre>
+</div>
+</div>
 </li>
 </ul>
 </div>
