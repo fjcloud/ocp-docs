@@ -1410,7 +1410,7 @@
                   <li><a class="" href="../../applications/quotas/quotas-setting-across-multiple-projects.html">Resource quotas across multiple projects</a></li>              </ul>
             </li>
             <li><a class="" href="../../applications/config-maps.html">Using config maps with applications</a></li>
-            <li><a class="" href="../../applications/odc-monitoring-project-and-application-metrics-using-developer-perspective.html">Monitoring project and application metrics using the Developer perspective</a></li>
+            <li><a class="" href="../../applications/odc-monitoring-project-and-application-metrics-using-developer-perspective.html">Monitoring project and application metrics by using the Developer perspective</a></li>
             <li><a class="" href="../../applications/application-health.html">Monitoring application health</a></li>
             <li><a class="" href="../../applications/odc-editing-applications.html">Editing applications</a></li>
             <li><a class="" href="../../applications/pruning-objects.html">Pruning objects to reclaim resources</a></li>
@@ -2850,6 +2850,13 @@
 <li><a href="#network-observability-flowcollector-example_network_observability">Example of a FlowCollector resource</a></li>
 </ul>
 </li>
+<li><a href="#network-observability-grant-permissions-custom-namespace-and-secret-access_network_observability">Grant permissions for custom namespace and secret access</a>
+<ul class="sectlevel2">
+<li><a href="#network-observability-create-cluster-role-bindings-custom-namespace_network_observability">Create cluster role bindings for a custom namespace</a></li>
+<li><a href="#network-observability-grant-access-kafka-secrets_network_observability">Grant access to Kafka secrets</a></li>
+<li><a href="#network-observability-grant-access-lokistack-secrets_network_observability">Grant access to LokiStack secrets</a></li>
+</ul>
+</li>
 <li><a href="#network-observability-flowcollector-kafka-config_network_observability">Configuring the FlowCollector resource with Kafka</a></li>
 <li><a href="#network-observability-enriched-flows_network_observability">Export enriched network flow data</a></li>
 <li><a href="#network-observability-config-FLP-sampling_network_observability">Updating the FlowCollector resource</a></li>
@@ -2987,6 +2994,374 @@
 </li>
 </ul>
 </div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="network-observability-grant-permissions-custom-namespace-and-secret-access_network_observability"><a class="anchor" href="#network-observability-grant-permissions-custom-namespace-and-secret-access_network_observability"></a>Grant permissions for custom namespace and secret access</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Grant RBAC permissions to allow the Network Observability Operator to access secrets across custom or non-default namespaces.</p>
+</div>
+<div class="paragraph">
+<p>For security, the Network Observability Operator does not have cluster-wide permissions to read secrets. You must explicitly grant the required permissions when any of the following conditions apply:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>You configured <code>spec.namespace</code> in the <code>FlowCollector</code> resource to a namespace other than <code>netobserv</code>.</p>
+</li>
+<li>
+<p>You configured the <code>FlowCollector</code> resource with <code>spec.deploymentModel: Kafka</code> and TLS or mTLS enabled.</p>
+</li>
+<li>
+<p>You use the Loki Operator with <code>LokiStack</code> installed in a namespace other than <code>netobserv</code>.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Complete only the procedures that apply to your configuration. If you do not meet any of these conditions, no additional permissions are required.</p>
+</div>
+<div class="sect2">
+<h3 id="network-observability-create-cluster-role-bindings-custom-namespace_network_observability"><a class="anchor" href="#network-observability-create-cluster-role-bindings-custom-namespace_network_observability"></a>Create cluster role bindings for a custom namespace</h3>
+<div class="paragraph _abstract">
+<p>Create cluster role bindings for the Network Observability Operator service accounts when you deploy in a namespace other than the default <code>netobserv</code> namespace.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not modify the existing default bindings. They are overwritten during Operator upgrades. Create new bindings as shown.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The Network Observability Operator is installed.</p>
+</li>
+<li>
+<p>You have <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You configured <code>spec.namespace</code> in the <code>FlowCollector</code> resource to a namespace other than <code>netobserv</code>.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Replace <code>&lt;namespace&gt;</code> with the namespace you configured in <code>spec.namespace</code> of the <code>FlowCollector</code> resource.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create the <code>netobserv-informers-custom</code> cluster role binding by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create clusterrolebinding netobserv-informers-custom <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-informers <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>&lt;namespace&gt;:flowlogs-pipeline <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>&lt;namespace&gt;:flowlogs-pipeline-transformer</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the <code>netobserv-lokiwriter-custom</code> cluster role binding by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create clusterrolebinding netobserv-lokiwriter-custom <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-loki-writer <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>&lt;namespace&gt;:flowlogs-pipeline <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>&lt;namespace&gt;:flowlogs-pipeline-transformer</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the <code>netobserv-hostnetwork-custom</code> cluster role binding by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create clusterrolebinding netobserv-hostnetwork-custom <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-hostnetwork <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>&lt;namespace&gt;:flowlogs-pipeline</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the token review cluster role binding by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create clusterrolebinding netobserv-tokenreview-custom <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-token-review <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>&lt;namespace&gt;:netobserv-plugin</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Check the <code>FlowCollector</code> status for errors by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get flowcollector cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that no conditions report permission-related errors.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the <code>FlowCollector</code> status continues to show permission errors after you grant the required permissions, restart the Network Observability Operator pod for faster reconciliation:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete pods <span class="nt">-n</span> openshift-netobserv-operator <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>netobserv-operator</code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="network-observability-grant-access-kafka-secrets_network_observability"><a class="anchor" href="#network-observability-grant-access-kafka-secrets_network_observability"></a>Grant access to Kafka secrets</h3>
+<div class="paragraph _abstract">
+<p>Grant the Network Observability Operator permission to access Kafka secrets when you use the Kafka deployment model with TLS or mTLS enabled.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The Network Observability Operator is installed.</p>
+</li>
+<li>
+<p>You have <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You configured the <code>FlowCollector</code> resource with <code>spec.deploymentModel: Kafka</code> and TLS or mTLS enabled.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Replace <code>&lt;namespace&gt;</code> with the namespace configured in <code>spec.namespace</code> of the <code>FlowCollector</code> resource. The default value is <code>netobserv</code>.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>If Kafka is installed in the same namespace as the Network Observability components, create the secret watcher role binding by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-watcher <span class="se">\</span>
+  <span class="nt">-n</span> &lt;namespace&gt; <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-secret-watcher <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-netobserv-operator:netobserv-controller-manager</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the secret creator role binding in the privileged namespace by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-creator <span class="se">\</span>
+  <span class="nt">-n</span> &lt;namespace&gt;-privileged <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-secret-creator <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-netobserv-operator:netobserv-controller-manager</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>If Kafka is installed in a different namespace, create the secret watcher role binding in the Kafka namespace.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Replace <code>&lt;kafka_namespace&gt;</code> with the namespace where Kafka is installed by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-watcher <span class="se">\</span>
+  <span class="nt">-n</span> &lt;kafka_namespace&gt; <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-secret-watcher <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-netobserv-operator:netobserv-controller-manager</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the secret creator role binding by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-creator <span class="se">\</span>
+  <span class="nt">-n</span> &lt;namespace&gt; <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-secret-creator <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-netobserv-operator:netobserv-controller-manager</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the secret creator role binding in the privileged namespace by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-creator <span class="se">\</span>
+  <span class="nt">-n</span> &lt;namespace&gt;-privileged <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-secret-creator <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-netobserv-operator:netobserv-controller-manager</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Check the <code>FlowCollector</code> status for errors by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get flowcollector cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that no conditions report permission-related errors.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the <code>FlowCollector</code> status continues to show permission errors after you grant the required permissions, restart the Network Observability Operator pod for faster reconciliation:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete pods <span class="nt">-n</span> openshift-netobserv-operator <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>netobserv-operator</code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="network-observability-grant-access-lokistack-secrets_network_observability"><a class="anchor" href="#network-observability-grant-access-lokistack-secrets_network_observability"></a>Grant access to LokiStack secrets</h3>
+<div class="paragraph _abstract">
+<p>Grant the Network Observability Operator permission to access the <code>LokiStack</code> secret when <code>LokiStack</code> is installed in a namespace other than <code>netobserv</code>.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The Network Observability Operator is installed.</p>
+</li>
+<li>
+<p>You have <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You use the Loki Operator with <code>LokiStack</code> installed in a namespace other than <code>netobserv</code>.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Replace <code>&lt;lokistack_namespace&gt;</code> with the namespace where <code>LokiStack</code> is installed and <code>&lt;namespace&gt;</code> with the namespace configured in <code>spec.namespace</code> of the <code>FlowCollector</code> resource.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create the <code>secret-watcher</code> role binding in the LokiStack namespace by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-watcher <span class="se">\</span>
+  <span class="nt">-n</span> &lt;lokistack_namespace&gt; <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-secret-watcher <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-netobserv-operator:netobserv-controller-manager</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the <code>secret-creator</code> role binding by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create rolebinding secret-creator <span class="se">\</span>
+  <span class="nt">-n</span> &lt;namespace&gt; <span class="se">\</span>
+  <span class="nt">--clusterrole</span><span class="o">=</span>netobserv-secret-creator <span class="se">\</span>
+  <span class="nt">--serviceaccount</span><span class="o">=</span>openshift-netobserv-operator:netobserv-controller-manager</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Check the <code>FlowCollector</code> status for errors by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get flowcollector cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that no conditions report permission-related errors.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the <code>FlowCollector</code> status continues to show permission errors after you grant the required permissions, restart the Network Observability Operator pod for faster reconciliation:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete pods <span class="nt">-n</span> openshift-netobserv-operator <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>netobserv-operator</code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
