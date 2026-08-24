@@ -2845,54 +2845,46 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#virt-about-architecture-defaults-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters">Default architecture behavior in heterogeneous clusters</a>
+<ul class="sectlevel2">
+<li><a href="#data-sources-boot-source-images-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters">How data sources for boot source images work in heterogeneous clusters</a></li>
+<li><a href="#default-architecture-standalone-vms_virt-boot-source-image-heterogeneous-clusters">Default architecture for standalone VMs</a></li>
+<li><a href="#default-architecture-standalone-data-volumes_virt-boot-source-image-heterogeneous-clusters">Default architecture for standalone data volumes</a></li>
+</ul>
+</li>
 <li><a href="#virt-enabling-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters">Enabling heterogeneous cluster support</a></li>
 <li><a href="#virt-mod-boot-source-image-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters">Modifying a common boot source image in a heterogeneous cluster</a></li>
 <li><a href="#virt-add-custom-boot-source-image-heterogeneous-cluster_virt-boot-source-image-heterogeneous-clusters">Adding a custom boot source image in a heterogeneous cluster</a></li>
+<li><a href="#virt-creating-dv-registry-heterogeneous-cluster_virt-boot-source-image-heterogeneous-clusters">Creating a data volume from a registry source in a heterogeneous cluster</a></li>
+<li><a href="#virt-architecture-field-standalone-vms_virt-boot-source-image-heterogeneous-clusters">Architecture field for standalone virtual machines</a></li>
 <li><a href="#virt-modify-workload-node-heterogeneous-cluster_virt-boot-source-image-heterogeneous-clusters">Modifying workloads node placement in a heterogeneous cluster</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
 <p>A heterogeneous cluster is a cluster where nodes have differing architectures. Heterogeneous clusters promote optimal compute resource usage by mixing different types of hardware in one cluster.</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
 <div class="paragraph">
-<p>Boot source image support for heterogeneous clusters is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>With heterogeneous clusters, you can match workloads to hardware intended for the workload task instead of general purpose compute platforms. For example, GPU and general purpose compute resources could be combined and workloads assigned to the appropriate hardware.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If boot source image support is disabled in a heterogeneous cluster, you can encounter inconsistencies between node and image architectures. This happens when images are used for virtual machine creation that do not match the node architecture. This can lead to the failure of virtual machine boot up or virtual machines that do not run as expected. The warning level alert <code>HCOMultiArchGoldenImagesDisabled</code> is produced when this feature is not enabled in a heterogeneous cluster.</p>
-</div>
-</td>
-</tr>
-</table>
+<p>With heterogeneous clusters, you can match workloads to hardware intended for the workload task instead of general purpose compute platforms. For example, you can combine GPU and general purpose compute resources and assign workloads to the appropriate hardware.</p>
 </div>
 <div class="paragraph">
 <p>If you have a heterogeneous cluster but do not want to enable multiple architecture support, you can modify the workloads node placement in the <code>HyperConverged</code> custom resource (CR) to include only nodes with a specific architecture.</p>
 </div>
 <div class="paragraph">
-<p>Boot source image support in heterogeneous clusters enables VM creators to deploy persistent VMs with specific architectures, and to define custom boot images that support heterogeneous clusters.</p>
+<p>With boot source image support, you can deploy persistent VMs with specific architectures and define custom boot images that support heterogeneous clusters.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you do not enable boot source image support in a heterogeneous cluster, images might not match the node architecture. As a result, virtual machines might fail to start or might not run as expected. OKD Virtualization raises the <code>HCOMultiArchGoldenImagesDisabled</code> alert when this feature is not enabled.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
 <p>The same image can be used with nodes of different architectures if the boot image supports the required architectures. For example, a boot image that supports both ARM and AMD architectures can be used with both types of nodes.</p>
@@ -2903,10 +2895,13 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="virt-enabling-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#virt-enabling-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters"></a>Enabling heterogeneous cluster support</h2>
+<h2 id="virt-about-architecture-defaults-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#virt-about-architecture-defaults-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters"></a>Default architecture behavior in heterogeneous clusters</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can enable boot source image support for heterogeneous clusters by setting the <code>enableMultiArchBootImageImport</code> feature gate to <code>true</code> in the <code>HyperConverged</code> custom resource (CR).</p>
+<p>In a heterogeneous cluster, worker nodes run different CPU architectures, such as amd64 and arm64. A boot source image built for one architecture cannot start on a node with a different architecture.</p>
+</div>
+<div class="paragraph">
+<p>To prevent architecture mismatches, OKD Virtualization creates a separate boot source for each supported architecture, each represented by a <code>DataSource</code> object.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -2916,14 +2911,56 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Boot source image support for heterogeneous clusters is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+<p>If you have a heterogeneous cluster and do not enable the <code>enableMultiArchBootImageImport</code> feature gate, VMs might fail to start on nodes with a different architecture than the boot source image.</p>
 </div>
 </td>
 </tr>
 </table>
+</div>
+<div class="sect2">
+<h3 id="data-sources-boot-source-images-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#data-sources-boot-source-images-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters"></a>How data sources for boot source images work in heterogeneous clusters</h3>
+<div class="paragraph">
+<p>After you enable the <code>enableMultiArchBootImageImport</code> feature gate, the Scheduling, Scale, and Performance (SSP) Operator creates a new separate boot source for each supported architecture, represented by a <code>DataSource</code> object. For example, the <code>rhel9</code> boot source image gets the following data sources:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>rhel9-amd64</code></p>
+</li>
+<li>
+<p><code>rhel9-arm64</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The original name, such as <code>rhel9</code>, defaults to the boot source that matches the control-plane architecture. For example, if the control-plane nodes use <code>amd64</code>, then <code>rhel9</code> resolves to <code>rhel9-amd64</code>.</p>
+</div>
+<div class="paragraph">
+<p>Existing VM manifests and templates that use the original name, without an architecture suffix, continue to work without changes.</p>
+</div>
+<div class="paragraph">
+<p>For common boot sources that are provided by OKD Virtualization, the SSP Operator determines the supported architectures automatically. For custom boot sources that you add through the <code>HyperConverged</code> CR, you must specify the supported architectures by using the <code>ssp.kubevirt.io/dict.architectures</code> annotation.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="default-architecture-standalone-vms_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#default-architecture-standalone-vms_virt-boot-source-image-heterogeneous-clusters"></a>Default architecture for standalone VMs</h3>
+<div class="paragraph">
+<p>A VM that is not based on a boot source image, for example a VM from a container disk, HTTP source, upload, or clone, defaults to the control-plane architecture. The <code>spec.template.spec.architecture</code> field in the <code>VirtualMachine</code> manifest controls which architecture the VM uses.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="default-architecture-standalone-data-volumes_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#default-architecture-standalone-data-volumes_virt-boot-source-image-heterogeneous-clusters"></a>Default architecture for standalone data volumes</h3>
+<div class="paragraph">
+<p>A <code>DataVolume</code> created directly from a registry source does not have a default architecture. Without an explicit architecture, CDI pulls whichever image variant the registry returns. The <code>spec.source.registry.platform.architecture</code> field in the <code>DataVolume</code> manifest controls which architecture to pull.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-enabling-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#virt-enabling-heterogeneous-clusters_virt-boot-source-image-heterogeneous-clusters"></a>Enabling heterogeneous cluster support</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can enable boot source image support for heterogeneous clusters by setting the <code>enableMultiArchBootImageImport</code> feature gate to <code>true</code> in the <code>HyperConverged</code> custom resource (CR).</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -2951,6 +2988,23 @@
 </li>
 </ul>
 </div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the feature gate is enabled by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hco kubevirt-hyperconverged <span class="nt">-n</span> kubevirt-hyperconverged <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.featureGates[*].name}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output must include <code>enableMultiArchBootImageImport</code>.</p>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -2959,28 +3013,17 @@
 <div class="paragraph _abstract">
 <p>You can modify the source of a common boot source image in a heterogeneous cluster by specifying the supported architectures in the <code>ssp.kubevirt.io/dict.architectures</code> annotation in the <code>HyperConverged</code> custom resource (CR).</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Boot source image support for heterogeneous clusters is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
+<p>You have access to the cluster as a user with <code>cluster-admin</code> permissions.</p>
+</li>
+<li>
 <p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have enabled the <code>enableMultiArchBootImageImport</code> feature gate in the <code>HyperConverged</code> CR.</p>
 </li>
 </ul>
 </div>
@@ -2996,7 +3039,7 @@
 </div>
 </li>
 <li>
-<p>Edit the <code>HyperConverged</code> CR, adding the appropriate values for <code>ssp.kubevirt.io/dict.architectures</code> annotation in the <code>dataImportCronTemplates</code> section. For example:</p>
+<p>Edit the <code>HyperConverged</code> CR to add the appropriate values for the <code>ssp.kubevirt.io/dict.architectures</code> annotation in the <code>dataImportCronTemplates</code> section. For example:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="c1">#...</span>
@@ -3035,6 +3078,22 @@
 </li>
 </ol>
 </div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that architecture-suffixed data sources are created by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get datasources <span class="nt">-n</span> openshift-virtualization-os-images</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Architecture-suffixed data sources, such as <code>centos-stream8-amd64</code> and <code>centos-stream8-arm64</code>, should appear in the output.</p>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -3043,28 +3102,17 @@
 <div class="paragraph _abstract">
 <p>Add a custom boot source image in a heterogeneous cluster by editing the <code>HyperConverged</code> custom resource (CR).</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Boot source image support for heterogeneous clusters is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
+<p>You have access to the cluster as a user with <code>cluster-admin</code> permissions.</p>
+</li>
+<li>
 <p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have enabled the <code>enableMultiArchBootImageImport</code> feature gate in the <code>HyperConverged</code> CR.</p>
 </li>
 </ul>
 </div>
@@ -3080,7 +3128,7 @@
 </div>
 </li>
 <li>
-<p>Edit the <code>HyperConverged</code> CR, to add the custom boot source image. You must add the appropriate values for the <code>ssp.kubevirt.io/dict.architectures</code> annotation in the <code>dataImportCronTemplates</code> section. For example:</p>
+<p>Edit the <code>HyperConverged</code> CR to add the custom boot source image. You must add the appropriate values for the <code>ssp.kubevirt.io/dict.architectures</code> annotation in the <code>dataImportCronTemplates</code> section. For example:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hco.kubevirt.io/v1</span>
@@ -3114,15 +3162,18 @@
 <dt class="hdlist1"><code>&lt;architecture_list&gt;</code></dt>
 <dd>
 <p>Specifies a comma-separated list of supported architectures for this image. For example, if the image supports <code>amd64</code> and <code>arm64</code> architectures, the value would be <code>"amd64,arm64"</code>.</p>
-<div class="admonitionblock note">
+<div class="admonitionblock important">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-note" title="Note"></i>
+<i class="fa icon-important" title="Important"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>An image may support more architectures than you want to use in your cluster. You do not have to list all of the architectures an image supports, only those for which you want to create a boot source image.</p>
+<p>Only include architectures that are present on your worker nodes and supported by your registry image. You do not need to list every architecture an image supports. OKD Virtualization does not validate the declared architectures.</p>
+</div>
+<div class="paragraph">
+<p>The annotation is optional but strongly recommended. Without it, only one boot source is created, and missing annotations trigger <code>HCOGoldenImageWithNoArchitectureAnnotation</code>.</p>
 </div>
 </td>
 </tr>
@@ -3137,34 +3188,188 @@
 </li>
 </ol>
 </div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that architecture-suffixed data sources are created for the custom image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get datasources <span class="nt">-n</span> openshift-virtualization-os-images</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Architecture-suffixed data sources for the custom image should appear in the output.</p>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="virt-modify-workload-node-heterogeneous-cluster_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#virt-modify-workload-node-heterogeneous-cluster_virt-boot-source-image-heterogeneous-clusters"></a>Modifying workloads node placement in a heterogeneous cluster</h2>
+<h2 id="virt-creating-dv-registry-heterogeneous-cluster_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#virt-creating-dv-registry-heterogeneous-cluster_virt-boot-source-image-heterogeneous-clusters"></a>Creating a data volume from a registry source in a heterogeneous cluster</h2>
 <div class="sectionbody">
-<div class="admonitionblock important">
+<div class="paragraph _abstract">
+<p>To pull the correct architecture-specific image in a heterogeneous cluster, specify the architecture in the <code>DataVolume</code> manifest. This step is only required for data volumes that you create outside the boot source image pipeline.</p>
+</div>
+<div class="admonitionblock note">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-important" title="Important"></i>
+<i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Boot source image support for heterogeneous clusters is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+<p>Boot source images managed through the <code>HyperConverged</code> custom resource (CR) select the correct architecture automatically. You do not need to specify the architecture for those images.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a <code>DataVolume</code> manifest and save it as a YAML file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">cdi.kubevirt.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DataVolume</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;datavolume_name&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">source</span><span class="pi">:</span>
+    <span class="na">registry</span><span class="pi">:</span>
+      <span class="na">url</span><span class="pi">:</span> <span class="s">&lt;image_url&gt;</span>
+      <span class="na">platform</span><span class="pi">:</span>
+        <span class="na">architecture</span><span class="pi">:</span> <span class="s">&lt;architecture&gt;</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">resources</span><span class="pi">:</span>
+      <span class="na">requests</span><span class="pi">:</span>
+        <span class="na">storage</span><span class="pi">:</span> <span class="s">&lt;storage_size&gt;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;datavolume_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the data volume.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;image_url&gt;</code></dt>
+<dd>
+<p>Specifies the URL of the container image, for example <code>docker://quay.io/containerdisks/centos-stream:9</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;architecture&gt;</code></dt>
+<dd>
+<p>Specifies the architecture of the image to pull, for example <code>amd64</code>, <code>arm64</code>, or <code>s390x</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;storage_size&gt;</code></dt>
+<dd>
+<p>Specifies the size of the storage requested, for example <code>10Gi</code>.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Create the data volume:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;datavolume_manifest&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the data volume was created and is importing by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get dv &lt;datavolume_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>PHASE</code> column should show <code>ImportScheduled</code>, <code>ImportInProgress</code>, or <code>Succeeded</code>.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-architecture-field-standalone-vms_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#virt-architecture-field-standalone-vms_virt-boot-source-image-heterogeneous-clusters"></a>Architecture field for standalone virtual machines</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To run a standalone VM on a specific architecture in a heterogeneous cluster, set the <code>spec.template.spec.architecture</code> field in the <code>VirtualMachine</code> manifest. If you do not set this field, the VM defaults to the control-plane architecture.</p>
+</div>
+<div class="paragraph">
+<p>This field applies to VMs created from container disks, HTTP sources, uploads, or clones. For VMs based on boot source images, the <code>DataSource</code> object resolves the architecture automatically.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example <code>VirtualMachine</code> manifest with the <code>architecture</code> field</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubevirt.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualMachine</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-vm</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">architecture</span><span class="pi">:</span> <span class="s">&lt;architecture&gt;</span>
+      <span class="na">domain</span><span class="pi">:</span>
+        <span class="na">devices</span><span class="pi">:</span> <span class="pi">{}</span>
+        <span class="na">memory</span><span class="pi">:</span>
+          <span class="na">guest</span><span class="pi">:</span> <span class="s">512Mi</span>
+        <span class="na">resources</span><span class="pi">:</span> <span class="pi">{}</span>
+      <span class="na">volumes</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">my-volume</span>
+        <span class="na">containerDisk</span><span class="pi">:</span>
+          <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;container_disk_image&gt;</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;architecture&gt;</code></dt>
+<dd>
+<p>Specifies the target architecture for the VM, for example <code>arm64</code>. If not specified, defaults to the control-plane architecture.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;container_disk_image&gt;</code></dt>
+<dd>
+<p>Specifies the container disk image to use for the VM.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-modify-workload-node-heterogeneous-cluster_virt-boot-source-image-heterogeneous-clusters"><a class="anchor" href="#virt-modify-workload-node-heterogeneous-cluster_virt-boot-source-image-heterogeneous-clusters"></a>Modifying workloads node placement in a heterogeneous cluster</h2>
+<div class="sectionbody">
 <div class="paragraph _abstract">
 <p>If you have a heterogeneous cluster but do not want to enable multiple architecture support, you can modify the workloads node placement in the <code>HyperConverged</code> custom resource (CR) to include only nodes with a specific architecture.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
+<li>
+<p>You have access to the cluster as a user with <code>cluster-admin</code> permissions.</p>
+</li>
 <li>
 <p>You have installed the OpenShift CLI (<code>oc</code>).</p>
 </li>
@@ -3221,6 +3426,23 @@
 <p>Save and exit the editor to update the <code>HyperConverged</code> CR.</p>
 </li>
 </ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the node affinity is applied by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hco kubevirt-hyperconverged <span class="nt">-n</span> kubevirt-hyperconverged <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.deployment.nodePlacements.workload}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output should show the node affinity configuration with the architecture you specified.</p>
+</div>
+</li>
+</ul>
 </div>
 </div>
 </div>
