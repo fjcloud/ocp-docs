@@ -16,7 +16,7 @@
   
   
 
-  <title>Backing up and restoring etcd in an on-premise environment - High availability for hosted control planes | Hosted control planes | OpenShift Container Platform Branch Build</title>
+  <title>Backing up and restoring etcd on a hosted cluster - High availability for hosted control planes | Hosted control planes | OpenShift Container Platform Branch Build</title>
   <link href="https://assets.openshift.net/content/subdomain.css" rel="stylesheet" type="text/css"/>
   <link href="https://docs.okd.io/latest/_stylesheets/search.css" rel="stylesheet" media="screen"/>
   <link href="https://docs.okd.io/latest/_stylesheets/autumn.css" rel="stylesheet"  media="screen"/>
@@ -252,7 +252,7 @@
       <li class="hidden-xs active"><a href="../../hosted_control_planes/hcp_high_availability/about-hcp-ha.html">High availability for hosted control planes</a></li>
       
       <li class="hidden-xs active">
-        Backing up and restoring etcd in an on-premise environment
+        Backing up and restoring etcd on a hosted cluster
       </li>
       
       <span text-align="right" style="float: right !important">
@@ -1989,7 +1989,7 @@
 
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/about-hcp-ha.html">About high availability for hosted control planes</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-recovering-etcd-cluster.html">Recovering a failing etcd cluster</a></li>
-                  <li><a class=" active" href="../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-on-premise.html">Backing up and restoring etcd in an on-premise environment</a></li>
+                  <li><a class=" active" href="../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-on-premise.html">Backing up and restoring etcd on a hosted cluster</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-aws.html">Backing up and restoring etcd on the management cluster</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-virt.html">Backing up and restoring a hosted cluster on OpenShift Virtualization</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-aws.html">Disaster recovery for a hosted cluster in AWS</a></li>
@@ -3404,7 +3404,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            Backing up and restoring etcd in an on-premise environment
+            Backing up and restoring etcd on a hosted cluster
           </h1>
         </div>
         
@@ -3414,25 +3414,32 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#hosted-cluster-etcd-backup-restore-on-premise_hcp-backup-restore-on-premise">Backing up and restoring etcd on a hosted cluster in an on-premise environment</a></li>
+<li><a href="#hosted-cluster-etcd-backup-restore-on-premise_hcp-backup-restore-on-premise">Backing up etcd on a hosted cluster</a></li>
+<li><a href="#hosted-cluster-etcd-restore-on-premise_hcp-backup-restore-on-premise">Restoring etcd on a hosted cluster</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>You can back up and restore etcd for hosted control planes in an on-premise environment to fix failures.</p>
+<p>By backing up and restoring etcd on a hosted cluster, you can fix failures, such as corrupted or missing data in an etcd member of a three-node cluster. If members of the etcd cluster lose data or have a <code>CrashLoopBackOff</code> status, this approach helps prevent an etcd quorum loss.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="hosted-cluster-etcd-backup-restore-on-premise_hcp-backup-restore-on-premise"><a class="anchor" href="#hosted-cluster-etcd-backup-restore-on-premise_hcp-backup-restore-on-premise"></a>Backing up and restoring etcd on a hosted cluster in an on-premise environment</h2>
+<h2 id="hosted-cluster-etcd-backup-restore-on-premise_hcp-backup-restore-on-premise"><a class="anchor" href="#hosted-cluster-etcd-backup-restore-on-premise_hcp-backup-restore-on-premise"></a>Backing up etcd on a hosted cluster</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>By backing up and restoring etcd on a hosted cluster, you can fix failures, such as corrupted or missing data in an etcd member of a three-node cluster. If members of the etcd cluster lose data or have a <code>CrashLoopBackOff</code> status, this approach helps prevent an etcd quorum loss.</p>
+<p>Fix failures by taking a snapshot of etcd on a hosted cluster.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
 <p>The <code>oc</code> and <code>jq</code> binaries have been installed.</p>
+</li>
+<li>
+<p>For hosted control planes on AWS, the OIDC provider configuration must be accessible so that any necessary fixes can be completed after the restore process. See the following procedure for more information about applying any necessary fixes.</p>
+</li>
+<li>
+<p>For hosted control planes on bare metal, the <code>InfraEnv</code> resource must reside in a different namespace from the hosted control plane namespace. Do not delete the <code>InfraEnv</code> resource during the backup or restore process.</p>
 </li>
 <li>
 <p>Management cluster prerequisites:</p>
@@ -3445,7 +3452,7 @@
 <p>You have <code>cluster-admin</code> access to the management cluster.</p>
 </li>
 <li>
-<p>You have access to online storage that is compatible with OpenShift ADP cloud storage providers, such as Amazon Web Services (AWS) S3, Microsoft Azure, Google Cloud, or MinIO. If you use S3 for backup storage, ensure that IAM roles and policies are configured. For more information, see "Configuring Amazon Web Services".</p>
+<p>You have access to online storage that is compatible with OpenShift API for Data Protection (OADP) cloud storage providers, such as Amazon Web Services (AWS) S3, Microsoft Azure, Google Cloud, or MinIO. If you use S3 for backup storage, ensure that IAM roles and policies are configured. For more information, see "Configuring Amazon Web Services".</p>
 </li>
 <li>
 <p>Hosted control plane pods are accessible and functioning properly.</p>
@@ -3457,7 +3464,7 @@
 </div>
 </li>
 <li>
-<p>Hosted cluster service publishing strategy prerequisites:</p>
+<p>Service publishing strategy prerequisites for hosted clusters:</p>
 <div class="ulist">
 <ul>
 <li>
@@ -3467,7 +3474,7 @@
 <p>For production environments, it is strongly recommended to configure all services with fixed hostnames. By having fixed hostnames, you can ensure full service continuity and DNS consistency during the restore process on a different management cluster.</p>
 </li>
 <li>
-<p>When you restore a hosted cluster to a different management cluster, all services in the hosted cluster must be configured with a fixed hostname in its <code>servicePublishingStrategy</code> property. This requirement applies to all platforms: AWS, Agent, OpenShift Virtualization, and Red&#160;Hat OpenStack Platform (RHOSP).</p>
+<p>When you restore a hosted cluster to a different management cluster, all services in the hosted cluster must be configured with a fixed hostname in its <code>servicePublishingStrategy</code> property. This requirement applies to all platforms. Restoring a hosted cluster to a different management cluster is a Technology Preview feature. Restoring a hosted cluster to its original management cluster is supported.</p>
 </li>
 </ul>
 </div>
@@ -3482,34 +3489,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Restoring a hosted cluster to a different management cluster is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>For hosted control planes on AWS, the OIDC provider configuration must be accessible so that any necessary fixes can be completed after the restore process. See the following procedure for more information about applying any necessary fixes.</p>
-</li>
-<li>
-<p>For hosted control planes on bare metal, the <code>InfraEnv</code> resource must reside in a different namespace from the hosted control plane namespace. Do not delete the <code>InfraEnv</code> resource during the backup or restore process.</p>
-</li>
-</ul>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>After you back up the hosted cluster, you must back up workloads in the data cluster and then destroy the original hosted cluster so that the restore process can begin.</p>
+<p>After you back up the hosted cluster, you must back up workloads in the data cluster and then delete the original hosted cluster so that the restore process can begin.</p>
 </div>
 </td>
 </tr>
@@ -3518,10 +3498,6 @@
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
-<li>
-<p>Set up your environment variables:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
 <li>
 <p>Set up environment variables for your hosted cluster by entering the following commands, replacing values as necessary:</p>
 <div class="listingblock">
@@ -3549,20 +3525,17 @@
 </div>
 </div>
 </li>
-</ol>
-</div>
-</li>
 <li>
 <p>Take a snapshot of etcd by using one of the following methods:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
+<div class="ulist">
+<ul>
 <li>
 <p>Use a previously backed-up snapshot of etcd.</p>
 </li>
 <li>
 <p>If you have an available etcd pod, take a snapshot from the active etcd pod by completing the following steps:</p>
-<div class="olist lowerroman">
-<ol class="lowerroman" type="i">
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
 <li>
 <p>List etcd pods by entering the following command:</p>
 <div class="listingblock">
@@ -3604,19 +3577,22 @@
 </div>
 </li>
 <li>
-<p>Make a local copy of the snapshot by entering the following command:</p>
+<p>Make a local copy of the snapshot:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Copy the snapshot by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">cp</span> <span class="nt">-c</span> etcd <span class="k">${</span><span class="nv">CONTROL_PLANE_NAMESPACE</span><span class="k">}</span>/<span class="k">${</span><span class="nv">ETCD_POD</span><span class="k">}</span>:/var/lib/snapshot.db <span class="se">\</span>
   /tmp/etcd.snapshot.db</code></pre>
 </div>
 </div>
+</li>
+<li>
+<p>Copy the snapshot database from etcd persistent storage:</p>
 <div class="olist lowerroman">
 <ol class="lowerroman" type="i">
-<li>
-<p>Make a copy of the snapshot database from etcd persistent storage:</p>
-<div class="olist upperalpha">
-<ol class="upperalpha" type="A">
 <li>
 <p>List etcd pods by entering the following command:</p>
 <div class="listingblock">
@@ -3641,8 +3617,54 @@
 </ol>
 </div>
 </li>
+</ul>
+</div>
+</li>
 </ol>
 </div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../backup_and_restore/application_backup_and_restore/installing/installing-oadp-aws.html#migration-configuring-aws-s3_installing-oadp-aws">Configuring Amazon Web Services</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hosted-cluster-etcd-restore-on-premise_hcp-backup-restore-on-premise"><a class="anchor" href="#hosted-cluster-etcd-restore-on-premise_hcp-backup-restore-on-premise"></a>Restoring etcd on a hosted cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Fix failures by restoring a snapshot of etcd on a hosted cluster.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You completed the steps in "Backing up etcd on a hosted cluster". Ensure that you meet the prerequisites listed in that procedure.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>After you back up the hosted cluster, you must back up workloads in the data cluster and then delete the original hosted cluster so that the restore process can begin.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>If you are working in a new terminal session from the session you used to complete the steps in "Backing up etcd on a hosted cluster", set the environment variables again as described in the backup procedure.</p>
 </li>
 <li>
 <p>Scale down the etcd statefulset by entering the following command:</p>
@@ -3651,8 +3673,7 @@
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc scale <span class="nt">-n</span> <span class="k">${</span><span class="nv">CONTROL_PLANE_NAMESPACE</span><span class="k">}</span> statefulset/etcd <span class="nt">--replicas</span><span class="o">=</span>0</code></pre>
 </div>
 </div>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
+</li>
 <li>
 <p>Delete volumes for second and third members by entering the following command:</p>
 <div class="listingblock">
@@ -3663,8 +3684,8 @@
 </li>
 <li>
 <p>Create a pod to access the first etcd member&#8217;s data:</p>
-<div class="olist lowerroman">
-<ol class="lowerroman" type="i">
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
 <li>
 <p>Get the etcd image by entering the following command:</p>
 <div class="listingblock">
@@ -3804,9 +3825,6 @@
 </div>
 </div>
 </li>
-</ol>
-</div>
-</li>
 <li>
 <p>Restore reconciliation of the hosted cluster by entering the following command:</p>
 <div class="listingblock">
@@ -3814,6 +3832,9 @@
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> <span class="k">${</span><span class="nv">HOSTED_CLUSTER_NAMESPACE</span><span class="k">}</span> hostedclusters/<span class="k">${</span><span class="nv">CLUSTER_NAME</span><span class="k">}</span> <span class="se">\</span>
   <span class="nt">-p</span> <span class="s1">'{"spec":{"pausedUntil":"null"}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>This command uses the <code>"null"</code> string. When you use that string, the controller treats unrecognized strings as not paused, but it logs an error. Instead of <code>"null"</code>, you can also use <code>"false"</code>, which is valid per Common Expression Language (CEL) validation, or JSON <code>null</code>, which removes the field.</p>
 </div>
 </li>
 <li>
@@ -3860,7 +3881,7 @@
 <p>If your hosted cluster is on AWS and you need to apply OIDC fixes after the restore process, enter the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>hcp fix dr-oidc-iam <span class="nt">--hc-name</span> &lt;hosted_cluster_name&gt; <span class="nt">--hc-namespace</span> &lt;hosted_cluster_namespace&gt; <span class="nt">--aws-creds</span> ~/.aws/credentials[4:48 AM]</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>hcp fix dr-oidc-iam <span class="nt">--hc-name</span> &lt;hosted_cluster_name&gt; <span class="nt">--hc-namespace</span> &lt;hosted_cluster_namespace&gt; <span class="nt">--aws-creds</span> ~/.aws/credentials</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3868,14 +3889,6 @@
 </div>
 </li>
 </ol>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="../../backup_and_restore/application_backup_and_restore/installing/installing-oadp-aws.html#migration-configuring-aws-s3_installing-oadp-aws">Configuring Amazon Web Services</a></p>
-</li>
-</ul>
 </div>
 </div>
 </div>

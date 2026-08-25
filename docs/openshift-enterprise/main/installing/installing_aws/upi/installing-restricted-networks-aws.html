@@ -1989,7 +1989,7 @@
 
                   <li><a class="" href="../../../hosted_control_planes/hcp_high_availability/about-hcp-ha.html">About high availability for hosted control planes</a></li>
                   <li><a class="" href="../../../hosted_control_planes/hcp_high_availability/hcp-recovering-etcd-cluster.html">Recovering a failing etcd cluster</a></li>
-                  <li><a class="" href="../../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-on-premise.html">Backing up and restoring etcd in an on-premise environment</a></li>
+                  <li><a class="" href="../../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-on-premise.html">Backing up and restoring etcd on a hosted cluster</a></li>
                   <li><a class="" href="../../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-aws.html">Backing up and restoring etcd on the management cluster</a></li>
                   <li><a class="" href="../../../hosted_control_planes/hcp_high_availability/hcp-backup-restore-virt.html">Backing up and restoring a hosted cluster on OpenShift Virtualization</a></li>
                   <li><a class="" href="../../../hosted_control_planes/hcp_high_availability/hcp-disaster-recovery-aws.html">Disaster recovery for a hosted cluster in AWS</a></li>
@@ -9848,9 +9848,11 @@ components, the <code>oc patch</code> command fails with the following error:</p
 <div class="sect1">
 <h2 id="installation-create-ingress-dns-records_installing-restricted-networks-aws"><a class="anchor" href="#installation-create-ingress-dns-records_installing-restricted-networks-aws"></a>Creating the Ingress DNS Records</h2>
 <div class="sectionbody">
+<div class="paragraph _abstract">
+<p>If you removed the DNS zone configuration during installation, you must manually create DNS records that point to the Ingress load balancer so that your OpenShift Container Platform cluster routes are reachable.</p>
+</div>
 <div class="paragraph">
-<p>If you removed the DNS Zone configuration, manually create DNS records that point to the Ingress load balancer.
-You can create either a wildcard record or specific records. While the following procedure uses A records, you can use other record types that you require, such as CNAME or alias.</p>
+<p>You can create either a wildcard record or specific records. While the following procedure uses A records, you can use other record types that you require, such as CNAME or alias.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -9920,16 +9922,11 @@ router-default   LoadBalancer   172.30.62.215   ab3...28.us-east-2.elb.amazonaws
 <p>Locate the hosted zone ID for the load balancer:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws elb describe-load-balancers | jq <span class="nt">-r</span> <span class="s1">'.LoadBalancerDescriptions[] | select(.DNSName == "&lt;external_ip&gt;").CanonicalHostedZoneNameID'</span> <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws elb describe-load-balancers | jq <span class="nt">-r</span> <span class="s1">'.LoadBalancerDescriptions[] | select(.DNSName == "&lt;external_ip&gt;").CanonicalHostedZoneNameID'</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>For <code>&lt;external_ip&gt;</code>, specify the value of the external IP address of the Ingress Operator load balancer that you obtained.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>For <code>&lt;external_ip&gt;</code>, specify the value of the external IP address of the Ingress Operator load balancer that you obtained.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
@@ -9946,18 +9943,13 @@ router-default   LoadBalancer   172.30.62.215   ab3...28.us-east-2.elb.amazonaws
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws route53 list-hosted-zones-by-name <span class="se">\</span>
-            <span class="nt">--dns-name</span> <span class="s2">"&lt;domain_name&gt;"</span> <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
-<span class="gp">            --query 'HostedZones[? Config.PrivateZone != `true` &amp;&amp; Name == `&lt;domain_name&gt;</span>.<span class="sb">`</span><span class="o">]</span>.Id<span class="s1">' <i class="conum" data-value="1"></i><b>(1)</b>
-</span><span class="go">            --output text</span></code></pre>
+            <span class="nt">--dns-name</span> <span class="s2">"&lt;domain_name&gt;"</span> <span class="se">\</span>
+            <span class="nt">--query</span> <span class="s1">'HostedZones[? Config.PrivateZone != `true` &amp;&amp; Name == `&lt;domain_name&gt;.`].Id'</span>
+<span class="go">            --output text</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>For <code>&lt;domain_name&gt;</code>, specify the Route 53 base domain for your OpenShift Container Platform cluster.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>For <code>&lt;domain_name&gt;</code>, specify the Route 53 base domain for your OpenShift Container Platform cluster.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
@@ -9973,16 +9965,16 @@ router-default   LoadBalancer   172.30.62.215   ab3...28.us-east-2.elb.amazonaws
 <p>Add the alias records to your private zone:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws route53 change-resource-record-sets <span class="nt">--hosted-zone-id</span> <span class="s2">"&lt;private_hosted_zone_id&gt;"</span> <span class="nt">--change-batch</span> <span class="s1">'{ <i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws route53 change-resource-record-sets <span class="nt">--hosted-zone-id</span> <span class="s2">"&lt;private_hosted_zone_id&gt;"</span> <span class="nt">--change-batch</span> <span class="s1">'{
 </span><span class="gp">&gt;</span><span class="w">   </span><span class="s1">"Changes": [
 </span><span class="gp">&gt;</span><span class="w">     </span><span class="s1">{
 </span><span class="gp">&gt;</span><span class="w">       </span><span class="s1">"Action": "CREATE",
 </span><span class="gp">&gt;</span><span class="w">       </span><span class="s1">"ResourceRecordSet": {
-</span><span class="gp">&gt;</span><span class="w">         </span><span class="s1">"Name": "\\052.apps.&lt;cluster_domain&gt;", <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="gp">&gt;</span><span class="w">         </span><span class="s1">"Name": "\\052.apps.&lt;cluster_domain&gt;",
 </span><span class="gp">&gt;</span><span class="w">         </span><span class="s1">"Type": "A",
 </span><span class="gp">&gt;</span><span class="w">         </span><span class="s1">"AliasTarget":{
-</span><span class="gp">&gt;</span><span class="w">           </span><span class="s1">"HostedZoneId": "&lt;hosted_zone_id&gt;", <i class="conum" data-value="3"></i><b>(3)</b>
-</span><span class="gp">&gt;</span><span class="w">           </span><span class="s1">"DNSName": "&lt;external_ip&gt;.", <i class="conum" data-value="4"></i><b>(4)</b>
+</span><span class="gp">&gt;</span><span class="w">           </span><span class="s1">"HostedZoneId": "&lt;hosted_zone_id&gt;",
+</span><span class="gp">&gt;</span><span class="w">           </span><span class="s1">"DNSName": "&lt;external_ip&gt;.",
 </span><span class="gp">&gt;</span><span class="w">           </span><span class="s1">"EvaluateTargetHealth": false
 </span><span class="gp">&gt;</span><span class="w">         </span><span class="s1">}
 </span><span class="gp">&gt;</span><span class="w">       </span><span class="s1">}
@@ -9991,41 +9983,44 @@ router-default   LoadBalancer   172.30.62.215   ab3...28.us-east-2.elb.amazonaws
 </span><span class="gp">&gt;</span><span class="w"> </span><span class="s1">}'</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>For <code>&lt;private_hosted_zone_id&gt;</code>, specify the value from the output of the CloudFormation template for DNS and load balancing.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>For <code>&lt;cluster_domain&gt;</code>, specify the domain or subdomain that you use with your OpenShift Container Platform cluster.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>For <code>&lt;hosted_zone_id&gt;</code>, specify the public hosted zone ID for the load balancer that you obtained.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>For <code>&lt;external_ip&gt;</code>, specify the value of the external IP address of the Ingress Operator load balancer. Ensure that you include the trailing period (<code>.</code>) in this parameter value.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;private_hosted_zone_id&gt;</code></dt>
+<dd>
+<p>Specifies the value from the output of the CloudFormation template for DNS and load balancing.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;cluster_domain&gt;</code></dt>
+<dd>
+<p>Specifies the domain or subdomain that you use with your OpenShift Container Platform cluster.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;hosted_zone_id&gt;</code></dt>
+<dd>
+<p>Specifies the public hosted zone ID for the load balancer that you obtained.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;external_ip&gt;</code></dt>
+<dd>
+<p>Specifies the value of the external IP address of the Ingress Operator load balancer. Ensure that you include the trailing period (<code>.</code>) in this parameter value.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
 <p>Add the records to your public zone:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws route53 change-resource-record-sets <span class="nt">--hosted-zone-id</span> <span class="s2">"&lt;public_hosted_zone_id&gt;"" --change-batch '{ <i class="conum" data-value="1"></i><b>(1)</b>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>aws route53 change-resource-record-sets <span class="nt">--hosted-zone-id</span> <span class="s2">"&lt;public_hosted_zone_id&gt;"" --change-batch '{
 </span><span class="gp">&gt;</span><span class="w">   </span><span class="s2">"</span>Changes<span class="s2">": [
 </span><span class="gp">&gt;</span><span class="w">     </span><span class="s2">{
 </span><span class="gp">&gt;</span><span class="w">       </span><span class="s2">"</span>Action<span class="s2">": "</span>CREATE<span class="s2">",
 </span><span class="gp">&gt;</span><span class="w">       </span><span class="s2">"</span>ResourceRecordSet<span class="s2">": {
-</span><span class="gp">&gt;</span><span class="w">         </span><span class="s2">"</span>Name<span class="s2">": "</span><span class="se">\\</span>052.apps.&lt;cluster_domain&gt;<span class="s2">", <i class="conum" data-value="2"></i><b>(2)</b>
+</span><span class="gp">&gt;</span><span class="w">         </span><span class="s2">"</span>Name<span class="s2">": "</span><span class="se">\\</span>052.apps.&lt;cluster_domain&gt;<span class="s2">",
 </span><span class="gp">&gt;</span><span class="w">         </span><span class="s2">"</span>Type<span class="s2">": "</span>A<span class="s2">",
 </span><span class="gp">&gt;</span><span class="w">         </span><span class="s2">"</span>AliasTarget<span class="s2">":{
-</span><span class="gp">&gt;</span><span class="w">           </span><span class="s2">"</span>HostedZoneId<span class="s2">": "</span>&lt;hosted_zone_id&gt;<span class="s2">", <i class="conum" data-value="3"></i><b>(3)</b>
-</span><span class="gp">&gt;</span><span class="w">           </span><span class="s2">"</span>DNSName<span class="s2">": "</span>&lt;external_ip&gt;.<span class="s2">", <i class="conum" data-value="4"></i><b>(4)</b>
+</span><span class="gp">&gt;</span><span class="w">           </span><span class="s2">"</span>HostedZoneId<span class="s2">": "</span>&lt;hosted_zone_id&gt;<span class="s2">",
+</span><span class="gp">&gt;</span><span class="w">           </span><span class="s2">"</span>DNSName<span class="s2">": "</span>&lt;external_ip&gt;.<span class="s2">",
 </span><span class="gp">&gt;</span><span class="w">           </span><span class="s2">"</span>EvaluateTargetHealth<span class="s2">": false
 </span><span class="gp">&gt;</span><span class="w">         </span><span class="s2">}
 </span><span class="gp">&gt;</span><span class="w">       </span><span class="s2">}
@@ -10034,25 +10029,28 @@ router-default   LoadBalancer   172.30.62.215   ab3...28.us-east-2.elb.amazonaws
 </span><span class="gp">&gt;</span><span class="w"> </span><span class="s2">}'</span></code></pre>
 </div>
 </div>
-<div class="colist arabic">
-<table>
-<tr>
-<td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>For <code>&lt;public_hosted_zone_id&gt;</code>, specify the public hosted zone for your domain.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="2"></i><b>2</b></td>
-<td>For <code>&lt;cluster_domain&gt;</code>, specify the domain or subdomain that you use with your OpenShift Container Platform cluster.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="3"></i><b>3</b></td>
-<td>For <code>&lt;hosted_zone_id&gt;</code>, specify the public hosted zone ID for the load balancer that you obtained.</td>
-</tr>
-<tr>
-<td><i class="conum" data-value="4"></i><b>4</b></td>
-<td>For <code>&lt;external_ip&gt;</code>, specify the value of the external IP address of the Ingress Operator load balancer. Ensure that you include the trailing period (<code>.</code>) in this parameter value.</td>
-</tr>
-</table>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;public_hosted_zone_id&gt;</code></dt>
+<dd>
+<p>Specifies the public hosted zone for your domain.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;cluster_domain&gt;</code></dt>
+<dd>
+<p>Specifies the domain or subdomain that you use with your OpenShift Container Platform cluster.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;hosted_zone_id&gt;</code></dt>
+<dd>
+<p>Specifies the public hosted zone ID for the load balancer that you obtained.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;external_ip&gt;</code></dt>
+<dd>
+<p>Specifies the value of the external IP address of the Ingress Operator load balancer. Ensure that you include the trailing period (<code>.</code>) in this parameter value.</p>
+</dd>
+</dl>
 </div>
 </li>
 </ol>
