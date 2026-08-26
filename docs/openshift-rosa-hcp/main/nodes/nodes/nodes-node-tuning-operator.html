@@ -1094,6 +1094,7 @@
                   <li><a class="" href="../../virt/creating_vm/virt-creating-vms-from-instance-types.html">Creating VMs from instance types</a></li>
                   <li><a class="" href="../../virt/creating_vm/virt-creating-vms-from-templates.html">Creating VMs from templates</a></li>
                   <li><a class="" href="../../virt/creating_vm/virt-creating-vms-from-rh-images-overview.html">Creating virtual machines from Red Hat images</a></li>
+                  <li><a class="" href="../../virt/creating_vm/virt-import-dv-vms.html">Import a virtual machine image using the DataVolume API</a></li>
                   <li><a class="" href="../../virt/creating_vm/virt-cloning-vms.html">Cloning VMs</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-27-6"><span id="sgSpan-27-6" class="fa fa-caret-right"></span>&nbsp;Managing VMs</a>
@@ -1245,8 +1246,10 @@
         <div id="toc" class="toc">
 <div id="toctitle"></div>
 <ul class="sectlevel1">
+<li><a href="#about-node-tuning-operator_nodes-node-tuning-operator">Node Tuning Operator</a></li>
 <li><a href="#custom-tuning-specification_nodes-node-tuning-operator">Custom tuning specification</a></li>
 <li><a href="#rosa-creating-node-tuning_nodes-node-tuning-operator">Create node tuning configurations</a></li>
+<li><a href="#rosa-node-tuning-autonode_nodes-node-tuning-operator">Configure node tuning for Red&#160;Hat build of Karpenter nodes</a></li>
 <li><a href="#rosa-modifying-node-tuning_nodes-node-tuning-operator">Modify node tuning configurations</a></li>
 <li><a href="#rosa-deleting-node-tuning_nodes-node-tuning-operator">Delete node tuning configurations</a></li>
 </ul>
@@ -1260,7 +1263,12 @@
 <div class="paragraph">
 <p>Before creating a node tuning configuration, you must create a custom tuning specification.</p>
 </div>
-<div id="about-node-tuning-operator_nodes-node-tuning-operator" class="paragraph _abstract">
+</div>
+</div>
+<div class="sect1">
+<h2 id="about-node-tuning-operator_nodes-node-tuning-operator"><a class="anchor" href="#about-node-tuning-operator_nodes-node-tuning-operator"></a>Node Tuning Operator</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
 <p>The Node Tuning Operator helps you manage node-level tuning by orchestrating the TuneD daemon and achieves low latency performance by using the Performance Profile controller. The majority of high-performance applications require some level of kernel tuning. The Node Tuning Operator provides a unified management interface to users of node-level sysctls and more flexibility to add custom tuning specified by user needs.</p>
 </div>
 <div class="paragraph">
@@ -1723,6 +1731,118 @@
 </div>
 </li>
 </ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="rosa-node-tuning-autonode_nodes-node-tuning-operator"><a class="anchor" href="#rosa-node-tuning-autonode_nodes-node-tuning-operator"></a>Configure node tuning for Red&#160;Hat build of Karpenter nodes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can apply <code>sysctl</code> node tuning configurations to nodes that the Red&#160;Hat build of Karpenter provisions. To apply a <code>TuningConfig</code> to Red&#160;Hat build of Karpenter-managed nodes, create a Karpenter node pool with a label that maps it to a Red Hat OpenShift Service on AWS machine pool that has the <code>TuningConfig</code> applied.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Only <code>sysctl</code> configurations are supported for Red&#160;Hat build of Karpenter nodes. Boot-time kernel parameters are not available.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The Red&#160;Hat build of Karpenter is enabled on the cluster.</p>
+</li>
+<li>
+<p>You have installed the <code>oc</code> CLI and are logged in to the cluster.</p>
+</li>
+<li>
+<p>You have created a <code>TuningConfig</code> for your cluster.</p>
+</li>
+<li>
+<p>You have created a Red Hat OpenShift Service on AWS machine pool with the <code>TuningConfig</code> applied.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a Karpenter node pool manifest that includes the <code>hypershift.openshift.io/nodePool</code> label:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">karpenter.sh/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NodePool</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">tuned-nodepool</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="s">hypershift.openshift.io/nodePool</span><span class="pi">:</span> <span class="s">&lt;rosa_machinepool_name&gt;</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">requirements</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">node.kubernetes.io/instance-type</span>
+        <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
+        <span class="na">values</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">m5.xlarge</span>
+      <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s">karpenter.sh/capacity-type</span>
+        <span class="na">operator</span><span class="pi">:</span> <span class="s">In</span>
+        <span class="na">values</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">on-demand"</span><span class="pi">]</span>
+      <span class="na">nodeClassRef</span><span class="pi">:</span>
+        <span class="na">group</span><span class="pi">:</span> <span class="s">karpenter.k8s.aws</span>
+        <span class="na">kind</span><span class="pi">:</span> <span class="s">EC2NodeClass</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">default</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;rosa_machinepool_name&gt;</code></dt>
+<dd>
+<p>The name of the Red Hat OpenShift Service on AWS machine pool that has the <code>TuningConfig</code> applied.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Apply the node pool manifest:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;nodepool_manifest&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify the node pool is ready:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodepool</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME             NODECLASS   NODES   READY   AGE
+tuned-nodepool   default     0       True    3s</span></code></pre>
+</div>
 </div>
 </li>
 </ul>
