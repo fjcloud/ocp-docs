@@ -2803,6 +2803,7 @@
                   <li><a class="" href="../../virt/backup_restore/virt-backup-restore-overview.html">Backing up and restoring virtual machines</a></li>
                   <li><a class="" href="../../virt/backup_restore/virt-recovering-individual-files-from-vm-backups.html">Recover individual files from virtual machine backups</a></li>
                   <li><a class="" href="../../virt/backup_restore/virt-using-vm-file-restore.html">Use virtual machine file restore</a></li>
+                  <li><a class="" href="../../virt/backup_restore/virt-file-restore-operator.html">File Restore Operator</a></li>
                   <li><a class="" href="../../virt/backup_restore/virt-disaster-recovery.html">Disaster recovery</a></li>              </ul>
             </li>
       </ul>
@@ -2859,7 +2860,12 @@
 <li><a href="#virt-installing-watchdog-agent_virt-monitoring-vm-health">Installing the watchdog agent on the guest</a></li>
 </ul>
 </li>
-<li><a href="#virt-define-guest-agent-ping-probe_virt-monitoring-vm-health">Defining a guest agent ping probe</a></li>
+<li><a href="#virt-define-guest-agent-ping-probe_virt-monitoring-vm-health">Defining a guest agent ping probe</a>
+<ul class="sectlevel2">
+<li><a href="#virt-about-pausing-guest-agent-ping-probes_virt-monitoring-vm-health">About pausing guest agent ping probes</a></li>
+<li><a href="#virt-pausing-guest-agent-ping-probes_virt-monitoring-vm-health">Pausing and resuming guest agent ping probes</a></li>
+</ul>
+</li>
 <li><a href="#additional-resources_monitoring-vm-health">Additional resources</a></li>
 </ul>
 </div>
@@ -3435,6 +3441,121 @@
 </div>
 </li>
 </ol>
+</div>
+<div class="sect2">
+<h3 id="virt-about-pausing-guest-agent-ping-probes_virt-monitoring-vm-health"><a class="anchor" href="#virt-about-pausing-guest-agent-ping-probes_virt-monitoring-vm-health"></a>About pausing guest agent ping probes</h3>
+<div class="paragraph _abstract">
+<p>During maintenance operations such as guest OS updates, the QEMU guest agent might become temporarily unavailable. If a <code>GuestAgentPing</code> liveness probe is configured, probe failures cause the kubelet to restart the pod, which destroys the running virtual machine (VM).</p>
+</div>
+<div class="paragraph">
+<p>You can prevent unwanted pod restarts by temporarily pausing <code>GuestAgentPing</code> probes. Setting the <code>kubevirt.io/pause-guest-agent-probes</code> annotation on a <code>VirtualMachineInstance</code> (VMI) resource causes <code>virt-launcher</code> to return immediate success for <code>GuestAgentPing</code> probes without contacting the QEMU guest agent.</p>
+</div>
+<div class="paragraph">
+<p>This is a manual, temporary measure. You must set the annotation yourself before maintenance and remove it yourself when maintenance is complete. The annotation is not set or removed automatically. If the <code>GuestAgentPing</code> probe is no longer needed, update the VM spec to remove the probe instead of relying on the annotation.</p>
+</div>
+<div class="paragraph">
+<p>Consider pausing probes in the following scenarios:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Guest OS updates that require one or more reboots, such as Windows updates</p>
+</li>
+<li>
+<p>Any planned maintenance where the guest agent will be temporarily unavailable</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>This annotation only affects <code>GuestAgentPing</code> probes. HTTP, TCP, and exec probes are not affected.</p>
+</li>
+<li>
+<p>The annotation takes effect within seconds on the next <code>virt-launcher</code> sync cycle.</p>
+</li>
+<li>
+<p>You must manually remove the annotation after maintenance to resume normal probe behavior. Probes remain paused indefinitely while the annotation is set.</p>
+</li>
+<li>
+<p>If you no longer require the <code>GuestAgentPing</code> probe, remove it from the VM spec rather than keeping the annotation set permanently.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="virt-pausing-guest-agent-ping-probes_virt-monitoring-vm-health"><a class="anchor" href="#virt-pausing-guest-agent-ping-probes_virt-monitoring-vm-health"></a>Pausing and resuming guest agent ping probes</h3>
+<div class="paragraph _abstract">
+<p>You can temporarily pause <code>GuestAgentPing</code> probes on a virtual machine instance (VMI) by adding an annotation. This prevents the kubelet from restarting the pod during maintenance operations when the guest agent is temporarily unavailable.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>A running VMI with a <code>GuestAgentPing</code> liveness / readiness probe configured.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Pause probes by annotating the VMI:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate vmi &lt;vmi_name&gt; kubevirt.io/pause-guest-agent-probes<span class="o">=</span><span class="nb">true</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the annotation is set:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get vmi &lt;vmi_name&gt; <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.metadata.annotations.kubevirt\.io/pause-guest-agent-probes}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">true</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: Verify that <code>virt-launcher</code> has picked up the annotation by checking its logs:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> &lt;namespace&gt; virt-launcher-&lt;vmi_name&gt;-&lt;<span class="nb">id</span><span class="o">&gt;</span> <span class="nt">-c</span> compute | <span class="nb">grep</span> <span class="s2">"probe pause state"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Perform your maintenance operations, such as guest OS updates.</p>
+</li>
+<li>
+<p>Resume probes by removing the annotation:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate vmi &lt;vmi_name&gt; kubevirt.io/pause-guest-agent-probes-</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
 </div>
 </div>
 </div>

@@ -1280,20 +1280,21 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#dedicated-aws-vpn-creating">Creating a VPN connection</a>
+<li><a href="#dedicated-aws-vpn-creating-customer-gw_dedicated-aws-vpn">Creating a customer gateway and virtual private gateway</a></li>
+<li><a href="#dedicated-aws-vpn-establishing-connection_dedicated-aws-vpn">Establishing the VPN connection and enabling route propagation</a></li>
+<li><a href="#dedicated-aws-vpn-verifying">Verifying the VPN connection</a></li>
+<li><a href="#dedicated-aws-vpn-troubleshooting">Troubleshooting the VPN connection</a>
 <ul class="sectlevel2">
-<li><a href="#dedicated-aws-vpn-creating-configuring">Configuring the VPN connection</a></li>
-<li><a href="#dedicated-aws-vpn-creating-establishing">Establishing the VPN Connection</a></li>
-<li><a href="#dedicated-aws-vpn-creating-propagation">Enabling VPN route propagation</a></li>
+<li><a href="#tunnel-does-not-connect">Tunnel does not connect</a></li>
+<li><a href="#tunnel-does-not-stay-connected">Tunnel does not stay connected</a></li>
+<li><a href="#secondary-tunnel-in-down-state">Secondary tunnel in Down state</a></li>
 </ul>
 </li>
-<li><a href="#dedicated-aws-vpn-verifying">Verifying the VPN connection</a></li>
-<li><a href="#dedicated-aws-vpn-troubleshooting">Troubleshooting the VPN connection</a></li>
+<li><a href="#additional-resources">Additional resources</a></li>
 </ul>
 </div>
-<div class="paragraph">
-<p>This sample process configures an Amazon Web Services (AWS) Red Hat OpenShift Service on AWS (classic architecture)
-cluster to use a customer&#8217;s on-site hardware VPN device.</p>
+<div class="paragraph _abstract">
+<p>Configure your Amazon Web Services (AWS) Red Hat OpenShift Service on AWS (classic architecture) cluster to connect to an on-site hardware virtual private network (VPN) device.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -1303,66 +1304,37 @@ cluster to use a customer&#8217;s on-site hardware VPN device.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>AWS VPN does not currently provide a managed option to apply NAT to VPN traffic.
-See the
-<a href="https://aws.amazon.com/premiumsupport/knowledge-center/configure-nat-for-vpn-traffic/">AWS Knowledge Center</a>
-for more details.</p>
+<p>AWS VPN does not currently provide a managed option to apply Network Address Translation (NAT) to VPN traffic. Routing all traffic, for example <code>0.0.0.0/0</code>, through a private connection is not supported. This requires deleting the internet gateway, which disables Site Reliability Engineering (SRE) management traffic.</p>
 </div>
 </td>
 </tr>
 </table>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Routing all traffic, for example <code>0.0.0.0/0</code>, through a private connection is not supported. This requires deleting the internet gateway, which disables SRE management traffic.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>For more information about connecting an AWS VPC to remote networks using a
-hardware VPN device, see the Amazon VPC
-<a href="https://docs.aws.amazon.com/vpc/latest/userguide/vpn-connections.html">VPN Connections</a>
-documentation.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="dedicated-aws-vpn-creating"><a class="anchor" href="#dedicated-aws-vpn-creating"></a>Creating a VPN connection</h2>
+<h2 id="dedicated-aws-vpn-creating-customer-gw_dedicated-aws-vpn"><a class="anchor" href="#dedicated-aws-vpn-creating-customer-gw_dedicated-aws-vpn"></a>Creating a customer gateway and virtual private gateway</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>You can configure an Amazon Web Services (AWS) Red Hat OpenShift Service on AWS (classic architecture) cluster to use a customer&#8217;s on-site hardware VPN device using the following procedures.</p>
+<div class="paragraph _abstract">
+<p>Create a customer gateway and, if needed, a virtual private gateway to prepare for a VPN connection to your Red Hat OpenShift Service on AWS (classic architecture) cluster.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Hardware VPN gateway device model and software version, for example Cisco ASA
-running version 8.3. See the Amazon VPC
-<a href="https://docs.aws.amazon.com/vpc/latest/adminguide/Introduction.html#DevicesTested">Network Administrator Guide</a>
-to confirm whether your gateway device is supported by AWS.</p>
+<p>Hardware VPN gateway device model and software version, for example Cisco ASA running version 8.3. See the Amazon VPC <a href="https://docs.aws.amazon.com/vpc/latest/adminguide/Introduction.html#DevicesTested">Network Administrator Guide</a> to confirm whether your gateway device is supported by AWS.</p>
 </li>
 <li>
 <p>Public, static IP address for the VPN gateway device.</p>
 </li>
 <li>
-<p>BGP or static routing: if BGP, the ASN is required. If static routing, you must
-configure at least one static route.</p>
+<p>Border Gateway Protocol (BGP) or static routing: if using BGP, the Autonomous System Number (ASN) is required. If using static routing, you must configure at least one static route.</p>
 </li>
 <li>
 <p><strong>Optional</strong>: IP and Port/Protocol of a reachable service to test the VPN connection.</p>
 </li>
 </ul>
 </div>
-<div class="sect2">
-<h3 id="dedicated-aws-vpn-creating-configuring"><a class="anchor" href="#dedicated-aws-vpn-creating-configuring"></a>Configuring the VPN connection</h3>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
@@ -1370,7 +1342,7 @@ configure at least one static route.</p>
 <p>Log in to the Red Hat OpenShift Service on AWS (classic architecture) AWS Account Dashboard, and navigate to the VPC Dashboard.</p>
 </li>
 <li>
-<p>Under <strong>Virtual private cloud</strong> click on <strong>Your VPCs</strong> and identify the name and VPC ID for the VPC containing the Red Hat OpenShift Service on AWS (classic architecture) cluster.</p>
+<p>Under <strong>Virtual private cloud</strong> click <strong>Your VPCs</strong> and identify the name and VPC ID for the VPC containing the Red Hat OpenShift Service on AWS (classic architecture) cluster.</p>
 </li>
 <li>
 <p>Under <strong>Virtual private network (VPN)</strong> click <strong>Customer gateways</strong>.</p>
@@ -1382,7 +1354,7 @@ configure at least one static route.</p>
 <p>Enter the ASN of your customer gateway device in the <strong>BGP ASN</strong> field.</p>
 </li>
 <li>
-<p>Enter the IP address for your customer gateway devices’s external interface in the <strong>IP address</strong> field.</p>
+<p>In the <strong>IP address</strong> field, enter the IP address of an external interface for your customer gateway devices.</p>
 </li>
 <li>
 <p>Click <strong>Create customer gateway</strong>.</p>
@@ -1392,7 +1364,7 @@ configure at least one static route.</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>From the VPC Dashboard, click on <strong>Virtual Private Gateways</strong>.</p>
+<p>From the VPC Dashboard, click <strong>Virtual Private Gateways</strong>.</p>
 </li>
 <li>
 <p>Click <strong>Create virtual private gateway</strong>, give it a meaningful name.</p>
@@ -1415,13 +1387,29 @@ configure at least one static route.</p>
 </ol>
 </div>
 </div>
-<div class="sect2">
-<h3 id="dedicated-aws-vpn-creating-establishing"><a class="anchor" href="#dedicated-aws-vpn-creating-establishing"></a>Establishing the VPN Connection</h3>
+</div>
+<div class="sect1">
+<h2 id="dedicated-aws-vpn-establishing-connection_dedicated-aws-vpn"><a class="anchor" href="#dedicated-aws-vpn-establishing-connection_dedicated-aws-vpn"></a>Establishing the VPN connection and enabling route propagation</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>After you create the customer gateway and virtual private gateway, establish the Site-to-Site VPN connection and enable route propagation.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You created a customer gateway in your Red Hat OpenShift Service on AWS (classic architecture) AWS account.</p>
+</li>
+<li>
+<p>You have a virtual private gateway attached to the cluster Virtual Private Cloud (VPC).</p>
+</li>
+</ul>
+</div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>From the VPC dashboard, under Virtual private network (VPN) click on <strong>Site-to-Site VPN connections</strong>.</p>
+<p>From the VPC dashboard, under Virtual private network (VPN) click <strong>Site-to-Site VPN connections</strong>.</p>
 </li>
 <li>
 <p>Click <strong>Create VPN connection</strong>.</p>
@@ -1437,11 +1425,10 @@ configure at least one static route.</p>
 <p>For Customer gateway, select <strong>Existing</strong>.</p>
 </li>
 <li>
-<p>Select the Customer gateway id by name.</p>
+<p>Select the Customer gateway ID by name.</p>
 </li>
 <li>
-<p>If the VPN will use BGP, select <strong>Dynamic</strong>, otherwise select <strong>Static</strong> and enter the
-Static IP CIDRs. If there are multiple CIDRs, add each CIDR as <strong>Another Rule</strong>.</p>
+<p>If the VPN uses the Border Gateway Protocol (BGP), select <strong>Dynamic</strong>, otherwise select <strong>Static</strong> and enter the Static IP Classless Inter-Domain Routings (CIDRs). If there are multiple CIDRs, add each CIDR as <strong>Another Rule</strong>.</p>
 </li>
 <li>
 <p>Click <strong>Create VPN connection</strong>.</p>
@@ -1457,18 +1444,10 @@ Static IP CIDRs. If there are multiple CIDRs, add each CIDR as <strong>Another R
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>From the list, select the vendor, platform, and version of the customer
-gateway device, then click <strong>Download</strong>.</p>
+<p>From the list, select the vendor, platform, and version of the customer gateway device, then click <strong>Download</strong>.</p>
 </li>
 <li>
-<p>The <strong>Generic</strong> vendor configuration is also available for retrieving information
-in a plain text format.</p>
-</li>
-</ol>
-</div>
-</li>
-</ol>
-</div>
+<p>The <strong>Generic</strong> vendor configuration is also available for retrieving information in a plain text format.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -1477,44 +1456,21 @@ in a plain text format.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>After the VPN connection has been established, be sure to set up Route
-Propagation or the VPN may not function as expected.</p>
+<p>After the VPN connection has been established, set up Route Propagation or the VPN might not function as expected. Note the VPC subnet information, which you must add to your configuration as the remote network.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Note the VPC subnet information, which you must add to your configuration as the
-remote network.</p>
+</li>
+</ol>
 </div>
-</td>
-</tr>
-</table>
-</div>
-</div>
-<div class="sect2">
-<h3 id="dedicated-aws-vpn-creating-propagation"><a class="anchor" href="#dedicated-aws-vpn-creating-propagation"></a>Enabling VPN route propagation</h3>
-<div class="paragraph">
-<p>After you have set up the VPN connection, you must ensure that route propagation
-is enabled so that the necessary routes are added to the VPC&#8217;s route table.</p>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
+</li>
 <li>
 <p>From the VPC Dashboard, under Virtual private cloud, click on <strong>Route tables</strong>.</p>
 </li>
 <li>
-<p>Select the private Route table associated with the VPC that contains your
-Red Hat OpenShift Service on AWS (classic architecture) cluster.</p>
+<p>Select the private Route table associated with the VPC that contains your Red Hat OpenShift Service on AWS (classic architecture) cluster.</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -1523,8 +1479,7 @@ Red Hat OpenShift Service on AWS (classic architecture) cluster.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>On some clusters, there may be more than one route table for a particular VPC.
-Select the private one that has a number of explicitly associated subnets.</p>
+<p>On some clusters, there may be more than one route table for a particular VPC. Select the private one that has several explicitly associated subnets.</p>
 </div>
 </td>
 </tr>
@@ -1535,32 +1490,30 @@ Select the private one that has a number of explicitly associated subnets.</p>
 <p>Click on the <strong>Route Propagation</strong> tab.</p>
 </li>
 <li>
-<p>In the table that appears, you should see the Virtual Private Gateway you
-created previously. Check the value in the <strong>Propagate</strong> column.</p>
+<p>In the table that shows, you see the Virtual Private Gateway you created. Check the value in the <strong>Propagate</strong> column.</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>If <strong>Propagation</strong> is set to <strong>No</strong>, click <strong>Edit route propagation</strong>, check the <strong>Enable</strong> checkbox in Propagation and click <strong>Save</strong>.</p>
+<p>If <strong>Propagation</strong> is set to <strong>No</strong>, click <strong>Edit route propagation</strong>, and check the <strong>Enable</strong> checkbox in Propagation.</p>
 </li>
-</ol>
-</div>
-</li>
-</ol>
-</div>
+<li>
+<p>Click <strong>Save</strong>.</p>
 <div class="paragraph">
-<p>After you configure your VPN tunnel and AWS detects it as <strong>Up</strong>, your static or
-BGP routes are automatically added to the route table.</p>
+<p>After you configure your VPN tunnel and AWS detects it as <strong>Up</strong>, your static or BGP routes are automatically added to the route table.</p>
 </div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
 <div class="sect1">
 <h2 id="dedicated-aws-vpn-verifying"><a class="anchor" href="#dedicated-aws-vpn-verifying"></a>Verifying the VPN connection</h2>
 <div class="sectionbody">
-<div class="paragraph">
-<p>After you have set up your side of the VPN tunnel, you can verify that the
-tunnel is up in the AWS console and that connectivity across the tunnel is
-working.</p>
+<div class="paragraph _abstract">
+<p>After you have set up your side of the Virtual Private Network (VPN) tunnel, you can verify that the tunnel is up in the AWS console and that connectivity across the tunnel is working.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -1574,7 +1527,7 @@ working.</p>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p><strong>Verify the tunnel is up in AWS</strong>.</p>
+<p>Verify the tunnel is up in AWS.</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
@@ -1590,11 +1543,9 @@ working.</p>
 </div>
 </li>
 <li>
-<p><strong>Verify the connection</strong>.</p>
+<p>Verify the connection.</p>
 <div class="paragraph">
-<p>To test network connectivity to an endpoint device, <code>nc</code> (or <code>netcat</code>) is a
-helpful troubleshooting tool. It is included in the default image and provides
-quick and clear output if a connection can be established:</p>
+<p>To test network connectivity to an endpoint device, <code>nc</code> (or <code>netcat</code>) is a helpful troubleshooting tool. It is included in the default image and provides quick and clear output if a connection can be established:</p>
 </div>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
@@ -1658,7 +1609,11 @@ sent 0, rcvd 0</span></code></pre>
 <div class="sect1">
 <h2 id="dedicated-aws-vpn-troubleshooting"><a class="anchor" href="#dedicated-aws-vpn-troubleshooting"></a>Troubleshooting the VPN connection</h2>
 <div class="sectionbody">
-<h3 id="dedicated-aws-vpn-tunnel-down" class="discrete">Tunnel does not connect</h3>
+<div class="paragraph _abstract">
+<p>Review the following troubleshooting scenarios for common VPN connection issues.</p>
+</div>
+<div class="sect2">
+<h3 id="tunnel-does-not-connect"><a class="anchor" href="#tunnel-does-not-connect"></a>Tunnel does not connect</h3>
 <div class="paragraph">
 <p>If the tunnel connection is still <strong>Down</strong>, there are several things you can verify:</p>
 </div>
@@ -1682,30 +1637,22 @@ sent 0, rcvd 0</span></code></pre>
 <li>
 <p>Check if you are using a policy-based VPN as this can cause complications depending on how it is configured.</p>
 </li>
-<li>
-<p>Further troubleshooting steps can be found at the <a href="https://aws.amazon.com/premiumsupport/knowledge-center/vpn-tunnel-troubleshooting/">AWS Knowledge Center</a>.</p>
-</li>
 </ul>
 </div>
-<h3 id="dedicated-aws-vpn-tunnel-stay-connected" class="discrete">Tunnel does not stay connected</h3>
+</div>
+<div class="sect2">
+<h3 id="tunnel-does-not-stay-connected"><a class="anchor" href="#tunnel-does-not-stay-connected"></a>Tunnel does not stay connected</h3>
 <div class="paragraph">
-<p>If the tunnel connection has trouble staying <strong>Up</strong> consistently, know that all
-AWS tunnel connections must be initiated from your gateway. AWS tunnels
-<a href="https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html#CustomerGateway">do
-not initiate tunneling</a>.</p>
+<p>If the tunnel connection doesn&#8217;t remain <strong>Up</strong>, check that all AWS tunnel connections must be initiated from your gateway. AWS tunnels <a href="https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html#CustomerGateway">do not initiate tunneling</a>.</p>
 </div>
 <div class="paragraph">
-<p>Red Hat recommends setting up an SLA Monitor (Cisco ASA) or some device on your
-side of the tunnel that constantly sends "interesting" traffic, for example
-<code>ping</code>, <code>nc</code>, or <code>telnet</code>, at any IP address configured within the VPC CIDR
-range. It does not matter whether the connection is successful, just that the
-traffic is being directed at the tunnel.</p>
+<p>Red Hat recommends setting up an SLA Monitor (Cisco ASA) or some device on your side of the tunnel that constantly sends "interesting" traffic, for example <code>ping</code>, <code>nc</code>, or <code>telnet</code>, at any IP address configured within the VPC CIDR range. It does not matter whether the connection is successful, just that the traffic is being directed at the tunnel.</p>
 </div>
-<h3 id="dedicated-aws-vpn-secondary-tunnel-down" class="discrete">Secondary tunnel in Down state</h3>
+</div>
+<div class="sect2">
+<h3 id="secondary-tunnel-in-down-state"><a class="anchor" href="#secondary-tunnel-in-down-state"></a>Secondary tunnel in Down state</h3>
 <div class="paragraph">
-<p>When a VPN tunnel is created, AWS creates an additional failover tunnel.
-Depending upon the gateway device, sometimes the secondary tunnel will be seen
-as in the <strong>Down</strong> state.</p>
+<p>When a VPN tunnel is created, AWS creates an additional failover tunnel. Depending upon the gateway device, sometimes the secondary tunnel will be seen as in the <strong>Down</strong> state.</p>
 </div>
 <div class="paragraph">
 <p>The AWS Notification is as follows:</p>
@@ -1714,10 +1661,24 @@ as in the <strong>Down</strong> state.</p>
 <div class="content">
 <pre class="nowrap">You have new non-redundant VPN connections
 
-One or more of your vpn connections are not using both tunnels. This mode of
-operation is not highly available and we strongly recommend you configure your
-second tunnel. View your non-redundant VPN connections.</pre>
+One or more of your vpn connections are not using both tunnels. This mode of operation is not highly available and we strongly recommend you configure your second tunnel. View your non-redundant VPN connections.</pre>
 </div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources"><a class="anchor" href="#additional-resources"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://aws.amazon.com/premiumsupport/knowledge-center/configure-nat-for-vpn-traffic/">AWS Knowledge Center</a></p>
+</li>
+<li>
+<p><a href="https://docs.aws.amazon.com/vpc/latest/userguide/vpn-connections.html">VPN Connections</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
