@@ -2888,7 +2888,7 @@
 <h2 id="restore-identify-unhealthy-etcd-member_replace-unhealthy-etcd-member"><a class="anchor" href="#restore-identify-unhealthy-etcd-member_replace-unhealthy-etcd-member"></a>Identifying an unhealthy etcd member</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Identify an unhealthy etcd member by checking the <code>EtcdMembersAvailable</code> status condition so you can proceed with the correct replacement procedure.</p>
+<p>You can identify an unhealthy etcd member by checking the <code>EtcdMembersAvailable</code> status condition to see how many members are available and which member is unhealthy.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -2897,33 +2897,28 @@
 <p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
 </li>
 <li>
-<p>You have taken an etcd backup. For more information, see "Backing up etcd data".</p>
+<p>You created an etcd backup.</p>
 </li>
 </ul>
 </div>
-<div class="olist arabic">
+<div class="ulist">
 <div class="title">Procedure</div>
-<ol class="arabic">
+<ul>
 <li>
-<p>Check the status of the <code>EtcdMembersAvailable</code> status condition using the following command:</p>
+<p>Check the status of the <code>EtcdMembersAvailable</code> status condition by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get etcd <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="EtcdMembersAvailable")]}{.message}{"\n"}{end}'</span></code></pre>
 </div>
 </div>
-</li>
-<li>
-<p>Review the output:</p>
 <div class="listingblock">
+<div class="title">Example output</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">2 of 3 members are available, ip-10-0-131-183.ec2.internal is unhealthy</span></code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p>This example output shows that the <code>ip-10-0-131-183.ec2.internal</code> etcd member is unhealthy.</p>
-</div>
 </li>
-</ol>
+</ul>
 </div>
 </div>
 </div>
@@ -2931,18 +2926,21 @@
 <h2 id="restore-determine-state-etcd-member_replace-unhealthy-etcd-member"><a class="anchor" href="#restore-determine-state-etcd-member_replace-unhealthy-etcd-member"></a>Determining the state of the unhealthy etcd member</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Determine whether an unhealthy etcd member has a stopped machine or not-ready node, or a crashlooping pod, so you can follow the correct replacement procedure.</p>
+<p>Determine whether the unhealthy etcd member has a stopped machine, an unready node, or a crashlooping etcd pod. Knowing the failure state enables you to follow the correct replacement procedure.</p>
 </div>
 <div class="paragraph">
-<p>The steps to replace an unhealthy etcd member depend on which of the following states your etcd member is in:</p>
+<p>Depending on the state of your unhealthy etcd member, use one of the following procedures:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>The machine is not running or the node is not ready</p>
+<p>Machine not running or node not ready. For more information, see "Replacing an unhealthy etcd member whose machine is not running or whose node is not ready".</p>
 </li>
 <li>
-<p>The etcd pod is crashlooping</p>
+<p>Bare-metal machine not running or node not ready on installer-provisioned bare metal. For more information, see "Replacing an unhealthy bare metal etcd member whose machine is not running or whose node is not ready".</p>
+</li>
+<li>
+<p>Crashlooping etcd pod. For more information, see "Replacing an unhealthy etcd member whose etcd pod is crashlooping".</p>
 </li>
 </ul>
 </div>
@@ -2954,7 +2952,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If you are aware that the machine is not running or the node is not ready, but you expect it to return to a healthy state soon, then you do not need to perform a procedure to replace the etcd member. The etcd cluster Operator will automatically sync when the machine or node returns to a healthy state.</p>
+<p>If the machine is not running or the node is not ready, you might expect either to recover soon. In that case, you do not need to replace the etcd member. The etcd cluster Operator automatically syncs when the machine or node returns to a healthy state.</p>
 </div>
 </td>
 </tr>
@@ -2964,10 +2962,10 @@
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+<p>You confirmed access to the cluster as a user with the <code>cluster-admin</code> role.</p>
 </li>
 <li>
-<p>You have identified an unhealthy etcd member.</p>
+<p>You identified an unhealthy etcd member.</p>
 </li>
 </ul>
 </div>
@@ -2975,7 +2973,7 @@
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Determine if the <strong>machine is not running</strong>:</p>
+<p>Determine if the machine is not running by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-A</span> <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{@.status.nodeRef.name}{"\t"}{@.status.providerStatus.instanceState}{"\n"}'</span> | <span class="nb">grep</span> <span class="nt">-v</span> running</code></pre>
@@ -2988,21 +2986,18 @@
 </div>
 </div>
 <div class="paragraph">
-<p>This output lists the node and the status of the node&#8217;s machine. If the status is anything other than <code>running</code>, then the <strong>machine is not running</strong>.</p>
-</div>
-<div class="paragraph">
-<p>If the <strong>machine is not running</strong>, then follow the steps in "Replacing an unhealthy etcd member whose machine is not running or whose node is not ready".</p>
+<p>This output lists the node and the status of the machine of the node. If the status is anything other than <code>running</code>, then the machine is not running.</p>
 </div>
 </li>
 <li>
-<p>Determine if the <strong>node is not ready</strong>.</p>
+<p>Determine if the status of the node is <code>NotReady</code>.</p>
 <div class="paragraph">
-<p>If either of the following scenarios are true, then the <strong>node is not ready</strong>.</p>
+<p>If either of the following scenarios are true, then the node is not ready.</p>
 </div>
-<div class="ulist">
-<ul>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
 <li>
-<p>If the machine is running, then check whether the node is unreachable:</p>
+<p>If the machine is running, then check whether the node has an <code>unreachable</code> taint by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{"\n"}{.metadata.name}{"\t"}{range .spec.taints[*]}{.key}{" "}'</span> | <span class="nb">grep </span>unreachable</code></pre>
@@ -3015,11 +3010,11 @@
 </div>
 </div>
 <div class="paragraph">
-<p>If the node is listed with an <code>unreachable</code> taint, then the <strong>node is not ready</strong>.</p>
+<p>If the node is listed with an <code>unreachable</code> taint, then the node is not ready.</p>
 </div>
 </li>
 <li>
-<p>If the node is still reachable, then check whether the node is listed as <code>NotReady</code>:</p>
+<p>If the node is still reachable, then check whether the node is listed as <code>NotReady</code> by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">-l</span> node-role.kubernetes.io/master | <span class="nb">grep</span> <span class="s2">"NotReady"</span></code></pre>
@@ -3032,24 +3027,24 @@
 </div>
 </div>
 <div class="paragraph">
-<p>If the node is listed as <code>NotReady</code>, then the <strong>node is not ready</strong>.</p>
-</div>
-</li>
-</ul>
+<p>If the node is listed as <code>NotReady</code>, then the node is not ready.</p>
 </div>
 <div class="paragraph">
 <p>If the <strong>node is not ready</strong>, then follow the "Replacing an unhealthy etcd member whose machine is not running or whose node is not ready" procedure.</p>
 </div>
 </li>
+</ol>
+</div>
+</li>
 <li>
-<p>Determine if the <strong>etcd pod is crashlooping</strong>.</p>
+<p>Determine if the etcd pod is crashlooping.</p>
 <div class="paragraph">
-<p>If the machine is running and the node is ready, then check whether the etcd pod is crashlooping.</p>
+<p>If the machine is running and the node status is <code>Ready</code>, check the status of the etcd pod.</p>
 </div>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Verify that all control plane nodes are listed as <code>Ready</code>:</p>
+<p>Verify that all control plane nodes are listed as <code>Ready</code> by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">-l</span> node-role.kubernetes.io/master</code></pre>
@@ -3066,7 +3061,7 @@ ip-10-0-154-204.ec2.internal   Ready    master   6h13m   v1.35.4</span></code></
 </div>
 </li>
 <li>
-<p>Check whether the status of an etcd pod is either <code>Error</code> or <code>CrashloopBackoff</code>:</p>
+<p>Check whether the status of an etcd pod is either <code>Error</code> or <code>CrashloopBackoff</code> by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-etcd get pods <span class="nt">-l</span> k8s-app<span class="o">=</span>etcd</code></pre>
@@ -3081,10 +3076,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </div>
 <div class="paragraph">
-<p>Since the status of the <code>etcd-ip-10-0-131-183.ec2.internal</code> pod is <code>Error</code>, then the <strong>etcd pod is crashlooping</strong>.</p>
-</div>
-</li>
-</ol>
+<p>The etcd pod crashloops because the <code>etcd-ip-10-0-131-183.ec2.internal</code> is <code>Error</code>.</p>
 </div>
 <div class="paragraph">
 <p>If the <strong>etcd pod is crashlooping</strong>, then follow the steps in "Replacing an unhealthy etcd member whose etcd pod is crashlooping".</p>
@@ -3092,10 +3084,13 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </li>
 </ol>
 </div>
+</li>
+</ol>
+</div>
 <div class="sect2">
 <h3 id="restore-replace-stopped-etcd-member_replace-unhealthy-etcd-member"><a class="anchor" href="#restore-replace-stopped-etcd-member_replace-unhealthy-etcd-member"></a>Replacing an unhealthy etcd member whose machine is not running or whose node is not ready</h3>
 <div class="paragraph _abstract">
-<p>Replace an etcd member whose machine is not running or whose node is not ready by removing it from the cluster and provisioning a replacement control plane machine.</p>
+<p>Replace an unhealthy etcd member when the member machine is stopped or the node is not ready. Restoring the member returns the control plane to a healthy state.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3115,10 +3110,19 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have identified the unhealthy etcd member.</p>
+<p>You identified the unhealthy etcd member.</p>
 </li>
 <li>
-<p>You have verified that either the machine is not running or the node is not ready.</p>
+<p>You verified that either the machine is not running or the node is not ready.</p>
+</li>
+<li>
+<p>Do not power on other control plane nodes until the unhealthy etcd member replacement is complete.</p>
+</li>
+<li>
+<p>You confirmed access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You created an etcd backup before replacing the unhealthy etcd member.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -3127,27 +3131,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </td>
 <td class="content">
 <div class="paragraph">
-<p>You must wait if you power off other control plane nodes. The control plane nodes must remain powered off until the replacement of an unhealthy etcd member is complete.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
-<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
-</li>
-<li>
-<p>You have taken an etcd backup.</p>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Before you perform this procedure, take an etcd backup so that you can restore your cluster if you experience any issues.</p>
+<p>Without a recent etcd backup, you might not be able to restore the cluster if replacement fails.</p>
 </div>
 </td>
 </tr>
@@ -3164,10 +3148,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Choose a pod that is not on the affected node:</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>List etcd pods and choose one that is not on the affected node by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-etcd get pods <span class="nt">-l</span> k8s-app<span class="o">=</span>etcd</code></pre>
@@ -3181,12 +3162,12 @@ etcd-ip-10-0-164-97.ec2.internal                 3/3     Running     0          
 etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          124m</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>From the output, note a pod that is not on the affected node. In this example, the unhealthy member is <code>ip-10-0-131-183.ec2.internal</code>, so you could use <code>etcd-ip-10-0-154-204.ec2.internal</code>.</p>
+</div>
 </li>
 <li>
-<p>Connect to the running etcd container, passing in the name of a pod that is not on the affected node:</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Connect to the running etcd container on the pod you chose by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-n</span> openshift-etcd etcd-ip-10-0-154-204.ec2.internal</code></pre>
@@ -3194,7 +3175,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>View the member list:</p>
+<p>View the member list by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member list <span class="nt">-w</span> table</code></pre>
@@ -3213,11 +3194,11 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </div>
 <div class="paragraph">
-<p>Take note of the ID and the name of the unhealthy etcd member because these values are needed later in the procedure. The <code>$ etcdctl endpoint health</code> command will list the removed member until the procedure of replacement is finished and a new member is added.</p>
+<p>Take note of the ID and the name of the unhealthy etcd member because you need these values later in the procedure. The <code>etcdctl endpoint health</code> command continues to list the removed member until replacement is complete and a new member is added.</p>
 </div>
 </li>
 <li>
-<p>Remove the unhealthy etcd member by providing the ID to the <code>etcdctl member remove</code> command:</p>
+<p>Remove the unhealthy etcd member by providing the ID to the <code>etcdctl member remove</code> command by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member remove &lt;etcd_member_id&gt;</code></pre>
@@ -3231,7 +3212,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>View the member list again and verify that the member was removed:</p>
+<p>View the member list again and verify that the member was removed by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member list <span class="nt">-w</span> table</code></pre>
@@ -3256,7 +3237,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>Turn off the quorum guard by entering the following command:</p>
+<p>Turn off the quorum guard by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"unsupportedConfigOverrides": {"useUnsupportedUnsafeNonHANonProductionUnstableEtcd": true}}}'</span></code></pre>
@@ -3273,7 +3254,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </td>
 <td class="content">
 <div class="paragraph">
-<p>After you turn off the quorum guard, the cluster might be unreachable for a short time while the remaining etcd instances reboot to reflect the configuration change.</p>
+<p>After you turn off the quorum guard, the cluster might be unreachable for a short period of time while the remaining etcd instances reboot to reflect the configuration change.</p>
 </div>
 </td>
 </tr>
@@ -3313,14 +3294,14 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>List the secrets for the unhealthy etcd member that was removed.</p>
+<p>List the secrets for the unhealthy etcd member that was removed by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secrets <span class="nt">-n</span> openshift-etcd | <span class="nb">grep</span> &lt;unhealthy_node&gt;</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secrets <span class="nt">-n</span> openshift-etcd | <span class="nb">grep </span>ip-10-0-131-183.ec2.internal</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Replace <code>&lt;unhealthy_node&gt;</code> with the name of the unhealthy etcd member that you took note of earlier in this procedure. The examples throughout this procedure use <code>ip-10-0-131-183.ec2.interal</code> as the name of the unhealthy etcd member.</p>
+<p>Replace <code>ip-10-0-131-183.ec2.internal</code> in the command with the name of the unhealthy etcd member that you noted earlier in this procedure.</p>
 </div>
 <div class="paragraph">
 <p>There is a peer, serving, and metrics secret as shown in the following output:</p>
@@ -3335,11 +3316,7 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </div>
 </li>
 <li>
-<p>Delete the secrets for the unhealthy etcd member that was removed.</p>
-<div class="olist lowerroman">
-<ol class="lowerroman" type="i">
-<li>
-<p>Delete the peer secret:</p>
+<p>Delete the peer secret by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret <span class="nt">-n</span> openshift-etcd etcd-peer-ip-10-0-131-183.ec2.internal</code></pre>
@@ -3347,7 +3324,7 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </div>
 </li>
 <li>
-<p>Delete the serving secret:</p>
+<p>Delete the serving secret by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret <span class="nt">-n</span> openshift-etcd etcd-serving-ip-10-0-131-183.ec2.internal</code></pre>
@@ -3355,7 +3332,7 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </div>
 </li>
 <li>
-<p>Delete the metrics secret:</p>
+<p>Delete the metrics secret by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret <span class="nt">-n</span> openshift-etcd etcd-serving-metrics-ip-10-0-131-183.ec2.internal</code></pre>
@@ -3365,30 +3342,23 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </ol>
 </div>
 </li>
-</ol>
-</div>
-</li>
 <li>
-<p>Check whether a control plane machine set exists by entering the following command:</p>
+<p>Check whether a control plane machine set exists by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-machine-api get controlplanemachineset</code></pre>
 </div>
 </div>
-<div class="ulist">
-<ul>
-<li>
+<div class="paragraph">
 <p>If the control plane machine set exists, delete and re-create the control plane machine. After this machine is re-created, a new revision is forced and etcd scales up automatically. For more information, see "Replacing an unhealthy etcd member whose machine is not running or whose node is not ready".</p>
+</div>
 <div class="paragraph">
 <p>If you are running installer-provisioned infrastructure, or you used the Machine API to create your machines, follow these steps. Otherwise, you must create the new control plane by using the same method that was used to originally create it.</p>
 </div>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Obtain the machine for the unhealthy member.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Obtain the machine for the unhealthy member by running the following command.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> wide</code></pre>
@@ -3407,11 +3377,11 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us
 </div>
 </div>
 <div class="paragraph">
-<p><code>clustername-8qw5l-master-0</code> is the control plane machine for the unhealthy node, <code>ip-10-0-131-183.ec2.internal</code>.</p>
+<p>In the example output, <code>clustername-8qw5l-master-0</code> is the control plane machine for the unhealthy node <code>ip-10-0-131-183.ec2.internal</code>. Its <code>STATE</code> is <code>stopped</code>.</p>
 </div>
 </li>
 <li>
-<p>Delete the machine of the unhealthy member:</p>
+<p>Delete the machine of the unhealthy member by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete machine <span class="nt">-n</span> openshift-machine-api clustername-8qw5l-master-0</code></pre>
@@ -3425,7 +3395,7 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us
 </div>
 </li>
 <li>
-<p>Verify that a new machine was created:</p>
+<p>Verify that a new machine was created by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> wide</code></pre>
@@ -3444,7 +3414,7 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running        m4.large    us-east-1
 </div>
 </div>
 <div class="paragraph">
-<p>The new machine, <code>clustername-8qw5l-master-3</code>, is being created and is ready once the phase changes from <code>Provisioning</code> to <code>Running</code>.</p>
+<p>In the example output, <code>clustername-8qw5l-master-3</code> is the new control plane machine. The machine is ready when the <code>PHASE</code> changes from <code>Provisioning</code> to <code>Running</code>.</p>
 </div>
 <div class="paragraph">
 <p>It might take a few minutes for the new machine to be created. The etcd cluster Operator automatically syncs when the machine or node returns to a healthy state.</p>
@@ -3463,22 +3433,15 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running        m4.large    us-east-1
 </tr>
 </table>
 </div>
-</li>
-</ol>
-</div>
-</li>
-<li>
+<div class="paragraph">
 <p>If the control plane machine set does not exist, delete and re-create the control plane machine. After this machine is re-created, a new revision is forced and etcd scales up automatically.</p>
+</div>
 <div class="paragraph">
 <p>If you are running installer-provisioned infrastructure, or you used the Machine API to create your machines, follow these steps. Otherwise, you must create the new control plane by using the same method that was used to originally create it.</p>
 </div>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
+</li>
 <li>
-<p>Obtain the machine for the unhealthy member.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Obtain the machine for the unhealthy member by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> wide</code></pre>
@@ -3497,11 +3460,11 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us
 </div>
 </div>
 <div class="paragraph">
-<p><code>clustername-8qw5l-master-0</code> is the control plane machine for the unhealthy node, <code>ip-10-0-131-183.ec2.internal</code>.</p>
+<p>In the example output, <code>clustername-8qw5l-master-0</code> is the control plane machine for the unhealthy node <code>ip-10-0-131-183.ec2.internal</code>. Its <code>STATE</code> is <code>stopped</code>.</p>
 </div>
 </li>
 <li>
-<p>Save the machine configuration to a file on your file system:</p>
+<p>Save the machine configuration to a file on your file system by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machine clustername-8qw5l-master-0 <span class="se">\</span>
@@ -3514,10 +3477,13 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us
 <p>Replace <code>clustername-8qw5l-master-0</code> with the name of the control plane machine for the unhealthy node.</p>
 </div>
 </li>
+</ol>
+</div>
+</li>
 <li>
-<p>Edit the <code>new-master-machine.yaml</code> file that was created in the previous step to assign a new name and remove unnecessary fields.</p>
-<div class="olist lowerroman">
-<ol class="lowerroman" type="i">
+<p>Edit the <code>new-master-machine.yaml</code> file that was created in the previous step to assign a new name and remove unnecessary fields:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
 <li>
 <p>Remove the entire <code>status</code> section:</p>
 <div class="listingblock">
@@ -3554,9 +3520,6 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us
 <li>
 <p>Change the <code>metadata.name</code> field to a new name.</p>
 <div class="paragraph">
-<p>Keep the same base name as the old machine and change the ending number to the next available number. In this example, <code>clustername-8qw5l-master-0</code> is changed to <code>clustername-8qw5l-master-3</code>.</p>
-</div>
-<div class="paragraph">
 <p>For example:</p>
 </div>
 <div class="listingblock">
@@ -3568,6 +3531,9 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us
   <span class="s">name</span><span class="pi">:</span> <span class="s">clustername-8qw5l-master-3</span>
   <span class="s">...</span></code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Keep the same base name as the old machine and change the ending number to the next available number. In this example, <code>clustername-8qw5l-master-0</code> is changed to <code>clustername-8qw5l-master-3</code></p>
 </div>
 </li>
 <li>
@@ -3582,18 +3548,18 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us
 </div>
 </li>
 <li>
-<p>Delete the machine of the unhealthy member:</p>
+<p>Delete the machine of the unhealthy member by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete machine <span class="nt">-n</span> openshift-machine-api clustername-8qw5l-master-0</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Replace <code>clustername-8qw5l-master-0</code> with the name of the control plane machine for the unhealthy node.</p>
+<p>In the command, replace <code>clustername-8qw5l-master-0</code> with the control plane machine name for the unhealthy node that you identified in the example output above.</p>
 </div>
 </li>
 <li>
-<p>Verify that the machine was deleted:</p>
+<p>Verify that the machine was deleted by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> wide</code></pre>
@@ -3612,7 +3578,7 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us
 </div>
 </li>
 <li>
-<p>Create the new machine by using the <code>new-master-machine.yaml</code> file:</p>
+<p>Create the new machine by using the <code>new-master-machine.yaml</code> file by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> new-master-machine.yaml</code></pre>
@@ -3620,7 +3586,7 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running   m4.large    us-east-1   us
 </div>
 </li>
 <li>
-<p>Verify that the new machine was created:</p>
+<p>Verify that the new machine was created by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> wide</code></pre>
@@ -3639,20 +3605,14 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running        m4.large    us-east-1
 </div>
 </div>
 <div class="paragraph">
-<p>The new machine, <code>clustername-8qw5l-master-3</code>, is being created and is ready once the phase changes from <code>Provisioning</code> to <code>Running</code>.</p>
+<p>In the example output, <code>clustername-8qw5l-master-3</code> is the new control plane machine. The machine is ready when the <code>PHASE</code> changes from <code>Provisioning</code> to <code>Running</code>.</p>
 </div>
 <div class="paragraph">
 <p>It might take a few minutes for the new machine to be created. The etcd cluster Operator automatically syncs when the machine or node returns to a healthy state.</p>
 </div>
 </li>
-</ol>
-</div>
-</li>
-</ul>
-</div>
-</li>
 <li>
-<p>Turn the quorum guard back on by entering the following command:</p>
+<p>Turn the quorum guard back on by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"unsupportedConfigOverrides": null}}'</span></code></pre>
@@ -3660,7 +3620,7 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running        m4.large    us-east-1
 </div>
 </li>
 <li>
-<p>You can verify that the <code>unsupportedConfigOverrides</code> section is removed from the object by entering this command:</p>
+<p>You can verify that the <code>unsupportedConfigOverrides</code> section is removed from the object by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get etcd/cluster <span class="nt">-oyaml</span></code></pre>
@@ -3682,10 +3642,7 @@ clustername-8qw5l-worker-us-east-1c-pkg26   Running        m4.large    us-east-1
 <div class="title">Verification</div>
 <ol class="arabic">
 <li>
-<p>Verify that all etcd pods are running properly.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Verify that all etcd pods are running properly by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-etcd get pods <span class="nt">-l</span> k8s-app<span class="o">=</span>etcd</code></pre>
@@ -3699,16 +3656,16 @@ etcd-ip-10-0-164-97.ec2.internal                 3/3     Running     0          
 etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          124m</span></code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p>If the output from the previous command only lists two pods, you can manually force an etcd redeployment. In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+</li>
+<li>
+<p>If the output from the previous command lists only two pods, force an etcd redeployment by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd cluster <span class="nt">-p</span><span class="o">=</span><span class="s1">'{"spec": {"forceRedeploymentReason": "recovery-'</span><span class="s2">"</span><span class="si">$(</span> <span class="nb">date</span> <span class="nt">--rfc-3339</span><span class="o">=</span>ns <span class="si">)</span><span class="s2">"</span><span class="s1">'"}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The <code>forceRedeploymentReason</code> value must be unique, which is why a timestamp is appended.</p>
+<p>The <code>forceRedeploymentReason</code> value must be unique, which is why a timestamp is appended in the example.</p>
 </div>
 </li>
 <li>
@@ -3716,10 +3673,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Connect to the running etcd container, passing in the name of a pod that was not on the affected node:</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Connect to the running etcd container, passing in the name of a pod that was not on the affected node by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-n</span> openshift-etcd etcd-ip-10-0-154-204.ec2.internal</code></pre>
@@ -3727,7 +3681,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>View the member list:</p>
+<p>View the member list by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member list <span class="nt">-w</span> table</code></pre>
@@ -3783,22 +3737,22 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 <div class="sect2">
 <h3 id="restore-replace-crashlooping-etcd-member_replace-unhealthy-etcd-member"><a class="anchor" href="#restore-replace-crashlooping-etcd-member_replace-unhealthy-etcd-member"></a>Replacing an unhealthy etcd member whose etcd pod is crashlooping</h3>
 <div class="paragraph _abstract">
-<p>Replace a crashlooping etcd member by removing it from the cluster and creating a healthy replacement so the control plane can regain quorum.</p>
+<p>Replace an unhealthy etcd member when the etcd pod is crashlooping. Restoring the member returns the control plane to a healthy state.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have identified the unhealthy etcd member.</p>
+<p>You identified the unhealthy etcd member.</p>
 </li>
 <li>
-<p>You have verified that the etcd pod is crashlooping.</p>
+<p>You verified that the etcd pod is crashlooping.</p>
 </li>
 <li>
-<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+<p>You confirmed access to the cluster as a user with the <code>cluster-admin</code> role.</p>
 </li>
 <li>
-<p>You have taken an etcd backup.</p>
+<p>You created an etcd backup before replacing the unhealthy etcd member.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -3824,10 +3778,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Debug the node that is crashlooping.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Debug the node that is crashlooping by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;unhealthy_node&gt;</code></pre>
@@ -3838,7 +3789,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>Change your root directory to <code>/host</code>:</p>
+<p>Change your root directory to <code>/host</code> by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
@@ -3846,20 +3797,27 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>Move the existing etcd pod file out of the kubelet manifest directory:</p>
+<p>Create a backup directory by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span><span class="nb">mkdir</span> /var/lib/etcd-backup</code></pre>
 </div>
 </div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Move the existing etcd pod file out of the kubelet manifest directory by running the following commands:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span><span class="nb">mv</span> /etc/kubernetes/manifests/etcd-pod.yaml /var/lib/etcd-backup/</code></pre>
 </div>
 </div>
-</li>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
 <li>
-<p>Move the etcd data directory to a different location:</p>
+<p>Move the etcd data directory to a different location by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span><span class="nb">mv</span> /var/lib/etcd/ /tmp</code></pre>
@@ -3877,10 +3835,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Choose a pod that is <em>not</em> on the affected node.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Choose a pod that is <em>not</em> on the affected node by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-etcd get pods <span class="nt">-l</span> k8s-app<span class="o">=</span>etcd</code></pre>
@@ -3896,10 +3851,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>Connect to the running etcd container, passing in the name of a pod that is not on the affected node.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Connect to the running etcd container, passing in the name of a pod that is not on the affected node by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-n</span> openshift-etcd etcd-ip-10-0-154-204.ec2.internal</code></pre>
@@ -3907,7 +3859,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>View the member list:</p>
+<p>View the member list by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member list <span class="nt">-w</span> table</code></pre>
@@ -3944,7 +3896,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>View the member list again and verify that the member was removed:</p>
+<p>View the member list again and verify that the member was removed by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member list <span class="nt">-w</span> table</code></pre>
@@ -3969,7 +3921,7 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 </div>
 </li>
 <li>
-<p>Turn off the quorum guard by entering the following command:</p>
+<p>Turn off the quorum guard by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"unsupportedConfigOverrides": {"useUnsupportedUnsafeNonHANonProductionUnstableEtcd": true}}}'</span></code></pre>
@@ -3984,14 +3936,14 @@ etcd-ip-10-0-154-204.ec2.internal                3/3     Running     0          
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>List the secrets for the unhealthy etcd member that was removed.</p>
+<p>List the secrets for the unhealthy etcd member that was removed by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secrets <span class="nt">-n</span> openshift-etcd | <span class="nb">grep</span> &lt;unhealthy_node&gt;</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Replace <code>&lt;unhealthy_node&gt;</code> with the name of the unhealthy etcd member.</p>
+<p>Replace <code>&lt;unhealthy_node&gt;</code> in the command with the name of the unhealthy etcd member that you noted earlier in this procedure.</p>
 </div>
 <div class="paragraph">
 <p>There is a peer, serving, and metrics secret as shown in the following output:</p>
@@ -4006,11 +3958,7 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </div>
 </li>
 <li>
-<p>Delete the secrets for the unhealthy etcd member that was removed.</p>
-<div class="olist lowerroman">
-<ol class="lowerroman" type="i">
-<li>
-<p>Delete the peer secret:</p>
+<p>Delete the peer secret for the unhealthy etcd member that was removed by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret <span class="nt">-n</span> openshift-etcd etcd-peer-ip-10-0-131-183.ec2.internal</code></pre>
@@ -4018,7 +3966,7 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </div>
 </li>
 <li>
-<p>Delete the serving secret:</p>
+<p>Delete the serving secret by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret <span class="nt">-n</span> openshift-etcd etcd-serving-ip-10-0-131-183.ec2.internal</code></pre>
@@ -4026,7 +3974,7 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </div>
 </li>
 <li>
-<p>Delete the metrics secret:</p>
+<p>Delete the metrics secret by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret <span class="nt">-n</span> openshift-etcd etcd-serving-metrics-ip-10-0-131-183.ec2.internal</code></pre>
@@ -4036,14 +3984,8 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </ol>
 </div>
 </li>
-</ol>
-</div>
-</li>
 <li>
-<p>Force etcd redeployment.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Force etcd redeployment by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd cluster <span class="nt">-p</span><span class="o">=</span><span class="s1">'{"spec": {"forceRedeploymentReason": "single-master-recovery-'</span><span class="s2">"</span><span class="si">$(</span> <span class="nb">date</span> <span class="nt">--rfc-3339</span><span class="o">=</span>ns <span class="si">)</span><span class="s2">"</span><span class="s1">'"}}'</span> <span class="nt">--type</span><span class="o">=</span>merge</code></pre>
@@ -4057,7 +3999,7 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </div>
 </li>
 <li>
-<p>Turn the quorum guard back on by entering the following command:</p>
+<p>Turn the quorum guard back on by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"unsupportedConfigOverrides": null}}'</span></code></pre>
@@ -4065,7 +4007,7 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </div>
 </li>
 <li>
-<p>You can verify that the <code>unsupportedConfigOverrides</code> section is removed from the object by entering this command:</p>
+<p>Verify that the <code>unsupportedConfigOverrides</code> section is removed from the object by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get etcd/cluster <span class="nt">-oyaml</span></code></pre>
@@ -4088,13 +4030,10 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 <ul>
 <li>
 <p>Verify that the new member is available and healthy.</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
+<div class="ulist">
+<ul>
 <li>
-<p>Connect to the running etcd container again.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a cluster-admin user, run the following command:</p>
-</div>
+<p>Connect to the running etcd container by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-n</span> openshift-etcd etcd-ip-10-0-154-204.ec2.internal</code></pre>
@@ -4102,7 +4041,7 @@ etcd-serving-metrics-ip-10-0-131-183.ec2.internal   kubernetes.io/tls           
 </div>
 </li>
 <li>
-<p>Verify that all members are healthy:</p>
+<p>Verify that all members are healthy by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl endpoint health</code></pre>
@@ -4117,7 +4056,7 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 </div>
 </div>
 </li>
-</ol>
+</ul>
 </div>
 </li>
 </ul>
@@ -4126,7 +4065,7 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 <div class="sect2">
 <h3 id="restore-replace-stopped-baremetal-etcd-member_replace-unhealthy-etcd-member"><a class="anchor" href="#restore-replace-stopped-baremetal-etcd-member_replace-unhealthy-etcd-member"></a>Replacing an unhealthy bare metal etcd member whose machine is not running or whose node is not ready</h3>
 <div class="paragraph _abstract">
-<p>Replace a bare metal etcd member whose machine is not running or whose node is not ready by removing it from the cluster and provisioning a replacement control plane machine.</p>
+<p>Replace an unhealthy bare metal etcd member when the machine is not running or the node is not ready. Restoring the member returns the control plane to a healthy state.</p>
 </div>
 <div class="paragraph">
 <p>If you are running installer-provisioned infrastructure or you used the Machine API to create your machines, follow these steps. Otherwise you must create the new control plane node using the same method that was used to originally create it.</p>
@@ -4135,16 +4074,16 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have identified the unhealthy bare metal etcd member.</p>
+<p>You identified the unhealthy bare metal etcd member.</p>
 </li>
 <li>
-<p>You have verified that either the machine is not running or the node is not ready.</p>
+<p>You verified that either the machine is not running or the node is not ready.</p>
 </li>
 <li>
-<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+<p>You confirmed access to the cluster as a user with the <code>cluster-admin</code> role.</p>
 </li>
 <li>
-<p>You have taken an etcd backup.</p>
+<p>You created an etcd backup.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -4170,10 +4109,7 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Choose a pod that is <em>not</em> on the affected node:</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Choose a pod that is not on the affected node by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-etcd get pods <span class="nt">-l</span> k8s-app<span class="o">=</span>etcd <span class="nt">-o</span> wide</code></pre>
@@ -4189,10 +4125,7 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 </div>
 </li>
 <li>
-<p>Connect to the running etcd container, passing in the name of a pod that is not on the affected node:</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Connect to the running etcd container, passing in the name of a pod that is not on the affected node by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc rsh <span class="nt">-n</span> openshift-etcd etcd-openshift-control-plane-0</code></pre>
@@ -4200,7 +4133,7 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 </div>
 </li>
 <li>
-<p>View the member list:</p>
+<p>View the member list by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member list <span class="nt">-w</span> table</code></pre>
@@ -4219,11 +4152,8 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 </div>
 </div>
 <div class="paragraph">
-<p>Take note of the ID and the name of the unhealthy etcd member, because these values are required later in the procedure. The <code>etcdctl endpoint health</code> command will list the removed member until the replacement procedure is completed and the new member is added.</p>
+<p>Take note of the ID and the name of the unhealthy etcd member, because these values are required later in the procedure. The <code>etcdctl endpoint health</code> command lists the removed member until the replacement procedure is completed and the new member is added.</p>
 </div>
-</li>
-<li>
-<p>Remove the unhealthy etcd member by providing the ID to the <code>etcdctl member remove</code> command:</p>
 <div class="admonitionblock warning">
 <table>
 <tr>
@@ -4232,12 +4162,15 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Be sure to remove the correct etcd member; removing a good etcd member might lead to quorum loss.</p>
+<p>Be sure to remove the correct etcd member. Removing a good etcd member might lead to quorum loss.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
+</li>
+<li>
+<p>Remove the unhealthy etcd member by providing the ID to the <code>etcdctl member remove</code> command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member remove 7a8197040a5126c8</code></pre>
@@ -4251,7 +4184,7 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 </div>
 </li>
 <li>
-<p>View the member list again and verify that the member was removed:</p>
+<p>View the member list again and verify that the member was removed by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member list <span class="nt">-w</span> table</code></pre>
@@ -4290,7 +4223,7 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 </div>
 </li>
 <li>
-<p>Turn off the quorum guard by entering the following command:</p>
+<p>Turn off the quorum guard by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"unsupportedConfigOverrides": {"useUnsupportedUnsafeNonHANonProductionUnstableEtcd": true}}}'</span></code></pre>
@@ -4301,11 +4234,11 @@ https://10.0.164.97:2379 is healthy: successfully committed proposal: took = 16.
 </div>
 </li>
 <li>
-<p>Remove the old secrets for the unhealthy etcd member that was removed by running the following commands.</p>
+<p>Remove the old secrets for the unhealthy etcd member that was removed.</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>List the secrets for the unhealthy etcd member that was removed.</p>
+<p>List the secrets for the unhealthy etcd member that was removed by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secrets <span class="nt">-n</span> openshift-etcd | <span class="nb">grep </span>openshift-control-plane-2</code></pre>
@@ -4326,11 +4259,7 @@ etcd-serving-openshift-control-plane-2          kubernetes.io/tls   2   134m</sp
 </div>
 </li>
 <li>
-<p>Delete the secrets for the unhealthy etcd member that was removed.</p>
-<div class="olist lowerroman">
-<ol class="lowerroman" type="i">
-<li>
-<p>Delete the peer secret:</p>
+<p>Delete the secrets for the unhealthy etcd member by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret etcd-peer-openshift-control-plane-2 <span class="nt">-n</span> openshift-etcd</code></pre>
@@ -4344,7 +4273,7 @@ etcd-serving-openshift-control-plane-2          kubernetes.io/tls   2   134m</sp
 </div>
 </li>
 <li>
-<p>Delete the serving secret:</p>
+<p>Delete the serving secret by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret etcd-serving-metrics-openshift-control-plane-2 <span class="nt">-n</span> openshift-etcd</code></pre>
@@ -4358,7 +4287,7 @@ etcd-serving-openshift-control-plane-2          kubernetes.io/tls   2   134m</sp
 </div>
 </li>
 <li>
-<p>Delete the metrics secret:</p>
+<p>Delete the metrics secret by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret etcd-serving-openshift-control-plane-2 <span class="nt">-n</span> openshift-etcd</code></pre>
@@ -4374,14 +4303,8 @@ etcd-serving-openshift-control-plane-2          kubernetes.io/tls   2   134m</sp
 </ol>
 </div>
 </li>
-</ol>
-</div>
-</li>
 <li>
-<p>Obtain the machine for the unhealthy member.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Obtain the machine for the unhealthy member by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> wide</code></pre>
@@ -4399,7 +4322,7 @@ examplecluster-compute-1          Running                          165m    opens
 </div>
 </div>
 <div class="paragraph">
-<p><code>examplecluster-control-plane-0</code> is the control plane machine for the unhealthy node, <code>examplecluster-control-plane-2</code>.</p>
+<p><code>examplecluster-control-plane-2</code> is the control plane machine for the unhealthy node <code>openshift-control-plane-2</code>.</p>
 </div>
 </li>
 <li>
@@ -4526,7 +4449,7 @@ openshift-compute-1       Ready worker 176m v1.35.4</span></code></pre>
 </div>
 </li>
 <li>
-<p>Create the new <code>BareMetalHost</code> object and the secret to store the BMC credentials:</p>
+<p>Create the new <code>BareMetalHost</code> object and the secret to store the Baseboard Management Controller (BMC) credentials by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&lt;&lt;</span><span class="no">EOF</span><span class="sh"> | oc apply -f -
@@ -4571,7 +4494,7 @@ EOF</span></code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The username and password can be found from the other bare metal host&#8217;s secrets. The protocol to use in <code>bmc:address</code> can be taken from other bmh objects.</p>
+<p>The username and password can be found from the secrets of the other bare-metal host. The protocol to use in <code>bmc:address</code> can be taken from other bmh objects.</p>
 </div>
 </td>
 </tr>
@@ -4599,7 +4522,7 @@ EOF</span></code></pre>
 </div>
 </li>
 <li>
-<p>Verify the creation process using available <code>BareMetalHost</code> objects:</p>
+<p>Verify the creation process using available <code>BareMetalHost</code> objects by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get bmh <span class="nt">-n</span> openshift-machine-api</code></pre>
@@ -4619,7 +4542,7 @@ openshift-compute-1       provisioned            examplecluster-compute-1       
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
-<p>Verify that a new machine has been created:</p>
+<p>Verify that a new machine has been created by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machines <span class="nt">-n</span> openshift-machine-api <span class="nt">-o</span> wide</code></pre>
@@ -4637,10 +4560,10 @@ examplecluster-compute-1               Running                          165m    
 </div>
 </div>
 <div class="paragraph">
-<p>The new machine is being created and is ready after the phase changes from <code>Provisioning</code> to <code>Running</code>.</p>
+<p>The new machine is ready when the phase changes from <code>Provisioning</code> to <code>Running</code>.</p>
 </div>
 <div class="paragraph">
-<p>It should take a few minutes for the new machine to be created. The etcd cluster Operator will automatically sync when the machine or node returns to a healthy state.</p>
+<p>It should take a few minutes for the new machine to be created. The etcd cluster Operator automatically syncs when the machine or node returns to a healthy state.</p>
 </div>
 </li>
 <li>
@@ -4663,7 +4586,7 @@ openshift-compute-1       provisioned            examplecluster-compute-1       
 </div>
 </li>
 <li>
-<p>Verify that the new node is added and in a ready state by running this command:</p>
+<p>Verify that the new node is added and in a ready state by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
@@ -4685,7 +4608,7 @@ openshift-compute-1       Ready worker 3h58m v1.35.4</span></code></pre>
 </div>
 </li>
 <li>
-<p>Turn the quorum guard back on by entering the following command:</p>
+<p>Turn the quorum guard back on by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"unsupportedConfigOverrides": null}}'</span></code></pre>
@@ -4693,7 +4616,7 @@ openshift-compute-1       Ready worker 3h58m v1.35.4</span></code></pre>
 </div>
 </li>
 <li>
-<p>You can verify that the <code>unsupportedConfigOverrides</code> section is removed from the object by entering this command:</p>
+<p>You can verify that the <code>unsupportedConfigOverrides</code> section is removed from the object by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get etcd/cluster <span class="nt">-oyaml</span></code></pre>
@@ -4715,10 +4638,7 @@ openshift-compute-1       Ready worker 3h58m v1.35.4</span></code></pre>
 <div class="title">Verification</div>
 <ol class="arabic">
 <li>
-<p>Verify that all etcd pods are running properly.</p>
-<div class="paragraph">
-<p>In a terminal that has access to the cluster as a <code>cluster-admin</code> user, run the following command:</p>
-</div>
+<p>Verify that all etcd pods are running properly by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-etcd get pods <span class="nt">-l</span> k8s-app<span class="o">=</span>etcd</code></pre>
@@ -4753,7 +4673,7 @@ etcd-openshift-control-plane-2      5/5     Running     0     103m</span></code>
 </div>
 </li>
 <li>
-<p>View the member list:</p>
+<p>View the member list by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.2#</span><span class="w"> </span>etcdctl member list <span class="nt">-w</span> table</code></pre>
