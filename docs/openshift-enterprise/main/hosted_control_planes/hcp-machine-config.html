@@ -3425,6 +3425,16 @@
 <li><a href="#hcp-configure-ntp_hcp-machine-config">Configuring the NTP server for hosted clusters</a></li>
 <li><a href="#scale-up-down-autoscaler-hcp_hcp-machine-config">Scaling up and down workloads in a hosted cluster</a></li>
 <li><a href="#scale-up-autoscaler-hcp_hcp-machine-config">Scaling up workloads in a hosted cluster</a></li>
+<li><a href="#hcp-autoscaling-to-from-zero_hcp-machine-config">Autoscaling to and from zero on hosted control planes node pools</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-autoscaling-terminology_hcp-machine-config">Terminology</a></li>
+<li><a href="#hcp-scale-to-zero-use-cases_hcp-machine-config">Use cases for scale-to-zero autoscaling</a></li>
+<li><a href="#hcp-scale-to-zero-best-practices_hcp-machine-config">Best practices for scale-to-zero autoscaling</a></li>
+<li><a href="#hcp-autoscaling-to-from-zero-configure_hcp-machine-config">Configuring autoscaling to and from zero on hosted control planes node pools</a></li>
+<li><a href="#hcp-autoscaling-nodepool-reference_hcp-machine-config">NodePool autoscaling configuration reference</a></li>
+<li><a href="#hcp-nodepool-api-reference_hcp-machine-config">NodePool API reference for autoscaling</a></li>
+</ul>
+</li>
 <li><a href="#priority-expander-autoscaler-hcp_hcp-machine-config">Setting the priority expander in a hosted cluster</a></li>
 <li><a href="#balance-ignored-labels-autoscaler-hcp_hcp-machine-config">Balancing ignored labels in a hosted cluster</a></li>
 </ul>
@@ -4254,6 +4264,570 @@ sriov-network-operator.Branch Build.0-202211021237   SR-IOV Network Operator   B
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hcp-autoscaling-to-from-zero_hcp-machine-config"><a class="anchor" href="#hcp-autoscaling-to-from-zero_hcp-machine-config"></a>Autoscaling to and from zero on hosted control planes node pools</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure hosted control planes node pools to autoscale down to zero compute nodes when no schedulable workloads remain on the pool and to provision nodes on-demand when pending pods require capacity. This capability reduces idle compute costs for variable workloads while the hosted control plane stays available.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Scale-from-zero autoscaling is available on OpenShift Container Platform 4.18 and later for eligible hosted control planes deployments on Amazon Web Services (AWS) and Azure.
+Platform validation and HyperShift Operator configuration determine whether a node pool can use <code>spec.autoScaling.min: 0</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>When you enable autoscaling on a <code>NodePool</code> object, you set <code>spec.autoScaling.min</code> to <code>0</code> and omit <code>spec.replicas</code>. The cluster autoscaler then manages pool size instead of a fixed replica count.</p>
+</div>
+<div class="paragraph">
+<p>The cluster autoscaler scales up from zero differently than it scales pools that already have nodes. When a pool has zero nodes, the autoscaler cannot observe utilization on existing compute nodes. Instead, it uses instance-type metadata from the cloud provider (CPU, memory, and GPU capacity for the <code>NodePool</code> platform configuration) to decide how many nodes to provision for pending pods.</p>
+</div>
+<div class="paragraph">
+<p>This behavior contrasts with classic fixed-minimum autoscaling, where <code>spec.autoScaling.min</code> is at least <code>1</code>. With a minimum of one or more replicas, the pool always retains at least one node even when workloads are idle.</p>
+</div>
+<div class="paragraph">
+<p>The hosted control plane remains operational when compute node pools scale to zero. Control plane pods continue running on the management cluster. Workloads that target a scale-to-zero pool remain unschedulable until the autoscaler provisions new nodes.</p>
+</div>
+<div class="sect2">
+<h3 id="hcp-autoscaling-terminology_hcp-machine-config"><a class="anchor" href="#hcp-autoscaling-terminology_hcp-machine-config"></a>Terminology</h3>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>AutoscalingEnabled</code> condition</dt>
+<dd>
+<p>A <code>NodePool</code> status condition that reports whether autoscaling is correctly configured and active on the pool.
+Verify that this condition is <code>True</code> after you enable autoscaling.</p>
+</dd>
+<dt class="hdlist1">minimum replicas</dt>
+<dd>
+<p>The <code>spec.autoScaling.min</code> value on a <code>NodePool</code> object. When autoscaling is enabled, this value is the lowest number of nodes the autoscaler can scale the pool to.</p>
+</dd>
+<dt class="hdlist1">non-tainted pools</dt>
+<dd>
+<p>Node pools without taints that can accept system and user workloads. These pools must keep baseline capacity for highly available platform Operators.</p>
+</dd>
+<dt class="hdlist1">scale-from-zero</dt>
+<dd>
+<p>Provisioning the first node in a pool that currently has zero nodes because pending pods require capacity.</p>
+</dd>
+<dt class="hdlist1">scale-to-zero</dt>
+<dd>
+<p>Reducing a pool to zero nodes when no schedulable workloads remain on that pool and autoscaling minimum is <code>0</code>.</p>
+</dd>
+<dt class="hdlist1">tainted pools</dt>
+<dd>
+<p>Node pools with taints that restrict which pods can schedule on them. Tainted workload pools are typical candidates for <code>spec.autoScaling.min: 0</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-scale-to-zero-use-cases_hcp-machine-config"><a class="anchor" href="#hcp-scale-to-zero-use-cases_hcp-machine-config"></a>Use cases for scale-to-zero autoscaling</h3>
+<div class="paragraph">
+<p>Scale-to-zero autoscaling is appropriate for the following scenarios:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Development and test node pools that are idle outside business hours</p>
+</li>
+<li>
+<p>Batch or burst workload pools that run jobs periodically</p>
+</li>
+<li>
+<p>GPU or specialized instance pools that are expensive when idle</p>
+</li>
+<li>
+<p>Tainted workload pools that isolate optional capacity from system workloads</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>In each case, keep separate baseline pools for platform Operators and confine scale-to-zero configuration to pools that tolerate cold-start latency.</p>
+</div>
+<div class="paragraph">
+<p>Do not use scale-to-zero autoscaling in the following scenarios:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Do not configure scale-to-zero on pools that must always accept system or highly available platform workloads.</p>
+</li>
+<li>
+<p>Scaling all non-tainted node pools to zero violates the cluster-level minimum replica constraint and can prevent system pods from scheduling.</p>
+</li>
+<li>
+<p>Do not use scale-to-zero as a substitute for full cluster hibernation.</p>
+</li>
+<li>
+<p>Data-plane node pool autoscaling removes compute nodes only; the hosted control plane and management infrastructure remain active.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-scale-to-zero-best-practices_hcp-machine-config"><a class="anchor" href="#hcp-scale-to-zero-best-practices_hcp-machine-config"></a>Best practices for scale-to-zero autoscaling</h3>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Base and burst pool architecture</dt>
+<dd>
+<div class="paragraph">
+<p>Keep at least two non-tainted compute nodes across baseline pools for highly available platform Operators. Confine <code>spec.autoScaling.min: 0</code> to tainted burst pools that run dev, test, batch, or specialized workloads.</p>
+</div>
+<div class="paragraph">
+<p>Do not scale all non-tainted pools to zero. Use taints and tolerations to isolate burst capacity from system scheduling requirements.</p>
+</div>
+</dd>
+<dt class="hdlist1">Platform and version eligibility</dt>
+<dd>
+<div class="paragraph">
+<p>Configure scale-to-zero only on AWS or Azure hosted clusters running OpenShift Container Platform 4.18 or later with a HyperShift Operator release that includes the backport.</p>
+</div>
+</dd>
+<dt class="hdlist1">Drain timeout tuning</dt>
+<dd>
+<div class="paragraph">
+<p>Set <code>nodeDrainTimeout</code> and <code>nodeVolumeDetachTimeout</code> to positive values when workloads use persistent storage or long termination grace periods. Zero values block drain and detach operations and can leave nodes stuck during scale-down.</p>
+</div>
+<div class="paragraph">
+<p>Tune timeouts for cost-optimization patterns such as nightly scale-down of dev pools.</p>
+</div>
+</dd>
+<dt class="hdlist1">Scale-up latency planning</dt>
+<dd>
+<div class="paragraph">
+<p>Expect cold-start delay when pools scale from zero. Nodes must provision, join the cluster, and pull images before pending pods schedule.</p>
+</div>
+<div class="paragraph">
+<p>Plan batch jobs and interactive workloads to tolerate this latency, or keep a small nonzero minimum on latency-sensitive pools.</p>
+</div>
+</dd>
+<dt class="hdlist1">Distinguish autoscaling from hibernation</dt>
+<dd>
+<div class="paragraph">
+<p>Data-plane node pool autoscaling removes compute nodes only. The hosted control plane remains active on the management cluster. Full cluster hibernation is a separate operational pattern.</p>
+</div>
+</dd>
+<dt class="hdlist1">Cluster-level minimum replica constraint</dt>
+<dd>
+<div class="paragraph">
+<p>The sum of <code>spec.autoScaling.min</code> (or fixed <code>spec.replicas</code> when autoscaling is disabled) across all non-tainted node pools must be at least <code>2</code>.</p>
+</div>
+<div class="paragraph">
+<p>This constraint ensures highly available platform Operators, such as ingress, console, monitoring, and image registry, can schedule second replicas that require anti-affinity across compute nodes.</p>
+</div>
+<div class="paragraph">
+<p>Tainted workload pools might use <code>spec.autoScaling.min: 0</code> because taints prevent system pods from scheduling on those nodes.
+Baseline non-tainted pools must retain enough minimum capacity to satisfy the cluster-wide constraint.</p>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-autoscaling-to-from-zero-configure_hcp-machine-config"><a class="anchor" href="#hcp-autoscaling-to-from-zero-configure_hcp-machine-config"></a>Configuring autoscaling to and from zero on hosted control planes node pools</h3>
+<div class="paragraph _abstract">
+<p>Configure a <code>NodePool</code> object to autoscale between zero and a maximum replica count on supported Amazon Web Services (AWS) or Azure hosted clusters. After configuration, verify the <code>AutoscalingEnabled</code> condition and validate scale-down and scale-up behavior.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>A hosted cluster on AWS or Azure running OpenShift Container Platform 4.18 or later</p>
+</li>
+<li>
+<p>Permission to edit <code>NodePool</code> objects in the hosted cluster namespace</p>
+</li>
+<li>
+<p>Understanding of scale-to-zero use cases, platform support, and Operator implications</p>
+</li>
+<li>
+<p>For AWS and Azure, scale-from-zero provider credentials</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Confirm that your hosted cluster platform supports <code>spec.autoScaling.min: 0</code>.</p>
+<div class="paragraph">
+<p>On AWS and Azure, the <code>NodePool</code> API accepts <code>min: 0</code>. On other platforms, <code>min</code> must be at least <code>1</code>.</p>
+</div>
+</li>
+<li>
+<p>Confirm that the HyperShift Operator enables scale-from-zero.</p>
+<div class="paragraph">
+<p>On AWS and Azure, confirm that <code>--scale-from-zero-provider</code> and <code>--scale-from-zero-creds</code> are configured so instance-type metadata is available.</p>
+</div>
+</li>
+<li>
+<p>Enable autoscaling on the target <code>NodePool</code> object by removing fixed replicas and setting autoscaling bounds.</p>
+<div class="paragraph">
+<p>Replace <code>&lt;hosted_cluster_namespace&gt;</code>, <code>&lt;nodepool_name&gt;</code>, and <code>&lt;max_replicas&gt;</code> with your values.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; patch nodepool &lt;nodepool_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>json <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'[{"op": "remove", "path": "/spec/replicas"}, \
+       {"op": "add", "path": "/spec/autoScaling", \
+        "value": {"min": 0, "max": &lt;max_replicas&gt;}}]'</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p><code>spec.replicas</code> and <code>spec.autoScaling</code> are mutually exclusive. When autoscaling is enabled, omit <code>spec.replicas</code> so the cluster autoscaler manages pool size.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Optional: Configure hosted cluster-level autoscaling behavior on the <code>HostedCluster</code> resource.</p>
+<div class="paragraph">
+<p>For example, set scaling behavior to <code>ScaleUpAndScaleDown</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  hostedcluster &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec": {"autoscaling": {"scaling": "ScaleUpAndScaleDown"}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Hosted cluster autoscaling settings apply cluster-wide autoscaler behavior. Node pool autoscaling bounds are configured on each <code>NodePool</code> object.</p>
+</div>
+</li>
+<li>
+<p>Verify that the <code>AutoscalingEnabled</code> condition on the <code>NodePool</code> is <code>True</code>.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodepool <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; &lt;nodepool_name&gt; <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .status.conditions[*]}\
+{.type}={.status}{"\n"}{end}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output must include <code>AutoscalingEnabled=True</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify scale-down to zero by removing schedulable workloads from the pool.</p>
+<div class="paragraph">
+<p>Remove or reschedule deployments, jobs, or other workloads that schedule on the target pool. If the pool uses taints, only workloads with matching tolerations count toward pool utilization.</p>
+</div>
+<div class="paragraph">
+<p>Wait for the cluster autoscaler to scale the pool down. When no schedulable workloads remain, the pool can reach zero nodes if <code>spec.autoScaling.min</code> is <code>0</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify scale-up from zero by deploying a workload that creates pending pods on the pool.</p>
+<div class="paragraph">
+<p>For example, create a deployment with resource requests that exceed available capacity:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">apps/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Deployment</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">scale-from-zero-test</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">default</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">replicas</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">app</span><span class="pi">:</span> <span class="s">scale-from-zero-test</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">metadata</span><span class="pi">:</span>
+      <span class="na">labels</span><span class="pi">:</span>
+        <span class="na">app</span><span class="pi">:</span> <span class="s">scale-from-zero-test</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">tolerations</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;taint_key&gt;"</span>
+        <span class="na">operator</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Equal"</span>
+        <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;taint_value&gt;"</span>
+        <span class="na">effect</span><span class="pi">:</span> <span class="s2">"</span><span class="s">NoSchedule"</span>
+      <span class="na">containers</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">app</span>
+        <span class="na">image</span><span class="pi">:</span> <span class="s">registry.redhat.io/ubi9/ubi-minimal</span>
+        <span class="na">resources</span><span class="pi">:</span>
+          <span class="na">requests</span><span class="pi">:</span>
+            <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s">1Gi</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Apply the manifest and wait for the cluster autoscaler to provision nodes from zero.</p>
+</div>
+</li>
+<li>
+<p>Extract the hosted cluster kubeconfig and verify node count changes.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc extract <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; <span class="se">\</span>
+  secret/&lt;hosted_cluster_name&gt;-admin-kubeconfig <span class="se">\</span>
+  <span class="nt">--to</span><span class="o">=</span>./hostedcluster-secrets <span class="nt">--confirm</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> ./hostedcluster-secrets/kubeconfig get nodes</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>The <code>AutoscalingEnabled</code> condition on the <code>NodePool</code> is <code>True</code>.</p>
+</li>
+<li>
+<p>After workloads are removed, the pool scales down and <code>CURRENT NODES</code> can reach <code>0</code> when <code>min</code> is <code>0</code>.</p>
+</li>
+<li>
+<p>After pending pods are created, new nodes appear and reach <code>Ready</code> status.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When pools are at zero nodes, platform Operators on non-tainted baseline pools can report degraded status if minimum replica constraints are not satisfied.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-autoscaling-nodepool-reference_hcp-machine-config"><a class="anchor" href="#hcp-autoscaling-nodepool-reference_hcp-machine-config"></a>NodePool autoscaling configuration reference</h3>
+<div class="paragraph _abstract">
+<p>Get familiar with the <code>NodePool</code> fields and status conditions for autoscaling to and from zero on hosted control planes.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field or condition</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.autoScaling.min</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Minimum nodes the cluster autoscaler can scale the pool to.
+Valid values include <code>0</code> on Amazon Web Services (AWS) and Azure.
+On other platforms, the minimum must be at least <code>1</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.autoScaling.max</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Maximum nodes the cluster autoscaler can scale the pool to.
+Must be greater than or equal to <code>spec.autoScaling.min</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.replicas</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Fixed replica count when autoscaling is disabled.
+Must be omitted when <code>spec.autoScaling</code> is configured.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AutoscalingEnabled</code> condition</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reports whether autoscaling is active on the <code>NodePool</code>.
+Status <code>True</code> indicates the autoscaler manages pool size.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>--scale-from-zero-provider</code> and <code>--scale-from-zero-creds</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">On AWS and Azure, credentials and provider configuration for instance-type metadata used during scale-from-zero.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Non-tainted pool minimum sum</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sum of minimum replicas across non-tainted pools must be at least <code>2</code> cluster-wide for HA platform operators.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p><code>spec.replicas</code> and <code>spec.autoScaling</code> are mutually exclusive.
+Patch or edit the <code>NodePool</code> to remove <code>spec.replicas</code> before adding <code>spec.autoScaling</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-nodepool-api-reference_hcp-machine-config"><a class="anchor" href="#hcp-nodepool-api-reference_hcp-machine-config"></a>NodePool API reference for autoscaling</h3>
+<div class="paragraph _abstract">
+<p>Get familiar with the <code>NodePool</code> specification fields related to autoscaling, including scaling to and from zero on supported platforms.</p>
+</div>
+<div class="sect3">
+<h4 id="hcp-nodepool-api-spec-autoscaling_hcp-machine-config"><a class="anchor" href="#hcp-nodepool-api-spec-autoscaling_hcp-machine-config"></a>spec.autoScaling</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>min</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Minimum number of nodes for the pool when autoscaling is enabled.
+<code>0</code> is valid on Amazon Web Services (AWS) and Azure.
+Other platforms require <code>min</code> to be at least <code>1</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>max</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Maximum number of nodes the cluster autoscaler can add to the pool.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="hcp-nodepool-api-spec-replicas_hcp-machine-config"><a class="anchor" href="#hcp-nodepool-api-spec-replicas_hcp-machine-config"></a>spec.replicas</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>replicas</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Fixed number of nodes when autoscaling is disabled.
+Omit this field when <code>spec.autoScaling</code> is set.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="hcp-nodepool-api-drain-detach-timeouts_hcp-machine-config"><a class="anchor" href="#hcp-nodepool-api-drain-detach-timeouts_hcp-machine-config"></a>Drain and detach timeouts</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodeDrainTimeout</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">duration</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Time the controller spends draining a node during scale-down.
+A value of <code>0s</code> blocks draining until a positive timeout is set.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nodeVolumeDetachTimeout</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">duration</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Time the controller spends detaching volumes from a node during scale-down.
+A value of <code>0</code> blocks detachment until a positive timeout is set.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="hcp-nodepool-api-status-conditions_hcp-machine-config"><a class="anchor" href="#hcp-nodepool-api-status-conditions_hcp-machine-config"></a>status.conditions</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Condition</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AutoscalingEnabled</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reports <code>True</code> when autoscaling is correctly configured and the autoscaler manages the pool.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="hcp-nodepool-api-sm-operator-flags_hcp-machine-config"><a class="anchor" href="#hcp-nodepool-api-sm-operator-flags_hcp-machine-config"></a>HyperShift Operator flags</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Flag</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>--scale-from-zero-provider</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Provider used to fetch instance-type metadata on AWS and Azure.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>--scale-from-zero-creds</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Credentials for the scale-from-zero provider on AWS and Azure.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 </div>
 </div>
