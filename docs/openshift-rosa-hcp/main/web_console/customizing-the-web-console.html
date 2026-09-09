@@ -1251,7 +1251,7 @@
 <p>You can customize the
 Red Hat OpenShift Service on AWS
 web console to set
-a custom logo and product name.
+a custom logo, product name, and custom component routes.
 This is especially helpful if you need to tailor the web console to meet specific corporate or government requirements.</p>
 </div>
 </div>
@@ -1357,6 +1357,266 @@ This is especially helpful if you need to tailor the web console to meet specifi
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="about-custom-component-routes-rosa-hcp_customizing-web-console"><a class="anchor" href="#about-custom-component-routes-rosa-hcp_customizing-web-console"></a>About custom component routes on Red Hat OpenShift Service on AWS</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>By default, Red Hat OpenShift Service on AWS clusters use service-generated default subdomains for core cluster routes. You can customize these component routes to use personalized, company-owned fully qualified domain names (FQDNs) to satisfy corporate branding and enterprise security requirements.</p>
+</div>
+<div class="paragraph">
+<p>You can configure custom component routes for the following components on Red Hat OpenShift Service on AWS:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>OpenShift web console</p>
+</li>
+<li>
+<p>Downloads page (Command-line interface (CLI) tools)</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Customizing the internal OAuth server route or the API server (<code>kube-apiserver</code>) endpoint is not supported on Red Hat OpenShift Service on AWS.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Custom component routes have the following architecture and requirements:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">TLS certificates</dt>
+<dd>
+<p>You must provide your own valid TLS certificate chain and private key stored as a Kubernetes secret in the <code>openshift-config</code> namespace on the cluster data plane.</p>
+</dd>
+<dt class="hdlist1">DNS management</dt>
+<dd>
+<p>You are responsible for creating and maintaining the necessary CNAME or A records with your DNS provider to route traffic from your custom FQDN to the cluster&#8217;s ingress router.</p>
+</dd>
+<dt class="hdlist1">Automated renewal</dt>
+<dd>
+<p>Automated certificate management, such as AWS Certificate Manager or automatic Let&#8217;s Encrypt rotation, is not natively integrated at the cluster service level. You must manage certificate renewals manually or by using data-plane Operators such as cert-manager.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="configuring-custom-component-routes-rosa-hcp_customizing-web-console"><a class="anchor" href="#configuring-custom-component-routes-rosa-hcp_customizing-web-console"></a>Configure custom component routes for Red Hat OpenShift Service on AWS</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure custom component routes for the web console and downloads page on your Red Hat OpenShift Service on AWS cluster. To configure custom routes, you create a TLS secret, configure DNS records, and update the ingress configuration by using the ROSA CLI.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the ROSA command-line interface (CLI) (<code>rosa</code>).</p>
+</li>
+<li>
+<p>You have administrator access to a Red Hat OpenShift Service on AWS cluster.</p>
+</li>
+<li>
+<p>You have a custom domain or fully qualified domain name (FQDN) registered, for example, <code>my-custom-hostname.dev</code>.</p>
+</li>
+<li>
+<p>You have a valid TLS certificate (<code>tls.crt</code>) and private key (<code>tls.key</code>) for the custom domain.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a TLS secret in the <code>openshift-config</code> namespace that has your custom domain&#8217;s certificate and private key by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret tls &lt;secret_name&gt; <span class="nt">--cert</span><span class="o">=</span>&lt;path_to_tls_cert&gt; <span class="nt">--key</span><span class="o">=</span>&lt;path_to_tls_key&gt; <span class="nt">-n</span> openshift-config</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;secret_name&gt;</code></dt>
+<dd>
+<p>Specifies a name for the TLS secret, for example, <code>custom-console-tls</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;path_to_tls_cert&gt;</code></dt>
+<dd>
+<p>Specifies the path to your TLS certificate file.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;path_to_tls_key&gt;</code></dt>
+<dd>
+<p>Specifies the path to your TLS private key file.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>In your DNS provider&#8217;s management console, add a <code>CNAME</code> or an <code>A</code> record pointing your custom domain to your cluster&#8217;s router canonical domain name. The router canonical domain name is the load balancer hostname value for your cluster.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>For example, in your AWS Route 53 Dashboard, add a CNAME record where</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Name: <code>my-custom-hostname.dev</code> (your custom hostname)</p>
+</li>
+<li>
+<p>Value: <code>a234gsr3242rsfsfs-1342r624.us-east-1.elb.amazonaws.com</code> (your cluster&#8217;s load balancer hostname)</p>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you do not configure proper DNS records, you cannot access the custom routes.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Update the component routes by using the ROSA CLI:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>To set a custom domain for the web console, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa edit ingress <span class="nt">-c</span> &lt;cluster_name&gt; &lt;ingress_id&gt; <span class="nt">--component-routes</span> <span class="s1">'console: hostname=&lt;custom_hostname&gt;;tlsSecretRef=&lt;secret_name&gt;'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;custom_hostname&gt;</code></dt>
+<dd>
+<p>Specifies the custom hostname for the web console, for example, <code>my-custom-hostname.dev</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;secret_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the TLS secret you created earlier.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>To set a custom domain for the downloads page, run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa edit ingress <span class="nt">-c</span> &lt;cluster_name&gt; &lt;ingress_id&gt; <span class="nt">--component-routes</span> <span class="s1">'downloads: hostname=&lt;custom_hostname&gt;;tlsSecretRef=&lt;secret_name&gt;'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;custom_hostname&gt;</code></dt>
+<dd>
+<p>Specifies the custom hostname for the downloads page, for example, <code>my-custom-hostname.dev</code>.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;secret_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the TLS secret you created for the downloads page.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can update both routes by running the following single command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa edit ingress <span class="nt">-c</span> &lt;cluster_name&gt; &lt;ingress_id&gt; <span class="nt">--component-routes</span> <span class="s1">'console: hostname=&lt;custom_hostname&gt;;tlsSecretRef=&lt;secret_name&gt;, downloads: hostname=&lt;custom_hostname&gt;;tlsSecretRef=&lt;secret_name&gt;'</span></code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify the ingress is updated by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>rosa list ingress <span class="nt">-c</span> &lt;cluster_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">ID    APPLICATION ROUTER                                                         PRIVATE
+r218  https://openshift-console.apps.rosa.dy5e.p1.my-custom-hostname.dev         true</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add your certificate to the truststore on your local system, then confirm that you can access your components at their new routes by using your local web browser.</p>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://docs.aws.amazon.com/managedservices/latest/ctref/management-directory-dns-add-cname-record.html">AWS Add CNAME Record</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
