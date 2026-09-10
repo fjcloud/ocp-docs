@@ -3432,44 +3432,32 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#nodes-nodes-additional-crio-storage-about_nodes-nodes-additional-crio-storage">About additional storage locations for CRI-O</a></li>
-<li><a href="#nodes-nodes-additional-crio-storage-configuring_nodes-nodes-additional-crio-storage">Configuring additional storage locations for CRI-O</a></li>
-<li><a href="#additional-resources">Additional resources</a></li>
+<li><a href="#nodes-nodes-additional-crio-storage-about_nodes-nodes-additional-crio-storage">About additional CRI-O storage locations</a>
+<ul class="sectlevel2">
+<li><a href="#nodes-nodes-additional-crio-storage-limitations_nodes-nodes-additional-crio-storage">Limitations and known issues with additional CRI-O storage locations</a></li>
+</ul>
+</li>
+<li><a href="#nodes-nodes-additional-crio-storage-configuring_nodes-nodes-additional-crio-storage">Configuring additional CRI-O storage locations</a></li>
+<li><a href="#nodes-nodes-additional-crio-storage-troubleshooting_nodes-nodes-additional-crio-storage">Troubleshoot additional CRI-O storage locations</a></li>
+<li><a href="#additional-resources_nodes-nodes-additional-crio-storage">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>To reduce application startup time, make your applications run more efficiently, and configure lazy pulling, you can configure additional storage locations for the CRI-O container engine.</p>
+<p>To reduce application startup time, make your applications run more efficiently, and configure lazy pulling, you can configure additional storage locations for the CRI-O container engine to store OCI objects.</p>
 </div>
 <div class="paragraph">
 <p>Fields in the <code>ContainerRuntimeConfig</code> custom resource (CR) let you specify where CRI-O stores and resolves container image layers, complete container images, and OCI artifacts.</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Using additional CRI-O storage locations is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="nodes-nodes-additional-crio-storage-about_nodes-nodes-additional-crio-storage"><a class="anchor" href="#nodes-nodes-additional-crio-storage-about_nodes-nodes-additional-crio-storage"></a>About additional storage locations for CRI-O</h2>
+<h2 id="nodes-nodes-additional-crio-storage-about_nodes-nodes-additional-crio-storage"><a class="anchor" href="#nodes-nodes-additional-crio-storage-about_nodes-nodes-additional-crio-storage"></a>About additional CRI-O storage locations</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
 <p>To reduce application startup time and make your applications run more efficiently, you can configure additional storage locations for the CRI-O container engine.</p>
 </div>
 <div class="paragraph">
-<p>By using storage locations for the CRI-O container engine other than the default gives you control over where CRI-O stores and retrieves OCI artifacts, complete container images, and container image layers. Using additional storage locations for these CRI-O objects can reduce application startup time and make your applications run more efficiently through dedicated solid-state drive (SSD) storage, shared image caches, or lazy pulling.</p>
+<p>By using storage locations for the CRI-O container engine other than the default you gain control over where CRI-O stores and retrieves OCI artifacts, complete container images, and container image layers. Using additional storage locations for these CRI-O objects can reduce application startup time and make your applications run more efficiently through dedicated solid-state drive (SSD) storage, shared image caches, or lazy pulling.</p>
 </div>
 <div class="paragraph">
 <p>By default, CRI-O stores all container data under a single root directory, <code>/var/lib/containers/storage</code>. This works well for typical workloads, but can create problems in clusters that use large images or artifacts, such as artificial intelligence and machine learning (AI/ML) workloads.</p>
@@ -3542,26 +3530,29 @@
 </dd>
 <dt class="hdlist1">Additional container image layers for lazy pulling</dt>
 <dd>
-<p>Use the <code>additionalLayerStores</code> field to enable lazy pulling through a third-party storage plugin.</p>
+<p>Use the <code>additionalLayerStores</code> field to enable lazy pulling through a third-party Bring Your Own Storage (BYOS) plugin. With lazy pulling, you can start a container without waiting for the entire image to be downloaded. Instead, the necessary parts of the image are fetched on-demand during runtime using FUSE.</p>
 <div class="paragraph">
-<p>Note that CRI-O falls back to a standard image pull in the following cases:</p>
+<p>External BYOS plugins, such as stargz-snapshotter and nydus-storage-plugin, serve container image layers on-demand through a FUSE file system. The <code>additionalLayerStores</code> field configures the FUSE mount paths for CRI-O.</p>
 </div>
-<div class="openblock">
-<div class="content">
-<div class="ulist">
-<ul>
-<li>
-<p>The registry does not support HTTP range requests.</p>
-</li>
-<li>
-<p>The image is in standard OCI format, not a lazy-pull-compatible format such as eStargz or Nydus.</p>
-</li>
-<li>
-<p>The storage plugin is not running.</p>
-</li>
-</ul>
+<div class="paragraph">
+<p>When CRI-O needs an image, it accesses the plugin&#8217;s FUSE file system, triggering metadata download and lazy pulling. The container starts after downloading only the required chunks.</p>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you are using the Linux native zstd:chunked format for partial pulling, you do not need to configure the <code>additionalLayerStores</code> field. With partial pulling, CRI-O retrieves the chunk metadata, determines which chunks are needed, and fetches only those chunks by using HTTP range requests rather than downloading the entire compressed layer.</p>
 </div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>To use lazy pulling, you must install a BYOS plugin on your nodes. Then, create a container runtime config to configure the FUSE mount paths.</p>
 </div>
 <div class="paragraph">
 <p>The following example container runtime config configures container image layers for lazy pulling.</p>
@@ -3587,13 +3578,61 @@
 </dd>
 </dl>
 </div>
+<div class="sect2">
+<h3 id="nodes-nodes-additional-crio-storage-limitations_nodes-nodes-additional-crio-storage"><a class="anchor" href="#nodes-nodes-additional-crio-storage-limitations_nodes-nodes-additional-crio-storage"></a>Limitations and known issues with additional CRI-O storage locations</h3>
+<div class="paragraph _abstract">
+<p>When working with additional CRI-O storage locations, make note of the limitations and known issues that could affect your cluster.</p>
+</div>
+<div class="paragraph">
+<p>The following limitations and known issues have been identified for additional CRI-O storage:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Lazy pulling and partial pulling rely on HTTP range requests. As such, your registry must support HTTP range requests. If not supported, CRI-O falls back to standard image pulls.</p>
+</li>
+<li>
+<p>When using an additional layer store for Bring Your Own Storage (BYOS) lazy pulling, you must convert the pulled container images from the standard OCI format to a compatible format, such as the eStargz or Nydus formats.</p>
+</li>
+<li>
+<p>The zstd:chunked format performs <em>partial pulling</em>, where CRI-O fetches only the missing chunks before the container starts, skipping content already present from prior pulls. Partial pulling does not use the <code>additionalLayerStores</code> field.</p>
+</li>
+<li>
+<p>After you configure additional CRI-O storage, the Machine Config Operator (MCO) reboots the affected nodes with the new configuration.</p>
+</li>
+<li>
+<p>Container creation can be impacted if your storage plugin crashes or hangs. For more information, see "Troubleshoot additional CRI-O storage locations".</p>
+</li>
+<li>
+<p>The additional layer store API is experimental in the upstream containers/storage project. Breaking changes are possible.</p>
+</li>
+<li>
+<p>Multiple <code>ContainerRuntimeConfig</code> resources affecting the same configuration file might result in only a subset of the changes taking effect.</p>
+</li>
+<li>
+<p>This feature is not supported for Red&#160;Hat build of MicroShift (MicroShift), which does not use the MCO.</p>
+</li>
+<li>
+<p>If you need to downgrade your cluster to OpenShift Container Platform version 4.21 or earlier, before you downgrade, delete any <code>ContainerRuntimeConfig</code> resource that includes the <code>additionalArtifactStores</code>, <code>additionalImageStores</code>, or <code>additionalLayerStores</code> fields.</p>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../nodes/nodes/nodes-nodes-additional-crio-storage.html#nodes-nodes-additional-crio-storage-troubleshooting_nodes-nodes-additional-crio-storage">Troubleshoot additional CRI-O storage locations</a></p>
+</li>
+</ul>
+</div>
+</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="nodes-nodes-additional-crio-storage-configuring_nodes-nodes-additional-crio-storage"><a class="anchor" href="#nodes-nodes-additional-crio-storage-configuring_nodes-nodes-additional-crio-storage"></a>Configuring additional storage locations for CRI-O</h2>
+<h2 id="nodes-nodes-additional-crio-storage-configuring_nodes-nodes-additional-crio-storage"><a class="anchor" href="#nodes-nodes-additional-crio-storage-configuring_nodes-nodes-additional-crio-storage"></a>Configuring additional CRI-O storage locations</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>To reduce application startup time and make your applications run more efficiently, you can configure additional storage locations for the CRI-O container engine to store OCI objects by using the <code>ContainerRuntimeConfig</code> custom resource (CR).</p>
+<p>To reduce application startup time and make your applications run more efficiently, you can configure additional storage locations for the CRI-O container engine by using the <code>ContainerRuntimeConfig</code> custom resource (CR).</p>
 </div>
 <div class="paragraph">
 <p>Use the <code>additionalArtifactStores</code>, <code>additionalImageStores</code>, and <code>additionalLayerStores</code> fields in a <code>ContainerRuntimeConfig</code> to specify read-only locations where CRI-O stores and resolves OCI artifacts, container images, or container image layers. CRI-O checks these locations in order before falling back to the default storage location.</p>
@@ -3616,23 +3655,6 @@
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You enabled the required Technology Preview features for your cluster by adding the <code>TechPreviewNoUpgrade</code> feature set to the <code>FeatureGate</code> CR named <code>cluster</code>. For information about enabling Feature Gates, see "Enabling features using feature gates".</p>
-<div class="admonitionblock warning">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-warning" title="Warning"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Enabling the <code>TechPreviewNoUpgrade</code> feature set on your cluster cannot be undone and prevents minor version updates. This feature set allows you to enable these Technology Preview features on test clusters, where you can fully test them. Do not enable this feature set on production clusters.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
-<li>
 <p>If you are configuring the <code>additionalImageStores</code> or <code>additionalLayerStores</code> field, the target storage paths must exist and be accessible on the nodes and the container image or layers must be present in the directory. For network storage, ensure the paths are mounted before applying the configuration.</p>
 </li>
 <li>
@@ -3640,7 +3662,7 @@
 <div class="ulist">
 <ul>
 <li>
-<p>A supported storage plugin binary must be installed on each node, such as Stargz Store or Nydus Storage Plugin. See "Stargz Store plugin" or "Nydus Storage Plugin" for more information. You must have installed the plugin by using one of the following methods:</p>
+<p>You must install a supported storage plugin binary on each node, such as Stargz Store or Nydus Storage Plugin. You must install the plugin by using one of the following methods:</p>
 <div class="ulist">
 <ul>
 <li>
@@ -3865,7 +3887,50 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="additional-resources"><a class="anchor" href="#additional-resources"></a>Additional resources</h2>
+<h2 id="nodes-nodes-additional-crio-storage-troubleshooting_nodes-nodes-additional-crio-storage"><a class="anchor" href="#nodes-nodes-additional-crio-storage-troubleshooting_nodes-nodes-additional-crio-storage"></a>Troubleshoot additional CRI-O storage locations</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can troubleshoot some known issues with the additional CRI-O storage.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">FUSE plugin crash or hang impact and recovery</dt>
+<dd>
+<p>If a FUSE-backed additional layer store plugin crashes, containers using layers from that store get fast-fail ENOTCONN errors. Other containers are unaffected. If a plugin hangs, CRI-O can stall node-wide due to lock contention. No timeout or circuit-breaker exists.</p>
+<div class="paragraph">
+<p>To recover from this condition, restart the <code>DaemonSet</code> plugin. If CRI-O is stalled, also drain and reboot the node.</p>
+</div>
+<div class="paragraph">
+<p>You can avoid this condition by setting a non-zero <code>PullProgressTimeout</code> value in CRI-O when additional layer stores are configured. You can set the <code>pull_progress_timeout</code> value by using a <code>MachineConfig</code> object under <code>/etc/crio/crio.conf.d/</code>. You cannot set the <code>pull_progress_timeout</code> value by using a <code>ContainerRuntimeConfig</code> object. For more information, see the "Failed to pull image due to <code>pull_progress_timeout</code> value is too small" Red&#160;Hat Knowledgebase article.</p>
+</div>
+</dd>
+<dt class="hdlist1">Trust model for additional layer store content</dt>
+<dd>
+<p>For pre-populated additional layer stores, content integrity relies entirely on the FUSE plugin.</p>
+<div class="paragraph">
+<p>Pre-populated additional layer stores are trusted without content verification. No digest or checksum is checked on the info, blob, or diff files. A compromised FUSE plugin can serve arbitrary file content to containers. This is inherent to the trust model, because the plugin runs with full node access.</p>
+</div>
+<div class="paragraph">
+<p>To ensure verification, use zstd:chunked format image pulls, which verifies individual chunks by using SHA-256.</p>
+</div>
+<div class="paragraph">
+<p>It can be additionally helpful to run the Linux fs-verity utility on the additional layer store content where supported.</p>
+</div>
+</dd>
+<dt class="hdlist1">composefs silent integrity degradation</dt>
+<dd>
+<p>The composefs code path does not report ENOTSUP or ENOTTY errors from the <code>EnableVerity</code> command. As a result, you can use composefs blobs without integrity verification, and you will receive no warning. This is an inherent composefs behavior that you cannot work around.</p>
+</dd>
+<dt class="hdlist1">fsverity enforcement is conditional</dt>
+<dd>
+<p>To ensure image verification, note that zstd:chunked image pulls enforce the Linux fs-verity integrity checks only when the <code>DifferFsVerityRequired</code> mode is set in the Linux fs-verity tool. If not set, the enforcement of fs-verity operates on a best-effort basis. Full integrity verification requires an fs-verity-capable file system and explicit <code>DifferFsVerityRequired</code> configuration.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="additional-resources_nodes-nodes-additional-crio-storage"><a class="anchor" href="#additional-resources_nodes-nodes-additional-crio-storage"></a>Additional resources</h2>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
@@ -3885,6 +3950,9 @@
 <p><a href="https://nydus.dev/">Nydus format</a></p>
 </li>
 <li>
+<p><a href="../../nodes/nodes/nodes-nodes-additional-crio-storage.html#nodes-nodes-additional-crio-storage-troubleshooting_nodes-nodes-additional-crio-storage">Troubleshoot additional CRI-O storage locations</a></p>
+</li>
+<li>
 <p><a href="../../nodes/jobs/nodes-pods-daemonsets.html#nodes-pods-daemonsets">Running background tasks on nodes automatically with daemon sets</a></p>
 </li>
 <li>
@@ -3892,6 +3960,9 @@
 </li>
 <li>
 <p><a href="../../machine_configuration/mco-coreos-layering.html#mco-coreos-layering">Image mode for OpenShift</a></p>
+</li>
+<li>
+<p><a href="https://access.redhat.com/solutions/7127369">Failed to pull image due to <code>pull_progress_timeout</code> value is too small (Red&#160;Hat Knowledgebase article)</a></p>
 </li>
 </ul>
 </div>
