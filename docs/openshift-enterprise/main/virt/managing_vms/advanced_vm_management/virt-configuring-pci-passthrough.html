@@ -3431,7 +3431,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            Configuring PCI passthrough
+            Configure PCI passthrough
           </h1>
         </div>
         
@@ -3441,7 +3441,7 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#virt-preparing-nodes-for-gpu-passthrough">Preparing nodes for GPU passthrough</a>
+<li><a href="#virt-preparing-nodes-for-gpu-passthrough_virt-configuring-pci-passthrough">Node preparation for GPU passthrough</a>
 <ul class="sectlevel2">
 <li><a href="#virt-preventing-nvidia-gpu-operands-from-deploying-on-nodes_virt-configuring-pci-passthrough">Preventing NVIDIA GPU operands from deploying on nodes</a></li>
 </ul>
@@ -3449,15 +3449,22 @@
 <li><a href="#virt-preparing-host-devices-for-pci-passthrough">Preparing host devices for PCI passthrough</a>
 <ul class="sectlevel2">
 <li><a href="#virt-about_pci-passthrough_virt-configuring-pci-passthrough">About preparing a host device for PCI passthrough</a></li>
+<li><a href="#virt-about-pci-passthrough-blocklist_virt-configuring-pci-passthrough">Kernel module blocklist for PCI passthrough</a></li>
 <li><a href="#virt-adding-kernel-arguments-enable-IOMMU_virt-configuring-pci-passthrough">Adding kernel arguments to enable the IOMMU driver</a></li>
 <li><a href="#virt-binding-devices-vfio-driver_virt-configuring-pci-passthrough">Binding PCI devices to the VFIO driver</a></li>
 <li><a href="#virt-exposing-pci-device-in-cluster-cli_virt-configuring-pci-passthrough">Exposing PCI host devices in the cluster using the CLI</a></li>
 <li><a href="#virt-removing-pci-device-from-cluster_virt-configuring-pci-passthrough">Removing PCI host devices from the cluster using the CLI</a></li>
 </ul>
 </li>
-<li><a href="#virt-configuring-vms-for-pci-passthrough">Configuring virtual machines for PCI passthrough</a>
+<li><a href="#virt-configuring-virtual-machines-for-pci-passthrough_virt-configuring-pci-passthrough">Virtual machine configuration for PCI passthrough</a>
 <ul class="sectlevel2">
 <li><a href="#virt-assigning-pci-device-virtual-machine_virt-configuring-pci-passthrough">Assigning a PCI device to a virtual machine</a></li>
+</ul>
+</li>
+<li><a href="#virt-configuring-pci-passthrough-ibm-z_virt-configuring-pci-passthrough">PCI passthrough on IBM Z</a>
+<ul class="sectlevel2">
+<li><a href="#virt-configuring-pci-passthrough-roce-ibm-z_virt-configuring-pci-passthrough">Configure PCI passthrough for Network Express RoCE adapters on IBM Z</a></li>
+<li><a href="#virt-configuring-pci-passthrough-ism-ibm-z_virt-configuring-pci-passthrough">Configure PCI passthrough for IBM ISM virtual PCI devices on IBM Z</a></li>
 </ul>
 </li>
 <li><a href="#additional-resources_configuring-pci-passthrough">Additional resources</a></li>
@@ -3466,59 +3473,12 @@
 <div class="paragraph _abstract">
 <p>The Peripheral Component Interconnect (PCI) passthrough feature enables you to access and manage hardware devices from a virtual machine (VM). When PCI passthrough is configured, the PCI devices function as if they were physically attached to the guest operating system.</p>
 </div>
-<div class="paragraph">
-<p>Cluster administrators can expose and manage host devices that are permitted to be used in the cluster by using the <code>oc</code> command-line interface (CLI).</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>For <code>vfio-pci</code> to allocate a PCI device, no other kernel driver can manage that device. If a driver already manages the device, you must add the specific kernel module to a blocklist.</p>
-</div>
-<div class="paragraph">
-<p>Adding a kernel module to a blocklist makes all devices handled by that module unavailable to the host.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>The following example shows a <code>MachineConfig</code> CR that adds the <code>enic</code> network driver to a blocklist by creating a configuration file in <code>/etc/modprobe.d/</code> and adding kernel arguments:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfig</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">labels</span><span class="pi">:</span>
-    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">worker</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">100-blacklist-enic</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">config</span><span class="pi">:</span>
-    <span class="na">ignition</span><span class="pi">:</span>
-      <span class="na">version</span><span class="pi">:</span> <span class="s">3.4.0</span>
-    <span class="na">storage</span><span class="pi">:</span>
-      <span class="na">files</span><span class="pi">:</span>
-      <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span>
-          <span class="na">source</span><span class="pi">:</span> <span class="s">data:,blacklist%20enic%0A</span>
-        <span class="na">mode</span><span class="pi">:</span> <span class="m">420</span>
-        <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
-        <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/modprobe.d/blacklist-enic.conf</span>
-  <span class="na">kernelArguments</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="s">enic.blacklist=1</span>
-    <span class="pi">-</span> <span class="s">rd.driver.blacklist=enic</span></code></pre>
-</div>
-</div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="virt-preparing-nodes-for-gpu-passthrough"><a class="anchor" href="#virt-preparing-nodes-for-gpu-passthrough"></a>Preparing nodes for GPU passthrough</h2>
+<h2 id="virt-preparing-nodes-for-gpu-passthrough_virt-configuring-pci-passthrough"><a class="anchor" href="#virt-preparing-nodes-for-gpu-passthrough_virt-configuring-pci-passthrough"></a>Node preparation for GPU passthrough</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>You can prevent GPU operands from deploying on worker nodes that you designated for GPU passthrough.</p>
 </div>
 <div class="sect2">
@@ -3638,6 +3598,45 @@ nvidia-vfio-manager-866pz        1/1     Running   0          8d</span></code></
 </div>
 <div class="paragraph">
 <p>To remove a PCI host device from the cluster by using the CLI, delete the PCI device information from the <code>HyperConverged</code> CR.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="virt-about-pci-passthrough-blocklist_virt-configuring-pci-passthrough"><a class="anchor" href="#virt-about-pci-passthrough-blocklist_virt-configuring-pci-passthrough"></a>Kernel module blocklist for PCI passthrough</h3>
+<div class="paragraph _abstract">
+<p>For <code>vfio-pci</code> to allocate a PCI device, no other kernel driver can manage that device. If a driver already manages the device, you must add the specific kernel module to a blocklist. Adding a kernel module to a blocklist makes all devices handled by that module unavailable to the host.</p>
+</div>
+<div class="paragraph">
+<p>Cluster administrators can expose and manage host devices that are permitted to be used in the cluster by using the <code>oc</code> command-line interface (CLI).</p>
+</div>
+<div class="paragraph">
+<p>You can add a kernel module to the blocklist by creating a <code>MachineConfig</code> object that generates a configuration file in <code>/etc/modprobe.d/</code> and adds kernel arguments.</p>
+</div>
+<div class="paragraph">
+<p>The following example shows a <code>MachineConfig</code> object that adds the <code>enic</code> network driver to the blocklist:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MachineConfig</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">worker</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">100-blocklist-enic</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">ignition</span><span class="pi">:</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">3.4.0</span>
+    <span class="na">storage</span><span class="pi">:</span>
+      <span class="na">files</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span>
+          <span class="na">source</span><span class="pi">:</span> <span class="s">data:,blocklist%20enic%0A</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="m">420</span>
+        <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/modprobe.d/blocklist-enic.conf</span>
+  <span class="na">kernelArguments</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">enic.blocklist=1</span>
+    <span class="pi">-</span> <span class="s">rd.driver.blocklist=enic</span></code></pre>
+</div>
 </div>
 </div>
 <div class="sect2">
@@ -4241,9 +4240,9 @@ Allocatable:
 </div>
 </div>
 <div class="sect1">
-<h2 id="virt-configuring-vms-for-pci-passthrough"><a class="anchor" href="#virt-configuring-vms-for-pci-passthrough"></a>Configuring virtual machines for PCI passthrough</h2>
+<h2 id="virt-configuring-virtual-machines-for-pci-passthrough_virt-configuring-pci-passthrough"><a class="anchor" href="#virt-configuring-virtual-machines-for-pci-passthrough_virt-configuring-pci-passthrough"></a>Virtual machine configuration for PCI passthrough</h2>
 <div class="sectionbody">
-<div class="paragraph">
+<div class="paragraph _abstract">
 <p>After the PCI devices have been added to the cluster, you can assign them to virtual machines. The PCI devices are now available as if they are physically connected to the virtual machines.</p>
 </div>
 <div class="sect2">
@@ -4308,6 +4307,604 @@ Allocatable:
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="virt-configuring-pci-passthrough-ibm-z_virt-configuring-pci-passthrough"><a class="anchor" href="#virt-configuring-pci-passthrough-ibm-z_virt-configuring-pci-passthrough"></a>PCI passthrough on IBM Z</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>On IBM Z&#174; and IBM&#174; LinuxONE, you can configure PCI passthrough for Network Express RoCE adapters and IBM&#174; Internal Shared Memory (ISM) virtual PCI devices. Both use <code>vfio-pci</code> to pass devices directly to virtual machines.</p>
+</div>
+<div class="sect2">
+<h3 id="virt-configuring-pci-passthrough-roce-ibm-z_virt-configuring-pci-passthrough"><a class="anchor" href="#virt-configuring-pci-passthrough-roce-ibm-z_virt-configuring-pci-passthrough"></a>Configure PCI passthrough for Network Express RoCE adapters on IBM Z</h3>
+<div class="paragraph _abstract">
+<p>On IBM Z&#174; and IBM&#174; LinuxONE, you can configure PCI passthrough for Network Express RoCE adapters by using <code>vfio-pci</code>. This procedure applies only when the adapter is configured in RoCE mode through the Hardware Management Console (HMC).</p>
+</div>
+<div class="paragraph">
+<p>On IBM Z&#174; and IBM&#174; LinuxONE systems, Network Express adapters can be configured in two modes through the HMC:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Network Express RoCE</strong>: The adapter is exposed as a PCI virtual function, managed by the <code>mlx5_core</code> kernel driver, and can be passed through to VMs by using <code>vfio-pci</code>.</p>
+</li>
+<li>
+<p><strong>Network Express OSA</strong>: The adapter uses IBM Z&#174; channel-based I/O (OSH PCI functions). OSH functions are not supported on Linux and are not exposed as PCI devices. Do not configure <code>vfio-pci</code> passthrough for adapters in OSA mode.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>To use <code>vfio-pci</code> for PCI passthrough of RoCE virtual function devices, you must prevent the <code>mlx5_core</code> kernel driver from binding to the device. Because <code>mlx5_core</code> is included in the initramfs image and loads before the root filesystem is mounted, you must add the driver to a blocklist by using both a <code>modprobe.d</code> configuration file and a kernel boot argument. You then bind the device to <code>vfio-pci</code> by using a second <code>MachineConfig</code>.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed OpenShift Container Platform 4.21 or later.</p>
+</li>
+<li>
+<p>You have installed the OpenShift Virtualization Operator.</p>
+</li>
+<li>
+<p>You have cluster administrator permissions.</p>
+</li>
+<li>
+<p>You have installed the Butane tool for generating Ignition-compatible <code>MachineConfig</code> manifests.</p>
+</li>
+<li>
+<p>The Network Express adapter is configured in RoCE mode through the HMC.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>On each node, identify the RoCE virtual function PCI address and vendor ID by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci | <span class="nb">grep</span> <span class="nt">-i</span> mellanox</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">0000:00:00.0 Ethernet controller: Mellanox Technologies ConnectX Family mlx5Gen Virtual Function [15b3:101e]</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Record the combined PCI vendor and device ID <code>15b3:101e</code>. This value is used in the <code>vfio-pci</code> and <code>HyperConverged</code> configuration.</p>
+</div>
+</li>
+<li>
+<p>Create a Butane configuration file named <code>machine-config-roce.bu</code> to add the <code>mlx5_core</code> driver to the blocklist:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">variant</span><span class="pi">:</span> <span class="s">openshift</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s">Branch Build.0</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">100-worker-blocklist-mlx5</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
+<span class="na">storage</span><span class="pi">:</span>
+  <span class="na">files</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/modprobe.d/blocklist-mlx5.conf</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="m">0644</span>
+      <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">contents</span><span class="pi">:</span>
+        <span class="na">inline</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">blocklist mlx5_core</span>
+<span class="na">openshift</span><span class="pi">:</span>
+  <span class="na">kernel_arguments</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">rd.driver.blacklist=mlx5_core</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>rd.driver.blacklist=mlx5_core</code> kernel argument is required in addition to the <code>modprobe.d</code> blocklist entry because <code>mlx5_core</code> is included in the initramfs image and loads before <code>/etc/modprobe.d/</code> is accessible. The kernel argument blocks the driver at the initramfs stage.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Convert the Butane file to a <code>MachineConfig</code> manifest by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>butane machine-config-roce.bu <span class="nt">--output</span> machine-config-roce.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>MachineConfig</code> to the cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> machine-config-roce.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Watch the <code>MachineConfig</code> rollout and wait for completion before proceeding:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get mcp master <span class="nt">-w</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a Butane configuration file named <code>machine-config-roce1.bu</code> to bind RoCE devices to <code>vfio-pci</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">variant</span><span class="pi">:</span> <span class="s">openshift</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s">Branch Build.0</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">100-worker-vfiopci</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
+<span class="na">storage</span><span class="pi">:</span>
+  <span class="na">files</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/modprobe.d/vfio.conf</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="m">0644</span>
+      <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">contents</span><span class="pi">:</span>
+        <span class="na">inline</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">options vfio-pci ids=15b3:101e</span>
+    <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/modules-load.d/vfio-pci.conf</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="m">0644</span>
+      <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">contents</span><span class="pi">:</span>
+        <span class="na">inline</span><span class="pi">:</span> <span class="s">vfio-pci</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Convert the Butane file to a <code>MachineConfig</code> manifest by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>butane machine-config-roce1.bu <span class="nt">--output</span> machine-config-roce1.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>MachineConfig</code> to the cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> machine-config-roce1.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Watch the <code>MachineConfig</code> rollout and wait for completion before proceeding:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get mcp master <span class="nt">-w</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit the <code>HyperConverged</code> custom resource to expose the RoCE device:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit hyperconverged kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Add the device under <code>spec.virtualization.permittedHostDevices</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">virtualization</span><span class="pi">:</span>
+    <span class="na">permittedHostDevices</span><span class="pi">:</span>
+      <span class="na">pciHostDevices</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">pciDeviceSelector</span><span class="pi">:</span> <span class="s2">"</span><span class="s">15b3:101e"</span>
+          <span class="na">resourceName</span><span class="pi">:</span> <span class="s">ibm.com/roce_vf</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add a <code>hostDevices</code> entry to the <code>VirtualMachine</code> manifest:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubevirt.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualMachine</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;vm_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">domain</span><span class="pi">:</span>
+        <span class="na">devices</span><span class="pi">:</span>
+          <span class="na">hostDevices</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">deviceName</span><span class="pi">:</span> <span class="s">ibm.com/roce_vf</span>
+              <span class="na">name</span><span class="pi">:</span> <span class="s">hostdevices1</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>VirtualMachine</code> manifest by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;vm_manifest&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify <code>vfio-pci</code> binding on the nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-nnk</span> | <span class="nb">grep</span> <span class="nt">-A</span> 3 <span class="s2">"15b3:101e"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">0000:00:00.0 Ethernet controller [0200]: Mellanox Technologies ConnectX Family mlx5Gen Virtual Function [15b3:101e]
+        Subsystem: Mellanox Technologies Device [15b3:0002]
+        Kernel driver in use: vfio-pci
+        Kernel modules: mlx5_core</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>Kernel driver in use: vfio-pci</code> line confirms that the device is bound to <code>vfio-pci</code> on the host.</p>
+</div>
+</li>
+<li>
+<p>Verify that the RoCE device is present inside the VM by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-nnk</span> | <span class="nb">grep</span> <span class="nt">-A</span> 3 <span class="s2">"15b3:101e"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">0001:00:00.0 Ethernet controller [0200]: Mellanox Technologies ConnectX Family mlx5Gen Virtual Function [15b3:101e]
+        Subsystem: Mellanox Technologies Device [15b3:0002]
+        Kernel driver in use: mlx5_core
+        Kernel modules: mlx5_core</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Inside the VM, the RoCE device is managed by the guest kernel&#8217;s own <code>mlx5_core</code> driver. The host uses <code>vfio-pci</code> to pass the device through. The guest uses its native driver to operate it.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="virt-configuring-pci-passthrough-ism-ibm-z_virt-configuring-pci-passthrough"><a class="anchor" href="#virt-configuring-pci-passthrough-ism-ibm-z_virt-configuring-pci-passthrough"></a>Configure PCI passthrough for IBM ISM virtual PCI devices on IBM Z</h3>
+<div class="paragraph _abstract">
+<p>On IBM Z&#174; and IBM&#174; LinuxONE, IBM&#174; Internal Shared Memory (ISM) devices are exposed as virtual PCI devices. You can configure PCI passthrough for ISM devices by binding the device to the <code>vfio-pci</code> driver by using a single <code>MachineConfig</code>.</p>
+</div>
+<div class="paragraph">
+<p>Unlike RoCE passthrough, which requires two separate <code>MachineConfig</code> objects to blocklist <code>mlx5_core</code> and bind <code>vfio-pci</code>, ISM passthrough requires only a single <code>MachineConfig</code>. The <code>ism</code> kernel module does not load during initramfs, so a <code>softdep</code> directive combined with kernel boot arguments is enough to ensure <code>vfio-pci</code> claims the device before <code>ism</code>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>softdep</code> directive ensures <code>vfio-pci</code> loads before the <code>ism</code> module without completely blocking <code>ism</code> from the host. The <code>ism</code> module remains available in the kernel but does not own the ISM device.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed OpenShift Container Platform 4.21 or later.</p>
+</li>
+<li>
+<p>You have installed the OpenShift Virtualization Operator.</p>
+</li>
+<li>
+<p>You have cluster administrator permissions.</p>
+</li>
+<li>
+<p>You have installed the Butane tool for generating Ignition-compatible <code>MachineConfig</code> manifests.</p>
+</li>
+<li>
+<p>The ISM virtual PCI device is present and visible on the PCI bus of the target nodes.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>On each node, confirm the ISM device is displayed as a PCI device by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci | <span class="nb">grep</span> <span class="nt">-i</span> ism</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">0004:00:00.0 Non-VGA unclassified device: IBM Internal Shared Memory (ISM) virtual PCI device</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Retrieve the PCI vendor and device ID by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-n</span> <span class="nt">-s</span> 0004:00:00.0</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">0004:00:00.0 0000: 1014:04ed</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Record the combined PCI vendor and device ID <code>1014:04ed</code>. This value is used in the <code>vfio-pci</code> and <code>HyperConverged</code> configuration.</p>
+</div>
+</li>
+<li>
+<p>Create a Butane configuration file named <code>100-master-vfio-ism.bu</code> to bind the ISM device to <code>vfio-pci</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">variant</span><span class="pi">:</span> <span class="s">openshift</span>
+<span class="na">version</span><span class="pi">:</span> <span class="s">Branch Build.0</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">100-master-vfio-ism</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">master</span>
+<span class="na">storage</span><span class="pi">:</span>
+  <span class="na">files</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">path</span><span class="pi">:</span> <span class="s">/etc/modprobe.d/vfio-ism.conf</span>
+      <span class="na">mode</span><span class="pi">:</span> <span class="m">0644</span>
+      <span class="na">overwrite</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">contents</span><span class="pi">:</span>
+        <span class="na">inline</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">softdep ism pre: vfio-pci</span>
+          <span class="s">options vfio-pci ids=1014:04ed</span>
+<span class="na">openshift</span><span class="pi">:</span>
+  <span class="na">kernel_arguments</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">rd.driver.pre=vfio-pci</span>
+    <span class="pi">-</span> <span class="s">vfio-pci.ids=1014:04ed</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>storage.files[].contents.inline softdep ism pre: vfio-pci</code></dt>
+<dd>
+<p>Specifies that <code>vfio-pci</code> must load before the <code>ism</code> module. The <code>ism</code> module remains available on the host but does not own the device.</p>
+</dd>
+<dt class="hdlist1"><code>storage.files[].contents.inline options vfio-pci ids=1014:04ed</code></dt>
+<dd>
+<p>Specifies that <code>vfio-pci</code> claims devices with this PCI vendor and device ID.</p>
+</dd>
+<dt class="hdlist1"><code>openshift.kernel_arguments rd.driver.pre=vfio-pci</code></dt>
+<dd>
+<p>Specifies that <code>vfio-pci</code> loads during initramfs before any other driver.</p>
+</dd>
+<dt class="hdlist1"><code>openshift.kernel_arguments vfio-pci.ids=1014:04ed</code></dt>
+<dd>
+<p>Specifies the PCI device ID passed directly to <code>vfio-pci</code> at boot time.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Convert the Butane file to a <code>MachineConfig</code> manifest by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>butane 100-master-vfio-ism.bu <span class="nt">-o</span> 100-master-vfio-ism.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>MachineConfig</code> to the cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> 100-master-vfio-ism.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Watch the <code>MachineConfig</code> rollout and wait for completion before proceeding:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get mcp master <span class="nt">-w</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output when complete</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME     CONFIG                                             UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT   DEGRADEDMACHINECOUNT   AGE
+master   rendered-master-3fb080e65525e49079d4b34e122fb64c   True      False      False      3              3                   3                     0                      27d</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Confirm the ISM device resource is visible and allocatable on the nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe nodes | <span class="nb">grep </span>ibm.com/ism</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">  ibm.com/ism:    1
+  ibm.com/ism:    1</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit the <code>HyperConverged</code> custom resource to expose the ISM device by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit hyperconverged kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Add the ISM device under <code>spec.virtualization.permittedHostDevices</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">virtualization</span><span class="pi">:</span>
+    <span class="na">permittedHostDevices</span><span class="pi">:</span>
+      <span class="na">pciHostDevices</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">pciDeviceSelector</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1014:04ed"</span>
+          <span class="na">resourceName</span><span class="pi">:</span> <span class="s">ibm.com/ism</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify the HyperConverged Operator accepted the configuration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hyperconverged kubevirt-hyperconverged <span class="se">\</span>
+  <span class="nt">-n</span> openshift-cnv <span class="nt">-o</span> json | jq <span class="s1">'.spec.virtualization.permittedHostDevices'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
+  "pciHostDevices": [
+    {
+      "pciDeviceSelector": "1014:04ed",
+      "resourceName": "ibm.com/ism"
+    }
+  ]
+}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add the ISM device to a <code>VirtualMachine</code> manifest:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubevirt.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualMachine</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;vm_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">running</span><span class="pi">:</span> <span class="no">true</span>
+  <span class="na">template</span><span class="pi">:</span>
+    <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">domain</span><span class="pi">:</span>
+        <span class="na">devices</span><span class="pi">:</span>
+          <span class="na">hostDevices</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">deviceName</span><span class="pi">:</span> <span class="s">ibm.com/ism</span>
+              <span class="na">name</span><span class="pi">:</span> <span class="s">ism-device</span>
+        <span class="na">resources</span><span class="pi">:</span>
+          <span class="na">requests</span><span class="pi">:</span>
+            <span class="na">memory</span><span class="pi">:</span> <span class="s">1Gi</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the <code>VirtualMachine</code> manifest by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;vm_manifest&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify <code>vfio-pci</code> binding on all control plane nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="k">for </span>node <span class="k">in</span> <span class="si">$(</span>oc get nodes <span class="nt">-l</span> node-role.kubernetes.io/master <span class="nt">-o</span> name<span class="si">)</span><span class="p">;</span> <span class="k">do</span>
+<span class="gp">  echo "=== $</span>node <span class="o">===</span><span class="s2">"
+</span><span class="gp">  oc debug $</span><span class="s2">node -- chroot /host bash -c </span><span class="se">\</span><span class="s2">
+    "</span>lspci <span class="nt">-nnk</span> | <span class="nb">grep</span> <span class="nt">-A2</span> <span class="s1">'ISM\|1014:04ed'</span><span class="s2">" 2&gt;/dev/null
+</span><span class="go">done</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">=== node/master-0 ===
+0000:00:00.0 Non-VGA unclassified device [0000]: IBM Internal Shared Memory (ISM) virtual PCI device [1014:04ed]
+        Kernel driver in use: vfio-pci
+        Kernel modules: ism
+=== node/master-1 ===
+0000:00:00.0 Non-VGA unclassified device [0000]: IBM Internal Shared Memory (ISM) virtual PCI device [1014:04ed]
+        Kernel driver in use: vfio-pci
+        Kernel modules: ism
+=== node/master-2 ===
+0000:00:00.0 Non-VGA unclassified device [0000]: IBM Internal Shared Memory (ISM) virtual PCI device [1014:04ed]
+        Kernel driver in use: vfio-pci
+        Kernel modules: ism</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>Kernel modules: ism</code> indicates the <code>ism</code> module is available in the kernel but is not actively managing the device. <code>vfio-pci</code> owns the device.</p>
+</div>
+</li>
+<li>
+<p>Verify the ISM device is present inside the VM by connecting to the VM console and running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lspci <span class="nt">-nnk</span> | <span class="nb">grep</span> <span class="nt">-i</span> ism</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">0001:00:00.0 Non-VGA unclassified device: IBM Internal Shared Memory (ISM) virtual PCI device</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output confirms PCI passthrough. The guest binds the <code>ism</code> driver only if the guest image includes that module.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
 <div class="sect1 _additional-resources">
 <h2 id="additional-resources_configuring-pci-passthrough"><a class="anchor" href="#additional-resources_configuring-pci-passthrough"></a>Additional resources</h2>
 <div class="sectionbody">
@@ -4324,6 +4921,9 @@ Allocatable:
 </li>
 <li>
 <p><a href="https://www.ibm.com/docs/en/systems-hardware/linuxone/9175-ML1?topic=library-spyre-accelerator-users-guide">IBM&#174; Spyre Accelerator User&#8217;s Guide</a></p>
+</li>
+<li>
+<p><a href="https://www.ibm.com/docs/en/linux-on-systems?topic=networking-pci-network-adapters">Network adapters as of IBM&#174; z17 and IBM&#174; LinuxONE 5</a></p>
 </li>
 </ul>
 </div>

@@ -1103,6 +1103,7 @@
 <li><a href="#hostpathprovisioner-object-node-placement-rules_virt-node-placement-virt-components">HostPathProvisioner object node placement rule example</a></li>
 </ul>
 </li>
+<li><a href="#virt-configuring-node-placement-ibm-z_virt-node-placement-virt-components">Configure VM node placement on IBM Z mixed-node clusters</a></li>
 <li><a href="#additional-resources_virt-node-placement-virt-components">Additional resources</a></li>
 </ul>
 </div>
@@ -1357,6 +1358,194 @@
 <div class="paragraph">
 <p>Workloads are placed on nodes labeled <code>example.io/example-workloads-key = example-workloads-value</code>.</p>
 </div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-configuring-node-placement-ibm-z_virt-node-placement-virt-components"><a class="anchor" href="#virt-configuring-node-placement-ibm-z_virt-node-placement-virt-components"></a>Configure VM node placement on IBM Z mixed-node clusters</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>On IBM Z&#174; (<code>s390x</code>) clusters, OpenShift Virtualization only supports VMs on bare metal LPAR nodes. Without a <code>nodeSelector</code> rule, the scheduler can place VM workloads on incompatible z/VM or KVM guest nodes, causing VM pods to enter a crash loop.</p>
+</div>
+<div class="paragraph">
+<p>By patching the <code>HyperConverged</code> custom resource (CR), you can restrict both OpenShift Virtualization infrastructure components and VM workloads to bare metal LPAR nodes in a single declarative configuration. The Node Feature Discovery (NFD) Operator automatically labels bare metal LPAR nodes with <code>feature.node.kubernetes.io/cpu-model.hypervisor: PR_SM</code> by reading <code>/proc/cpuinfo</code> at node boot. You can use this label as a reliable discriminator for LPAR-only placement.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Your cluster has bare metal LPAR compute nodes on IBM Z&#174; or IBM&#174; LinuxONE hardware.</p>
+</li>
+<li>
+<p>You have installed the Node Feature Discovery (NFD) Operator and an active <code>NodeFeatureDiscovery</code> instance is running.</p>
+</li>
+<li>
+<p>You have installed OpenShift Virtualization.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You are logged in with cluster administrator permissions.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Verify that the NFD Operator has labeled the LPAR nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">-L</span> feature.node.kubernetes.io/cpu-model.hypervisor</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">worker-lpar                PR_SM
+worker-zvm                 z_VM_7.4.0
+worker-kvm                 KVM_Linux</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Nodes labeled <code>PR_SM</code> are valid VM targets. Nodes labeled <code>KVM_Linux</code> or <code>z_VM_7.4.0</code> are not supported VM targets.</p>
+</div>
+</li>
+<li>
+<p>Patch the <code>HyperConverged</code> CR to restrict OpenShift Virtualization infrastructure components and VM workloads to <code>PR_SM</code> nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hyperconverged kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'
+</span><span class="go">spec:
+  infra:
+    nodePlacement:
+      nodeSelector:
+        feature.node.kubernetes.io/cpu-model.hypervisor: "PR_SM"
+  workloads:
+    nodePlacement:
+      nodeSelector:
+        feature.node.kubernetes.io/cpu-model.hypervisor: "PR_SM"
+'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.infra.nodePlacement</code></dt>
+<dd>
+<p>Specifies the node placement for OpenShift Virtualization infrastructure components, including <code>virt-handler</code>. Setting this field prevents <code>virt-handler</code> rollout failures on non-LPAR worker nodes.</p>
+</dd>
+<dt class="hdlist1"><code>spec.workloads.nodePlacement</code></dt>
+<dd>
+<p>Specifies the default scheduling placement for all VM pods (<code>virt-launcher</code>) across the cluster, ensuring that VMs start only on <code>PR_SM</code> LPAR nodes without requiring per-VM <code>nodeSelector</code> definitions.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In environments where <code>spec.infra.nodePlacement</code> does not fully prevent <code>virt-handler</code> scheduling on non-LPAR nodes, you can protect those nodes by applying a taint.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm taint nodes <em>&lt;non_lpar_node&gt;</em> kubevirt.io/no-virt<span class="o">=</span><span class="nb">true</span>:NoSchedule</code></pre>
+</div>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that <code>virt-handler</code> pods are running only on <code>PR_SM</code> LPAR nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-cnv <span class="nt">-l</span> kubevirt.io<span class="o">=</span>virt-handler <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Confirm that no <code>virt-handler</code> pods are running on nodes labeled <code>KVM_Linux</code> or <code>z_VM_7.4.0</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify that the HyperConverged Operator is healthy by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hyperconverged kubevirt-hyperconverged <span class="nt">-n</span> openshift-cnv</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output must show <code>Available: True</code> and <code>Degraded: False</code>.</p>
+</div>
+</li>
+<li>
+<p>Optional: Deploy a test VM without a <code>nodeSelector</code> to confirm cluster-wide placement by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> - <span class="o">&lt;&lt;</span><span class="no">EOF</span><span class="sh">
+</span><span class="go">apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: test-vm-placement
+  namespace: default
+spec:
+  runStrategy: Always
+  template:
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+        resources:
+          requests:
+            memory: 512Mi
+      volumes:
+      - containerDisk:
+          image: quay.io/kubevirt/cirros-container-disk-demo:latest
+        name: containerdisk
+EOF</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the test VM runs on a <code>PR_SM</code> LPAR node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">NODE</span><span class="o">=</span><span class="si">$(</span>oc get pod <span class="nt">-n</span> default <span class="nt">-l</span> vm.kubevirt.io/name<span class="o">=</span>test-vm-placement <span class="se">\</span>
+    <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].spec.nodeName}'</span><span class="si">)</span> <span class="o">&amp;&amp;</span> <span class="se">\</span>
+  <span class="nb">echo</span> <span class="s2">"Scheduled node: </span><span class="nv">$NODE</span><span class="s2">"</span> <span class="o">&amp;&amp;</span> <span class="se">\</span>
+  oc get node <span class="s2">"</span><span class="nv">$NODE</span><span class="s2">"</span> <span class="nt">-L</span> feature.node.kubernetes.io/cpu-model.hypervisor</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The node must report <code>PR_SM</code> in the <code>CPU-MODEL.HYPERVISOR</code> column.</p>
+</div>
+</li>
+<li>
+<p>Delete the test VM by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete vm test-vm-placement <span class="nt">-n</span> default</code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
