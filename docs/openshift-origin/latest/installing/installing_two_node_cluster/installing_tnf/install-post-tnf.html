@@ -2872,6 +2872,9 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#fencing-credential-management_install-post-tnf">Fencing credential management</a></li>
+<li><a href="#updating-fencing-credentials-script_install-post-tnf">Update fencing credentials by using the script</a></li>
+<li><a href="#troubleshooting-fencing-credential-updates_install-post-tnf">Troubleshooting fencing credential updates</a></li>
 <li><a href="#installation-manual-recovering-when-auto-recovery-is-unavail_install-post-tnf">Manually recovering from a disruption event when automated recovery is unavailable</a></li>
 <li><a href="#installation-replacing-control-plane-nodes_install-post-tnf">Replacing control plane nodes in a two-node OpenShift cluster with fencing</a></li>
 <li><a href="#installation-verifying-etcd-health_install-post-tnf">Verifying etcd health in a two-node OpenShift cluster with fencing</a></li>
@@ -2890,6 +2893,222 @@
 <div class="paragraph _abstract">
 <p>You can troubleshoot and restore  a two-node OKD cluster with fencing (TNF) after a disruption event. Manually recover services when automated recovery is unavailable, replace degraded control plane nodes, and use the <code>fencing_validator</code> script to verify cluster health.</p>
 </div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="fencing-credential-management_install-post-tnf"><a class="anchor" href="#fencing-credential-management_install-post-tnf"></a>Fencing credential management</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You must provide Baseboard Management Controller (BMC) connection details for each control plane node in a two-node OKD cluster with fencing. Pacemaker stores the Redfish API endpoint, username, and password information in the fencing configuration.</p>
+</div>
+<div class="paragraph">
+<p>When a node becomes unresponsive and fails its health checks, Pacemaker connects to the BMC of a node by using the stored credentials to power off or isolate the node.
+This isolation prevents the unresponsive node from continuing to serve requests while the remaining node manages the cluster.</p>
+</div>
+<div class="paragraph">
+<p>In earlier versions of OKD, Pacemaker identified fencing credentials by hostname. When a hostname was changed after initial cluster installation through DNS reconfiguration or system renaming, the fencing mechanism could not locate the correct credentials.
+Because of this, Pacemaker could not access the BMC for that node, and if the node became unresponsive, Pacemaker could not fence it, risking data corruption and cluster unavailability.</p>
+</div>
+<div class="paragraph">
+<p>Additionally, updating credentials across the cluster required manual configuration changes that were complex and error-prone.
+You had to manually verify and reconfigure credentials, leaving room for inconsistencies.</p>
+</div>
+<div class="paragraph">
+<p>The credential identification system now handles this automatically.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="updating-fencing-credentials-script_install-post-tnf"><a class="anchor" href="#updating-fencing-credentials-script_install-post-tnf"></a>Update fencing credentials by using the script</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can use the credential update script to simplify updating Baseboard Management Controller (BMC) credentials for fencing in a two-node OKD cluster.
+The script handles credential updates automatically, eliminating error-prone manual configuration.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have administrative access to the control plane nodes.</p>
+</li>
+<li>
+<p>You have necessary permissions to run the credential update script.</p>
+</li>
+<li>
+<p>You have the new BMC credentials for the fencing devices, including the Redfish API endpoint, username, and password.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Log in to a control plane node with SSH by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ssh core@&lt;control_plane_node_ip&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;control_plane_node_ip&gt;</code> with the IP address of your control plane node.</p>
+</div>
+</li>
+<li>
+<p>Run the credential update script on the control plane node by using the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>./etc/kubernetes/static-pod-resources/etcd-certs/configmaps/etcd-scripts/update-fencing-credentials.sh</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter your new BMC credentials for each prompt and proceed to the next node when directed.</p>
+<div class="paragraph">
+<p>The script prompts you to enter the Redfish API endpoint, BMC username, and BMC password for each node.</p>
+</div>
+</li>
+<li>
+<p>Check the script output to confirm successful completion:</p>
+<div class="paragraph">
+<p>The script displays a completion message and reports any errors that occurred during the update process.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Check that the credential update script completed without errors in its output.</p>
+</li>
+<li>
+<p>Check that all Pacemaker resources are in a <code>Started</code> state with no authentication errors:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>pcs status</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check that the <code>openshift-etcd</code> secret exists and has a recent timestamp:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secret <span class="nt">-n</span> openshift-etcd</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Troubleshooting</div>
+<ol class="arabic">
+<li>
+<p>Check the script output for specific error messages related to credential format or BMC connectivity.</p>
+</li>
+<li>
+<p>Verify that the new BMC credentials are correct and that the Redfish API endpoint is reachable from the control plane nodes.</p>
+</li>
+<li>
+<p>Contact your infrastructure team or Red Hat support for assistance if the script fails repeatedly.</p>
+</li>
+<li>
+<p>Provide the script output and any relevant Pacemaker logs that are available by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>journalctl <span class="nt">-u</span> pacemaker</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Next steps</div>
+<ul>
+<li>
+<p>Monitor the cluster for several hours to confirm that Pacemaker can successfully authenticate with the BMC using the new credentials.</p>
+</li>
+<li>
+<p>If a node becomes unresponsive and requires fencing, verify that Pacemaker can power off or isolate the node without credential-related errors.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="troubleshooting-fencing-credential-updates_install-post-tnf"><a class="anchor" href="#troubleshooting-fencing-credential-updates_install-post-tnf"></a>Troubleshooting fencing credential updates</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>When updating Baseboard Management Controller (BMC) credentials for fencing in a two-node OKD cluster, issues can occur during credential updates, validation, or Pacemaker synchronization.</p>
+</div>
+<div class="paragraph">
+<p>This reference describes common error messages, diagnostic procedures, and recovery steps to resolve credential-related failures.</p>
+</div>
+<div class="paragraph">
+<p>The following table describes common error messages and their causes when updating fencing credentials:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. common error messages</caption>
+<colgroup>
+<col style="width: 28.5714%;">
+<col style="width: 42.8571%;">
+<col style="width: 28.5715%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Error Message</th>
+<th class="tableblock halign-left valign-top">Cause</th>
+<th class="tableblock halign-left valign-top">Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Authentication failed connecting to BMC</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Wrong Redfish API endpoint, username, or password.
+The BMC credentials do not match the actual BMC configuration.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check that credentials are correct.
+Verify BMC connection settings and that the Redfish endpoint is reachable.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Connection timeout to BMC at &lt;endpoint&gt;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Redfish API endpoint is not reachable or the network is down.
+The BMC is not responding within the expected timeout.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check the endpoint is correct and reachable.
+Verify network connectivity from the control plane nodes.
+Confirm the BMC is on and responding.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Script execution failed with code &lt;exit_code&gt;</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The credential update script hit an error or stopped before completion.
+This can occur if you interrupted the script or the Kubernetes cluster is down.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check script output for specific error messages.
+Ensure the cluster is running and healthy.
+Check Pacemaker logs with <code>journalctl -u pacemaker</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Secret update failed: openshift-etcd secret not found</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Kubernetes secret for credentials does not exist.
+You deleted it, or the cluster API is down.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verify the <code>openshift-etcd</code> namespace exists with <code>oc get ns openshift-etcd</code>.
+Check cluster connectivity and API availability.
+Check Pacemaker credentials with <code>sudo pcs resource status</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Invalid credential format: expected Redfish endpoint URL</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Redfish API endpoint is not a valid URL.
+Common issues: missing protocol (<code>http://</code> or <code>https://</code>), wrong IP or hostname, or port issues.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check the Redfish endpoint follows this format: <code><a href="https://&lt;bmc_ip_or_hostname&gt;/redfish/v1/" class="bare">https://&lt;bmc_ip_or_hostname&gt;/redfish/v1/</a></code>.
+Verify the endpoint has the correct protocol, hostname or IP, and port.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>BMC username or password contains unsupported characters</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Special characters in credentials are not properly escaped or encoded.
+Quotes, backslashes, or pipes can break script processing.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check credentials for special characters.
+Escape special characters or create new credentials without these characters.
+Contact your BMC administrator or Red Hat support if you must use special characters.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="sect1">
@@ -2965,7 +3184,7 @@
 <p>The secret contains the following data keys:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 1. Data keys</caption>
+<caption class="title">Table 2. Data keys</caption>
 <colgroup>
 <col style="width: 25%;">
 <col style="width: 25%;">
