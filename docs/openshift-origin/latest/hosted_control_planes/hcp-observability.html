@@ -2887,19 +2887,20 @@
 <li><a href="#hcp-customize-dashboards_hcp-observability">Dashboard customization</a></li>
 </ul>
 </li>
-<li><a href="#hcp-cp-metrics-overview_hcp-observability">Control plane metrics for hosted control planes</a>
-<ul class="sectlevel2">
-<li><a href="#hcp-cp-metrics-architecture_hcp-observability">Metrics forwarding architecture</a></li>
-<li><a href="#hcp-cp-metrics-enable_hcp-observability">Enabling metrics forwarding</a></li>
-<li><a href="#hcp-cp-query-metrics_hcp-observability">Querying control plane metrics in hosted clusters by using the CLI</a></li>
-<li><a href="#hcp-cp-query-metrics-console_hcp-observability">Querying control plane metrics in hosted clusters by using the web console</a></li>
-<li><a href="#hcp-cp-metrics-dashboards_hcp-observability">Importing control plane health dashboards</a></li>
-</ul>
-</li>
 <li><a href="#hcp-connectivity-metrics_hcp-observability">Connectivity monitoring for hosted control planes</a>
 <ul class="sectlevel2">
 <li><a href="#hcp-connect-data-plane_hcp-observability">Connectivity monitoring from the control plane to the data plane</a></li>
 <li><a href="#hcp-connect-control-plane_hcp-observability">Connectivity monitoring from the data plane to the control plane</a></li>
+</ul>
+</li>
+<li><a href="#hcp-cp-metrics-overview_hcp-observability">Control plane metrics for hosted control planes</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-cp-metrics-architecture_hcp-observability">Metrics forwarding architecture</a></li>
+<li><a href="#hcp-cp-metrics-forwarding-configure_hcp-observability">Enabling metrics forwarding</a></li>
+<li><a href="#hcp-cp-metrics-forwarding-migrate_hcp-observability">Migrating from annotation-based to API-based metrics forwarding</a></li>
+<li><a href="#hcp-cp-query-metrics_hcp-observability">Querying control plane metrics in hosted clusters by using the CLI</a></li>
+<li><a href="#hcp-cp-query-metrics-console_hcp-observability">Querying control plane metrics in hosted clusters by using the web console</a></li>
+<li><a href="#hcp-cp-metrics-dashboards_hcp-observability">Importing control plane health dashboards</a></li>
 </ul>
 </li>
 </ul>
@@ -3300,25 +3301,210 @@ cvo:
 </div>
 </div>
 <div class="sect1">
+<h2 id="hcp-connectivity-metrics_hcp-observability"><a class="anchor" href="#hcp-connectivity-metrics_hcp-observability"></a>Connectivity monitoring for hosted control planes</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Cluster service providers can monitor connectivity metrics to ensure proper function during an update. They can also use the metrics to find connectivity issues between the control plane and the data plane, or vice versa.</p>
+</div>
+<div class="paragraph">
+<p>Studying these metrics over time can inform decisions about capacity planning and scaling.</p>
+</div>
+<div class="sect2">
+<h3 id="hcp-connect-data-plane_hcp-observability"><a class="anchor" href="#hcp-connect-data-plane_hcp-observability"></a>Connectivity monitoring from the control plane to the data plane</h3>
+<div class="paragraph _abstract">
+<p>Cluster administrators can monitor network activity between a hosted control plane and the compute nodes in a data plane by using the <code>DataPlaneConnectionAvailable</code> condition. This condition is useful for identifying and troubleshooting network connectivity issues in hosted clusters.</p>
+</div>
+<div class="paragraph">
+<p>The <code>DataPlaneConnectionAvailable</code> condition is available by default starting with version 4.21.</p>
+</div>
+<div class="paragraph">
+<p>The <code>DataPlaneConnectionAvailable</code> condition monitors the connectivity from the control plane to the data plane by taking the following steps:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Counts available compute nodes in the hosted cluster.</p>
+</li>
+<li>
+<p>Lists the <code>konnectivity-agent</code> pods that are running in the <code>kube-system</code> namespace on the data plane.</p>
+</li>
+<li>
+<p>Reads the logs from the running <code>konnectivity-agent</code> pod to verify that it can communicate with the data plane.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>The <code>hosted-cluster-config-operator</code> component that runs in the control plane namespace evaluates the condition and provides status and reason information.</p>
+</div>
+<div class="paragraph">
+<p>The following table details the status and reason values that can be displayed for the condition:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Status</th>
+<th class="tableblock halign-left valign-top">Reason value</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>True</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AsExpected</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The control plane can reach the data plane nodes through the <code>konnectivity-agent</code> pods.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>False</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>KonnectivityAgentPodsNotFound</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No <code>konnectivity-agent</code> pods are running, or none are found.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>False</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReconciliationError</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">An error occurred while listing the <code>konnectivity-agent</code> pods.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>NoWorkerNodesAvailable</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No compute nodes are available in the cluster. No errors occurred, but no compute nodes were found.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReconcileError</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unable to count compute nodes because an error occurred.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>For information about how to troubleshoot connectivity issues, see "Troubleshooting connectivity for hosted control planes".</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../hosted_control_planes/hcp-troubleshooting.html#hcp-ts-connectivity_hcp-troubleshooting">Troubleshooting connectivity for hosted control planes</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-connect-control-plane_hcp-observability"><a class="anchor" href="#hcp-connect-control-plane_hcp-observability"></a>Connectivity monitoring from the data plane to the control plane</h3>
+<div class="paragraph _abstract">
+<p>Cluster administrators can monitor network activity between the compute nodes in a data plane and a hosted control plane by using the <code>ControlPlaneConnectionAvailable</code> condition. This condition is useful for identifying and troubleshooting network connectivity issues in hosted clusters.</p>
+</div>
+<div class="paragraph">
+<p>The <code>ControlPlaneConnectionAvailable</code> condition detects whether data plane nodes can reach control plane components. The <code>hosted-cluster-config-operator</code> component evaluates the condition, and a deployment with 3 replicas checks connectivity.</p>
+</div>
+<div class="paragraph">
+<p>The condition monitors the connectivity between the data plane and the control plane by taking the following steps:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Deploys a <code>kas-connection-checker</code> deployment to the <code>kube-system</code> namespace on the data plane.</p>
+</li>
+<li>
+<p>Each pod runs a shell script in an infinite loop that transfers data to and from the Kubernetes API server endpoint every 60 seconds. On success, the script patches the <code>control-plane-connectivity-check</code> config map with a <code>lastSucceeded</code> timestamp.</p>
+</li>
+<li>
+<p>The <code>hosted-cluster-config-operator</code> component checks whether the <code>control-plane-connectivity-check</code> config map exists and whether the <code>lastSucceeded</code> timestamp is within the last 5 minutes. It does not check pod readiness counts.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>The following table details the status and reason values that can be displayed for the condition:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Status</th>
+<th class="tableblock halign-left valign-top">Reason value</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>True</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AsExpected</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">All data plane nodes can reach the control plane (<code>NumberReady = DesiredNumberScheduled</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>False</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>KASAccessFailed</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">At least one data plane node cannot reach the control plane. The message shows the ratio of pods that are ready; for example, <code>1/3 pods ready</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>NoWorkerNodesAvailable</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No compute nodes are available to check connectivity (<code>DesiredNumberScheduled = 0</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>StatusUnknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Kubernetes API server connection checker DaemonSet was not found.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReconcileError</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">An API error blocked the retrieval of the DaemonSet status.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This condition has a known limitation with HTTPS proxy environments. In HTTPS proxy environments, the condition might incorrectly report <code>False</code> because of probe limitations.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="hcp-cp-metrics-overview_hcp-observability"><a class="anchor" href="#hcp-cp-metrics-overview_hcp-observability"></a>Control plane metrics for hosted control planes</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
 <p>You can observe hosted control plane health from the hosted cluster monitoring stack when metrics forwarding is enabled.</p>
 </div>
 <div class="paragraph">
-<p>With propagated metrics, you can diagnose API server, etcd, Operator, and scheduling issues from the hosted cluster web console and CLI without management cluster credentials.</p>
-</div>
-<div class="paragraph">
-<p>This capability is available in OKD 4.22 and later.</p>
-</div>
-<div class="paragraph">
-<p>Before OKD 4.22, control plane components for hosted control planes ran on the management cluster and were invisible to the Cluster Monitoring Operator stack in the hosted cluster. Hosted cluster administrators could not query metrics such as <code>apiserver_request_total</code>, <code>etcd_mvcc_db_total_size_in_bytes</code>, or <code>csv_succeeded</code> from the hosted cluster Prometheus.</p>
-</div>
-<div class="paragraph">
-<p>With metrics forwarding, selected control plane metrics are propagated from the management cluster into the hosted cluster platform Prometheus.</p>
+<p>With propagated metrics, you can diagnose API server, etcd, Operator, and scheduling issues from the hosted cluster web console and CLI without management cluster credentials. Selected control plane metrics are propagated from the management cluster into the hosted cluster platform Prometheus.</p>
 </div>
 <div class="paragraph">
 <p>After you enable forwarding on the <code>HostedCluster</code> resource, you can use familiar PromQL queries, alerts, and dashboards.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For OKD 4.22.7 and earlier, the <code>hypershift.openshift.io/enable-metrics-forwarding</code> annotation was the mechanism for enabling metrics forwarding. As of OKD 4.22.8, this annotation is deprecated. When the <code>spec.monitoring.metricsForwarding</code> field is set on a <code>HostedCluster</code> object, the spec field takes precedence over the annotation. The annotation continues to be honored for clusters that have not yet set the <code>spec.monitoring</code> field.</p>
+</div>
+<div class="paragraph">
+<p>For information about migrating from the annotation to the new API, see "Migrating from annotation-based to API-based metrics forwarding".</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="sect2">
 <h3 id="hcp-cp-metrics-architecture_hcp-observability"><a class="anchor" href="#hcp-cp-metrics-architecture_hcp-observability"></a>Metrics forwarding architecture</h3>
@@ -3369,36 +3555,40 @@ cvo:
 </div>
 </div>
 <div class="sect2">
-<h3 id="hcp-cp-metrics-enable_hcp-observability"><a class="anchor" href="#hcp-cp-metrics-enable_hcp-observability"></a>Enabling metrics forwarding</h3>
+<h3 id="hcp-cp-metrics-forwarding-configure_hcp-observability"><a class="anchor" href="#hcp-cp-metrics-forwarding-configure_hcp-observability"></a>Enabling metrics forwarding</h3>
 <div class="paragraph _abstract">
-<p>Enable metrics forwarding so that you can observe hosted control plane health from the hosted cluster monitoring stack.</p>
+<p>You can enable control plane metrics forwarding independently for each hosted cluster by setting the <code>spec.monitoring.metricsForwarding</code> field on the <code>HostedCluster</code> object.</p>
 </div>
 <div class="paragraph">
-<p>If you are a hosted cluster administrator without management cluster access, ask a platform administrator enable metrics forwarding on your <code>HostedCluster</code> resource.</p>
+<p>As a result, you can select different metrics sets for different hosted clusters on the same management cluster without changing the global HyperShift Operator configuration.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have a hosted cluster that is version 4.22 or later.</p>
+<p>You are running OKD 4.22.8 or later.</p>
 </li>
 <li>
-<p>You have the multicluster engine for Kubernetes Operator version 2.17 or later.</p>
+<p>You have a hosted cluster already provisioned.</p>
 </li>
 <li>
-<p>You are logged in to the management cluster. Alternatively, you can use a <code>kubeconfig</code> file with access to the namespace that contains the <code>HostedCluster</code> resource. The <code>HostedCluster</code> object exists on the management cluster; annotating it from a hosted cluster <code>kubeconfig</code> file fails or targets the wrong resource.</p>
+<p>You have cluster administrator access to the management cluster or a <code>kubeconfig</code> file with access to the namespace that contains the <code>HostedCluster</code> resource. The <code>HostedCluster</code> object exists on the management cluster.</p>
+</li>
+<li>
+<p>A remote write endpoint and certificates are already configured at the management cluster level for metrics ingestion.</p>
 </li>
 </ul>
 </div>
-<div class="ulist">
+<div class="olist arabic">
 <div class="title">Procedure</div>
-<ul>
+<ol class="arabic">
 <li>
-<p>Add the <code>hypershift.openshift.io/enable-metrics-forwarding=true</code> annotation to the <code>HostedCluster</code> resource on the management cluster by entering the following command:</p>
+<p>Enable metrics forwarding on the hosted cluster by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate hostedcluster <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; &lt;hosted_cluster_name&gt; <span class="se">\</span>
-  hypershift.openshift.io/enable-metrics-forwarding<span class="o">=</span><span class="nb">true</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hostedcluster <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span> merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"monitoring":{"metricsForwarding":{"mode":"Forward"}}}}'</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3406,13 +3596,247 @@ cvo:
 </div>
 </li>
 <li>
-<p>To disable metrics forwarding, remove the annotation by entering the following command:</p>
+<p>Optional: Specify the metrics set for this hosted cluster.</p>
+<div class="paragraph">
+<p>If you omit this step, the cluster inherits the global <code>METRICS_SET</code> environment variable from the HyperShift Operator deployment, which defaults to <code>Telemetry</code>.</p>
+</div>
+<div class="paragraph">
+<p>Set <code>spec.monitoring.metricsSet</code> to a cluster-level default by entering the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hostedcluster <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span> merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"monitoring":{"metricsSet":"&lt;metrics_set&gt;"}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;metrics_set&gt;</code> with one of the following values:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>Telemetry</code></dt>
+<dd>
+<p>The default. Forwards only the minimal set of metrics required for OpenShift Telemetry.</p>
+</dd>
+<dt class="hdlist1"><code>SRE</code></dt>
+<dd>
+<p>Forwards the Telemetry set plus additional metrics defined in the <code>sre-metric-set</code> <code>ConfigMap</code>. Required for SRE dashboards and alerts.</p>
+</dd>
+<dt class="hdlist1"><code>All</code></dt>
+<dd>
+<p>Forwards all metrics without filtering. Use for debugging. Produces significantly higher metrics volume.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: Set a forwarding-path override for the metrics set.</p>
+<div class="paragraph">
+<p>Use <code>spec.monitoring.metricsForwarding.metricsSet</code> when you need the forwarding path to use a different metrics set than the cluster default. This field takes precedence over <code>spec.monitoring.metricsSet</code> and the global <code>METRICS_SET</code> variable.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hostedcluster <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span> merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"monitoring":{"metricsForwarding":{"mode":"Forward","metricsSet":"&lt;metrics_set&gt;"}}}}'</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The patch includes <code>"mode":"Forward"</code> alongside <code>metricsSet</code> because <code>metricsForwarding</code> is a nested object in a JSON merge patch. If you set <code>spec.monitoring.metricsForwarding</code> for the first time without having already set <code>mode</code>, omitting <code>mode</code> from the patch leaves it as an empty string, which disables forwarding.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Confirm the <code>metrics-proxy</code> deployment is running in the hosted control plane namespace on the management cluster by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment metrics-proxy <span class="nt">-n</span> &lt;hcp_namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;hcp_namespace&gt;</code> with the hosted control plane namespace, which follows the format <code>&lt;hosted_cluster_namespace&gt;-&lt;hosted_cluster_name&gt;</code>, with any dots in the cluster name replaced by dashes. For example, if the <code>HostedCluster</code> is in the <code>clusters</code> namespace and named <code>my-cluster</code>, the hosted control plane namespace is <code>clusters-my-cluster</code>.</p>
+</div>
+<div class="paragraph">
+<p>The output shows <code>2/2</code> ready replicas.</p>
+</div>
+</li>
+<li>
+<p>Confirm the <code>control-plane-metrics-forwarder</code> deployment is running in the <code>openshift-monitoring</code> namespace on the hosted cluster by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment <span class="nt">-n</span> openshift-monitoring control-plane-metrics-forwarder <span class="se">\</span>
+  <span class="nt">--kubeconfig</span> &lt;hosted_cluster_kubeconfig&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>1/1</code> ready replicas.</p>
+</div>
+</li>
+<li>
+<p>Verify that platform Prometheus in the hosted cluster is scraping control plane metrics by querying a forwarded metric, such as <code>apiserver_request_total</code>, from the hosted cluster Prometheus endpoint.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the deprecated <code>hypershift.openshift.io/enable-metrics-forwarding</code> annotation is also set on the <code>HostedCluster</code> object, the <code>spec.monitoring.metricsForwarding</code> field takes precedence.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-cp-metrics-forwarding-migrate_hcp-observability"><a class="anchor" href="#hcp-cp-metrics-forwarding-migrate_hcp-observability"></a>Migrating from annotation-based to API-based metrics forwarding</h3>
+<div class="paragraph _abstract">
+<p>To preserve metrics forwarding continuity, you can migrate hosted clusters from the deprecated <code>hypershift.openshift.io/enable-metrics-forwarding</code> annotation to the <code>spec.monitoring.metricsForwarding</code> field on the <code>HostedCluster</code> API.</p>
+</div>
+<div class="paragraph">
+<p>The spec field takes precedence as soon as it is set, and the annotation remains in place until you remove it.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>One or more hosted clusters use the <code>hypershift.openshift.io/enable-metrics-forwarding: "true"</code> annotation.</p>
+</li>
+<li>
+<p>You have cluster administrator access to the management cluster.</p>
+</li>
+<li>
+<p>You are running OKD 4.22.8 or later.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Identify which hosted clusters have the annotation set by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hostedclusters <span class="nt">-A</span> <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.metadata.annotations.hypershift\.openshift\.io/enable-metrics-forwarding}{"\n"}{end}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output lists namespace, name, and annotation value for each hosted cluster. Clusters that show <code>true</code> in the third column require migration.</p>
+</div>
+</li>
+<li>
+<p>Determine the metrics set value to use for each cluster.</p>
+<div class="paragraph">
+<p>The annotation enables forwarding but does not specify a metrics set. The HyperShift Operator uses the global <code>METRICS_SET</code> environment variable as the source.</p>
+</div>
+<div class="paragraph">
+<p>Check the global <code>METRICS_SET</code> value by entering the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment <span class="nt">-n</span> hypershift operator <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.template.spec.containers[?(@.name=="operator")].env[?(@.name=="METRICS_SET")].value}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the command, <code>hypershift</code> is the namespace where the HyperShift Operator is typically installed, and <code>operator</code> is the standard deployment name. These values might differ in non-standard installations.</p>
+</div>
+<div class="paragraph">
+<p>Note the returned value. This value is the metrics set that the annotated clusters currently use. Map the value to the <code>MetricsSet</code> enum: <code>Telemetry</code>, <code>SRE</code>, or <code>All</code>.</p>
+</div>
+</li>
+<li>
+<p>For each cluster that requires migration, set <code>spec.monitoring.metricsForwarding</code> by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hostedcluster <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; &lt;hosted_cluster_name&gt; <span class="se">\</span>
+  <span class="nt">--type</span> merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"monitoring":{"metricsForwarding":{"mode":"Forward","metricsSet":"&lt;metrics_set&gt;"}}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;hosted_cluster_namespace&gt;</code> with the namespace of the hosted cluster, <code>&lt;hosted_cluster_name&gt;</code> with the name of the hosted cluster, and <code>&lt;metrics_set&gt;</code> with the value you identified in the previous step.</p>
+</div>
+<div class="paragraph">
+<p>As soon as the spec field is set, it takes precedence over the annotation. Metrics forwarding continues without interruption.</p>
+</div>
+</li>
+<li>
+<p>Verify that metrics forwarding remains active after the patch.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Confirm the <code>metrics-proxy</code> deployment in the hosted control plane namespace is healthy by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment metrics-proxy <span class="nt">-n</span> &lt;hcp_namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;hcp_namespace&gt;</code> with the hosted control plane namespace, which follows the format <code>&lt;hosted_cluster_namespace&gt;-&lt;hosted_cluster_name&gt;</code>, with any dots in the cluster name replaced by dashes.</p>
+</div>
+<div class="paragraph">
+<p>The <code>READY</code> column shows <code>2/2</code>.</p>
+</div>
+</li>
+<li>
+<p>Confirm the <code>control-plane-metrics-forwarder</code> deployment in the hosted cluster is healthy by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment <span class="nt">-n</span> openshift-monitoring control-plane-metrics-forwarder <span class="se">\</span>
+  <span class="nt">--kubeconfig</span> &lt;hosted_cluster_kubeconfig&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>READY</code> column shows <code>1/1</code>.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Optional: After confirming that forwarding is active through the spec field, remove the now-redundant annotation by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate hostedcluster <span class="nt">-n</span> &lt;hosted_cluster_namespace&gt; &lt;hosted_cluster_name&gt; <span class="se">\</span>
   hypershift.openshift.io/enable-metrics-forwarding-</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>This step is safe because the spec field is now authoritative. Removing the annotation has no effect on metrics forwarding behavior.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>After you migrate all clusters, verify that no remaining clusters use the deprecated annotation by re-running the identification command in step 1 and confirming that the output is empty.</p>
 </li>
 </ul>
 </div>
@@ -3797,183 +4221,6 @@ cvo:
 <p>The etcd database size panels show current use relative to the 8 GB limit.</p>
 </li>
 </ul>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="hcp-connectivity-metrics_hcp-observability"><a class="anchor" href="#hcp-connectivity-metrics_hcp-observability"></a>Connectivity monitoring for hosted control planes</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>Cluster service providers can monitor connectivity metrics to ensure proper function during an update. They can also use the metrics to find connectivity issues between the control plane and the data plane, or vice versa.</p>
-</div>
-<div class="paragraph">
-<p>Studying these metrics over time can inform decisions about capacity planning and scaling.</p>
-</div>
-<div class="sect2">
-<h3 id="hcp-connect-data-plane_hcp-observability"><a class="anchor" href="#hcp-connect-data-plane_hcp-observability"></a>Connectivity monitoring from the control plane to the data plane</h3>
-<div class="paragraph _abstract">
-<p>Cluster administrators can monitor network activity between a hosted control plane and the compute nodes in a data plane by using the <code>DataPlaneConnectionAvailable</code> condition. This condition is useful for identifying and troubleshooting network connectivity issues in hosted clusters.</p>
-</div>
-<div class="paragraph">
-<p>The <code>DataPlaneConnectionAvailable</code> condition is available by default starting with version 4.21.</p>
-</div>
-<div class="paragraph">
-<p>The <code>DataPlaneConnectionAvailable</code> condition monitors the connectivity from the control plane to the data plane by taking the following steps:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>Counts available compute nodes in the hosted cluster.</p>
-</li>
-<li>
-<p>Lists the <code>konnectivity-agent</code> pods that are running in the <code>kube-system</code> namespace on the data plane.</p>
-</li>
-<li>
-<p>Reads the logs from the running <code>konnectivity-agent</code> pod to verify that it can communicate with the data plane.</p>
-</li>
-</ol>
-</div>
-<div class="paragraph">
-<p>The <code>hosted-cluster-config-operator</code> component that runs in the control plane namespace evaluates the condition and provides status and reason information.</p>
-</div>
-<div class="paragraph">
-<p>The following table details the status and reason values that can be displayed for the condition:</p>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3334%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Status</th>
-<th class="tableblock halign-left valign-top">Reason value</th>
-<th class="tableblock halign-left valign-top">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>True</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AsExpected</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The control plane can reach the data plane nodes through the <code>konnectivity-agent</code> pods.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>False</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>KonnectivityAgentPodsNotFound</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">No <code>konnectivity-agent</code> pods are running, or none are found.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>False</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReconciliationError</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">An error occurred while listing the <code>konnectivity-agent</code> pods.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>NoWorkerNodesAvailable</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">No compute nodes are available in the cluster. No errors occurred, but no compute nodes were found.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReconcileError</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Unable to count compute nodes because an error occurred.</p></td>
-</tr>
-</tbody>
-</table>
-<div class="paragraph">
-<p>For information about how to troubleshoot connectivity issues, see "Troubleshooting connectivity for hosted control planes".</p>
-</div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
-<ul>
-<li>
-<p><a href="../hosted_control_planes/hcp-troubleshooting.html#hcp-ts-connectivity_hcp-troubleshooting">Troubleshooting connectivity for hosted control planes</a></p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect2">
-<h3 id="hcp-connect-control-plane_hcp-observability"><a class="anchor" href="#hcp-connect-control-plane_hcp-observability"></a>Connectivity monitoring from the data plane to the control plane</h3>
-<div class="paragraph _abstract">
-<p>Cluster administrators can monitor network activity between the compute nodes in a data plane and a hosted control plane by using the <code>ControlPlaneConnectionAvailable</code> condition. This condition is useful for identifying and troubleshooting network connectivity issues in hosted clusters.</p>
-</div>
-<div class="paragraph">
-<p>The <code>ControlPlaneConnectionAvailable</code> condition detects whether data plane nodes can reach control plane components. The <code>hosted-cluster-config-operator</code> component evaluates the condition, and a deployment with 3 replicas checks connectivity.</p>
-</div>
-<div class="paragraph">
-<p>The condition monitors the connectivity between the data plane and the control plane by taking the following steps:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>Deploys a <code>kas-connection-checker</code> deployment to the <code>kube-system</code> namespace on the data plane.</p>
-</li>
-<li>
-<p>Each pod runs a shell script in an infinite loop that transfers data to and from the Kubernetes API server endpoint every 60 seconds. On success, the script patches the <code>control-plane-connectivity-check</code> config map with a <code>lastSucceeded</code> timestamp.</p>
-</li>
-<li>
-<p>The <code>hosted-cluster-config-operator</code> component checks whether the <code>control-plane-connectivity-check</code> config map exists and whether the <code>lastSucceeded</code> timestamp is within the last 5 minutes. It does not check pod readiness counts.</p>
-</li>
-</ol>
-</div>
-<div class="paragraph">
-<p>The following table details the status and reason values that can be displayed for the condition:</p>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<colgroup>
-<col style="width: 33.3333%;">
-<col style="width: 33.3333%;">
-<col style="width: 33.3334%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Status</th>
-<th class="tableblock halign-left valign-top">Reason value</th>
-<th class="tableblock halign-left valign-top">Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>True</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AsExpected</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">All data plane nodes can reach the control plane (<code>NumberReady = DesiredNumberScheduled</code>).</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>False</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>KASAccessFailed</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">At least one data plane node cannot reach the control plane. The message shows the ratio of pods that are ready; for example, <code>1/3 pods ready</code>.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>NoWorkerNodesAvailable</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">No compute nodes are available to check connectivity (<code>DesiredNumberScheduled = 0</code>).</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>StatusUnknown</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The Kubernetes API server connection checker DaemonSet was not found.</p></td>
-</tr>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Unknown</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReconcileError</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">An API error blocked the retrieval of the DaemonSet status.</p></td>
-</tr>
-</tbody>
-</table>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>This condition has a known limitation with HTTPS proxy environments. In HTTPS proxy environments, the condition might incorrectly report <code>False</code> because of probe limitations.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 </div>
 </div>
