@@ -2876,6 +2876,7 @@
 <li><a href="#nodes-pods-allocate-dra-configure-about_nodes-pods-allocate-dra">About GPU allocation objects and concepts</a>
 <ul class="sectlevel2">
 <li><a href="#nodes-pods-allocate-dra-admin-access_nodes-pods-allocate-dra">About DRA admin access</a></li>
+<li><a href="#nodes-pods-allocate-dra-binding-conditions_nodes-pods-allocate-dra">About DRA device binding conditions</a></li>
 </ul>
 </li>
 <li><a href="#nodes-pods-allocate-dra-configure_nodes-pods-allocate-dra">Adding resource claims to pods</a></li>
@@ -3429,6 +3430,40 @@
 <p><a href="../../nodes/pods/nodes-pods-allocate-dra.html#nodes-pods-allocate-dra-configure_nodes-pods-allocate-dra">Adding resource claims to pods</a></p>
 </li>
 </ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nodes-pods-allocate-dra-binding-conditions_nodes-pods-allocate-dra"><a class="anchor" href="#nodes-pods-allocate-dra-binding-conditions_nodes-pods-allocate-dra"></a>About DRA device binding conditions</h3>
+<div class="paragraph _abstract">
+<p>When working with Dynamic Resource Allocation (DRA), you can improve scheduling reliability by using <em>device binding conditions</em> to allow the scheduler to delay pod scheduling until specific external resources, such as fabric-attached GPUs or reprogrammable FPGAs, are confirmed to be ready.</p>
+</div>
+<div class="paragraph">
+<p>For example, you can use device binding conditions to ensure that High-Performance Computing (HPC) workloads that require specialized network-attached devices are scheduled only on nodes where those devices are pre-attached and ready for use. Or, you could ensure that storage devices are ready for your storage-intensive applications before scheduling the workloads.</p>
+</div>
+<div class="paragraph">
+<p>To configure device binding conditions, use your third-party DRA driver to publish the following fields in the <code>devices</code> section of a resource slice:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>bindingConditions</code> is a list of condition types that must be <code>True</code> in the <code>status.devices</code> field of the associated resource claim before the pod can be bound. These conditions typically represent readiness signals, such as <code>DeviceAttached</code> or <code>DeviceInitialized</code>. You can specify a maximum of four condition types.</p>
+</li>
+<li>
+<p><code>bindingFailureConditions</code> is a list of condition types that indicate a failure state. If any of these conditions is <code>True</code> in the <code>status.devices</code> field of the associated resource claim, the scheduler clears the allocation and reschedules the pod. You can specify a maximum of four condition types.</p>
+</li>
+<li>
+<p><code>bindsToNode</code> sets a node selector inside the resource claim that external controllers can use to perform node-specific operations such as device attachment or preparation. If set to <code>True</code>, the scheduler records the selected node name in the <code>status.allocation.nodeSelector</code> field of the resource claim. This does not affect the pod&#8217;s <code>spec.nodeSelector</code> field.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>All condition types listed in the <code>bindingConditions</code> and <code>bindingFailureConditions</code> fields are evaluated by the scheduler from the <code>status.conditions</code> field of a resource claim. External controllers are responsible for updating these conditions by using standard Kubernetes condition semantics, such as <code>type</code>, <code>status</code>, <code>reason</code>, <code>message</code>, or <code>lastTransitionTime</code>.</p>
+</div>
+<div class="paragraph">
+<p>When the scheduler allocates a device that specifies binding conditions, it copies the <code>bindingConditions</code> and <code>bindingFailureConditions</code> fields from the resource slice into the matching entry in the <code>status.allocation.devices.results</code> field of the resource claim. The scheduler then evaluates those condition types against the entry in the <code>status.devices</code> field that has the same <code>driver</code>, <code>pool</code>, and <code>device</code> values. Until an entry matching the driver, pool, and device exists, the scheduler treats all binding conditions as pending. Each entry can contain a maximum of eight conditions.</p>
+</div>
+<div class="paragraph">
+<p>The scheduler waits up to 600 seconds for all <code>bindingConditions</code> to become <code>True</code>. If the timeout is reached or any <code>bindingFailureConditions</code> is <code>True</code>, the scheduler clears the allocation and reschedules the pod.</p>
 </div>
 </div>
 </div>
