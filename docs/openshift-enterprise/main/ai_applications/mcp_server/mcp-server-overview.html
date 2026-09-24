@@ -501,7 +501,6 @@
                   <li><a class="" href="../../installing/installing_with_agent_based_installer/understanding-disconnected-installation-mirroring.html">Understanding disconnected installation mirroring</a></li>
                   <li><a class="" href="../../installing/installing_with_agent_based_installer/installing-with-agent-basic.html">Installing a cluster</a></li>
                   <li><a class="" href="../../installing/installing_with_agent_based_installer/installing-with-agent-based-installer.html">Installing a cluster with customizations</a></li>
-                  <li><a class="" href="../../installing/installing_with_agent_based_installer/installing-ove.html">Installing a cluster without an external registry</a></li>
                   <li><a class="" href="../../installing/installing_with_agent_based_installer/prepare-pxe-assets-agent.html">Preparing PXE assets for OCP</a></li>
                   <li><a class="" href="../../installing/installing_with_agent_based_installer/installing-using-iscsi.html">Preparing installation assets for iSCSI booting</a></li>
                   <li><a class="" href="../../installing/installing_with_agent_based_installer/preparing-an-agent-based-installed-cluster-for-mce.html">Preparing an Agent-based installed cluster for the multicluster engine for Kubernetes</a></li>
@@ -4037,7 +4036,10 @@ Here are the key objectives an MCP server achieves:</p>
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Access to OpenShift console with admin rights.</p>
+<p>Access to an OpenShift Container Platform console and you have <code>admin</code> rights.</p>
+</li>
+<li>
+<p>OpenShift CLI (<code>oc</code>) is installed.</p>
 </li>
 <li>
 <p>MCP gateway is installed.</p>
@@ -4057,7 +4059,7 @@ Here are the key objectives an MCP server achieves:</p>
 <p>Check the status of your deployment by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> mcp-system <span class="nt">-l</span> <span class="s2">"app.kubernetes.io/instance=mcp-gateway"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> gateway-namespace <span class="nt">-l</span> <span class="s2">"app.kubernetes.io/name=mcp-gateway"</span></code></pre>
 </div>
 </div>
 <div class="admonitionblock note">
@@ -4068,7 +4070,7 @@ Here are the key objectives an MCP server achieves:</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>This example uses the namespace "mcp-system" for installing the gateway. If you install the gateway in a different namespace than "mcp-system", use that namespace instead throughout the procedure.</p>
+<p>This example uses the namespace "gateway-namespace" for installing the gateway. If you install the gateway in a different namespace than "gateway-namespace", use that namespace instead throughout the procedure.</p>
 </div>
 </td>
 </tr>
@@ -4092,8 +4094,8 @@ mcp-gateway-controller-594b9649cf-zstfw   1/1     Running   0          22s</span
 <div class="listingblock">
 <div class="title">Example</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAMESPACE   NAME          READY   AGE
-mcp-system  mcp-gateway           105s</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAMESPACE          NAME          READY   AGE
+gateway-namespace  mcp-gateway           105s</span></code></pre>
 </div>
 </div>
 </li>
@@ -4101,7 +4103,7 @@ mcp-system  mcp-gateway           105s</span></code></pre>
 <p>Verify the broker-router deployment by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> mcp-system deployment/mcp-gateway-broker-router</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> gateway-namespace deployment/mcp-gateway</code></pre>
 </div>
 </div>
 </li>
@@ -4109,7 +4111,7 @@ mcp-system  mcp-gateway           105s</span></code></pre>
 <p>Verify EnvoyFilter was created in the gateway namespace by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get envoyfilter <span class="nt">-n</span> mcp-system <span class="nt">-l</span> app.kubernetes.io/managed-by<span class="o">=</span>mcp-gateway-controller</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get envoyfilter <span class="nt">-n</span> gateway-namespace <span class="nt">-l</span> app.kubernetes.io/managed-by<span class="o">=</span>mcp-gateway-controller</code></pre>
 </div>
 </div>
 </li>
@@ -4145,6 +4147,17 @@ mcp-system  mcp-gateway           105s</span></code></pre>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
+<p>Before creating the <code>HTTPRoute</code>, verify the exact name of your MCP server service by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get svc <span class="nt">-n</span> openshift-mcp-server</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Ensure that the <code>backendRefs.name</code> field in the following manifest matches the <code>NAME</code> output of your service. For example, <code>openshift-mcp-server</code>.</p>
+</div>
+</li>
+<li>
 <p>Create the HTTPRoute for the MCP server by running the following command:</p>
 <div class="listingblock">
 <div class="content">
@@ -4159,7 +4172,7 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: mcp-gateway
-    namespace: gateway-system
+    namespace: gateway-namespace
     sectionName: mcp
   hostnames:
 </span><span class="gp">  - $</span><span class="o">{</span>MCP_SERVER_HOST<span class="o">}</span>
@@ -4192,7 +4205,7 @@ metadata:
   name: my-mcp-server-reg
   namespace: openshift-mcp-server
 spec:
-  toolPrefix: "openshift_"
+  prefix: "openshift_"
   targetRef:
     group: "gateway.networking.k8s.io"
     kind: "HTTPRoute"
@@ -4249,7 +4262,7 @@ openshift-mcp-server  my-mcp-server-reg   myserver_   mcp-api-key-server-route  
 <p>Check the controller logs by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> mcp-system deployment/mcp-gateway-controller</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> gateway-namespace deployment/mcp-gateway-controller</code></pre>
 </div>
 </div>
 </li>
@@ -4257,7 +4270,7 @@ openshift-mcp-server  my-mcp-server-reg   myserver_   mcp-api-key-server-route  
 <p>Check the broker logs for tool discovery by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> mcp-system deployment/mcp-gateway-broker-router</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> gateway-namespace deployment/mcp-gateway</code></pre>
 </div>
 </div>
 </li>
@@ -4310,7 +4323,7 @@ openshift-mcp-server  my-mcp-server-reg   myserver_   mcp-api-key-server-route  
 </div>
 </div>
 <div class="paragraph">
-<p>You should now see your MCP server tools in the response, prefixed with your configured toolPrefix (for example, myserver_).</p>
+<p>You should now see your MCP server tools in the response, prefixed with your configured <code>prefix</code> value, such as <code>openshift_</code>.</p>
 </div>
 </li>
 </ol>
@@ -4592,7 +4605,7 @@ openshift-mcp-server  my-mcp-server-reg   myserver_   mcp-api-key-server-route  
 <p>Configure OAuth metadata discovery by setting environment variables on the MCP gateway broker-router deployment by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">set env </span>deployment/mcp-gateway-broker-router <span class="nt">-n</span> mcp-system<span class="se">\</span>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">set env </span>mcp-gateway/gateway-namespace <span class="nt">-n</span> mcp-system<span class="se">\</span>
 <span class="nv">OAUTH_RESOURCE_NAME</span><span class="o">=</span><span class="s2">"MCP Server"</span> <span class="se">\</span>
 <span class="nv">OAUTH_RESOURCE</span><span class="o">=</span><span class="s2">"http://mcp.127-0-0-1.sslip.io:8001/mcp"</span> <span class="se">\</span>
 <span class="nv">OAUTH_AUTHORIZATION_SERVERS</span><span class="o">=</span><span class="s2">"https://login.microsoftonline.com/&lt;tenant-id&gt;/v2.0"</span> <span class="se">\</span>
@@ -4613,13 +4626,13 @@ openshift-mcp-server  my-mcp-server-reg   myserver_   mcp-api-key-server-route  
 kind: HTTPRoute
 metadata:
   name: mcp-gateway-oauth-metadata
-  namespace: mcp-system
+  namespace: gateway-namespace
 spec:
   parentRefs:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: mcp-gateway
-    namespace: gateway-system
+    namespace: gateway-namespace
     sectionName: mcp
   hostnames:
 </span><span class="gp">  - $</span><span class="o">{</span>MCP_GATEWAY_HOST<span class="o">}</span>
@@ -4699,7 +4712,7 @@ EOF</span></code></pre>
 kind: AuthPolicy
 metadata:
   name: mcp-auth-policy
-  namespace: mcp-system
+  namespace: gateway-namespace
 spec:
   targetRef:
     group: gateway.networking.k8s.io
