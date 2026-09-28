@@ -3443,6 +3443,10 @@
 <li><a href="#nw-dpf-creating-dpf-namespace_dpf-environment-setup">Create the DPF namespace</a></li>
 <li><a href="#nw-dpf-installing-required-operators_dpf-environment-setup">Required Operators</a>
 <ul class="sectlevel2">
+<li><a href="#nw-dpf-installing-mce-operator_dpf-environment-setup">Install the multicluster engine Operator</a></li>
+<li><a href="#nw-dpf-installing-cert-manager-operator_dpf-environment-setup">Install the cert-manager Operator</a></li>
+<li><a href="#nw-dpf-installing-metallb-operator_dpf-environment-setup">Install the MetalLB Operator</a></li>
+<li><a href="#nw-dpf-installing-gitops-operator_dpf-environment-setup">Install the GitOps Operator</a></li>
 <li><a href="#nw-dpf-installing-maintenance-operator_dpf-environment-setup">Install the NVIDIA Maintenance Operator</a></li>
 </ul>
 </li>
@@ -3630,7 +3634,7 @@ The <code>MachineConfigPool</code> groups DPU-equipped worker nodes so that the 
 </div>
 </li>
 <li>
-<p>Deploy the <code>dpu-worker-config</code> Helm chart to create the worker node MachineConfig:</p>
+<p>Deploy the <code>dpu-worker-config</code> Helm chart:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>helm upgrade <span class="nt">--install</span> dpu-worker-config <span class="se">\</span>
@@ -3756,7 +3760,405 @@ dpu-worker-configuration                           3.2.0             2m</span></
 <p>Before you install the DPF Operator, you must install the cert-manager Operator for Red Hat OpenShift, MetalLB Operator, Red&#160;Hat OpenShift GitOps, and NVIDIA Maintenance Operator.</p>
 </div>
 <div class="paragraph">
-<p>The multicluster engine Operator and the Node Feature Discovery Operator can be installed during management cluster creation by using the Assisted Installer. After installation, configure those Operators, MetalLB, GitOps, and the Cluster Network Operator as described in "Configure the required Operators".</p>
+<p>The multicluster engine Operator and the Node Feature Discovery Operator can be installed during management cluster creation by using the Assisted Installer. If you did not install the multicluster engine Operator, follow "Install the multicluster engine Operator" before configuring the required Operators.</p>
+</div>
+<div class="sect2">
+<h3 id="nw-dpf-installing-mce-operator_dpf-environment-setup"><a class="anchor" href="#nw-dpf-installing-mce-operator_dpf-environment-setup"></a>Install the multicluster engine Operator</h3>
+<div class="paragraph _abstract">
+<p>If you did not install the multicluster engine Operator by using the Assisted Installer, install it from the OpenShift CLI. You do not need to install Red Hat Advanced Cluster Management or create a <code>MultiClusterHub</code> resource to use the multicluster engine Operator. If the Assisted Installer already created a <code>MultiClusterEngine</code> resource, skip this procedure.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the management cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>No <code>MultiClusterEngine</code> resource exists on the cluster.</p>
+</li>
+<li>
+<p>If you already have an existing <code>MultiClusterEngine</code> resource with a different name, note that the following verification commands use <code>mce</code>. Substitute your resource&#8217;s name where needed.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check which multicluster engine channels are available from the <code>redhat-operators</code> catalog:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get packagemanifests <span class="nt">-n</span> openshift-marketplace <span class="nt">-l</span> <span class="nv">catalog</span><span class="o">=</span>redhat-operators <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[?(@.metadata.name=="multicluster-engine")].status.channels[*].name}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example uses <code>stable-2.17</code>, which is the channel used by this deployment. If your catalog does not offer this channel, select a supported channel for your OpenShift version before continuing.</p>
+</div>
+</li>
+<li>
+<p>Create a file named <code>mce-operator.yaml</code> with the following content:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">multicluster-engine</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">OperatorGroup</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">multicluster-engine</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">multicluster-engine</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">targetNamespaces</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">multicluster-engine</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Subscription</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">multicluster-engine</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">multicluster-engine</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">channel</span><span class="pi">:</span> <span class="s">stable-2.17</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">multicluster-engine</span>
+  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators</span>
+  <span class="na">sourceNamespace</span><span class="pi">:</span> <span class="s">openshift-marketplace</span>
+  <span class="na">installPlanApproval</span><span class="pi">:</span> <span class="s">Automatic</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If you selected a different supported channel, replace <code>stable-2.17</code> with that channel in the file.</p>
+</div>
+</li>
+<li>
+<p>Apply the file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> mce-operator.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Wait until the multicluster engine Operator CSV reports <code>Succeeded</code> and the <code>MultiClusterEngine</code> CRD is established:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get csv <span class="nt">-n</span> multicluster-engine
+<span class="gp">$</span><span class="w"> </span>oc <span class="nb">wait </span>crd/multiclusterengines.multicluster.openshift.io <span class="nt">--for</span><span class="o">=</span>create <span class="nt">--timeout</span><span class="o">=</span>10m
+<span class="gp">$</span><span class="w"> </span>oc <span class="nb">wait </span>crd/multiclusterengines.multicluster.openshift.io <span class="nt">--for</span><span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Established <span class="nt">--timeout</span><span class="o">=</span>5m</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Repeat the CSV check until its phase is <code>Succeeded</code> before creating the custom resource.</p>
+</div>
+</li>
+<li>
+<p>Create a file named <code>mce.yaml</code> with the following content:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">multicluster.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">MultiClusterEngine</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">mce</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">overrides</span><span class="pi">:</span>
+    <span class="na">components</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">hypershift</span>
+      <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> mce.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Wait for the <code>MultiClusterEngine</code> resource to become available:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">wait </span>multiclusterengine/mce <span class="nt">--for</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.phase}'</span><span class="o">=</span>Available <span class="nt">--timeout</span><span class="o">=</span>15m</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the hosted control plane component is enabled:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get multiclusterengine mce <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.overrides.components[?(@.name=="hypershift")].enabled}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">true</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.17/html/clusters/cluster_mce_overview#installing-while-connected-online-mce">Installing the multicluster engine Operator while connected online</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nw-dpf-installing-cert-manager-operator_dpf-environment-setup"><a class="anchor" href="#nw-dpf-installing-cert-manager-operator_dpf-environment-setup"></a>Install the cert-manager Operator</h3>
+<div class="paragraph _abstract">
+<p>The cert-manager Operator for Red Hat OpenShift manages TLS certificates for DPF components.
+You install this operator by using the OpenShift CLI.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a file named <code>cert-manager-operator.yaml</code> with the following content:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cert-manager</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">OperatorGroup</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-cert-manager-operator</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">cert-manager</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">targetNamespaces</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">cert-manager</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Subscription</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-cert-manager-operator</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">cert-manager</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">channel</span><span class="pi">:</span> <span class="s">stable-v1</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-cert-manager-operator</span>
+  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators</span>
+  <span class="na">sourceNamespace</span><span class="pi">:</span> <span class="s">openshift-marketplace</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> cert-manager-operator.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the Operator is installed:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> cert-manager</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nw-dpf-installing-metallb-operator_dpf-environment-setup"><a class="anchor" href="#nw-dpf-installing-metallb-operator_dpf-environment-setup"></a>Install the MetalLB Operator</h3>
+<div class="paragraph _abstract">
+<p>The MetalLB Operator provides load balancing services for DPF components on the management cluster.
+You install this operator by using the OpenShift CLI.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a file named <code>metallb-operator.yaml</code> with the following content:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-system</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Subscription</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-operator</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-operators</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">channel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">stable"</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-operator</span>
+  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators</span>
+  <span class="na">sourceNamespace</span><span class="pi">:</span> <span class="s">openshift-marketplace</span>
+  <span class="na">installPlanApproval</span><span class="pi">:</span> <span class="s">Automatic</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="c1"># Tolerate the taint on the master nodes</span>
+    <span class="na">tolerations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">node-role.kubernetes.io/control-plane"</span>
+      <span class="na">operator</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Exists"</span>
+      <span class="na">effect</span><span class="pi">:</span> <span class="s2">"</span><span class="s">NoSchedule"</span>
+    <span class="c1"># Force scheduling only on nodes with the control-plane label</span>
+    <span class="na">affinity</span><span class="pi">:</span>
+      <span class="na">nodeAffinity</span><span class="pi">:</span>
+        <span class="na">requiredDuringSchedulingIgnoredDuringExecution</span><span class="pi">:</span>
+          <span class="na">nodeSelectorTerms</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">matchExpressions</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">node-role.kubernetes.io/control-plane"</span>
+              <span class="na">operator</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Exists"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> metallb-operator.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Wait for the MetalLB custom resource definition to be created and established before configuring MetalLB:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">wait </span>crd/metallbs.metallb.io <span class="nt">--for</span><span class="o">=</span>create <span class="nt">--timeout</span><span class="o">=</span>10m
+<span class="gp">$</span><span class="w"> </span>oc <span class="nb">wait </span>crd/metallbs.metallb.io <span class="nt">--for</span><span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Established <span class="nt">--timeout</span><span class="o">=</span>5m</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nw-dpf-installing-gitops-operator_dpf-environment-setup"><a class="anchor" href="#nw-dpf-installing-gitops-operator_dpf-environment-setup"></a>Install the GitOps Operator</h3>
+<div class="paragraph _abstract">
+<p>The Red&#160;Hat OpenShift GitOps manages DPF service deployments and configurations using GitOps principles.
+You install this operator by using the OpenShift CLI.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a file named <code>gitops-operator.yaml</code> with the following content:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Namespace</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-gitops-operator</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="s">openshift.io/cluster-monitoring</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">OperatorGroup</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-gitops-operator</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-gitops-operator</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">upgradeStrategy</span><span class="pi">:</span> <span class="s">Default</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Subscription</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-gitops-operator</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-gitops-operator</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">channel</span><span class="pi">:</span> <span class="s">gitops-1.21</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">env</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ARGOCD_CLUSTER_CONFIG_NAMESPACES</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">openshift-gitops,dpf-operator-system"</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">CONTROLLER_CLUSTER_ROLE</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">cluster-admin"</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">SERVER_CLUSTER_ROLE</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">cluster-admin"</span>
+  <span class="na">installPlanApproval</span><span class="pi">:</span> <span class="s">Automatic</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-gitops-operator</span>
+  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators</span>
+  <span class="na">sourceNamespace</span><span class="pi">:</span> <span class="s">openshift-marketplace</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the file:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> gitops-operator.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Wait for the Argo CD custom resource definition to be created and established before creating an <code>ArgoCD</code> resource:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">wait </span>crd/argocds.argoproj.io <span class="nt">--for</span><span class="o">=</span>create <span class="nt">--timeout</span><span class="o">=</span>10m
+<span class="gp">$</span><span class="w"> </span>oc <span class="nb">wait </span>crd/argocds.argoproj.io <span class="nt">--for</span><span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Established <span class="nt">--timeout</span><span class="o">=</span>5m</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
 </div>
 <div class="sect2">
 <h3 id="nw-dpf-installing-maintenance-operator_dpf-environment-setup"><a class="anchor" href="#nw-dpf-installing-maintenance-operator_dpf-environment-setup"></a>Install the NVIDIA Maintenance Operator</h3>
@@ -3786,7 +4188,6 @@ You install this operator by using Helm.</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">operatorConfig</span><span class="pi">:</span>
-  <span class="na">deploy</span><span class="pi">:</span> <span class="no">true</span>
   <span class="na">maxParallelOperations</span><span class="pi">:</span> <span class="s">60%</span>
 <span class="na">operator</span><span class="pi">:</span>
   <span class="na">affinity</span><span class="pi">:</span>
@@ -3835,27 +4236,12 @@ You install this operator by using Helm.</p>
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> dpf-operator-system</code></pre>
 </div>
 </div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">maintenance-operator-585767f779-kps9c   1/1     Running   0          2d23h</span></code></pre>
-</div>
-</div>
 </li>
 </ul>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
-<li>
-<p><a href="../../../security/cert_manager_operator/cert-manager-operator-install.html#cert-manager-operator-install">Installing the cert-manager Operator for Red Hat OpenShift</a></p>
-</li>
-<li>
-<p><a href="../metallb-operator/metallb-operator-install.html#metallb-operator-install">Installing the MetalLB Operator</a></p>
-</li>
-<li>
-<p><a href="https://docs.openshift.com/gitops/latest/installing_gitops/installing-openshift-gitops.html#installing-openshift-gitops">Installing Red&#160;Hat OpenShift GitOps</a></p>
-</li>
 <li>
 <p><a href="https://networking-docs.nvidia.com/dpf/26.4.1/host-network-configuration-prerequisites">DPF Operator prerequisites</a></p>
 </li>
@@ -3868,7 +4254,7 @@ You install this operator by using Helm.</p>
 <h2 id="nw-dpf-configuring-required-operators_dpf-environment-setup"><a class="anchor" href="#nw-dpf-configuring-required-operators_dpf-environment-setup"></a>Configure the required Operators</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>After the required Operators are installed, configure Node Feature Discovery, MetalLB, GitOps, and Cluster Network Operator for the DPF environment. This procedure also verifies that the multicluster engine and hosted control planes components are ready.</p>
+<p>After the required Operators are installed, configure Node Feature Discovery, MetalLB, GitOps, and Cluster Network Operator for the DPF environment. This procedure also verifies that the multicluster engine and hosted control plane components are ready.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3883,7 +4269,7 @@ You install this operator by using Helm.</p>
 <p>You have installed the cert-manager Operator for Red Hat OpenShift, MetalLB Operator, Red&#160;Hat OpenShift GitOps, and NVIDIA Maintenance Operator.</p>
 </li>
 <li>
-<p>You have installed the Logical Volume Manager Storage Operator, multicluster engine operator, and the Node Feature Discovery Operator. You can install them by using the Assisted Installer during cluster creation. For manual installation, see <a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.17/html/install/index">Installing multicluster engine operator</a> and ensure that the hosted control planes component is enabled.</p>
+<p>You have installed the Logical Volume Manager Storage Operator, multicluster engine Operator, and the Node Feature Discovery Operator. You can install them by using the Assisted Installer during cluster creation. If you did not install the multicluster engine Operator, follow "Install the multicluster engine Operator" before continuing.</p>
 </li>
 </ul>
 </div>
@@ -3891,7 +4277,7 @@ You install this operator by using Helm.</p>
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Define the cluster variables used by Node Feature Discovery:</p>
+<p>Define the cluster variables:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">export </span><span class="nv">CLUSTER_NAME</span><span class="o">=</span><span class="s2">"doca-mgmt"</span>
@@ -3960,7 +4346,7 @@ You install this operator by using Helm.</p>
 </div>
 </li>
 <li>
-<p>Create a file named <code>nfd-rule.yaml</code> with the following <code>NodeFeatureRule</code> resource definition to detect worker nodes with DPUs and label them with a <code>dpu-enabled</code> label:</p>
+<p>Create a file named <code>nfd-rule.yaml</code> with the following <code>NodeFeatureRule</code> resource definition:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nfd.openshift.io/v1alpha1</span>
@@ -3997,37 +4383,6 @@ You install this operator by using Helm.</p>
 </div>
 </li>
 <li>
-<p>Ensure that the MetalLB Operator <code>Subscription</code> schedules Operator pods on control-plane nodes.
-When you install the MetalLB Operator, include the following <code>spec.config</code> settings, or patch an existing <code>Subscription</code> to add them:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1alpha1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Subscription</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-operator</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-operators</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">channel</span><span class="pi">:</span> <span class="s2">"</span><span class="s">stable"</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">metallb-operator</span>
-  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators</span>
-  <span class="na">sourceNamespace</span><span class="pi">:</span> <span class="s">openshift-marketplace</span>
-  <span class="na">installPlanApproval</span><span class="pi">:</span> <span class="s">Automatic</span>
-  <span class="na">config</span><span class="pi">:</span>
-    <span class="na">tolerations</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">node-role.kubernetes.io/control-plane"</span>
-      <span class="na">operator</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Exists"</span>
-      <span class="na">effect</span><span class="pi">:</span> <span class="s2">"</span><span class="s">NoSchedule"</span>
-    <span class="na">affinity</span><span class="pi">:</span>
-      <span class="na">nodeAffinity</span><span class="pi">:</span>
-        <span class="na">requiredDuringSchedulingIgnoredDuringExecution</span><span class="pi">:</span>
-          <span class="na">nodeSelectorTerms</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="na">matchExpressions</span><span class="pi">:</span>
-            <span class="pi">-</span> <span class="na">key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">node-role.kubernetes.io/control-plane"</span>
-              <span class="na">operator</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Exists"</span></code></pre>
-</div>
-</div>
-</li>
-<li>
 <p>Create a file named <code>metallb-config.yaml</code> with the following <code>MetalLB</code> resource definition:</p>
 <div class="listingblock">
 <div class="content">
@@ -4051,34 +4406,6 @@ When you install the MetalLB Operator, include the following <code>spec.config</
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> metallb-config.yaml</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Ensure that the Red&#160;Hat OpenShift GitOps <code>Subscription</code> includes the DPF-required environment variables.
-When you install the Operator, set the following <code>spec.config.env</code> values, or patch an existing <code>Subscription</code> to add them so that Argo CD can manage the <code>dpf-operator-system</code> namespace:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">operators.coreos.com/v1alpha1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Subscription</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-gitops-operator</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-gitops-operator</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">channel</span><span class="pi">:</span> <span class="s">gitops-1.21</span>
-  <span class="na">config</span><span class="pi">:</span>
-    <span class="na">env</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">ARGOCD_CLUSTER_CONFIG_NAMESPACES</span>
-      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">openshift-gitops,dpf-operator-system"</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">CONTROLLER_CLUSTER_ROLE</span>
-      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">cluster-admin"</span>
-    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">SERVER_CLUSTER_ROLE</span>
-      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">cluster-admin"</span>
-  <span class="na">installPlanApproval</span><span class="pi">:</span> <span class="s">Automatic</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-gitops-operator</span>
-  <span class="na">source</span><span class="pi">:</span> <span class="s">redhat-operators</span>
-  <span class="na">sourceNamespace</span><span class="pi">:</span> <span class="s">openshift-marketplace</span>
-  <span class="na">startingCSV</span><span class="pi">:</span> <span class="s">openshift-gitops-operator.v1.21.3</span></code></pre>
 </div>
 </div>
 </li>
@@ -4173,7 +4500,7 @@ mce    Available   4m58s   2.17.2           2.17.2           All components avai
 </div>
 </li>
 <li>
-<p>Verify that the hosted control planes component is enabled:</p>
+<p>Verify that the hosted control plane component is enabled:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get multiclusterengine mce <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.overrides.components[?(@.name=="hypershift")].enabled}{"\n"}'</span></code></pre>
@@ -4187,21 +4514,36 @@ mce    Available   4m58s   2.17.2           2.17.2           All components avai
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If the previous command returns <code>false</code> or an empty result, hosted control planes is not enabled and DPU provisioning fails.</p>
+<p>The manual installation procedure creates <code>mce</code> with <code>hypershift</code> enabled. If the previous command returns <code>true</code>, no further action is needed. If it returns <code>false</code> or an empty result, you must enable the <code>hypershift</code> component before DPU provisioning can succeed.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="paragraph">
-<p>To continue, you must enable the <code>hypershift</code> component on the <code>MultiClusterEngine</code> resource.
-In current multicluster engine Operator versions the component is named <code>hypershift</code>; earlier versions use <code>hypershift-preview</code>.</p>
+<p>To enable the <code>hypershift</code> component on the <code>MultiClusterEngine</code> resource, use the following steps.
+In current multicluster engine Operator versions the component is named <code>hypershift</code>. Earlier versions use <code>hypershift-preview</code>.</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>If the result is empty, no <code>hypershift</code> entry exists. Run the following command to add the entry and enable it:</p>
+<p>If the result is empty, check whether the <code>components</code> list exists:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch mce multiclusterengine <span class="nt">--type</span><span class="o">=</span>json <span class="se">\</span>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get multiclusterengine mce <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.overrides.components}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the list exists but has no <code>hypershift</code> entry, append it without replacing the other components:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch multiclusterengine mce <span class="nt">--type</span><span class="o">=</span>json <span class="se">\</span>
     <span class="nt">-p</span><span class="o">=</span><span class="s1">'[{"op":"add","path":"/spec/overrides/components/-","value":{"name":"hypershift","enabled":true}}]'</span></code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>If the list is absent, edit the resource instead and create <code>spec.overrides.components</code> with an entry named <code>hypershift</code> set to <code>enabled: true</code>.</p>
 </div>
 </li>
 <li>
@@ -4211,13 +4553,6 @@ In current multicluster engine Operator versions the component is named <code>hy
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit multiclusterengine mce</code></pre>
 </div>
 </div>
-</li>
-</ul>
-</div>
-</td>
-</tr>
-</table>
-</div>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -4226,11 +4561,14 @@ In current multicluster engine Operator versions the component is named <code>hy
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Do not use <code>oc patch --type=merge</code> to enable the component, because a merge patch replaces the entire <code>components</code> array and removes the other components. Use the JSON <code>add</code> patch when no entry exists, or <code>oc edit</code> when an entry exists but is disabled.</p>
+<p>Do not use <code>oc patch --type=merge</code> to enable the component, because a merge patch replaces the entire <code>components</code> array and removes the other components. Use the JSON <code>add</code> patch only when the <code>components</code> list exists. Otherwise, use <code>oc edit</code>.</p>
 </div>
 </td>
 </tr>
 </table>
+</div>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -4253,7 +4591,7 @@ In current multicluster engine Operator versions the component is named <code>hy
 <p>Verify that the Argo CD pods are running:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> dpf-operator-system <span class="nt">-l</span> app.kubernetes.io/part-of<span class="o">=</span>argocd</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> dpf-operator-system | <span class="nb">grep </span>argocd</code></pre>
 </div>
 </div>
 </li>
