@@ -1121,6 +1121,12 @@
 <li><a href="#network-prereqs_gcp-ccs">Networking prerequisites</a></li>
 <li><a href="#gcp-limits_gcp-ccs">Google Cloud account limits</a></li>
 <li><a href="#osd-gcp-psc-firewall-prerequisites_gcp-ccs">Configure Google Cloud firewall prerequisites</a></li>
+<li><a href="#osd-gcp-firewall-rules_gcp-ccs">Create firewall rules for reduced Workload Identity Federation permissions on Google Cloud</a>
+<ul class="sectlevel2">
+<li><a href="#osd-gcp-delete-firewall-rules_gcp-ccs">Delete firewall rules for OpenShift Dedicated on Google Cloud</a></li>
+</ul>
+</li>
+<li><a href="#osd-gcp-shared-vpc-firewall-rules_gcp-ccs">Configure reduced permissions for a Shared VPC host project on Google Cloud</a></li>
 <li><a href="#additional-resources_gcp-ccs">Additional resources</a></li>
 </ul>
 </div>
@@ -2345,7 +2351,7 @@ resourcemanager.projects.updatePolicyBinding</p>
 <div class="ulist">
 <ul>
 <li>
-<p>For information regarding the roles within the <code>sd-sre-platform-gcp-access</code>  group that are specific to clusters created when using the Workload Identity Federation (WIF) authentication type, see <a href="https://github.com/openshift/managed-cluster-config/blob/master/resources/wif/4.19/vanilla.yaml">managed-cluster-config</a>.</p>
+<p>For information regarding the roles within the <code>sd-sre-platform-gcp-access</code> group that are specific to clusters created when using the Workload Identity Federation (WIF) authentication type, see <a href="https://github.com/openshift/managed-cluster-config/blob/master/resources/wif/4.22/vanilla.yaml">managed-cluster-config</a>.</p>
 </li>
 <li>
 <p>For information about creating a cluster using the Workload Identity Federation authentication type, see <em>Additional resources</em>.</p>
@@ -3262,6 +3268,387 @@ resourcemanager.projects.updatePolicyBinding</p>
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="osd-gcp-firewall-rules_gcp-ccs"><a class="anchor" href="#osd-gcp-firewall-rules_gcp-ccs"></a>Create firewall rules for reduced Workload Identity Federation permissions on Google Cloud</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>When you use reduced Workload Identity Federation (WIF) permissions, you
+maintain direct control over firewall rule management without granting broad
+permissions to OpenShift Dedicated service accounts.</p>
+</div>
+<div class="paragraph">
+<p>To allow the cluster to function properly, you must create firewall rules in your Google Cloud project that allow traffic between the cluster&#8217;s control plane and worker nodes. This approach allows your network security team to maintain control over firewall rule management in the shared VPC host project without granting broad firewall creation and deletion privileges to OpenShift Dedicated-managed service accounts.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you create firewall rules by using this procedure, you are responsible for managing firewall rules through the lifetime of the cluster. The cluster&#8217;s Cloud Controller Manager does not create or delete firewall rules automatically. If you expose a new service by using a load balancer or change the ingress configuration, you must create or update the corresponding firewall rules manually.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have configured a Google Cloud project for OpenShift Dedicated deployment.</p>
+</li>
+<li>
+<p>You have downloaded the latest version of the OpenShift Cluster Manager CLI (<code>ocm</code>) for your operating system from the <a href="https://console.redhat.com/openshift/downloads">Downloads</a> page on OpenShift Cluster Manager.</p>
+</li>
+<li>
+<p>You have a VPC network created in the project for the cluster to use. For more information, see <a href="https://cloud.google.com/vpc/docs/create-modify-vpc-networks">Create and manage VPC networks</a>.</p>
+</li>
+<li>
+<p>You have created a Workload Identity Federation (WIF) configuration and know the WIF configuration ID. For more information, see <em>Create a Workload Identity Federation configuration</em> in the <em>Additional resources</em> section.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create the firewall rules by running the <code>ocm gcp create firewall-rules</code> command in <code>manual</code> mode only. The command generates a shell script containing the required <code>gcloud</code> commands. You must review and run the script yourself.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ocm gcp create firewall-rules <span class="se">\</span>
+    <span class="nt">--mode</span> manual <span class="se">\</span>
+    <span class="nt">--name</span> &lt;firewall_rule_prefix&gt; <span class="se">\</span>
+    <span class="nt">--wif-config</span> &lt;wif_config_id&gt; <span class="se">\</span>
+    <span class="nt">--project-id</span> &lt;host_project_id&gt; <span class="se">\</span>
+    <span class="nt">--vpc-name</span> &lt;vpc_name&gt; <span class="se">\</span>
+    <span class="nt">--machine-cidr</span> &lt;machine_cidr&gt; <span class="se">\</span>
+    <span class="nt">--profile</span> &lt;public|private&gt; <span class="se">\</span>
+    <span class="nt">--output-file</span> &lt;output_file_path&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;firewall_rule_prefix&gt;</code></dt>
+<dd>
+<p>A prefix for the firewall rule names. The command applies this prefix to all firewall rules created in the project. Use the cluster name or another identifier to distinguish these rules from other firewall rules in the project.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;wif_config_id&gt;</code></dt>
+<dd>
+<p>The ID of the Workload Identity Federation (WIF) configuration to use. The command retrieves the worker and control plane service account emails from the WIF configuration and assigns the firewall rules to those service accounts.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;host_project_id&gt;</code></dt>
+<dd>
+<p>The ID of the Google Cloud project where the firewall rules will be created. For shared VPC deployments, this is the host project.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;vpc_name&gt;</code></dt>
+<dd>
+<p>The name of the VPC network for the cluster.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;machine_cidr&gt;</code></dt>
+<dd>
+<p>The CIDR range of the machine network, for example <code>10.0.0.0/16</code>.</p>
+</dd>
+<dt class="hdlist1"><code>public|private</code></dt>
+<dd>
+<p>The firewall rule profile. Specify <code>public</code> for clusters with public API endpoints, or <code>private</code> for private clusters that use Private Service Connect. The <code>private</code> profile restricts source ranges to internal endpoints, while the <code>public</code> profile allows access from public endpoints for certain rules.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;output_file_path&gt;</code></dt>
+<dd>
+<p>Manual mode only. The path to the file where the command saves the generated script.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Review the generated script and run it:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>bash &lt;output_file_path&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the firewall rules were created successfully:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud compute firewall-rules list <span class="se">\</span>
+  <span class="nt">--project</span><span class="o">=</span>&lt;host_project_id&gt; <span class="se">\</span>
+  <span class="nt">--filter</span><span class="o">=</span><span class="s2">"network=&lt;vpc_name&gt;"</span> <span class="se">\</span>
+  <span class="nt">--format</span><span class="o">=</span><span class="s2">"table(name, direction, allowed, sourceRanges.list():label=SRC_RANGES, targetServiceAccounts.list():label=TARGET_SA)"</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="osd-gcp-delete-firewall-rules_gcp-ccs"><a class="anchor" href="#osd-gcp-delete-firewall-rules_gcp-ccs"></a>Delete firewall rules for OpenShift Dedicated on Google Cloud</h3>
+<div class="paragraph _abstract">
+<p>When you no longer need the firewall rules or when deleting a cluster, you can generate a script to delete the firewall rules that were created for reduced Workload Identity Federation (WIF) permissions.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have previously created firewall rules by using the <code>ocm gcp create firewall-rules</code> command.</p>
+</li>
+<li>
+<p>You know the firewall rule prefix that was used when creating the firewall rules.</p>
+</li>
+<li>
+<p>You have downloaded the latest version of the OpenShift Cluster Manager CLI (<code>ocm</code>) for your operating system from the <a href="https://console.redhat.com/openshift/downloads">Downloads</a> page on OpenShift Cluster Manager.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Generate a deletion script by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>ocm gcp delete firewall-rules &lt;firewall_rule_prefix&gt; <span class="se">\</span>
+  <span class="nt">--mode</span> manual <span class="se">\</span>
+  <span class="nt">--output-file</span> &lt;output_file&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;firewall_rule_prefix&gt;</code></dt>
+<dd>
+<p>The prefix used when creating the firewall rules.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;host_project_id&gt;</code></dt>
+<dd>
+<p>The ID of the Google Cloud project where the firewall rules are located.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;output_file&gt;</code></dt>
+<dd>
+<p>The path to the file where the command saves the generated deletion bash script.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Review the generated script and run it to delete the firewall rules:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>bash &lt;output_file&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="osd-gcp-shared-vpc-firewall-rules_gcp-ccs"><a class="anchor" href="#osd-gcp-shared-vpc-firewall-rules_gcp-ccs"></a>Configure reduced permissions for a Shared VPC host project on Google Cloud</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Instead of granting broad administrative roles such as <code>roles/compute.networkAdmin</code> and <code>roles/compute.securityAdmin</code> on the host project, you can grant a custom role with minimal permissions. This approach significantly reduces the permissions required for Shared VPC installations and improves the security posture of your Google Cloud environment.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have a Google Cloud Shared VPC host project configured and enabled. For more information, see <em>Enable a host project</em> in the <em>Additional Resources</em> section.</p>
+</li>
+<li>
+<p>You have the <code>gcloud</code> CLI installed and authenticated with sufficient permissions to create custom roles and manage IAM policy bindings on the host project.</p>
+</li>
+<li>
+<p>You have created the required firewall rules for your cluster on the host project. For more information, see <em>Create firewall rules for reduced Workload Identity Federation permissions on Google Cloud</em> in the <em>Additional Resources</em> section.</p>
+</li>
+<li>
+<p>You have created a Workload Identity Federation (WIF) configuration and know the service account emails for <code>osd-deployer</code>, <code>osd-control-plane</code>, and <code>openshift-machine-api-gcp</code> in the service project. For more information, see <em>Create a Workload Identity Federation configuration</em> in the <em>Additional Resources</em> section.</p>
+</li>
+<li>
+<p>You have created your own DNS zone in the host project and configured the required DNS records for your cluster. For more information, see <em>Create a DNS zone for your cluster on Google Cloud</em> in the <em>Additional Resources</em> section.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Set the following environment variables. Replace the placeholder values with your actual project and service account details:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">HOST_PROJECT</span><span class="o">=</span>&lt;host_project_id&gt;
+<span class="gp">$</span><span class="w"> </span><span class="nv">DEPLOYER_SA</span><span class="o">=</span>&lt;osd_deployer_sa_email&gt;
+<span class="gp">$</span><span class="w"> </span><span class="nv">CONTROL_PLANE_SA</span><span class="o">=</span>&lt;osd_control_plane_sa_email&gt;
+<span class="gp">$</span><span class="w"> </span><span class="nv">MACHINE_API_SA</span><span class="o">=</span>&lt;machine_api_sa_email&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;host_project_id&gt;</code></dt>
+<dd>
+<p>The ID of the Google Cloud host project that owns the Shared VPC.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;osd_deployer_sa_email&gt;</code></dt>
+<dd>
+<p>The email address of the <code>osd-deployer</code> service account in your service project, for example <code>osd-deployer-&lt;id&gt;@&lt;service_project&gt;.iam.gserviceaccount.com</code>. This value is available in the WIF configuration output.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;osd_control_plane_sa_email&gt;</code></dt>
+<dd>
+<p>The email address of the <code>osd-control-plane</code> service account in your service project, for example <code>osd-control-plane-&lt;id&gt;@&lt;service_project&gt;.iam.gserviceaccount.com</code>. This value is available in the WIF configuration output.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;machine_api_sa_email&gt;</code></dt>
+<dd>
+<p>The email address of the <code>openshift-machine-api-gcp</code> service account in your service project, for example <code>openshift-machine-api-gcp-&lt;id&gt;@&lt;service_project&gt;.iam.gserviceaccount.com</code>. This value is available in the WIF configuration output.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Create a custom IAM role on the host project with the minimal permissions required for Shared VPC access:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud iam roles create osd_shared_vpc_role <span class="se">\</span>
+  <span class="nt">--project</span><span class="o">=</span><span class="nv">$HOST_PROJECT</span> <span class="se">\</span>
+  <span class="nt">--title</span><span class="o">=</span><span class="s2">"OSD Shared VPC Minimal Access"</span> <span class="se">\</span>
+  <span class="nt">--permissions</span><span class="o">=</span>compute.firewalls.get,compute.networks.get,compute.subnetworks.get,compute.subnetworks.list,compute.subnetworks.use,compute.subnetworks.useExternalIp,compute.projects.get,resourcemanager.projects.get</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For Private Service Connect (PSC) clusters with bring your own (BYO) DNS Zones and BYO firewall rules, you can omit the <code>compute.subnetworks.useExternalIp</code> permission from the custom role. This permission is only required for public clusters.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following table describes each permission in the custom role:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Permission</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>compute.firewalls.get</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Read firewall rule information from the host project. Required for pre-flight checks that verify firewall rules are present and configured correctly.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>compute.networks.get</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Read VPC network information from the host project.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>compute.subnetworks.get</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Read subnet information from the host project.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>compute.subnetworks.list</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">List subnets in the host project.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>compute.subnetworks.use</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Use subnets in the host project for creating instances.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>compute.subnetworks.useExternalIp</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Assign external IP addresses to instances that use host project subnets. This permission is required for public clusters only.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>compute.projects.get</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Read compute project metadata from the host project.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>resourcemanager.projects.get</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Read general project-level information such as project ID and name.</p></td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>Grant the custom role to the <code>osd-deployer</code>, <code>osd-control-plane</code>, and <code>openshift-machine-api-gcp</code> service accounts on the host project:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud projects add-iam-policy-binding <span class="nv">$HOST_PROJECT</span> <span class="se">\</span>
+  <span class="nt">--member</span><span class="o">=</span><span class="s2">"serviceAccount:</span><span class="nv">$DEPLOYER_SA</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--role</span><span class="o">=</span><span class="s2">"projects/</span><span class="nv">$HOST_PROJECT</span><span class="s2">/roles/osd_shared_vpc_role"</span> <span class="o">&amp;&amp;</span><span class="se">\</span>
+  gcloud projects add-iam-policy-binding <span class="nv">$HOST_PROJECT</span> <span class="se">\</span>
+  <span class="nt">--member</span><span class="o">=</span><span class="s2">"serviceAccount:</span><span class="nv">$CONTROL_PLANE_SA</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--role</span><span class="o">=</span><span class="s2">"projects/</span><span class="nv">$HOST_PROJECT</span><span class="s2">/roles/osd_shared_vpc_role"</span> <span class="o">&amp;&amp;</span><span class="se">\</span>
+  gcloud projects add-iam-policy-binding <span class="nv">$HOST_PROJECT</span> <span class="se">\</span>
+  <span class="nt">--member</span><span class="o">=</span><span class="s2">"serviceAccount:</span><span class="nv">$MACHINE_API_SA</span><span class="s2">"</span> <span class="se">\</span>
+  <span class="nt">--role</span><span class="o">=</span><span class="s2">"projects/</span><span class="nv">$HOST_PROJECT</span><span class="s2">/roles/osd_shared_vpc_role"</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>openshift-machine-api-gcp</code> service account requires host project permissions so that new nodes created on day two can connect to the Shared VPC network.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the custom role was created with the expected permissions:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud iam roles describe osd_shared_vpc_role <span class="nt">--project</span><span class="o">=</span><span class="nv">$HOST_PROJECT</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the role bindings were applied:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>gcloud projects get-iam-policy <span class="nv">$HOST_PROJECT</span> <span class="se">\</span>
+  <span class="nt">--flatten</span><span class="o">=</span><span class="s2">"bindings[].members"</span> <span class="se">\</span>
+  <span class="nt">--filter</span><span class="o">=</span><span class="s2">"bindings.role:roles/osd_shared_vpc_role"</span> <span class="se">\</span>
+  <span class="nt">--format</span><span class="o">=</span><span class="s2">"table(bindings.members)"</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
 <div class="sect1 _additional-resources">
 <h2 id="additional-resources_gcp-ccs"><a class="anchor" href="#additional-resources_gcp-ccs"></a>Additional resources</h2>
 <div class="sectionbody">
@@ -3271,10 +3658,13 @@ resourcemanager.projects.updatePolicyBinding</p>
 <p><a href="../support/remote_health_monitoring/about-remote-health-monitoring.html#about-remote-health-monitoring">About remote health monitoring</a></p>
 </li>
 <li>
-<p><a href="../osd_gcp_clusters/creating-a-gcp-cluster-with-workload-identity-federation.html#osd-creating-a-cluster-on-gcp-with-workload-identity-federation">Creating a cluster on Google Cloud with Workload Identity Federation authentication</a></p>
+<p><a href="../osd_gcp_clusters/creating-a-gcp-cluster-with-workload-identity-federation.html#osd-creating-a-cluster-on-gcp-with-workload-identity-federation">Create a cluster on Google Cloud with Workload Identity Federation authentication</a></p>
 </li>
 <li>
 <p><a href="https://github.com/openshift/managed-cluster-config/blob/master/resources/wif/4.22/vanilla.yaml">Example Workload Identity Federation configuration for OpenShift Dedicated on Google Cloud</a></p>
+</li>
+<li>
+<p><a href="https://cloud.google.com/vpc/docs/provisioning-shared-vpc#set-up-shared-vpc">Set up Shared VPC</a></p>
 </li>
 </ul>
 </div>
