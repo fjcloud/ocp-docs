@@ -3446,6 +3446,7 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#ztp-customizing-the-install-extra-manifests_ztp-advanced-install-ztp">Customizing extra installation manifests in the GitOps ZTP pipeline</a></li>
+<li><a href="#ztp-customizing-br-ex-bridge-install_ztp-advanced-install-ztp">Customizing the br-ex bridge at installation time in the GitOps ZTP pipeline</a></li>
 <li><a href="#ztp-configuring-cluster-network-mtu_ztp-advanced-install-ztp">Configuring cluster network MTU at installation time</a></li>
 <li><a href="#ztp-deleting-node-clusterinstance_ztp-advanced-install-ztp">Deleting a node by using the ClusterInstance CR</a></li>
 </ul>
@@ -3568,6 +3569,129 @@
 </div>
 </li>
 </ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ztp-customizing-br-ex-bridge-install_ztp-advanced-install-ztp"><a class="anchor" href="#ztp-customizing-br-ex-bridge-install_ztp-advanced-install-ztp"></a>Customizing the br-ex bridge at installation time in the GitOps ZTP pipeline</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>By default, OpenShift Container Platform automatically configures the Open vSwitch (OVS) <code>br-ex</code> bridge on bare-metal nodes.
+For advanced networking requirements, you can override this default behavior by defining a customized <code>br-ex</code> bridge in an NMState configuration.
+When you configure the customized <code>br-ex</code> bridge as part of the GitOps Zero Touch Provisioning (ZTP) installation, the configuration is applied during cluster provisioning.
+This eliminates the need for the Day 2 migration procedure, which requires a node reboot.</p>
+</div>
+<div class="paragraph">
+<p>To customize the <code>br-ex</code> bridge at installation time in the GitOps ZTP pipeline, you create a <code>MachineConfig</code> object that includes the customized <code>br-ex</code> bridge configuration, package it as a <code>ConfigMap</code>, and reference it in your <code>ClusterInstance</code> CR.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The customized <code>br-ex</code> bridge configuration cannot be included directly in the <code>ClusterInstance</code> CR.
+Using a <code>MachineConfig</code> object as an extra manifest is currently the only supported method to configure a customized <code>br-ex</code> bridge at installation time.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You configured a Git repository where you manage your custom site configuration data.
+The repository must be accessible from the hub cluster and be defined as a source repository for the Argo CD application.</p>
+</li>
+<li>
+<p>You created a <code>MachineConfig</code> object that includes your customized <code>br-ex</code> bridge NMState configuration.
+For detailed instructions on creating the NMState configuration and <code>MachineConfig</code> object, see "Creating a manifest object that includes a customized br-ex bridge".</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>In your <code>/clusterinstance</code> directory, create an <code>extra-manifest</code> subdirectory and save the <code>MachineConfig</code> object to a file in this directory, for example, <code>extra-manifest/10-br-ex-master.yaml</code>.</p>
+</li>
+<li>
+<p>Create or update the <code>kustomization.yaml</code> file to use <code>configMapGenerator</code> to package the <code>MachineConfig</code> object into a <code>ConfigMap</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kustomize.config.k8s.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Kustomization</span>
+<span class="na">resources</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">site1-sno-du.yaml</span>
+<span class="na">configMapGenerator</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex-extra-manifest</span>
+    <span class="na">namespace</span><span class="pi">:</span> <span class="s">site1-sno-du</span>
+    <span class="na">files</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">extra-manifest/10-br-ex-master.yaml</span>
+<span class="na">generatorOptions</span><span class="pi">:</span>
+  <span class="na">disableNameSuffixHash</span><span class="pi">:</span> <span class="no">true</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>configMapGenerator.namespace</code> value must match the <code>ClusterInstance</code> namespace.</p>
+</li>
+<li>
+<p>Setting <code>generatorOptions.disableNameSuffixHash</code> to <code>true</code> disables the hash suffix so the <code>ConfigMap</code> name is predictable.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>In your <code>ClusterInstance</code> CR, reference the <code>ConfigMap</code> in the <code>extraManifestsRefs</code> field:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">siteconfig.open-cluster-management.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterInstance</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">site1-sno-du"</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">site1-sno-du"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">clusterName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">site1-sno-du"</span>
+  <span class="na">networkType</span><span class="pi">:</span> <span class="s2">"</span><span class="s">OVNKubernetes"</span>
+  <span class="na">extraManifestsRefs</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">br-ex-extra-manifest</span>
+  <span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Commit the <code>ClusterInstance</code> CR, <code>MachineConfig</code> object, and <code>kustomization.yaml</code> file to your Git repository and push the changes.</p>
+<div class="paragraph">
+<p>During cluster provisioning, the SiteConfig Operator applies the <code>MachineConfig</code> object as an extra manifest, and the customized <code>br-ex</code> bridge configuration is applied to each node without requiring a reboot.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>On the hub cluster, verify that the <code>ConfigMap</code> that contains the <code>MachineConfig</code> object exists by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configmap br-ex-extra-manifest <span class="nt">-n</span> site1-sno-du</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>After the cluster installation is complete, verify that the <code>MachineConfig</code> object exists on the managed cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfig 10-br-ex-master</code></pre>
+</div>
+</div>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -3791,6 +3915,9 @@ For example, with a machine network MTU of <code>9100</code> bytes, set the clus
 <ul>
 <li>
 <p><a href="../edge_computing/ztp-advanced-install-ztp.html#ztp-customizing-the-install-extra-manifests_ztp-advanced-install-ztp">Customizing extra installation manifests in the GitOps ZTP pipeline</a></p>
+</li>
+<li>
+<p><a href="../installing/installing_bare_metal/ipi/ipi-install-installation-workflow.html#creating-manifest-file-customized-br-ex-bridge_ipi-install-installation-workflow">Creating a manifest object that includes a customized br-ex bridge</a></p>
 </li>
 </ul>
 </div>
