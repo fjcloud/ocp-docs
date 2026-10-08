@@ -3449,7 +3449,7 @@
 <li><a href="#updating-fencing-credentials-script_install-post-tnf">Update fencing credentials by using the script</a></li>
 <li><a href="#troubleshooting-fencing-credential-updates_install-post-tnf">Troubleshooting fencing credential updates</a></li>
 <li><a href="#installation-manual-recovering-when-auto-recovery-is-unavail_install-post-tnf">Manually recovering from a disruption event when automated recovery is unavailable</a></li>
-<li><a href="#installation-replacing-control-plane-nodes_install-post-tnf">Replacing control plane nodes in a two-node OpenShift cluster with fencing</a></li>
+<li><a href="#installation-replacing-control-plane-nodes_install-post-tnf">Replacing control plane nodes in a two-node OpenShift Container Platform cluster with fencing</a></li>
 <li><a href="#installation-verifying-etcd-health_install-post-tnf">Verifying etcd health in a two-node OpenShift cluster with fencing</a></li>
 <li><a href="#fencing-validator-script-overview_install-post-tnf">Fencing validator script overview</a>
 <ul class="sectlevel2">
@@ -4321,10 +4321,10 @@ The output must show that etcd is started on the surviving node.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="installation-replacing-control-plane-nodes_install-post-tnf"><a class="anchor" href="#installation-replacing-control-plane-nodes_install-post-tnf"></a>Replacing control plane nodes in a two-node OpenShift cluster with fencing</h2>
+<h2 id="installation-replacing-control-plane-nodes_install-post-tnf"><a class="anchor" href="#installation-replacing-control-plane-nodes_install-post-tnf"></a>Replacing control plane nodes in a two-node OpenShift Container Platform cluster with fencing</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can replace a failed control plane node in a two-node OpenShift cluster. The replacement node must use the same host name and IP address as the failed node.</p>
+<p>You can replace a failed control plane node in a two-node OpenShift Container Platform cluster. The replacement node must use the same host name and IP address as the failed node.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -4737,7 +4737,7 @@ EOF</span></code></pre>
 </div>
 </li>
 <li>
-<p>Rejoin the replacement node to the pacemaker cluster by running the following command:</p>
+<p>Rejoin the replacement node to the pacemaker cluster by running the following commands:</p>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -4746,7 +4746,7 @@ EOF</span></code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Run the following command on the survivor control plane node, not the node being replaced.</p>
+<p>Run the following commands on the survivor control plane node and not on the node being replaced.</p>
 </div>
 </td>
 </tr>
@@ -4764,7 +4764,124 @@ EOF</span></code></pre>
 </div>
 </li>
 <li>
-<p>Delete stale jobs for the failed node by running the following command:</p>
+<p>Update the fencing secret so that STONITH can fence the new node. You must update the secret if the replacement node has a different BMC system UUID than the failed node.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Do not update the STONITH resource directly with the command <code>pcs stonith update</code>. The cluster etcd Operator manages STONITH configuration and overwrites manual changes.</p>
+</li>
+<li>
+<p>For clusters using MAC-based fencing credentials, run <code>update-fencing-credentials.sh</code> from a TNF control-plane node. The script locates the existing secret by hostname, MAC hash, or the existing STONITH address, then updates the secret and STONITH configuration.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The fencing secret contains a Redfish URL in its <code>address</code> field. If the replacement node has a new BMC system UUID, the URL still points to the old UUID and STONITH cannot fence the new node.</p>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Verify the new BMC system UUID by querying the Redfish API:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-k</span> https://&lt;bmc_address&gt;/redfish/v1/Systems/ <span class="nt">-u</span> &lt;username&gt;:&lt;password&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"Members"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="nl">"@odata.id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/redfish/v1/Systems/&lt;new_uuid&gt;"</span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The UUID is the last path segment of the <code>@odata.id</code> value under <code>Members</code>.</p>
+</div>
+</li>
+<li>
+<p>Update the fencing secret for the replacement node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic fencing-credentials-&lt;node_name&gt; <span class="se">\</span>
+  <span class="nt">--namespace</span> openshift-etcd <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">address</span><span class="o">=</span><span class="s1">'redfish+https://&lt;bmc_address&gt;:&lt;port&gt;/redfish/v1/Systems/&lt;new_uuid&gt;'</span> <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">username</span><span class="o">=</span><span class="s1">'&lt;username&gt;'</span> <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">password</span><span class="o">=</span><span class="s1">'&lt;password&gt;'</span> <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span><span class="nv">certificateVerification</span><span class="o">=</span><span class="s1">'&lt;Disabled_or_Enabled&gt;'</span> <span class="se">\</span>
+  <span class="nt">--dry-run</span><span class="o">=</span>client <span class="nt">-o</span> yaml | oc apply <span class="nt">-f</span> -</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Replace <code>&lt;node_name&gt;</code> with the hostname of the replacement node as it appears in <code>oc get nodes</code> command.</p>
+</li>
+<li>
+<p>Replace <code>&lt;bmc_address&gt;</code> and <code>&lt;port&gt;</code> with the BMC IP address and port.</p>
+</li>
+<li>
+<p>Replace <code>&lt;new_uuid&gt;</code> with the new BMC system UUID.</p>
+</li>
+<li>
+<p>Replace <code>&lt;username&gt;</code> and <code>&lt;password&gt;</code> with the BMC credentials.</p>
+</li>
+<li>
+<p>Replace <code>&lt;Disabled_or_Enabled&gt;</code> with <code>Disabled</code> to skip certificate validation and match <code>disableCertificateVerification: true</code> on the BMH object or <code>Enabled</code> if your BMC has a valid TLS certificate.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Verify that the secret is updated successfully by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secret fencing-credentials-&lt;node_name&gt; <span class="nt">-n</span> openshift-etcd <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.address}'</span> | <span class="nb">base64</span> <span class="nt">-d</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Confirm the output contains the new BMC system UUID.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>All four keys must be present because the cluster etcd Operator rejects secrets with missing keys.</p>
+</div>
+<div class="paragraph">
+<p>Do not use the <code>update-fencing-credentials.sh</code> script in this step. The script requires a healthy STONITH device, which is unavailable until the fencing setup completes. Only use this script for subsequent rotations after the cluster is fully operational.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Delete stale jobs for the failed node by running the following commands:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc project openshift-etcd</code></pre>
