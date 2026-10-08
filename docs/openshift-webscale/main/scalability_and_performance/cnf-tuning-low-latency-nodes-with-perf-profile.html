@@ -783,6 +783,7 @@ Flags:
       --mcp-name string                   MCP name corresponding to the target machines (required)
       --must-gather-dir-path string       Must gather directory path (default "must-gather")
       --offlined-cpu-count int            Number of offlined CPUs
+      --ovs-dpdk-cpu-count int            Number of OVS-DPDK CPUs
       --per-pod-power-management          Enable Per Pod Power Management
       --power-consumption-mode string     The power consumption mode.  [Valid values: default, low-latency, ultra-low-latency] (default "default")
       --profile-name string               Name of the performance profile to be created (default "performance")
@@ -1178,6 +1179,7 @@ Flags:
       --mcp-name string                   MCP name corresponding to the target machines (required)
       --must-gather-dir-path string       Must gather directory path (default "must-gather")
       --offlined-cpu-count int            Number of offlined CPUs
+      --ovs-dpdk-cpu-count int            Number of OVS-DPDK CPUs
       --per-pod-power-management          Enable Per Pod Power Management
       --power-consumption-mode string     The power consumption mode.  [Valid values: default, low-latency, ultra-low-latency] (default "default")
       --profile-name string               Name of the performance profile to be created (default "performance")
@@ -1490,6 +1492,18 @@ CPU(s): 4
 </div></div></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ovs-dpdk-cpu-count</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Number of CPUs to reserve for OVS-DPDK PMD threads. When you specify this argument, the PPC tool populates <code>spec.cpu.ovsDpdk</code> in the generated performance profile with the specified number of CPUs.</p>
+</div>
+<div class="paragraph">
+<p>The PPC tool selects OVS-DPDK CPUs after reserved and offlined CPUs are allocated. The selected CPUs are excluded from the isolated CPU set. If Hyper-Threading is enabled, the tool allocates whole sibling groups, requiring an even count.</p>
+</div>
+<div class="paragraph">
+<p>Default: <code>0</code> (no OVS-DPDK CPUs reserved).</p>
+</div></div></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>power-consumption-mode</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p>The power consumption mode.</p>
@@ -1585,6 +1599,9 @@ CPU(s): 4
 <p>To maximize machine performance in a cluster that uses Open vSwitch with the Data Plane Development Kit (OVS-DPDK) on Red&#160;Hat OpenStack Platform (RHOSP), you can use a performance profile.</p>
 </div>
 <div class="paragraph">
+<p>You can create a performance profile manually using the template provided in this section, or you can use the Performance Profile Creator (PPC) tool with the <code>--ovs-dpdk-cpu-count</code> argument to automatically generate a profile. For more information about using the PPC tool, see "Creating a performance profile".</p>
+</div>
+<div class="paragraph">
 <p>You can use the following performance profile template to create a profile for your deployment.</p>
 </div>
 <div class="listingblock">
@@ -1607,6 +1624,7 @@ CPU(s): 4
     <span class="pi">-</span> <span class="s">intel_iommu=on</span>
   <span class="na">cpu</span><span class="pi">:</span>
     <span class="na">isolated</span><span class="pi">:</span> <span class="s">&lt;CPU_ISOLATED&gt;</span>
+    <span class="na">ovsDpdk</span><span class="pi">:</span> <span class="s">&lt;CPU_OVS_DPDK&gt;</span> <span class="c1"># Optional</span>
     <span class="na">reserved</span><span class="pi">:</span> <span class="s">&lt;CPU_RESERVED&gt;</span>
   <span class="na">hugepages</span><span class="pi">:</span>
     <span class="na">defaultHugepagesSize</span><span class="pi">:</span> <span class="s">1G</span>
@@ -1622,7 +1640,10 @@ CPU(s): 4
 </div>
 </div>
 <div class="paragraph">
-<p>Insert values that are appropriate for your configuration for the <code>CPU_ISOLATED</code>, <code>CPU_RESERVED</code>, and <code>HUGEPAGES_COUNT</code> keys.</p>
+<p>Insert values that are appropriate for your configuration for the <code>CPU_ISOLATED</code>, <code>CPU_RESERVED</code>, <code>HUGEPAGES_COUNT</code>, and <code>CPU_OVS_DPDK</code> keys.</p>
+</div>
+<div class="paragraph">
+<p>Optional: You can specify CPUs to reserve for OVS-DPDK PMD threads in the <code>spec.cpu.ovsDpdk</code> field. For example, <code>"2-3"</code> to allocate CPUs 2 and 3. Ensure these CPUs are on the same NUMA node as the OVS-DPDK NICs.</p>
 </div>
 </div>
 <div class="sect2">
@@ -1898,6 +1919,9 @@ perPodPowerManagement: true</span></code></pre>
 <ul>
 <li>
 <p><a href="https://access.redhat.com/articles/7081587">Understanding workload hints</a></p>
+</li>
+<li>
+<p><a href="../scalability_and_performance/cnf-reserving-cpus-for-ovs-dpdk.html#cnf-reserving-cpus-for-ovs-dpdk">Reserving CPUs for OVS-DPDK</a></p>
 </li>
 </ul>
 </div>
@@ -2727,6 +2751,9 @@ perPodPowerManagement: true</span></code></pre>
 <div class="paragraph">
 <p>The decision regarding which specific CPUs should be used for reserved and isolated partitions requires detailed analysis and measurements. Factors like NUMA affinity of devices and memory play a role. The selection also depends on the workload architecture and the specific use case.</p>
 </div>
+<div class="paragraph">
+<p>To ensure that housekeeping tasks and workloads do not interfere with each other, specify two groups of CPUs in the <code>spec</code> section of the performance profile.</p>
+</div>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -2741,19 +2768,29 @@ perPodPowerManagement: true</span></code></pre>
 </tr>
 </table>
 </div>
-<div class="paragraph">
-<p>To ensure that housekeeping tasks and workloads do not interfere with each other, specify two groups of CPUs in the <code>spec</code> section of the performance profile.</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>isolated</code> - Specifies the CPUs for the application container workloads. These CPUs have the lowest latency. Processes in this group have no interruptions and can, for example, reach much higher DPDK zero packet loss bandwidth.</p>
-</li>
-<li>
-<p><code>reserved</code> - Specifies the CPUs for the cluster and operating system housekeeping duties. Threads in the <code>reserved</code> group are often busy. Do not run latency-sensitive applications in the <code>reserved</code> group. Latency-sensitive applications run in the <code>isolated</code> group.</p>
-</li>
-</ul>
-</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 5. CPU partition types</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Partition type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>reserved</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the CPUs for cluster and operating system housekeeping duties. Kernel processes and operating system services are pinned to these CPUs. When workload partitioning is enabled, platform pods are also pinned to these CPUs. Threads in the <code>reserved</code> group are often busy. The kubelet does not place <code>Guaranteed</code> pods that request exclusive CPUs on these CPUs. Do not run latency-sensitive applications in the <code>reserved</code> group.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>isolated</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Specifies the CPUs for application container workloads. These CPUs have the lowest latency. Device interrupts can still be processed on this set unless you disable IRQ load balancing. The kubelet places <code>Guaranteed</code> pods that request exclusive CPUs on this set.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div class="sect1">
