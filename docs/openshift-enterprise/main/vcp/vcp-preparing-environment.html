@@ -2040,10 +2040,11 @@
     </li>
     <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup26"><span id="tgSpan26" class="fa fa-angle-down"></span>Virtualized control planes</a>
       <ul id="topicGroup26" class="collapse in list-unstyled">
-            <li><a class="" href="../vcp/vcp-overview.html">Understanding virtualized control planes</a></li>
-            <li><a class="" href="../vcp/vcp-prerequisites.html">Prerequisites for virtualized control planes</a></li>
+            <li><a class="" href="../vcp/vcp-overview.html">Virtualized control planes</a></li>
+            <li><a class="" href="../vcp/vcp-prerequisites.html">Requirements for virtualized control planes</a></li>
             <li><a class=" active" href="../vcp/vcp-preparing-environment.html">Preparing the environment for virtualized control planes</a></li>
             <li><a class="" href="../vcp/vcp-installing-cluster.html">Deploying a virtualized control plane</a></li>
+            <li><a class="" href="../vcp/vcp-managing.html">Managing the hosting cluster for virtualized control planes</a></li>
       </ul>
     </li>
     <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicGroup27"><span id="tgSpan27" class="fa fa-angle-right"></span>Nodes</a>
@@ -3241,6 +3242,7 @@
 
                   <li><a class="" href="../virt/creating_vm/virt-creating-vms-web.html">Create virtual machines by using the web console</a></li>
                   <li><a class="" href="../virt/creating_vm/virt-creating-vms-from-cli.html">Creating virtual machines by using the CLI</a></li>
+                  <li><a class="" href="../virt/creating_vm/virt-create-vms-from-native-vm-templates.html">Create virtual machines from native VM templates</a></li>
                   <li><a class="" href="../virt/creating_vm/virt-configuring-ibm-secure-execution-vms-ibm-z.html">Configuring IBM Secure Execution virtual machines on IBM Z and IBM LinuxONE</a></li>
                   <li><a class="" href="../virt/creating_vm/virt-creating-vms-aws-li-windows.html">Creating AWS EC2 Windows License Included (LI) compliant VMs</a></li>
                   <li><a class="" href="../virt/creating_vm/virt-creating-vms-from-instance-types.html">Instance types</a></li>
@@ -3454,23 +3456,6 @@
 <div class="paragraph _abstract">
 <p>Prepare your hosting cluster environment before deploying a virtualized control plane cluster.
 This includes installing and configuring KubeVirt Redfish and creating the control plane VMs.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>KubeVirt Redfish is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 </div>
 </div>
@@ -3717,7 +3702,7 @@ Edit the <code>config.yaml</code> section to match your environment:</p>
 </dd>
 <dt class="hdlist1"><code>datavolume</code></dt>
 <dd>
-<p>Specifies storage for VirtualMedia operations. Replace <code>&lt;storage_class&gt;</code> with a storage class available on your cluster, such as <code>lvms-vg1</code> or <code>ocs-storagecluster-ceph-rbd-virtualization</code>. For more information about storage options, see <em>Storage requirements</em> in "Prerequisites for virtualized control planes".</p>
+<p>Specifies storage for virtual media operations. KubeVirt Redfish uses this storage to create a data volume, download the installation ISO into that volume, and attach the volume to the VM as virtual media. Replace <code>&lt;storage_class&gt;</code> with a storage class that points to a shared storage location accessible from all nodes in the hosting cluster. Do not use a node-local storage class such as LVM Storage for this volume. For more information about storage options, see <em>Storage requirements</em> in "Prerequisites for virtualized control planes".</p>
 </dd>
 </dl>
 </div>
@@ -3980,36 +3965,14 @@ kubevirt-redfish-587cd94988-xthml   1/1     Running   0          2m</span></code
 <li>
 <p>The hosting cluster has a network configured to provide Layer 2 connectivity between VMs.</p>
 </li>
+<li>
+<p>Logical Volume Manager (LVM) Storage is installed on the hosting cluster.</p>
+</li>
 </ul>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
-<li>
-<p>Enable the <code>RebootPolicy</code> feature gate on the hosting cluster by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc annotate <span class="nt">--overwrite</span> <span class="nt">-n</span> openshift-cnv hyperconverged kubevirt-hyperconverged <span class="se">\</span>
-    kubevirt.kubevirt.io/jsonpatch<span class="o">=</span><span class="s1">'[{"op":"add","path":"/spec/configuration/developerConfiguration/featureGates/-","value":"RebootPolicy"}]'</span></code></pre>
-</div>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The <code>RebootPolicy</code> feature gate enables the <code>rebootPolicy</code> field in <code>VirtualMachine</code> specifications.
-This configuration is required when using KubeVirt Redfish for cluster installation.
-The feature gate is enabled through an annotation on the <code>HyperConverged</code> resource, which propagates the configuration to the underlying <code>KubeVirt</code> CR.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</li>
 <li>
 <p>Create a <code>VirtualMachine</code> CR for each control plane node by creating a YAML file with content such as the following example:</p>
 <div class="listingblock">
@@ -4017,17 +3980,48 @@ The feature gate is enabled through an annotation on the <code>HyperConverged</c
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kubevirt.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">VirtualMachine</span>
 <span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">master-0</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">control-plane-0</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;vm_namespace&gt;</span>
   <span class="na">labels</span><span class="pi">:</span>
     <span class="na">redfish-enabled</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+    <span class="na">vcp-cluster</span><span class="pi">:</span> <span class="s">&lt;cluster_name&gt;</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">runStrategy</span><span class="pi">:</span> <span class="s">Halted</span>
+  <span class="na">dataVolumeTemplates</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">metadata</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">control-plane-0-disk</span>
+      <span class="na">spec</span><span class="pi">:</span>
+        <span class="na">source</span><span class="pi">:</span>
+          <span class="na">blank</span><span class="pi">:</span> <span class="pi">{}</span>
+        <span class="na">storage</span><span class="pi">:</span>
+          <span class="na">accessModes</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="s">ReadWriteOnce</span>
+          <span class="na">volumeMode</span><span class="pi">:</span> <span class="s">Block</span>
+          <span class="na">resources</span><span class="pi">:</span>
+            <span class="na">requests</span><span class="pi">:</span>
+              <span class="na">storage</span><span class="pi">:</span> <span class="s">120Gi</span>
+          <span class="na">storageClassName</span><span class="pi">:</span> <span class="s">&lt;storage_class&gt;</span>
   <span class="na">template</span><span class="pi">:</span>
     <span class="na">metadata</span><span class="pi">:</span>
       <span class="na">labels</span><span class="pi">:</span>
         <span class="na">redfish-enabled</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+        <span class="na">vcp-cluster</span><span class="pi">:</span> <span class="s">&lt;cluster_name&gt;</span>
     <span class="na">spec</span><span class="pi">:</span>
+      <span class="na">evictionStrategy</span><span class="pi">:</span> <span class="s">None</span>
+      <span class="na">affinity</span><span class="pi">:</span>
+        <span class="na">podAntiAffinity</span><span class="pi">:</span>
+          <span class="na">requiredDuringSchedulingIgnoredDuringExecution</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">labelSelector</span><span class="pi">:</span>
+                <span class="na">matchLabels</span><span class="pi">:</span>
+                  <span class="na">vcp-cluster</span><span class="pi">:</span> <span class="s">&lt;cluster_name&gt;</span>
+              <span class="na">topologyKey</span><span class="pi">:</span> <span class="s">kubernetes.io/hostname</span>
+      <span class="na">readinessProbe</span><span class="pi">:</span>
+        <span class="na">guestAgentPing</span><span class="pi">:</span> <span class="pi">{}</span>
+        <span class="na">initialDelaySeconds</span><span class="pi">:</span> <span class="m">120</span>
+        <span class="na">periodSeconds</span><span class="pi">:</span> <span class="m">20</span>
+        <span class="na">timeoutSeconds</span><span class="pi">:</span> <span class="m">10</span>
+        <span class="na">failureThreshold</span><span class="pi">:</span> <span class="m">3</span>
+        <span class="na">successThreshold</span><span class="pi">:</span> <span class="m">3</span>
       <span class="na">domain</span><span class="pi">:</span>
         <span class="na">rebootPolicy</span><span class="pi">:</span> <span class="s">Terminate</span>
         <span class="na">cpu</span><span class="pi">:</span>
@@ -4044,6 +4038,7 @@ The feature gate is enabled through an annotation on the <code>HyperConverged</c
                 <span class="na">bus</span><span class="pi">:</span> <span class="s">virtio</span>
           <span class="na">interfaces</span><span class="pi">:</span>
             <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
+              <span class="na">macAddress</span><span class="pi">:</span> <span class="s2">"</span><span class="s">52:54:00:00:00:01"</span>
               <span class="na">bridge</span><span class="pi">:</span> <span class="pi">{}</span>
       <span class="na">networks</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
@@ -4052,12 +4047,12 @@ The feature gate is enabled through an annotation on the <code>HyperConverged</c
       <span class="na">volumes</span><span class="pi">:</span>
         <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">rootdisk</span>
           <span class="na">dataVolume</span><span class="pi">:</span>
-            <span class="na">name</span><span class="pi">:</span> <span class="s">master-0-disk</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">control-plane-0-disk</span>
         <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cloudinitdisk</span>
           <span class="na">cloudInitNoCloud</span><span class="pi">:</span>
             <span class="na">userData</span><span class="pi">:</span> <span class="pi">|</span>
               <span class="s">#cloud-config</span>
-              <span class="s">hostname: master-0</span>
+              <span class="s">hostname: control-plane-0</span>
               <span class="s">user: core</span></code></pre>
 </div>
 </div>
@@ -4070,35 +4065,57 @@ The feature gate is enabled through an annotation on the <code>HyperConverged</c
 <p><code>&lt;vm_namespace&gt;</code> specifies the namespace for the VMs. Must match the namespace specified in the KubeVirt Redfish chassis configuration.</p>
 </li>
 <li>
-<p><code>redfish-enabled: "true"</code> specifies the label that must match the <code>vm_selector</code> labels in the KubeVirt Redfish configuration so the VM is exposed through the Redfish API.</p>
+<p><code>redfish-enabled: "true"</code> is an example label. The label must match the <code>vm_selector</code> labels in the KubeVirt Redfish configuration so the VM is exposed through the Redfish API. You can use any label key and value, as long as both the VM and the KubeVirt Redfish configuration use the same label.</p>
+</li>
+<li>
+<p><code>vcp-cluster: &lt;cluster_name&gt;</code> identifies which target cluster a VM belongs to. Replace <code>&lt;cluster_name&gt;</code> with the name of your target cluster. This label is used by anti-affinity rules and the pod disruption budget to scope operations to a single target cluster. This is important when a hosting cluster runs VMs for multiple target clusters.</p>
+</li>
+<li>
+<p><code>evictionStrategy: None</code> prevents the hosting cluster from attempting to live-migrate control plane VMs during node drain operations. Live migration is not supported for virtualized control plane VMs.</p>
+</li>
+<li>
+<p><code>affinity.podAntiAffinity</code> distributes control plane VMs across different physical nodes so that a single node failure affects only one VM. The label selector uses the <code>vcp-cluster</code> label to scope anti-affinity to VMs belonging to the same target cluster.</p>
+</li>
+<li>
+<p><code>readinessProbe.guestAgentPing</code> verifies that the QEMU guest agent inside the VM is responsive. The hosting cluster uses this probe to determine whether the VM is healthy before allowing operations that affect other VMs.</p>
 </li>
 <li>
 <p><code>runStrategy: Halted</code> specifies that VMs must be powered off initially. The installation powers them on by using the Redfish API.</p>
 </li>
 <li>
 <p><code>rebootPolicy: Terminate</code> specifies the reboot behavior required for Redfish API boot override operations. Ensures the VM terminates cleanly when boot media changes.</p>
-</li>
-<li>
-<p><code>cores: 8</code> and <code>guest: 16Gi</code> specify the minimum recommended resources for control plane nodes.</p>
-</li>
-<li>
-<p><code>&lt;network_attachment_definition&gt;</code> specifies the name of a <code>NetworkAttachmentDefinition</code> configured on your hosting cluster. All control plane VMs must share the same L2 network segment. Common options include localnet, Linux bridge, or OVN Layer 2 networks.</p>
-<div class="admonitionblock important">
+<div class="admonitionblock note">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-important" title="Important"></i>
+<i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>For production deployments, configure anti-affinity rules to ensure control plane VMs are distributed across different physical nodes.
-This prevents a single node failure from affecting multiple control plane VMs simultaneously.
-Add pod anti-affinity rules or topology spread constraints to the VM specification based on your environment requirements.</p>
+<p>The <code>RebootPolicy</code> feature gate enables the <code>rebootPolicy</code> field in <code>VirtualMachine</code> CR specifications. In OpenShift Virtualization 5.0, this feature gate is enabled by default.</p>
+</div>
+<div class="paragraph">
+<p>The <code>rebootPolicy: Terminate</code> configuration is required when deploying a virtualized control plane cluster.</p>
 </div>
 </td>
 </tr>
 </table>
 </div>
+</li>
+<li>
+<p><code>cores: 8</code> and <code>guest: 16Gi</code> specify the minimum recommended resources for control plane nodes.</p>
+</li>
+<li>
+<p><code>dataVolumeTemplates</code> creates a blank root disk for the VM. The <code>120Gi</code> value matches the control plane VM storage requirements.</p>
+</li>
+<li>
+<p><code>&lt;storage_class&gt;</code> specifies the LVM Storage <code>StorageClass</code> on the hosting cluster, for example <code>lvms-vg1</code>.</p>
+</li>
+<li>
+<p><code>macAddress</code> specifies a fixed MAC address for the VM network interface. Use this same address for the <code>bootMACAddress</code> field in the installation configuration. Assign a unique MAC address to each control plane VM.</p>
+</li>
+<li>
+<p><code>&lt;network_attachment_definition&gt;</code> specifies the name of a <code>NetworkAttachmentDefinition</code> configured on your hosting cluster. All control plane VMs must share the same L2 network segment. Common options include localnet, Linux bridge, or OVN Layer 2 networks.</p>
 </li>
 </ul>
 </div>
@@ -4107,18 +4124,56 @@ Add pod anti-affinity rules or topology spread constraints to the VM specificati
 <p>Apply the resource by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> master-0.yaml</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> control-plane-0.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Create further VMs for <code>control-plane-1</code> and <code>control-plane-2</code> using the same specification, adjusting the <code>metadata.name</code>, <code>dataVolumeTemplates[].metadata.name</code>, <code>macAddress</code>, and cloud-init <code>hostname</code> for each VM.</p>
+</div>
+</li>
+<li>
+<p>Create a <code>PodDisruptionBudget</code> to prevent the hosting cluster from evicting more than one control plane VM at a time:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">policy/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">PodDisruptionBudget</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">vcp-control-plane-pdb</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;vm_namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">minAvailable</span><span class="pi">:</span> <span class="m">2</span>
+  <span class="na">selector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">vcp-cluster</span><span class="pi">:</span> <span class="s">&lt;cluster_name&gt;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>minAvailable: 2</code> ensures that at least two control plane VMs remain running during node drain operations, which preserves <code>etcd</code> quorum. You must use <code>minAvailable</code> instead of <code>maxUnavailable</code> because the <code>VirtualMachineInstance</code> controller does not implement the Kubernetes scale subresource. A PDB with <code>maxUnavailable</code> cannot determine the expected pod count for VMs, which causes it to block all evictions.</p>
+</li>
+<li>
+<p>The label selector uses the <code>vcp-cluster</code> label to scope the budget to VMs belonging to the same target cluster.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Apply the resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> vcp-control-plane-pdb.yaml</code></pre>
 </div>
 </div>
 </li>
 </ol>
 </div>
-<div class="paragraph">
-<p>If required, create further VMs for <code>master-1</code> and <code>master-2</code>, for example.</p>
-</div>
-<div class="ulist">
+<div class="olist arabic">
 <div class="title">Verification</div>
-<ul>
+<ol class="arabic">
 <li>
 <p>Verify that the VMs are created and powered off by running the following command:</p>
 <div class="listingblock">
@@ -4126,17 +4181,21 @@ Add pod anti-affinity rules or topology spread constraints to the VM specificati
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get vm <span class="nt">-n</span> &lt;vm_namespace&gt;</code></pre>
 </div>
 </div>
-</li>
+<div class="ulist">
+<ul>
 <li>
-<p><code>vm_namespace</code> is the namespace of the VMs.</p>
+<p><code>&lt;vm_namespace&gt;</code> is the namespace of the VMs.</p>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME       AGE   STATUS    READY
-master-0   1m    Stopped   False
-master-1   1m    Stopped   False
-master-2   1m    Stopped   False</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME               AGE   STATUS    READY
+control-plane-0    1m    Stopped   False
+control-plane-1    1m    Stopped   False
+control-plane-2    1m    Stopped   False</span></code></pre>
 </div>
+</div>
+</li>
+</ul>
 </div>
 </li>
 <li>
@@ -4148,7 +4207,7 @@ master-2   1m    Stopped   False</span></code></pre>
 </div>
 </div>
 </li>
-</ul>
+</ol>
 </div>
 </div>
 </div>
