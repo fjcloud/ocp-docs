@@ -2899,6 +2899,7 @@
 <li><a href="#cnf-creating-nrop-cr_numa-aware">Create the NUMAResourcesOperator custom resource</a></li>
 <li><a href="#cnf-creating-nrop-cr-hosted-control-plane_numa-aware">Create the NUMAResourcesOperator custom resource for hosted control planes</a></li>
 <li><a href="#cnf-deploying-the-numa-aware-scheduler_numa-aware">Deploy the NUMA-aware secondary pod scheduler</a></li>
+<li><a href="#cnf-numa-scheduler-preemption_numa-aware">Scheduling critical workloads with preemption</a></li>
 <li><a href="#cnf-scheduling-numa-aware-workloads_numa-aware">Schedule workloads with the NUMA-aware scheduler</a></li>
 </ul>
 </li>
@@ -4138,6 +4139,190 @@ replicaset.apps/secondary-scheduler-847cb74f84                1         1       
 <p><a href="../disconnected/updating/disconnected-update.html#images-configuration-registry-mirror_updating-disconnected-cluster">Configuring image registry repository mirroring</a></p>
 </li>
 </ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="cnf-numa-scheduler-preemption_numa-aware"><a class="anchor" href="#cnf-numa-scheduler-preemption_numa-aware"></a>Scheduling critical workloads with preemption</h3>
+<div class="paragraph _abstract">
+<p>You can configure the NUMA Resources Operator scheduler to use the default Kubernetes scheduler preemption feature. Priority-based preemption enables the scheduler to preempt lower-priority pods so that higher-priority pods can be scheduled when cluster resources are constrained. This helps ensure critical workloads get the resources they need while making better use of available capacity.</p>
+</div>
+<div class="paragraph">
+<p>When you enable preemption for the NUMA Resources Operator scheduler, the scheduler uses the standard <code>DefaultPreemption</code> plugin from Kubernetes, not a separate NUMA-aware preemption mechanism.</p>
+</div>
+<div class="paragraph">
+<p>Preemption works with the standard Kubernetes <code>PriorityClass</code> resources. When a high-priority pod cannot be scheduled because of insufficient resources, the scheduler identifies lower-priority pods that can be preempted to make room for the pending pod. The scheduler then preempts those pods and schedules the high-priority pod in their place.</p>
+</div>
+<div class="paragraph">
+<p>Benefits of enabling preemption include:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Critical workloads are guaranteed resources even on heavily utilized clusters</p>
+</li>
+<li>
+<p>Cluster resources are used more efficiently by allowing important pods to displace less important ones</p>
+</li>
+<li>
+<p>Service degradation is reduced by ensuring that infrastructure and high-priority application pods are always prioritized</p>
+</li>
+</ul>
+</div>
+<div class="sect3">
+<h4 id="cnf-numa-scheduler-preemption-nrt-cache_numa-aware"><a class="anchor" href="#cnf-numa-scheduler-preemption-nrt-cache_numa-aware"></a>NodeResourceTopology cache timing considerations</h4>
+<div class="paragraph">
+<p>When a pod cannot be scheduled, it enters the unschedulable queue and waits for either node resource events or the unschedulable timeout period (5 minutes by default). If the NodeResourceTopology (NRT) plugin rejects a pod because of stale cache information, the pod remains in this queue. Even after the NRT cache refreshes, the pod does not immediately retry scheduling — it continues to wait for node events or the timeout to trigger a new scheduling attempt.</p>
+</div>
+<div class="paragraph">
+<p>When a pod fails the NRT filter plugin, the scheduler initiates default preemption and evaluates sets of pods for eviction. If the NRT cache updates during this evaluation to show sufficient free resources, the preemption plugin might evict pods unnecessarily. To mitigate this, ensure all pods are managed by controllers such as ReplicaSets or DaemonSets. This allows evicted pods to respawn automatically, although scheduling order is not guaranteed.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Preemption handles priority-based scheduling decisions. Quality of Service (QoS) based eviction, which evicts pods based on resource pressure on a node, is handled separately by the kubelet&#8217;s node-pressure eviction feature and is not affected by this configuration.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../nodes/pods/nodes-pods-priority.html#nodes-pods-priority-preempt-about_nodes-pods-priority">Understanding pod priority</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="cnf-enabling-numa-scheduler-preemption_numa-aware"><a class="anchor" href="#cnf-enabling-numa-scheduler-preemption_numa-aware"></a>Enabling preemption for the NUMA-aware scheduler</h4>
+<div class="paragraph _abstract">
+<p>To enable priority-based preemption for the NUMA Resources Operator scheduler, configure the <code>NUMAResourcesScheduler</code> custom resource. Preemption is disabled by default. When enabled, the scheduler can preempt lower-priority pods to make room for higher-priority pods on constrained cluster nodes.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The NUMA Resources Operator is installed.</p>
+</li>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Edit the <code>NUMAResourcesScheduler</code> custom resource by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit numaresourcesscheduler numaresourcesscheduler</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add the <code>preemptionMode</code> field to enable preemption:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nodetopology.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NUMAResourcesScheduler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">numaresourcesscheduler</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">preemptionMode</span><span class="pi">:</span> <span class="s">Enabled</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Save and exit the editor.</p>
+<div class="paragraph">
+<p>The NUMA Resources Operator automatically restarts the scheduler pod to apply the new configuration.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the scheduler pod has restarted with the new configuration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-numaresources <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>secondary-scheduler</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows a new pod with a recent <code>AGE</code> value.</p>
+</div>
+</li>
+<li>
+<p>Verify that the <code>NUMAResourcesScheduler</code> custom resource shows the updated configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get numaresourcesscheduler numaresourcesscheduler <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.preemptionMode}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Enabled</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: To test that preemption is working, create workloads with different <code>PriorityClass</code> values and verify that higher-priority pods preempt lower-priority pods when resources are constrained.</p>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect3">
+<h4 id="cnf-numa-scheduler-preemption-parameters_numa-aware"><a class="anchor" href="#cnf-numa-scheduler-preemption-parameters_numa-aware"></a>NUMA Resources Operator scheduler preemption configuration</h4>
+<div class="paragraph _abstract">
+<p>You can configure preemption for the NUMA Resources Operator scheduler by using the <code>preemptionMode</code> field in the <code>NUMAResourcesScheduler</code> custom resource. Preemption is disabled by default. This field controls whether the scheduler uses the <code>DefaultPreemption</code> plugin to preempt lower-priority pods.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. NUMAResourcesScheduler preemption configuration</caption>
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spec.preemptionMode</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Enables preemption functionality for the NUMA-aware scheduler. The scheduler includes the <code>DefaultPreemption</code> plugin, but preemption is inactive until this field is set. When set to <code>Enabled</code>, the scheduler can preempt lower-priority pods to schedule higher-priority pods. When not set or set to <code>Disabled</code>, preemption is disabled. Accepted values: <code>Enabled</code>, <code>Disabled</code>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The following example shows a <code>NUMAResourcesScheduler</code> custom resource with preemption enabled:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nodetopology.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NUMAResourcesScheduler</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">numaresourcesscheduler</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">imageSpec</span><span class="pi">:</span> <span class="s2">"</span><span class="s">registry.redhat.io/openshift5/noderesourcetopology-scheduler-rhel9:v{product-version}"</span>
+  <span class="na">preemptionMode</span><span class="pi">:</span> <span class="s">Enabled</span></code></pre>
+</div>
+</div>
 </div>
 </div>
 <div class="sect2">

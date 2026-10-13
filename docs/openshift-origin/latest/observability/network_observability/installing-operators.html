@@ -2892,7 +2892,6 @@
 <li><a href="#network-observability-important-flowcollector-configuration-consideration_network_observability">Important FlowCollector configuration considerations</a></li>
 </ul>
 </li>
-<li><a href="#network-observability-updating-migrating_network_observability">Migrate removed stored versions of the FlowCollector CRD</a></li>
 <li><a href="#network-observability-multi-tenancy_network_observability">Enable multi-tenancy in network observability</a></li>
 <li><a href="#network-observability-operator-uninstall_network_observability">Uninstall the Network Observability Operator</a></li>
 </ul>
@@ -3505,131 +3504,6 @@
 </li>
 </ul>
 </div>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="network-observability-updating-migrating_network_observability"><a class="anchor" href="#network-observability-updating-migrating_network_observability"></a>Migrate removed stored versions of the FlowCollector CRD</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>Manually remove the deprecated <code>v1alpha1</code> version from the <code>FlowCollector</code> custom resource definition (CRD) <code>storedVersion</code> list to prevent upgrade errors and successfully migrate to Network Observability Operator 1.6.</p>
-</div>
-<div class="paragraph">
-<p>There are two options to remove stored versions:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>Use the Storage Version Migrator Operator.</p>
-</li>
-<li>
-<p>Uninstall and reinstall the Network Observability Operator, ensuring that the installation is in a clean state.</p>
-</li>
-</ol>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You have an older version of the Operator installed, and you want to prepare your cluster to install the latest version of the Operator. Or you have attempted to install the Network Observability Operator 1.6 and run into the error: <code>Failed risk of data loss updating "flowcollectors.flows.netobserv.io": new CRD removes version v1alpha1 that is listed as a stored version on the existing CRD</code>.</p>
-</li>
-</ul>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Verify that the old <code>FlowCollector</code> CRD version is still referenced in the <code>storedVersion</code>:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get crd flowcollectors.flows.netobserv.io <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.status.storedVersions}'</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>If <code>v1alpha1</code> appears in the list of results, proceed with <strong>Step a</strong> to use the Kubernetes Storage Version Migrator or <strong>Step b</strong> to uninstall and reinstall the CRD and the Operator.</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p><strong>Option 1: Kubernetes Storage Version Migrator</strong>: Create a YAML to define the <code>StorageVersionMigration</code> object, for example <code>migrate-flowcollector-v1alpha1.yaml</code>:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">migration.k8s.io/v1alpha1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">StorageVersionMigration</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">migrate-flowcollector-v1alpha1</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">resource</span><span class="pi">:</span>
-    <span class="na">group</span><span class="pi">:</span> <span class="s">flows.netobserv.io</span>
-    <span class="na">resource</span><span class="pi">:</span> <span class="s">flowcollectors</span>
-    <span class="na">version</span><span class="pi">:</span> <span class="s">v1alpha1</span></code></pre>
-</div>
-</div>
-<div class="olist lowerroman">
-<ol class="lowerroman" type="i">
-<li>
-<p>Save the file.</p>
-</li>
-<li>
-<p>Apply the <code>StorageVersionMigration</code> by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> migrate-flowcollector-v1alpha1.yaml</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Update the <code>FlowCollector</code> CRD to manually remove <code>v1alpha1</code> from the <code>storedVersion</code>:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit crd flowcollectors.flows.netobserv.io</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</li>
-<li>
-<p><strong>Option 2: Reinstall</strong>: Save the Network Observability Operator 1.5 version of the <code>FlowCollector</code> CR to a file, for example <code>flowcollector-1.5.yaml</code>.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get flowcollector cluster <span class="nt">-o</span> yaml <span class="o">&gt;</span> flowcollector-1.5.yaml</code></pre>
-</div>
-</div>
-<div class="olist lowerroman">
-<ol class="lowerroman" type="i">
-<li>
-<p>Follow the steps in "Uninstalling the Network Observability Operator", which uninstalls the Operator and removes the existing <code>FlowCollector</code> CRD.</p>
-</li>
-<li>
-<p>Install the Network Observability Operator latest version, 1.6.0.</p>
-</li>
-<li>
-<p>Create the <code>FlowCollector</code> using backup that was saved in Step b.</p>
-</li>
-</ol>
-</div>
-</li>
-</ol>
-</div>
-</li>
-</ol>
-</div>
-<div class="ulist">
-<div class="title">Verification</div>
-<ul>
-<li>
-<p>Run the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get crd flowcollectors.flows.netobserv.io <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.status.storedVersions}'</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The list of results should no longer show <code>v1alpha1</code> and only show the latest version, <code>v1beta1</code>.</p>
-</div>
-</li>
-</ul>
 </div>
 </div>
 </div>

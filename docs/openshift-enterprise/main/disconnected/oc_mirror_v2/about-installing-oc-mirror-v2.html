@@ -3501,6 +3501,13 @@
 </ul>
 </li>
 <li><a href="#oc-mirror-operator-catalog-filtering_about-installing-oc-mirror-v2">How filtering works in the operator catalog</a></li>
+<li><a href="#oc-mirror-about-sparse-manifests_about-installing-oc-mirror-v2">Sparse manifest lists in oc-mirror plugin v2</a></li>
+<li><a href="#oc-mirror-processing-sparse-manifests_about-installing-oc-mirror-v2">Sparse manifest processing in oc-mirror plugin v2</a>
+<ul class="sectlevel2">
+<li><a href="#oc-mirror-sparse-manifest-supported-image-types_about-installing-oc-mirror-v2">Supported image types for the platforms fields</a></li>
+</ul>
+</li>
+<li><a href="#oc-mirror-configuring-sparse-manifest_about-installing-oc-mirror-v2">Configure architecture filtering for sparse manifests in oc-mirror plugin v2</a></li>
 <li><a href="#oc-mirror-imageset-config-parameters-v2_about-installing-oc-mirror-v2">ImageSet configuration parameters for oc-mirror plugin v2</a>
 <ul class="sectlevel2">
 <li><a href="#delete-imagset-config-parameters_about-installing-oc-mirror-v2">DeleteImageSetConfiguration parameters</a></li>
@@ -5877,13 +5884,243 @@ You might see errors if this filtering leads to a channel with multiple heads. Y
 </div>
 </div>
 <div class="sect1">
+<h2 id="oc-mirror-about-sparse-manifests_about-installing-oc-mirror-v2"><a class="anchor" href="#oc-mirror-about-sparse-manifests_about-installing-oc-mirror-v2"></a>Sparse manifest lists in oc-mirror plugin v2</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>A sparse manifest list in oc-mirror plugin v2 stores only a subset of referenced architectures while preserving the original manifest list digest. Sparse manifests reduce network, disk, and registry storage and keep digest-based references valid in disconnected environments.</p>
+</div>
+<div class="paragraph">
+<p>For example, a sparse manifest can reference only <code>amd64</code> or <code>arm64</code> so the mirrored image set matches the node architectures in a disconnected OpenShift Container Platform cluster.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You must be able to disable manifest list validation on your target mirror registry. Registries that enforce the presence of all child manifests reject sparse pushes and cause the mirroring operation to fail.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="oc-mirror-processing-sparse-manifests_about-installing-oc-mirror-v2"><a class="anchor" href="#oc-mirror-processing-sparse-manifests_about-installing-oc-mirror-v2"></a>Sparse manifest processing in oc-mirror plugin v2</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Sparse manifest processing determines which architectures oc-mirror plugin v2 transfers from a multi-architecture image. Only matching child manifests and blobs are pushed, and the original manifest list digest is preserved on the target registry.</p>
+</div>
+<div class="paragraph">
+<p>When oc-mirror plugin v2 mirrors a multi-architecture image with architecture filtering enabled, oc-mirror plugin v2 performs the following steps:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Reads the manifest list from the source registry or disk archive.</p>
+</li>
+<li>
+<p>Pushes child manifests and blobs only for the architectures listed in the <code>ImageSetConfiguration</code> file.</p>
+</li>
+<li>
+<p>Pushes the unmodified manifest list to the target mirror registry and preserves the original digest of the manifest list.</p>
+</li>
+</ol>
+</div>
+<div class="sect2">
+<h3 id="oc-mirror-sparse-manifest-supported-image-types_about-installing-oc-mirror-v2"><a class="anchor" href="#oc-mirror-sparse-manifest-supported-image-types_about-installing-oc-mirror-v2"></a>Supported image types for the platforms fields</h3>
+<div class="paragraph">
+<p>The <code>platforms</code> fields in your <code>ImageSetConfiguration</code> file apply to the following image types:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Platform releases</p>
+</li>
+<li>
+<p>Operator catalog images</p>
+</li>
+<li>
+<p>Helm charts</p>
+</li>
+<li>
+<p>Additional images</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For example, you can set <code>mirror.platform.platforms</code> to include only the <code>linux</code> operating system and the <code>amd64</code> architecture.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="oc-mirror-configuring-sparse-manifest_about-installing-oc-mirror-v2"><a class="anchor" href="#oc-mirror-configuring-sparse-manifest_about-installing-oc-mirror-v2"></a>Configure architecture filtering for sparse manifests in oc-mirror plugin v2</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To create sparse manifests that match cluster node architectures, add a <code>platforms</code> field to each section of the <code>ImageSetConfiguration</code> file. Filtering limits the mirror to the operating systems and architectures required in a disconnected environment.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have oc-mirror plugin v2 installed.</p>
+</li>
+<li>
+<p>You have a pull secret or registry credentials file for the target registry.</p>
+</li>
+<li>
+<p>You have created an <code>ImageSetConfiguration</code> file.</p>
+</li>
+<li>
+<p>Your target registry supports sparse manifests, for example, Red&#160;Hat Quay with the <code>FEATURE_SPARSE_INDEX</code> value set to <code>true</code> in the <code>config.yaml</code> file.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Identify the architecture of each node in your disconnected cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{.metadata.name}{"\t"}{.status.nodeInfo.architecture}{"\n"}{end}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add a <code>platforms</code> field to each section of your <code>ImageSetConfiguration</code> file to filter by architecture.</p>
+<div class="listingblock">
+<div class="title">Example <code>ImageSetConfiguration</code> file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">mirror.openshift.io/v2alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ImageSetConfiguration</span>
+<span class="na">mirror</span><span class="pi">:</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">channels</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">stable-&lt;product_version&gt;</span>
+    <span class="na">platforms</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+        <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
+      <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+        <span class="na">architecture</span><span class="pi">:</span> <span class="s">arm64</span>
+  <span class="na">operators</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">catalog</span><span class="pi">:</span> <span class="s">registry.redhat.io/redhat/redhat-operator-index:v&lt;product_version&gt;</span>
+      <span class="na">platforms</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+          <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
+        <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+          <span class="na">architecture</span><span class="pi">:</span> <span class="s">arm64</span>
+  <span class="na">helm</span><span class="pi">:</span>
+    <span class="na">repositories</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;repo_name&gt;</span>
+        <span class="na">url</span><span class="pi">:</span> <span class="s">&lt;repo_url&gt;</span>
+        <span class="na">charts</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;chart_name&gt;</span>
+            <span class="na">version</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;chart_version&gt;"</span>
+            <span class="na">platforms</span><span class="pi">:</span>
+              <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+                <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
+              <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+                <span class="na">architecture</span><span class="pi">:</span> <span class="s">arm64</span>
+  <span class="na">additionalImages</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">registry.redhat.io/ubi9/ubi:latest</span>
+      <span class="na">platforms</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+          <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
+        <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+          <span class="na">architecture</span><span class="pi">:</span> <span class="s">arm64</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>mirror.platform.platforms</code></dt>
+<dd>
+<p>Specifies one or more target platforms by using <code>os</code> and <code>architecture</code> sub-fields. Supported architecture values are <code>amd64</code>, <code>arm64</code>, <code>s390x</code>, and <code>ppc64le</code>.</p>
+</dd>
+<dt class="hdlist1"><code>mirror.operators.platforms</code></dt>
+<dd>
+<p>Specifies the compute architectures to mirror for this catalog entry. If omitted, oc-mirror plugin v2 mirrors all architectures present in the source.</p>
+</dd>
+<dt class="hdlist1"><code>mirror.helm.repositories.charts.platforms</code></dt>
+<dd>
+<p>Specifies the compute architectures to mirror for container images referenced in this Helm chart. If omitted, oc-mirror plugin v2 mirrors all architectures present in the source.</p>
+</dd>
+<dt class="hdlist1"><code>mirror.additionalImages.platforms</code></dt>
+<dd>
+<p>Specifies the compute architectures to mirror for this additional image. If omitted, oc-mirror plugin v2 mirrors all architectures present in the source.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>platforms</code> field replaces the deprecated <code>architectures</code> field. Use <code>platforms</code> in new configurations.</p>
+</div>
+<div class="paragraph">
+<p>When you set <code>platforms</code> under <code>mirror.platform</code>, the filter does not automatically propagate to the <code>operators</code>, <code>helm</code>, or <code>additionalImages</code> fields. Set the <code>platforms</code> field explicitly in each section you want to filter.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Save the configuration file.</p>
+</li>
+<li>
+<p>Run the oc-mirror plugin v2 with your updated configuration.</p>
+<div class="paragraph">
+<p>For more information, see "Mirroring an image set to a mirror registry".</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that only the expected platforms are present in the target registry by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc image info <span class="nt">--registry-config</span> &lt;pull_secret&gt; docker://&lt;target_registry&gt;/&lt;image&gt;:&lt;tag&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">OS            DIGEST
+linux/amd64   sha256:b4c7a91802c09a5a748fe19ddd99a8ffab52d8a31db3a081a956a87f22a22ff8
+linux/arm64   sha256:7b046404572ac96202d82b6cb029b421dddd40e88c73bbf35f602ffc13017f21</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output lists only the architectures specified in the <code>platforms</code> field of your <code>ImageSetConfiguration</code> file. If the output includes architectures you did not specify, verify that you set the <code>platforms</code> field correctly in each section of the file.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="oc-mirror-imageset-config-parameters-v2_about-installing-oc-mirror-v2"><a class="anchor" href="#oc-mirror-imageset-config-parameters-v2_about-installing-oc-mirror-v2"></a>ImageSet configuration parameters for oc-mirror plugin v2</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
 <p>The oc-mirror plugin v2 requires an image set configuration file that defines what images to mirror.</p>
 </div>
 <div class="paragraph">
-<p>The following table lists the available parameters for the `ImageSetConfiguration resource.</p>
+<p>The following table lists the available parameters for the <code>ImageSetConfiguration</code> resource.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -6026,13 +6263,61 @@ Example: <code>registry.redhat.io/ubi8/ubi:latest</code></p>
 </div></div></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.additionalImages.platforms</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The compute architectures to mirror for this additional image entry. When set, the oc-mirror plugin v2 applies sparse-manifest filtering, where the manifest list is pushed unchanged and child manifests for excluded architectures are omitted. When not set, all architectures present in the source are mirrored.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Array of objects</p>
+</div>
+<div class="paragraph">
+<p>The supported architectures are <code>amd64</code>, <code>arm64</code>, <code>ppc64le</code>, and <code>s390x</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">mirror</span><span class="pi">:</span>
+  <span class="na">additionalImages</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">registry.redhat.io/ubi9/ubi:latest</span>
+      <span class="na">platforms</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+          <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span></code></pre>
+</div>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.additionalImages.platforms.os</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The operating system of the platform to mirror for this additional image.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>String</p>
+</div>
+<div class="paragraph">
+<p>Example: <code>linux</code></p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.additionalImages.platforms.architecture</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The CPU architecture of the platform to mirror for this additional image.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>String</p>
+</div>
+<div class="paragraph">
+<p>The supported architectures are <code>amd64</code>, <code>arm64</code>, <code>ppc64le</code>, and <code>s390x</code>.</p>
+</div></div></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.blockedImages</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p>List of images with a tag or digest (SHA) to block from mirroring.</p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Array of strings
-Example: <code>docker.io/library/alpine</code></p>
+<p>Array of strings</p>
+</div>
+<div class="paragraph">
+<p>Example: <code>docker.io/library/alpine</code></p>
 </div></div></td>
 </tr>
 <tr>
@@ -6065,9 +6350,6 @@ Example: <code>docker.io/library/alpine</code></p>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p>The custom path of a container image inside of the local helm chart.</p>
 </div>
-<div class="paragraph">
-<p>+</p>
-</div>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -6081,9 +6363,6 @@ Example: <code>docker.io/library/alpine</code></p>
 </td>
 </tr>
 </table>
-</div>
-<div class="paragraph">
-<p>+</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -6200,9 +6479,6 @@ Example: <code>docker.io/library/alpine</code></p>
 </tr>
 </table>
 </div>
-<div class="paragraph">
-<p>+</p>
-</div>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -6219,6 +6495,55 @@ Example: <code>docker.io/library/alpine</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p>Array of string. For example:  <code>"- {.spec.template.spec.custom[*].image}"</code>.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.helm.repositories.charts.platforms</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The compute architectures to mirror for the container images referenced in this remote Helm chart. When set, the oc-mirror plugin v2 applies sparse-manifest filtering, where manifest lists are pushed unchanged and child manifests for excluded architectures are omitted. When not set, all architectures present in the source are mirrored.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Array of objects</p>
+</div>
+<div class="paragraph">
+<p>Supported values include <code>amd64</code>, <code>arm64</code>, <code>ppc64le</code>, and <code>s390x</code>.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example YAML file</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">mirror</span><span class="pi">:</span>
+  <span class="na">helm</span><span class="pi">:</span>
+    <span class="na">repositories</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">openshift-helm-charts</span>
+        <span class="na">url</span><span class="pi">:</span> <span class="s">https://charts.openshift.io</span>
+        <span class="na">charts</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">redhat-mysql-sed</span>
+            <span class="na">version</span><span class="pi">:</span> <span class="s">0.1.0</span></code></pre>
+</div>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.helm.repositories.charts.platforms.os</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The operating system of the platform to mirror for this Helm chart.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>String</p>
+</div>
+<div class="paragraph">
+<p>Example: <code>linux</code></p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.helm.repositories.charts.platforms.architecture</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The CPU architecture of the platform to mirror for this Helm chart.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>String</p>
+</div>
+<div class="paragraph">
+<p>Supported values include <code>amd64</code>, <code>arm64</code>, <code>ppc64le</code>, and <code>s390x</code>.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -6416,6 +6741,55 @@ Example: <code>v1</code></p>
 </div></div></td>
 </tr>
 <tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.operators.platforms</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The compute architectures to mirror for all packages in this Operator catalog entry. When set, the oc-mirror plugin v2 applies sparse-manifest filtering, where the manifest list is pushed unchanged and child manifests for excluded architectures are omitted. When not set, all architectures present in the source are mirrored.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Array of objects</p>
+</div>
+<div class="paragraph">
+<p>Supported values include <code>amd64</code>, <code>arm64</code>, <code>ppc64le</code>, and <code>s390x</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">mirror</span><span class="pi">:</span>
+  <span class="na">operators</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">catalog</span><span class="pi">:</span> <span class="s">registry.redhat.io/redhat/</span>
+        <span class="s">redhat-operator-index:v4.17</span>
+      <span class="na">platforms</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+          <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
+        <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+          <span class="na">architecture</span><span class="pi">:</span> <span class="s">arm64</span></code></pre>
+</div>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.operators.platforms.os</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The operating system of the platform to mirror for this catalog entry.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>String</p>
+</div>
+<div class="paragraph">
+<p>Example: <code>linux</code></p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.operators.platforms.architecture</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The CPU architecture of the platform to mirror for this catalog entry.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>String</p>
+</div>
+<div class="paragraph">
+<p>Supported values include <code>amd64</code>, <code>arm64</code>, <code>ppc64le</code>, and <code>s390x</code>.</p>
+</div></div></td>
+</tr>
+<tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.platform</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p>The platform configuration of the image set.</p>
@@ -6427,11 +6801,16 @@ Example: <code>v1</code></p>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.platform.architectures</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>The architecture of the platform release payload to mirror.</p>
+<p>This replaces the deprecated <code>mirror.platform.architectures</code> field. Use <code>mirror.platform.platforms</code> instead. The <code>architectures</code> field does not enable sparse-manifest behavior and does not preserve the manifest-list digest on the target registry. The special value <code>multi</code> mirrors all available architectures and is not available in the <code>mirror-platform.platforms</code> parameter.</p>
+</div>
+<div class="paragraph">
+<p>The <code>architectures</code> and <code>platforms</code> fields are mutually exclusive. Do not use them together in the same <code>ImageSetConfiguration</code> file.</p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Array of strings
-Example:</p>
+<p>Array of strings</p>
+</div>
+<div class="paragraph">
+<p>Example:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -6444,7 +6823,56 @@ Example:</p>
 </div>
 </div>
 <div class="paragraph">
-<p>The default value is <code>amd64</code>. The value <code>multi</code> ensures that the mirroring is supported for all available architectures, eliminating the need to specify individual architectures</p>
+<p>The default value is <code>amd64</code>. The value <code>multi</code> ensures that the mirroring is supported for all available architectures, eliminating the need to specify individual architectures.</p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.platform.platforms</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The compute architectures of the platform release payload to mirror. This replaces the deprecated <code>mirror.platform.architectures</code> field. When set, oc-mirror plugin v2 pushes manifest lists unchanged and omits child manifests for architectures that are not listed. When not set, all available architectures are mirrored without filtering</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>Array of objects</p>
+</div>
+<div class="paragraph">
+<p>Supported values include <code>amd64</code>, <code>arm64</code>, <code>ppc64le</code>, and <code>s390x</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">mirror</span><span class="pi">:</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">platforms</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+        <span class="na">architecture</span><span class="pi">:</span> <span class="s">amd64</span>
+      <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+        <span class="na">architecture</span><span class="pi">:</span> <span class="s">arm64</span>
+      <span class="pi">-</span> <span class="na">os</span><span class="pi">:</span> <span class="s">linux</span>
+        <span class="na">architecture</span><span class="pi">:</span> <span class="s">s390x</span></code></pre>
+</div>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.platform.platforms.os</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The operating system of the platform to mirror.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>String</p>
+</div>
+<div class="paragraph">
+<p>Example: <code>linux</code></p>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirror.platform.platforms.architecture</code></p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>The CPU architecture of the platform to mirror.</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p>String</p>
+</div>
+<div class="paragraph">
+<p>Supported values include <code>amd64</code>, <code>arm64</code>, <code>ppc64le</code>, and <code>s390x</code>.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -6882,7 +7310,7 @@ The default is <code>ocp</code></p>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>delete.platform.graph</code></p></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Determines whether the OSUS graph is deleted as well on the mirror registry as well.</p>
+<p>Determines whether the OSUS graph is also deleted on the mirror registry.</p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
 <p>Boolean
@@ -7282,6 +7710,9 @@ The default value is <code>false</code></p>
 </li>
 <li>
 <p><a href="../../disconnected/updating/disconnected-update-osus.html#updating-disconnected-cluster-osus">Updating a cluster in a disconnected environment using the OpenShift Update Service</a></p>
+</li>
+<li>
+<p><a href="../../disconnected/oc_mirror_v2/about-installing-oc-mirror-v2.html#using-oc-mirror_about-installing-oc-mirror-v2">Mirroring an image set to a mirror registry</a></p>
 </li>
 </ul>
 </div>
