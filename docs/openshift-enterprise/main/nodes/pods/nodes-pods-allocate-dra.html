@@ -3454,6 +3454,7 @@
 <li><a href="#nodes-pods-allocate-dra-admin-access_nodes-pods-allocate-dra">About DRA admin access</a></li>
 <li><a href="#nodes-pods-allocate-dra-binding-conditions_nodes-pods-allocate-dra">About DRA device binding conditions</a></li>
 <li><a href="#nodes-pods-allocate-dra-taints_nodes-pods-allocate-dra">About device taints and tolerations</a></li>
+<li><a href="#nodes-pods-allocate-dra-device-health_nodes-pods-allocate-dra">About device health monitoring</a></li>
 </ul>
 </li>
 <li><a href="#nodes-pods-allocate-dra-configure_nodes-pods-allocate-dra">Adding resource claims to pods</a></li>
@@ -4095,6 +4096,114 @@
           <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Broken"</span>
           <span class="na">effect</span><span class="pi">:</span> <span class="s2">"</span><span class="s">NoExecute"</span>
           <span class="na">tolerationSeconds</span><span class="pi">:</span> <span class="s">300</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nodes-pods-allocate-dra-device-health_nodes-pods-allocate-dra"><a class="anchor" href="#nodes-pods-allocate-dra-device-health_nodes-pods-allocate-dra"></a>About device health monitoring</h3>
+<div class="paragraph _abstract">
+<p>If you have a failing pod on a device that was allocated by using Dynamic Resource Allocation (DRA), you can use the pod status to determine whether the failure is caused by the underlying device rather than the application, without relying only on application logs.</p>
+</div>
+<div class="paragraph">
+<p>When your third-party DRA driver detects that an allocated device has become unhealthy, the DRA driver reports this status back to the kubelet. This health information is then exposed directly in the pod status. The kubelet populates the <code>allocatedResourcesStatus</code> field in the status of each container, detailing the health of each device assigned to that container as <code>Healthy</code>, <code>Unhealthy</code>, or <code>Unknown</code>. Each device health entry can include an optional message field with additional context about the health status, such as error details or failure reasons. You must configure the health status information by using the DRA driver. Consult your DRA driver documentation for information on configuring health status information.</p>
+</div>
+<div class="paragraph">
+<p>If the kubelet does not receive a health update from a DRA driver within a timeout period, the device&#8217;s health status is marked as <code>Unknown</code>. You can use your DRA driver to set a different timeout for each device, such as a GPU, FPGA, or storage device, based on how that device reports health. Set the <code>health_check_timeout_seconds</code> field in the <code>DeviceHealth</code> message in the DRA driver&#8217;s health gRPC stream. If not specified, the kubelet uses a default timeout of 30 seconds.</p>
+</div>
+<div class="paragraph">
+<p>In the example pod output, you can see the pod failed because of a temperature issue with the device where the pod is running, not the application running on the pod:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">test</span>
+<span class="c1"># ...</span>
+<span class="na">status</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">containerStatuses</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">my-gpu-intensive-container</span>
+    <span class="na">allocatedResourcesStatus</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">claim:gpu-claim/gpu-request</span>
+      <span class="na">resources</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">resourceID</span><span class="pi">:</span> <span class="s">example.com/device=dev0-dra-example-com</span>
+        <span class="na">health</span><span class="pi">:</span> <span class="s">Unhealthy</span>
+        <span class="na">message</span><span class="pi">:</span> <span class="s">GPU temperature exceeds threshold</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>status.containerStatuses.allocatedResourcesStatus.name</code> is the name of the resource claim used to obtain the device.</p>
+</li>
+<li>
+<p><code>status.containerStatuses.allocatedResourcesStatus.resources.resourceID</code> is the unique ID of the device that was allocated.</p>
+</li>
+<li>
+<p><code>status.containerStatuses.allocatedResourcesStatus.resources.health</code> is the current reported state of the device, one of the following states:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>Healthy</code> indicates the device is operating normally.</p>
+</li>
+<li>
+<p><code>Unhealthy</code> indicates the driver reported a problem.</p>
+</li>
+<li>
+<p><code>Unknown</code> indicates the health cannot be determined. For example the DRA driver might not have updated the kubelet with the health status before the timeout.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><code>status.containerStatuses.allocatedResourcesStatus.resources.message</code> is the reason behind the health value, obtained from text supplied by the DRA driver. Typically the message displays only for an <code>Unhealthy</code> status.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The following example shows a healthy device:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">test</span>
+<span class="c1"># ...</span>
+<span class="na">status</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">containerStatuses</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">my-gpu-intensive-container</span>
+    <span class="na">allocatedResourcesStatus</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">claim:example-claim</span>
+      <span class="na">resources</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">resourceID</span><span class="pi">:</span> <span class="s">example.com/device=dev0-dra-example-com</span>
+        <span class="na">health</span><span class="pi">:</span> <span class="s">Healthy</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example shows a device with an unknown status:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">test</span>
+<span class="c1"># ...</span>
+<span class="na">status</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+  <span class="na">containerStatuses</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">my-gpu-intensive-container</span>
+    <span class="na">allocatedResourcesStatus</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">claim:my-gpu-claim"</span>
+      <span class="na">resources</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">resourceID</span><span class="pi">:</span> <span class="s2">"</span><span class="s">example.com/gpu-a1b2-c3d4"</span>
+        <span class="na">health</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Unknown"</span></code></pre>
 </div>
 </div>
 </div>

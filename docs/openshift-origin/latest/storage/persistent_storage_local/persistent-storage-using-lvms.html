@@ -2921,6 +2921,14 @@
 </ul>
 </li>
 <li><a href="#lvms-provisioning-storage-using-lvms_logical-volume-manager-storage">Provisioning storage by using LVM Storage</a></li>
+<li><a href="#lvms-about-software-raid_logical-volume-manager-storage">About software RAID configuration in LVMS</a>
+<ul class="sectlevel2">
+<li><a href="#lvms-raid-configuration-parameters_logical-volume-manager-storage">RAID configuration parameters</a></li>
+<li><a href="#lvms-configuring-software-raid-array_logical-volume-manager-storage">Configuring a software RAID array</a></li>
+<li><a href="#lvms-replace-failed-disk-raid-array_logical-volume-manager-storage">Replacing a failed disk in a RAID array</a></li>
+<li><a href="#lvms-software-raid-limitations_logical-volume-manager-storage">Limitations of software RAID in LVM Storage</a></li>
+</ul>
+</li>
 <li><a href="#storageclass-customization-for-lvms-device-classes_logical-volume-manager-storage">StorageClass customization for LVMS device classes</a>
 <ul class="sectlevel2">
 <li><a href="#storageclass-options_logical-volume-manager-storage">StorageClass options for LVMS device classes</a></li>
@@ -6017,6 +6025,661 @@ lvm-block-1   Bound    pvc-e90169a8-fd71-4eea-93b8-817155f60e47   1Gi        RWO
 </div>
 </div>
 <div class="sect1">
+<h2 id="lvms-about-software-raid_logical-volume-manager-storage"><a class="anchor" href="#lvms-about-software-raid_logical-volume-manager-storage"></a>About software RAID configuration in LVMS</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Logical Volume Manager (LVM) Storage supports software RAID configuration through the <code>LVMCluster</code> custom resource (CR). This capability enables data redundancy and protection against single disk failures.</p>
+</div>
+<div class="paragraph">
+<p>RAID configuration is defined in the <code>raidConfig</code> section within a <code>deviceClass</code> in the <code>LVMCluster</code> CR.</p>
+</div>
+<div class="paragraph">
+<p>Software RAID in LVM Storage provides the following benefits:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Increases data redundancy across multiple disks on a node</p>
+</li>
+<li>
+<p>Protects against data loss from single disk failures</p>
+</li>
+<li>
+<p>Provides declarative management of resilient local storage</p>
+</li>
+<li>
+<p>Suitable for read-intensive applications (RAID1) or balanced workloads (RAID5)</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>LVM Storage uses LVM RAID to create redundant storage arrays on local devices. When you configure a <code>deviceClass</code> with <code>raidConfig</code>, the Logical Volume Manager (LVM) Storage Operator creates an LVM volume group with RAID levels such as RAID1, RAID5, RAID6, or RAID10 across the specified devices.</p>
+</div>
+<div class="paragraph">
+<p>After you create a device class with RAID configuration, persistent volume claims (PVCs) created by using that device class are automatically backed by the RAID array.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>raidConfig</code> fields are immutable after the device class is created. You cannot change the RAID type, number of stripes, or number of mirrors after the initial configuration. The <code>deviceSelector.paths</code> and <code>optionalPaths</code> fields can be modified to replace failed disks.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>You can use software RAID in LVM Storage for the following use cases:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Read-heavy databases requiring redundancy</dt>
+<dd>
+<p>Use RAID1 for high read performance and protection against single disk failures.</p>
+</dd>
+<dt class="hdlist1">Balanced performance, capacity, and redundancy needs</dt>
+<dd>
+<p>Use RAID5 for general-purpose workloads where you need a balance between storage capacity and data protection.</p>
+</dd>
+<dt class="hdlist1">Critical data requiring dual-disk failure protection</dt>
+<dd>
+<p>Use RAID6 when you need protection against two simultaneous disk failures.</p>
+</dd>
+<dt class="hdlist1">High-performance I/O intensive workloads</dt>
+<dd>
+<p>Use RAID10 for applications that require both high read and write performance with redundancy.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Software RAID is particularly useful in single-node OKD and edge computing environments where local storage resilience is critical but external storage arrays are not available.</p>
+</div>
+<div class="sect2">
+<h3 id="lvms-raid-configuration-parameters_logical-volume-manager-storage"><a class="anchor" href="#lvms-raid-configuration-parameters_logical-volume-manager-storage"></a>RAID configuration parameters</h3>
+<div class="paragraph _abstract">
+<p>You can learn how to configure RAID levels in LVM Storage by using the <code>raidConfig</code> field in the <code>LVMCluster</code> custom resource (CR) to protect your data and optimize storage performance for your workloads.</p>
+</div>
+<div class="paragraph">
+<p>Use the available RAID configuration parameters to choose the right balance of redundancy, capacity, and performance for your specific use case.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 9. raidConfig fields in LVMCluster CR</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 40%;">
+<col style="width: 20%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+<th class="tableblock halign-left valign-top">Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RAID level (<code>raid1</code>, <code>raid4</code>, <code>raid5</code>, <code>raid6</code>, <code>raid10</code>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>stripes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Number of stripes for RAID configuration. The number should always be a power of 2. Valid for <code>raid4</code>, <code>raid5</code>, <code>raid6</code>, and <code>raid10</code> only. Not valid for <code>raid1</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Depends on RAID type</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>stripeSize</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">string (quantity)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Size of each stripe chunk. Must be a power of 2 (for example, <code>64Ki</code>, <code>128Ki</code>, <code>256Ki</code>, <code>512Ki</code>). Default is <code>64Ki</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Optional. Valid for <code>raid4</code>, <code>raid5</code>, <code>raid6</code>, and <code>raid10</code> only. Not valid for <code>raid1</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirrors</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Number of mirrors for RAID1 and RAID10 configuration</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">For RAID1: typically 1.
+For RAID10: required with stripes.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 10. Supported RAID levels and characteristics</caption>
+<colgroup>
+<col style="width: 14.2857%;">
+<col style="width: 14.2857%;">
+<col style="width: 14.2857%;">
+<col style="width: 28.5714%;">
+<col style="width: 28.5715%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">RAID level</th>
+<th class="tableblock halign-left valign-top">Minimum disks</th>
+<th class="tableblock halign-left valign-top">Capacity overhead</th>
+<th class="tableblock halign-left valign-top">Performance characteristics</th>
+<th class="tableblock halign-left valign-top">Recommended use cases</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RAID1</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">50% (mirroring)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">High read performance, redundancy for 1 disk failure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Read-intensive databases, high-availability applications</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RAID4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">50% (mirroring)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">High read performance, redundancy for 1 disk failure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Read-intensive databases, high-availability applications</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RAID5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">1 disk (parity)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Balanced read/write, redundancy for 1 disk failure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">General-purpose workloads, balanced performance and capacity</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RAID6</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">5</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2 disks (dual parity)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Good read, slower write, redundancy for 2 disk failures</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Critical data requiring dual-disk failure protection</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">RAID10</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">50% (mirroring + striping)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">High read/write performance, redundancy for multiple disk failures if the disk failures affect different mirror sets</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">High-performance databases, I/O intensive workloads</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>All RAID configurations require thick provisioning mode.</p>
+</li>
+<li>
+<p>After you create a RAID array, you cannot modify the RAID parameters such as type, stripes, or mirrors. Only device paths can be changed for disk replacement.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="lvms-configuring-software-raid-array_logical-volume-manager-storage"><a class="anchor" href="#lvms-configuring-software-raid-array_logical-volume-manager-storage"></a>Configuring a software RAID array</h3>
+<div class="paragraph _abstract">
+<p>You can configure a software RAID array for LVM Storage by creating or editing the <code>LVMCluster</code> custom resource (CR) with RAID configuration parameters.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The LVM Storage Operator is installed on the cluster.</p>
+</li>
+<li>
+<p>You have sufficient unused block devices available on target nodes. The minimum number of devices depends on the RAID level.</p>
+</li>
+<li>
+<p>Nodes have physical disks attached and recognized by the system.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Identify available block devices on the target node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> lsblk</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note the device paths, such as <code>/dev/disk/by-id</code> and <code>/dev/disk/by-path</code>.</p>
+</div>
+</li>
+<li>
+<p>Create the <code>LVMCluster</code> CR with RAID configuration.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Navigate to the <code>deviceClasses</code> section.</p>
+</li>
+<li>
+<p>Add the <code>raidConfig</code> section within a device class.</p>
+</li>
+<li>
+<p>Omit <code>thinPoolConfig</code> entirely. RAID configurations require thick provisioning.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The LVM Storage Operator validates RAID configurations. For example, RAID5 requires at least 3 disks. Configurations that do not meet minimum requirements are rejected.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="title">Example RAID1 configuration</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">lvm.topolvm.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">LVMCluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">lvmcluster-sample</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-lvm-storage</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">deviceClasses</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">raid1-vg</span>
+      <span class="na">deviceSelector</span><span class="pi">:</span>
+        <span class="na">paths</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">/dev/sdb</span>
+        <span class="pi">-</span> <span class="s">/dev/sdc</span>
+      <span class="na">raidConfig</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">raid1</span>
+        <span class="na">mirrors</span><span class="pi">:</span> <span class="s">1</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example RAID5 configuration</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">lvm.topolvm.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">LVMCluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">lvmcluster-sample</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-lvm-storage</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">storage</span><span class="pi">:</span>
+    <span class="na">deviceClasses</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">raid5-vg</span>
+      <span class="na">deviceSelector</span><span class="pi">:</span>
+        <span class="na">paths</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">/dev/sdb</span>
+        <span class="pi">-</span> <span class="s">/dev/sdc</span>
+        <span class="pi">-</span> <span class="s">/dev/sdd</span>
+      <span class="na">raidConfig</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">raid5</span>
+        <span class="na">stripes</span><span class="pi">:</span> <span class="s">2</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For RAID5, <code>raidConfig.stripes</code> equals the number of data disks. With 3 total disks, you have 2 data disks and 1 parity disk.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Apply the <code>LVMCluster</code> CR by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-lvm-storage apply <span class="nt">-f</span> lvmcluster.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the device class is ready by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-lvm-storage get lvmcluster <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Successful output shows the device class status as <code>Ready</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify that the device class appears in the <code>LVMCluster</code> status by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-lvm-storage get lvmcluster lvmcluster-sample <span class="nt">-o</span> json | jq <span class="s1">'.status.deviceClassStatuses'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the storage class is automatically created for the RAID device class by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get storageclass</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For information about configuring StorageClass options for LVMS device classes, see "StorageClass options for LVMS device classes".</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="lvms-replace-failed-disk-raid-array_logical-volume-manager-storage"><a class="anchor" href="#lvms-replace-failed-disk-raid-array_logical-volume-manager-storage"></a>Replacing a failed disk in a RAID array</h3>
+<div class="paragraph _abstract">
+<p>You can replace a failed disk in an LVM Storage software RAID array to restore data redundancy. LVM Storage uses LVM RAID <code>device-mapper</code>, which allows data to remain readable and writable while the array is in a degraded state.</p>
+</div>
+<div class="paragraph">
+<p>Manual repair steps on the node are required before updating the <code>LVMCluster</code> CR.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have a running LVM Storage software RAID array with redundancy (RAID level greater than 0).</p>
+</li>
+<li>
+<p>A failed disk is identified in the array.</p>
+</li>
+<li>
+<p>A replacement physical disk is available and installed on the node.</p>
+</li>
+<li>
+<p>The RAID array still has redundancy and is operational. Not all disks in the array have failed.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check the <code>LVMCluster</code> status for the affected device class by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-lvm-storage get lvmcluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.state}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Degraded</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Data remains readable and writable while the RAID array is in a degraded state.</p>
+</div>
+</li>
+<li>
+<p>Access the node for debugging by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Change to the host root by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>List available block devices by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>lsblk</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Note the replacement device path, such as <code>/dev/sde</code>. Ensure that the disk is unused and has capacity equal to or greater than the failed disk.</p>
+</div>
+</li>
+<li>
+<p>Perform the manual LVM repair on the node:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Prepare the replacement disk:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>pvcreate &lt;replacement&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;replacement&gt;</code> with the replacement disk path.</p>
+</div>
+</li>
+<li>
+<p>Extend the volume group with the replacement disk:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>vgextend &lt;vg&gt; &lt;replacement&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;vg&gt;</code> with the volume group name and <code>&lt;replacement&gt;</code> with the replacement disk path.</p>
+</div>
+</li>
+<li>
+<p>Repair the RAID logical volume:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>lvconvert <span class="nt">--repair</span> <span class="nt">-y</span> &lt;vg&gt;/&lt;lv&gt; &lt;replacement&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Remove the missing disk from the volume group:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span>vgreduce <span class="nt">--removemissing</span> &lt;vg&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Exit the debug session:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">exit</span>
+<span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">exit</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Patch the <code>deviceSelector.paths</code> to swap the failed disk path with the replacement disk path by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-lvm-storage patch lvmcluster &lt;lvmcluster_name&gt; <span class="nt">--type</span><span class="o">=</span><span class="s1">'json'</span> <span class="nt">-p</span><span class="o">=</span><span class="s1">'[
+</span><span class="go">  {"op": "replace", "path": "/spec/storage/deviceClasses/0/deviceSelector/paths", "value": ["/dev/sdc", "/dev/sdd"]}
+]'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace the array index and device paths with your specific configuration.</p>
+</div>
+</li>
+<li>
+<p>Wait for the device class to return to the <code>Ready</code> state:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-lvm-storage get lvmcluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.deviceClassStatuses[].nodeStatus[].status}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Optionally you can use the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-lvm-storage get lvmcluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.nodeStatus[].raidStatus.status}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Ready</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Wait for the RAID resync to complete:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Access the node again:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Change to the host root and check the sync percentage:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">chroot</span> /host
+<span class="gp">sh-4.4#</span><span class="w"> </span>lvs <span class="nt">-o</span> lv_name,sync_percent <span class="nt">--select</span> <span class="s1">'segtype=~raid'</span> &lt;vg&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output showing resync in progress</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">  LV       Cpy%Sync
+  raid1-lv 45.67</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wait until the <code>Cpy%Sync</code> column shows <code>100.00</code>. Redundancy is not fully restored until the resync reaches 100%.</p>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the device class status is <code>Ready</code> in the <code>LVMCluster</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-lvm-storage get lvmcluster <span class="nt">-o</span> json | jq <span class="s1">'.status.deviceClassStatuses'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the RAID logical volume shows all disks as active with 100% sync:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;
+<span class="gp">sh-4.4#</span><span class="w"> </span><span class="nb">chroot</span> /host
+<span class="gp">sh-4.4#</span><span class="w"> </span>lvs <span class="nt">-a</span> <span class="nt">-o</span> lv_name,segtype,sync_percent,devices &lt;vg&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output showing fully synced RAID1</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">  LV             Type   Cpy%Sync Devices
+  raid1-lv       raid1  100.00   raid1-lv_rimage_0(0),raid1-lv_rimage_1(0)
+  [raid1-lv_rimage_0] linear       /dev/sdc(0)
+  [raid1-lv_rimage_1] linear       /dev/sde(0)</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the LVMS Operator logs for errors:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-lvm-storage</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that running persistent volume claims (PVCs) continue to function without interruption.</p>
+</li>
+</ol>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>The RAID resync process can take a significant amount of time depending on disk size and I/O load on the system.</p>
+</li>
+<li>
+<p>Do not perform multiple disk replacements simultaneously. Wait for the resync to complete before replacing another disk.</p>
+</li>
+<li>
+<p>Ensure that the replacement disk has equal or greater capacity than the failed disk to maintain the same storage capacity.</p>
+</li>
+<li>
+<p>Do not edit <code>deviceSelector.paths</code> before performing the manual LVM repair on the node. The Operator does not automatically rebuild the RAID array from a CR edit.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="lvms-software-raid-limitations_logical-volume-manager-storage"><a class="anchor" href="#lvms-software-raid-limitations_logical-volume-manager-storage"></a>Limitations of software RAID in LVM Storage</h3>
+<div class="paragraph _abstract">
+<p>You can encounter some performance related limitations when enabling software RAID in LVM Storage.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Thick provisioning only</dt>
+<dd>
+<p>You can only use thick volume provisioning for software RAID configurations. Thin provisioning features are not available.</p>
+</dd>
+<dt class="hdlist1">No RAID parameter modifications</dt>
+<dd>
+<p>After you create a RAID array, you cannot modify the RAID parameters such as type, stripes, or mirrors. Only device paths can be changed for disk replacement.</p>
+</dd>
+<dt class="hdlist1">Performance impact with snapshots or clones</dt>
+<dd>
+<p>Snapshots and clones of RAID-backed PVCs are unavailable because of thick provisioning.</p>
+</dd>
+<dt class="hdlist1">Configuration requirement</dt>
+<dd>
+<p>You must omit the <code>thinPoolConfig</code> field entirely when configuring RAID for a device class.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="storageclass-customization-for-lvms-device-classes_logical-volume-manager-storage"><a class="anchor" href="#storageclass-customization-for-lvms-device-classes_logical-volume-manager-storage"></a>StorageClass customization for LVMS device classes</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
@@ -6070,7 +6733,7 @@ lvm-block-1   Bound    pvc-e90169a8-fd71-4eea-93b8-817155f60e47   1Gi        RWO
 <p>If you set an empty configuration (storageClassOptions: {}) or omit the field entirely, the Operator uses the following default settings:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 9. StorageClass Options Reference</caption>
+<caption class="title">Table 11. StorageClass Options Reference</caption>
 <colgroup>
 <col style="width: 12.5%;">
 <col style="width: 12.5%;">
@@ -7754,7 +8417,7 @@ lvm-block-1-clone   Bound    pvc-e90169a8-fd71-4eea-93b8-817155f60e47   1Gi     
 <p>The following table describes the <code>topolvm</code> metrics:</p>
 </div>
 <table class="tableblock frame-all grid-all fit-content">
-<caption class="title">Table 10. <code>topolvm</code> metrics</caption>
+<caption class="title">Table 12. <code>topolvm</code> metrics</caption>
 <colgroup>
 <col>
 <col>
@@ -7816,7 +8479,7 @@ lvm-block-1-clone   Bound    pvc-e90169a8-fd71-4eea-93b8-817155f60e47   1Gi     
 <p>LVM Storage sends the following alerts when the usage of the thin pool and volume group exceeds a certain value:</p>
 </div>
 <table class="tableblock frame-all grid-all fit-content">
-<caption class="title">Table 11. LVM Storage alerts</caption>
+<caption class="title">Table 13. LVM Storage alerts</caption>
 <colgroup>
 <col>
 <col>
@@ -8425,7 +9088,7 @@ vg-manager-an118                      1/1     Running   0             66m</span>
 <p>The following table describes the volume failure error messages:</p>
 </div>
 <table class="tableblock frame-all grid-all fit-content">
-<caption class="title">Table 12. Volume failure error messages</caption>
+<caption class="title">Table 14. Volume failure error messages</caption>
 <colgroup>
 <col>
 <col>

@@ -3463,12 +3463,14 @@
 <li><a href="#etcd-tuning-parameters_etcd-performance">Set tuning parameters for etcd</a></li>
 <li><a href="#etcd-timer-tunables_etcd-performance">OpenShift Container Platform timer tunables for etcd</a></li>
 <li><a href="#etcd-database-size_etcd-performance">Determine the size of the etcd database and understand its effects</a></li>
-<li><a href="#etcd-increase-db_etcd-performance">Increase the database size for etcd</a></li>
-<li><a href="#etcd-increase-db-troubleshooting_etcd-performance">Troubleshooting etcd database size increases</a>
+<li><a href="#etcd-selectable-db_etcd-performance">Selectable etcd database size for large clusters</a>
 <ul class="sectlevel2">
-<li><a href="#etcd-ts-db-small_etcd-performance">Value is too small</a></li>
-<li><a href="#etcd-ts-db-large_etcd-performance">Value is too large</a></li>
-<li><a href="#etcd-ts-db-decrease_etcd-performance">Value is decreasing</a></li>
+<li><a href="#etcd-selectable-db-behavior_etcd-performance">Disk and growth behavior</a></li>
+<li><a href="#etcd-selectable-db-memory-sizing_etcd-performance">Control plane memory sizing</a></li>
+<li><a href="#etcd-selectable-db-defrag_etcd-performance">Defragmentation and operational impact</a></li>
+<li><a href="#etcd-selectable-db-changing_etcd-performance">Changing the etcd database size</a></li>
+<li><a href="#etcd-crashloop-after-quota-increase_etcd-performance">Recovering etcd from CrashLoopBackOff after increasing backend quota</a></li>
+<li><a href="#etcd-alerts-after-quota-increase_etcd-performance">Troubleshooting etcd quota alerts after quota change</a></li>
 </ul>
 </li>
 <li><a href="#etcd-network-latency-jitter_etcd-performance">Measure network jitter between control plane nodes</a></li>
@@ -4786,25 +4788,13 @@ https://198.18.111.14:2379, 3.5.6, 1.1 GB</span></code></pre>
 </div>
 </div>
 <div class="sect1">
-<h2 id="etcd-increase-db_etcd-performance"><a class="anchor" href="#etcd-increase-db_etcd-performance"></a>Increase the database size for etcd</h2>
+<h2 id="etcd-selectable-db_etcd-performance"><a class="anchor" href="#etcd-selectable-db_etcd-performance"></a>Selectable etcd database size for large clusters</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Increase the etcd disk quota when low space or excessive growth alerts appear. Expanding the quota before etcd runs out of space prevents write failures and cluster instability.</p>
+<p>As a cluster administrator, you can increase the etcd backend database quota when large or high-churn workloads approach the default 8 GiB limit. Large and high-churn OpenShift Container Platform clusters can exhaust the default 8 GiB etcd backend quota, causing write failures and control plane instability.</p>
 </div>
 <div class="paragraph">
-<p>You can set the disk quota in gibibytes (GiB) for each etcd instance. If you set a disk quota for your etcd instance, you can specify integer values from 8 to 32. The default value is 8. You can specify only increasing values.</p>
-</div>
-<div class="paragraph">
-<p>You might want to increase the disk quota if you encounter a <code>low space</code> alert. This alert indicates that the cluster is too large to fit in etcd despite automatic compaction and defragmentation. If you see this alert, you need to increase the disk quota immediately because after etcd runs out of space, writes fail.</p>
-</div>
-<div class="paragraph">
-<p>Another scenario where you might want to increase the disk quota is if you encounter an <code>excessive database growth</code> alert. This alert is a warning that the database might grow too large in the next four hours. In this scenario, consider increasing the disk quota so that you do not eventually encounter a <code>low space</code> alert and possible write fails.</p>
-</div>
-<div class="paragraph">
-<p>If you increase the disk quota, the disk space that you specify is not immediately reserved. Instead, etcd can grow to that size if needed. Ensure that etcd is running on a dedicated disk that is larger than the value that you specify for the disk quota.</p>
-</div>
-<div class="paragraph">
-<p>For large etcd databases, the control plane nodes must have additional memory and storage. Because you must account for the API server cache, the minimum memory required is at least three times the configured size of the etcd database.</p>
+<p>Starting in OpenShift Container Platform 5.0, you can increase the supported quota through the <code>.spec.backendQuotaGiB</code> field on the cluster <code>etcd</code> custom resource without enabling a feature gate.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -4814,225 +4804,375 @@ https://198.18.111.14:2379, 3.5.6, 1.1 GB</span></code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Increasing the database size for etcd is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+<p>Do not use this feature unless you are near the 8 GiB limit. In your planning to use this feature, ensure that the nodes are sized appropriately. In addition, do not use this feature unless you are sure you will not eventually need to decrease the database quota. You cannot decrease the <code>backendQuotaGiB</code> setting. The API rejects any attempt to set a value lower than the current configuration with the following error: <code>etcd backendQuotaGiB may not be decreased</code>.</p>
 </div>
 <div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+<p>The only way to run at a lower quota after an increase is to restore the cluster from an etcd backup taken before the change. Be aware that any changes made since the backup was taken might be lost.</p>
 </div>
 </td>
 </tr>
 </table>
+</div>
+<div class="paragraph">
+<p>The <code>backendQuotaGiB</code> field accepts integer values from 8 GiB through 16 GiB. The default value is 8 GiB, which matches the historical etcd backend quota for OpenShift Container Platform.</p>
+</div>
+<div class="sect2">
+<h3 id="etcd-selectable-db-behavior_etcd-performance"><a class="anchor" href="#etcd-selectable-db-behavior_etcd-performance"></a>Disk and growth behavior</h3>
+<div class="paragraph">
+<p>Increasing the <code>backendQuotaGiB</code> value raises the limit etcd enforces; it does not immediately assign or reserve disk space. The database grows toward the new limit as cluster state changes. Dedicated etcd disk capacity on control plane nodes must exceed the configured quota.</p>
+</div>
+<div class="paragraph">
+<p>If the database reaches the configured quota, etcd enters a <code>NOSPACE</code> state, and write operations fail. You must delete enough Kubernetes objects so that after compaction removes their historical revisions, the freed space exceeds 45% of the on-disk database size, triggering automatic defragmentation to reclaim disk space.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="etcd-selectable-db-memory-sizing_etcd-performance"><a class="anchor" href="#etcd-selectable-db-memory-sizing_etcd-performance"></a>Control plane memory sizing</h3>
+<div class="paragraph">
+<p>etcd memory-maps the database file. Larger quotas allow higher resident memory during normal operation, startup, write-ahead log (WAL) replay, snapshot recovery, and defragmentation.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Minimum</dt>
+<dd>
+<p>Allocate control plane node memory at least 4 times the configured database size.</p>
+</dd>
+<dt class="hdlist1">Workloads at 16 GiB quota</dt>
+<dd>
+<p>Plan for up to 10 times the database size, which is about 64–160 GiB per control plane node depending on churn and object count.</p>
+</dd>
+</dl>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 3. Control plane memory planning</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 40%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Configured <code>backendQuotaGiB</code> value</th>
+<th class="tableblock halign-left valign-top">Minimum memory</th>
+<th class="tableblock halign-left valign-top">Recommended range</th>
+<th class="tableblock halign-left valign-top">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">8 GiB (default)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">32 GiB</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Up to 80 GiB</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Baseline for most clusters</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">12 GiB</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">48 GiB</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Up to 120 GiB</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Common intermediate setting for large clusters</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">16 GiB (maximum)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">64 GiB</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Up to 160 GiB</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Validated GA maximum; highest memory demand</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>For more information about memory planning, see "Control plane node sizing".</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="etcd-selectable-db-defrag_etcd-performance"><a class="anchor" href="#etcd-selectable-db-defrag_etcd-performance"></a>Defragmentation and operational impact</h3>
+<div class="paragraph">
+<p>The <code>cluster-etcd-operator</code> defragmentation controller triggers when on-disk fragmentation reaches about 45%, which is the gap between <code>etcd_mvcc_db_total_size_in_bytes</code> and in-use size after compaction. This fragmentation threshold is not derived from the <code>backendQuotaGiB</code> value. Defragmentation timing depends on compaction and object churn, not quota use.</p>
+</div>
+<div class="paragraph">
+<p>Defragmentation is not considered when on-disk size is below 100 MiB. Defragmentation is rolling, blocking, and performed one etcd member at a time. Duration and transient memory pressure scale with database size. Larger databases also extend write-blocking during defragmentation and increase snapshot sync times during member recovery. Brief write latency during defragmentation is expected.</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../scalability_and_performance/recommended-performance-scale-practices/recommended-control-plane-practices.html#master-node-sizing_recommended-control-plane-practices">Control plane node sizing</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="etcd-selectable-db-changing_etcd-performance"><a class="anchor" href="#etcd-selectable-db-changing_etcd-performance"></a>Changing the etcd database size</h3>
+<div class="paragraph _abstract">
+<p>To increase etcd backend quota, set the <code>backendQuotaGiB</code> value.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not use this feature unless you are near the 8 GiB limit. In your planning to use this feature, make sure that the nodes are sized appropriately. In addition, do not use this feature unless you are sure that you will not eventually need to decrease the database quota. You cannot decrease the <code>backendQuotaGiB</code> setting. The API rejects any attempt to set a value lower than the current configuration with the following error: <code>etcd backendQuotaGiB may not be decreased</code>.</p>
+</div>
+<div class="paragraph">
+<p>The only way to run at a lower quota after an increase is to restore the cluster from an etcd backup taken before the change. Be aware that any changes made since the backup was taken might be lost.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have cluster administrator access.</p>
+</li>
+<li>
+<p>The control plane memory and disk meet the requirements for the target quota. For more information, see "Selectable etcd database size for large clusters".</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Before you begin this procedure, it is useful to have a current etcd backup, but it is not required.</p>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Check the current value of the disk quota for each etcd instance by entering the following command:</p>
+<p>Patch the <code>backendQuotaGiB</code> setting with an integer from <code>8</code> through <code>16</code>:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe etcd/cluster | <span class="nb">grep</span> <span class="s2">"Backend Quota"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec":{"backendQuotaGiB": &lt;quota_gib&gt;}}'</span></code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;quota_gib&gt;</code> with your target value.</p>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">Backend Quota Gi B: &lt;value&gt;</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="text">etcd.operator.openshift.io/cluster patched</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Change the value of the disk quota by entering the following command:</p>
+<p>Monitor etcd pod rollout and quota metrics by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"backendQuotaGiB": &lt;value&gt;}}'</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm wait-for-stable-cluster</code></pre>
 </div>
 </div>
+</li>
+<li>
+<p>To monitor only the etcd cluster Operator, enter the following command:</p>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">etcd.operator.openshift.io/cluster patched</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteroperator etcd <span class="nt">-w</span></code></pre>
 </div>
 </div>
 </li>
 </ol>
 </div>
-<div class="olist arabic">
+<div class="ulist">
 <div class="title">Verification</div>
-<ol class="arabic">
+<ul>
 <li>
-<p>Verify that the new value for the disk quota is set by entering the following command:</p>
+<p>Ensure that the <code>etcd_server_quota_backend_bytes</code> value reflects the new quota by entering the following commands:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe etcd/cluster | <span class="nb">grep</span> <span class="s2">"Backend Quota"</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get etcd/cluster <span class="nt">-o</span> <span class="s1">'jsonpath={.spec.backendQuotaGiB}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-etcd get pod <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>etcd <span class="nt">-o</span> yaml | <span class="nb">grep</span> <span class="nt">-A1</span> ETCD_QUOTA_BACKEND_BYTES</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="etcd-crashloop-after-quota-increase_etcd-performance"><a class="anchor" href="#etcd-crashloop-after-quota-increase_etcd-performance"></a>Recovering etcd from CrashLoopBackOff after increasing backend quota</h3>
+<div class="paragraph _abstract">
+<p>If you increase the <code>backendQuotaGiB</code> setting and the etcd pods enter a <code>CrashLoopBackOff</code> state, verify whether the failure is memory-related, confirm control plane sizing, and follow supported member recovery steps.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have cluster administrator access.</p>
+</li>
+<li>
+<p>Control plane node memory meets sizing guidance for the configured <code>backendQuotaGiB</code> setting, or you can increase node memory before recovery.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Before you begin this procedure, it is useful to have a current etcd backup, but it is not required.</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Verify whether etcd containers were out-of-memory by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-etcd <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{.metadata.name}{"\t"}{range .status.containerStatuses[*]}{.name}{": "}{.lastState.terminated.reason}{" "}{end}{"\n"}{end}'</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The etcd Operator automatically rolls out the etcd instances with the new values.</p>
+<p>If the reason is <code>OOMKilled</code>, insufficient memory is the likely cause.</p>
 </div>
 </li>
 <li>
-<p>Verify that the etcd pods are up and running by entering the following command:</p>
+<p>Check the node memory and the etcd resident memory by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm top nodes <span class="nt">--selector</span><span class="o">=</span>node-role.kubernetes.io/control-plane<span class="o">=</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the OpenShift Container Platform web console, in the <strong>Observe</strong> → <strong>Metrics</strong> view, query <code>process_resident_memory_bytes{job="etcd"}</code> and compare results to the sizing table in "Selectable etcd database size for large clusters".</p>
+</div>
+</li>
+<li>
+<p>If control plane memory is below the recommended range for your configured quota, increase memory on all control plane nodes before proceeding. Recovery attempts fail if nodes remain undersized.</p>
+</li>
+<li>
+<p>Take a restorable etcd snapshot before member-level recovery by running <code>cluster-backup.sh</code> on a control plane node. For more information, see "Backing up and restoring etcd data". Save the snapshot and static pod resources to a secure location outside the cluster.</p>
+<div class="paragraph">
+<p>Optionally, collect supplemental diagnostics by entering the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm inspect co/etcd</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>For a single crash-looping etcd member with sufficient memory and no data corruption, complete the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Follow the steps in "Replacing an unhealthy etcd member whose etcd pod is crashlooping" to replace the unhealthy member.</p>
+</li>
+<li>
+<p>Verify etcd cluster health by entering the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get etcd cluster <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-etcd</code></pre>
 </div>
 </div>
-<div class="paragraph">
-<p>The following output shows the expected entries.</p>
+</li>
+</ol>
 </div>
+</li>
+<li>
+<p>If recovery fails after memory correction and member replacement, collect must-gather logs and contact Red&#160;Hat Support. Do not attempt unsupported quota decreases.</p>
+</li>
+<li>
+<p>If you must run at a lower <code>backendQuotaGiB</code>, restore the cluster from an etcd backup taken before the quota increase.</p>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>All etcd pods in <code>openshift-etcd</code> are <code>Running</code> and ready.</p>
+</li>
+<li>
+<p>The <code>oc get etcd cluster -o jsonpath='{.items[0].status.conditions[?(@.type=="EtcdMembersAvailable")].status}'</code> command returns <code>True</code>.</p>
+</li>
+<li>
+<p>No recurring <code>OOMKilled</code> terminations occur on etcd containers.</p>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../etcd/etcd-backup-restore/etcd-backup.html#etcd-backup">Backing up and restoring etcd data</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="etcd-alerts-after-quota-increase_etcd-performance"><a class="anchor" href="#etcd-alerts-after-quota-increase_etcd-performance"></a>Troubleshooting etcd quota alerts after quota change</h3>
+<div class="paragraph _abstract">
+<p>After you change the <code>backendQuotaGiB</code> setting, if you see <code>etcdDatabaseQuotaLowSpace</code> alerts, verify database use and determine mitigation steps.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You configured the <code>backendQuotaGiB</code> setting.</p>
+</li>
+<li>
+<p>You have access to cluster metrics or the <strong>Observe</strong> → <strong>Metrics</strong> view in the OpenShift Container Platform web console.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Confirm current usage by entering the following command:</p>
 <div class="listingblock">
-<div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                                                   READY   STATUS      RESTARTS   AGE
-etcd-ci-ln-b6kfsw2-72292-mzwbq-master-0                4/4     Running     0          39m
-etcd-ci-ln-b6kfsw2-72292-mzwbq-master-1                4/4     Running     0          37m
-etcd-ci-ln-b6kfsw2-72292-mzwbq-master-2                4/4     Running     0          41m
-etcd-guard-ci-ln-b6kfsw2-72292-mzwbq-master-0          1/1     Running     0          51m
-etcd-guard-ci-ln-b6kfsw2-72292-mzwbq-master-1          1/1     Running     0          49m
-etcd-guard-ci-ln-b6kfsw2-72292-mzwbq-master-2          1/1     Running     0          54m
-installer-5-ci-ln-b6kfsw2-72292-mzwbq-master-1         0/1     Completed   0          51m
-installer-7-ci-ln-b6kfsw2-72292-mzwbq-master-0         0/1     Completed   0          46m
-installer-7-ci-ln-b6kfsw2-72292-mzwbq-master-1         0/1     Completed   0          44m
-installer-7-ci-ln-b6kfsw2-72292-mzwbq-master-2         0/1     Completed   0          49m
-installer-8-ci-ln-b6kfsw2-72292-mzwbq-master-0         0/1     Completed   0          40m
-installer-8-ci-ln-b6kfsw2-72292-mzwbq-master-1         0/1     Completed   0          38m
-installer-8-ci-ln-b6kfsw2-72292-mzwbq-master-2         0/1     Completed   0          42m
-revision-pruner-7-ci-ln-b6kfsw2-72292-mzwbq-master-0   0/1     Completed   0          43m
-revision-pruner-7-ci-ln-b6kfsw2-72292-mzwbq-master-1   0/1     Completed   0          43m
-revision-pruner-7-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0          43m
-revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-0   0/1     Completed   0          42m
-revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-1   0/1     Completed   0          42m
-revision-pruner-8-ci-ln-b6kfsw2-72292-mzwbq-master-2   0/1     Completed   0          42m</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="promql">etcd_mvcc_db_total_size_in_bytes / etcd_server_quota_backend_bytes</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Verify that the disk quota value is updated for the etcd pod by entering the following command:</p>
-<div class="listingblock">
+<p>Compare absolute database size to the alert thresholds in the <code>etcdDatabaseQuotaLowSpace</code> alert thresholds.</p>
+</li>
+<li>
+<p>Mitigate elevated usage by using one or more of the following approaches:</p>
+<div class="openblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe <span class="nt">-n</span> openshift-etcd pod/&lt;etcd_podname&gt; | <span class="nb">grep</span> <span class="s2">"ETCD_QUOTA_BACKEND_BYTES"</span></code></pre>
+<div class="ulist">
+<ul>
+<li>
+<p>Run or wait for automatic defragmentation.</p>
+</li>
+<li>
+<p>Delete unnecessary Kubernetes objects to reduce churn and size.</p>
+</li>
+<li>
+<p>Increase <code>backendQuotaGiB</code> within the 16 GiB maximum if sustained growth is expected.</p>
+</li>
+<li>
+<p>Silence alerts temporarily when growth is expected and documented, following your change management process.</p>
+</li>
+</ul>
 </div>
 </div>
-<div class="paragraph">
-<p>The value might not have changed from the default value of <code>8</code>.</p>
 </div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">ETCD_QUOTA_BACKEND_BYTES:                               8589934592</span></code></pre>
-</div>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>While the value that you set is an integer in GiB, the value shown in the output is converted to bytes.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
+</li>
+<li>
+<p>If critical alerts persist near 85% usage, increase the quota or perform object cleanup before write failures occur.</p>
 </li>
 </ol>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="etcd-increase-db-troubleshooting_etcd-performance"><a class="anchor" href="#etcd-increase-db-troubleshooting_etcd-performance"></a>Troubleshooting etcd database size increases</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>Resolve common errors when increasing the etcd disk quota, including values that are too small, too large, or lower than the current setting.</p>
-</div>
-<div class="paragraph">
-<p>If you encounter issues when you try to increase the database size for etcd, the following examples might help.</p>
-</div>
-<div class="sect2">
-<h3 id="etcd-ts-db-small_etcd-performance"><a class="anchor" href="#etcd-ts-db-small_etcd-performance"></a>Value is too small</h3>
-<div class="paragraph">
-<p>If the value that you specify is less than <code>8</code>, you see an error message. For example, if you enter the following command:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"backendQuotaGiB": 5}}'</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The following error message is displayed:</p>
-</div>
-<div class="listingblock">
-<div class="title">Example error message</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">The Etcd "cluster" is invalid:
-* spec.backendQuotaGiB: Invalid value: 5: spec.backendQuotaGiB in body should be greater than or equal to 8
-* spec.backendQuotaGiB: Invalid value: "integer": etcd backendQuotaGiB may not be decreased</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>To resolve this issue, specify an integer between <code>8</code> and <code>32</code>.</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="etcd-ts-db-large_etcd-performance"><a class="anchor" href="#etcd-ts-db-large_etcd-performance"></a>Value is too large</h3>
-<div class="paragraph">
-<p>If the value that you specify is greater than <code>32</code>, you see an error message. For example, if you enter the following command:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"backendQuotaGiB": 64}}'</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The following error message is displayed:</p>
-</div>
-<div class="listingblock">
-<div class="title">Example error message</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">The Etcd "cluster" is invalid: spec.backendQuotaGiB: Invalid value: 64: spec.backendQuotaGiB in body should be less than or equal to 32</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>To resolve this issue, specify an integer between <code>8</code> and <code>32</code>.</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="etcd-ts-db-decrease_etcd-performance"><a class="anchor" href="#etcd-ts-db-decrease_etcd-performance"></a>Value is decreasing</h3>
-<div class="paragraph">
-<p>If the value is set to a valid value between <code>8</code> and <code>32</code>, you cannot decrease the value. Otherwise, you see an error message.</p>
-</div>
-<div class="paragraph">
-<p>For example, check the current value by entering the following command:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe etcd/cluster | <span class="nb">grep</span> <span class="s2">"Backend Quota"</span></code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Backend Quota Gi B: 10</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>If you decrease the disk quota value by entering the following command, an error message is displayed.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch etcd/cluster <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec": {"backendQuotaGiB": 8}}'</span></code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example error message</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">The Etcd "cluster" is invalid: spec.backendQuotaGiB: Invalid value: "integer": etcd backendQuotaGiB may not be decreased</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>To resolve this issue, specify an integer greater than <code>10</code>.</p>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>The usage ratio is stable or decreasing.</p>
+</li>
+<li>
+<p>Alerts are cleared or are acknowledged according to the operations policy.</p>
+</li>
+</ul>
 </div>
 </div>
 </div>
