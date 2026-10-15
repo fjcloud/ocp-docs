@@ -3299,9 +3299,20 @@ If you did not specify the <code>--node-selector</code> argument, then the direc
 <div class="paragraph _abstract">
 <p>When investigating potential network-related Red Hat OpenShift Service on AWS issues, Red Hat Support might request a network packet trace from a specific Red Hat OpenShift Service on AWS cluster node or from a specific container. The recommended method to capture a network trace in Red Hat OpenShift Service on AWS is through a debug pod.</p>
 </div>
+<div class="paragraph">
+<p>How you collect a network trace from Red Hat OpenShift Service on AWS is different in RHCOS 9.x and 10.x, as described in the following sections.</p>
+</div>
+<div class="sect2">
+<h3 id="support-collecting-network-trace-10_gathering-cluster-data"><a class="anchor" href="#support-collecting-network-trace-10_gathering-cluster-data"></a>Collecting a network trace from an Red Hat OpenShift Service on AWS node or container in RHCOS 10.x</h3>
+<div class="paragraph _abstract">
+<p>You can use a debug pod to capture a network trace in Red Hat OpenShift Service on AWS. Red Hat Support might request a network packet trace from a specific Red Hat OpenShift Service on AWS cluster node or from a specific container to help investigate potential network-related Red Hat OpenShift Service on AWS issues.</p>
+</div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
+<li>
+<p>Your cluster is running Red&#160;Hat Enterprise Linux CoreOS (RHCOS) 10.x.</p>
+</li>
 <li>
 <p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
 </li>
@@ -3481,6 +3492,189 @@ If you did not specify the <code>--node-selector</code> argument, then the direc
 </ol>
 </div>
 </div>
+<div class="sect2">
+<h3 id="support-collecting-network-trace-9_gathering-cluster-data"><a class="anchor" href="#support-collecting-network-trace-9_gathering-cluster-data"></a>Collecting a network trace from an Red Hat OpenShift Service on AWS node or container in RHCOS 9.x</h3>
+<div class="paragraph _abstract">
+<p>You can use a debug pod to capture a network trace in Red Hat OpenShift Service on AWS. Red Hat Support might request a network packet trace from a specific Red Hat OpenShift Service on AWS cluster node or from a specific container to help investigate potential network-related Red Hat OpenShift Service on AWS issues.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Your cluster is running Red&#160;Hat Enterprise Linux CoreOS (RHCOS) 9.x.</p>
+</li>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have an existing Red Hat Support case ID.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Obtain a list of cluster nodes:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter into a debug session on the target node. This step instantiates a debug pod called <code>&lt;node_name&gt;-debug</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/my-cluster-node</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set <code>/host</code> as the root directory within the debug shell. The debug pod mounts the host&#8217;s root file system in <code>/host</code> within the pod. By changing the root directory to <code>/host</code>, you can run binaries contained in the host&#8217;s executable paths:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>From within the <code>chroot</code> environment console, obtain the node&#8217;s interface names:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>ip ad</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Start a <code>toolbox</code> container, which includes the required binaries and plugins to run <code>sosreport</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>toolbox</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If an existing <code>toolbox</code> pod is already running, the <code>toolbox</code> command outputs <code>'toolbox-' already exists. Trying to start&#8230;&#8203;</code>. To avoid <code>tcpdump</code> issues, remove the running toolbox container with <code>podman rm toolbox-</code> and spawn a new toolbox container.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Initiate a <code>tcpdump</code> session on the cluster node and redirect output to a capture file. This example uses <code>ens5</code> as the interface name:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>tcpdump <span class="nt">-nn</span> <span class="nt">-s</span> 0 <span class="nt">-i</span> ens5 <span class="nt">-w</span> /host/var/tmp/my-cluster-node_<span class="si">$(</span><span class="nb">date</span> +%d_%m_%Y-%H_%M_%S-%Z<span class="si">)</span>.pcap</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>/host/var/tmp/my-cluster-node_$(date +%d_%m_%Y-%H_%M_%S-%Z).pcap</code></dt>
+<dd>
+<p>The <code>tcpdump</code> capture file&#8217;s path is outside of the <code>chroot</code> environment because the toolbox container mounts the host&#8217;s root directory at <code>/host</code>.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>If a <code>tcpdump</code> capture is required for a specific container on the node, follow these steps.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Determine the target container ID. The <code>chroot host</code> command precedes the <code>crictl</code> command in this step because the toolbox container mounts the host&#8217;s root directory at <code>/host</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">chroot</span> /host crictl ps</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Determine the container&#8217;s process ID. In this example, the container ID is <code>a7fe32346b120</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">chroot</span> /host crictl inspect <span class="nt">--output</span> yaml a7fe32346b120 | <span class="nb">grep</span> <span class="s1">'pid'</span> | <span class="nb">awk</span> <span class="s1">'{print $2}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Initiate a <code>tcpdump</code> session on the container and redirect output to a capture file. This example uses <code>49628</code> as the container&#8217;s process ID and <code>ens5</code> as the interface name. The <code>nsenter</code> command enters the namespace of a target process and runs a command in its namespace. because the target process in this example is a container&#8217;s process ID, the <code>tcpdump</code> command is run in the container&#8217;s namespace from the host:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>nsenter <span class="nt">-n</span> <span class="nt">-t</span> 49628 <span class="nt">--</span> tcpdump <span class="nt">-nn</span> <span class="nt">-i</span> ens5 <span class="nt">-w</span> /host/var/tmp/my-cluster-node-my-container_<span class="si">$(</span><span class="nb">date</span> +%d_%m_%Y-%H_%M_%S-%Z<span class="si">)</span>.pcap</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>/host/var/tmp/my-cluster-node-my-container_$(date +%d_%m_%Y-%H_%M_%S-%Z).pcap</code></dt>
+<dd>
+<p>The <code>tcpdump</code> capture file&#8217;s path is outside of the <code>chroot</code> environment because the toolbox container mounts the host&#8217;s root directory at <code>/host</code>.</p>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Provide the <code>tcpdump</code> capture file to Red Hat Support for analysis, using one of the following methods.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Upload the file to an existing Red Hat support case.</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Concatenate the <code>sosreport</code> archive by running the <code>oc debug node/&lt;node_name&gt;</code> command and redirect the output to a file. This command assumes you have exited the previous <code>oc debug</code> session:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/my-cluster-node <span class="nt">--</span> bash <span class="nt">-c</span> <span class="s1">'cat /host/var/tmp/my-tcpdump-capture-file.pcap'</span> <span class="o">&gt;</span> /tmp/my-tcpdump-capture-file.pcap</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>/host/var/tmp/my-tcpdump-capture-file.pcap</code></dt>
+<dd>
+<p>The debug container mounts the host&#8217;s root directory at <code>/host</code>. Reference the absolute path from the debug container&#8217;s root directory, including <code>/host</code>, when specifying target files for concatenation.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Navigate to an existing support case within <a href="https://access.redhat.com/support/cases/#/case/list">the <strong>Customer Support</strong> page</a> of the Red Hat Customer Portal.</p>
+</li>
+<li>
+<p>Select <strong>Attach files</strong> and follow the prompts to upload the file.</p>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
 </div>
 <div class="sect1">
 <h2 id="support-providing-diagnostic-data-to-red-hat_gathering-cluster-data"><a class="anchor" href="#support-providing-diagnostic-data-to-red-hat_gathering-cluster-data"></a>Providing diagnostic data to Red Hat Support</h2>
@@ -3548,10 +3742,11 @@ If you did not specify the <code>--node-selector</code> argument, then the direc
 <p>Toolbx is a tool for creating persistent containers on a Red&#160;Hat Enterprise Linux CoreOS (RHCOS) system. Because RHCOS is immutable, you can use Toolbx containers to install and run your favorite debugging or administration tools, even if they are not included in the RHCOS base image.</p>
 </div>
 <div class="paragraph">
-<p>You can use Toolbx to gather diagnostic information and provide it to Red Hat Support.</p>
+<p>You can use Toolbx to gather diagnostic information and provide it to Red Hat Support. How you use Toolbx is different in RHCOS 9.x and 10.x, as described in the following sections.
+How you use Toolbx is different in RHCOS 9.x and 10.x, as described in the following sections.</p>
 </div>
 <div class="sect2">
-<h3 id="installing-packages-to-a-toolbox-container_gathering-cluster-data"><a class="anchor" href="#installing-packages-to-a-toolbox-container_gathering-cluster-data"></a>Installing packages to a Toolbx container</h3>
+<h3 id="installing-packages-to-a-toolbox-container_gathering-cluster-data"><a class="anchor" href="#installing-packages-to-a-toolbox-container_gathering-cluster-data"></a>Installing packages to a Toolbx container in RHCOS 10.x</h3>
 <div class="paragraph _abstract">
 <p>You can collect node-specific data that requires a support tool that is not part of the image by using Toolbx to install additional packages.</p>
 </div>
@@ -3561,6 +3756,9 @@ If you did not specify the <code>--node-selector</code> argument, then the direc
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
+<li>
+<p>Your cluster is running Red&#160;Hat Enterprise Linux CoreOS (RHCOS) 10.x.</p>
+</li>
 <li>
 <p>You can access your system as a user with root privileges.</p>
 </li>
@@ -3611,7 +3809,56 @@ If you did not specify the <code>--node-selector</code> argument, then the direc
 </div>
 </div>
 <div class="sect2">
-<h3 id="starting-an-alternative-image-with-toolbox_gathering-cluster-data"><a class="anchor" href="#starting-an-alternative-image-with-toolbox_gathering-cluster-data"></a>Starting an alternative image with Toolbx</h3>
+<h3 id="installing-packages-to-a-toolbox-container-9_gathering-cluster-data"><a class="anchor" href="#installing-packages-to-a-toolbox-container-9_gathering-cluster-data"></a>Installing packages to a <code>toolbox</code> container in RHCOS 9.x</h3>
+<div class="paragraph _abstract">
+<p>By default, running the <code>toolbox</code> command starts a container with the <code>registry.redhat.io/rhel9/support-tools:latest</code> image. This image contains the most frequently used support tools. If you need to collect node-specific data that requires a support tool that is not part of the image, you can install additional packages.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Your cluster is running Red&#160;Hat Enterprise Linux CoreOS (RHCOS) 9.x.</p>
+</li>
+<li>
+<p>You have accessed a node with the <code>oc debug node/&lt;node_name&gt;</code> command.</p>
+</li>
+<li>
+<p>You can access your system as a user with root privileges.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Set <code>/host</code> as the root directory within the debug shell. The debug pod mounts the host&#8217;s root file system in <code>/host</code> within the pod. By changing the root directory to <code>/host</code>, you can run binaries contained in the host&#8217;s executable paths:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Start the toolbox container:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>toolbox</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Install the additional package, such as <code>wget</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>dnf <span class="nb">install</span> <span class="nt">-y</span> &lt;package_name&gt;</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="starting-an-alternative-image-with-toolbox_gathering-cluster-data"><a class="anchor" href="#starting-an-alternative-image-with-toolbox_gathering-cluster-data"></a>Starting an alternative image with Toolbx in RHCOS 10.x</h3>
 <div class="paragraph _abstract">
 <p>The Toolbx commands create a container from the default Red Hat Universal Base Image (UBI) Toolbx image for the matching Red&#160;Hat Enterprise Linux (RHEL) version. You can create a container from an alternative image by running the <code>toolbox create</code> command with the path to the image you want to run.</p>
 </div>
@@ -3632,6 +3879,9 @@ If you did not specify the <code>--node-selector</code> argument, then the direc
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
+<li>
+<p>Your cluster is running Red&#160;Hat Enterprise Linux CoreOS (RHCOS) 10.x.</p>
+</li>
 <li>
 <p>You can access your system as a user with root privileges.</p>
 </li>
@@ -3706,6 +3956,104 @@ Enter with: toolbox enter ubuntu-dev</span></code></pre>
 </div>
 <div class="paragraph">
 <p>Replace <code>&lt;container_name&gt;</code> with the name of the container.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="starting-an-alternative-image-with-toolbox-9_gathering-cluster-data"><a class="anchor" href="#starting-an-alternative-image-with-toolbox-9_gathering-cluster-data"></a>Starting an alternative image with <code>toolbox</code> in RHCOS 9.x</h3>
+<div class="paragraph _abstract">
+<p>By default, running the <code>toolbox</code> command starts a container with the <code>registry.redhat.io/rhel9/support-tools:latest</code> image.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can start an alternative image by creating a <code>.toolboxrc</code> file and specifying the image to run. However, running an older version of the <code>support-tools</code> image, such as <code>registry.redhat.io/rhel8/support-tools:latest</code>,  is not supported on Red Hat OpenShift Service on AWS Branch Build.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>Your cluster is running Red&#160;Hat Enterprise Linux CoreOS (RHCOS) 9.x.</p>
+</li>
+<li>
+<p>You have accessed a node with the <code>oc debug node/&lt;node_name&gt;</code> command.</p>
+</li>
+<li>
+<p>You can access your system as a user with root privileges.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Set <code>/host</code> as the root directory within the debug shell. The debug pod mounts the host&#8217;s root file system in <code>/host</code> within the pod. By changing the root directory to <code>/host</code>, you can run binaries contained in the host&#8217;s executable paths:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Optional: If you need to use an alternative image instead of the default image, create a <code>.toolboxrc</code> file in the home directory for the root user ID, and specify the image metadata:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">REGISTRY=quay.io
+IMAGE=fedora/fedora:latest
+TOOLBOX_NAME=toolbox-fedora-latest</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>REGISTRY=quay.io</code></dt>
+<dd>
+<p>Optional: Specify an alternative container registry.</p>
+</dd>
+<dt class="hdlist1"><code>IMAGE=fedora/fedora:latest</code></dt>
+<dd>
+<p>Specify an alternative image to start.</p>
+</dd>
+<dt class="hdlist1"><code>TOOLBOX_NAME=toolbox-fedora-latest</code></dt>
+<dd>
+<p>Optional: Specify an alternative name for the toolbox container.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Start a toolbox container by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">#</span><span class="w"> </span>toolbox</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If an existing <code>toolbox</code> pod is already running, the <code>toolbox</code> command outputs <code>'toolbox-' already exists. Trying to start&#8230;&#8203;</code>. To avoid issues with <code>sosreport</code> plugins, remove the running toolbox container with <code>podman rm toolbox-</code> and then spawn a new toolbox container.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </li>
 </ol>
