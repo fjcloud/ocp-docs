@@ -2903,6 +2903,9 @@ To configure kernel arguments, see <a href="../../nodes/nodes/nodes-nodes-managi
 <div class="paragraph">
 <p>On clusters that use the <code>x86_64</code> or ARM CPU architecture, FCOS automatically updates the boot loader when a node gets upgraded to a new operating system image. For UEFI systems, the <code>bootloader-update.service</code> updates the boot loader inside the EFI System Partition. For Legacy BIOS systems, the <code>bootloader-update.service</code> writes the boot loader directly to the boot sectors. With these clusters, there is no need to manually update the boot loader.</p>
 </div>
+<div class="paragraph">
+<p>On the <code>ppc64le</code> architecture, <code>bootupd</code> support exists, but RAID setups are not currently supported. On the <code>s390x</code> architecture, <code>bootupd</code> has no boot loader to update.</p>
+</div>
 </td>
 </tr>
 </table>
@@ -3022,18 +3025,8 @@ The boot loader update operation generally completes quickly thus the risk is lo
     <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">worker</span>
 <span class="na">systemd</span><span class="pi">:</span>
   <span class="na">units</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">bootupctl-update.service</span>
-    <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
-    <span class="na">contents</span><span class="pi">:</span> <span class="pi">|</span>
-      <span class="s">[Unit]</span>
-      <span class="s">Description=Bootupd automatic update</span>
-
-      <span class="s">[Service]</span>
-      <span class="s">ExecStart=/usr/bin/bootupctl update</span>
-      <span class="s">RemainAfterExit=yes</span>
-
-      <span class="s">[Install]</span>
-      <span class="s">WantedBy=multi-user.target</span></code></pre>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">bootloader-update.service</span>
+    <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -3061,6 +3054,85 @@ The boot loader update operation generally completes quickly thus the risk is lo
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> ./99-worker-bootupctl-update.yaml</code></pre>
 </div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Check that the <code>99-worker-chrony</code> machine config object was created by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe mc 99-worker-chrony</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Expected output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">Name</span><span class="pi">:</span>         <span class="s">99-worker-chrony</span>
+<span class="na">Namespace</span><span class="pi">:</span>
+<span class="na">Labels</span><span class="pi">:</span>       <span class="s">machineconfiguration.openshift.io/role=worker</span>
+<span class="na">Annotations</span><span class="pi">:</span>  <span class="s">&lt;none&gt;</span>
+<span class="na">API Version</span><span class="pi">:</span>  <span class="s">machineconfiguration.openshift.io/v1</span>
+<span class="na">Kind</span><span class="pi">:</span>         <span class="s">MachineConfig</span>
+<span class="na">Metadata</span><span class="pi">:</span>
+  <span class="na">Creation Timestamp</span><span class="pi">:</span>  <span class="s">2026-10-01T19:09:36Z</span>
+  <span class="na">Generation</span><span class="pi">:</span>          <span class="m">1</span>
+  <span class="na">Resource Version</span><span class="pi">:</span>    <span class="m">54580</span>
+  <span class="na">UID</span><span class="pi">:</span>                 <span class="s">cde98e8e-9b9c-4b9c-bad9-5608fbe8af74</span>
+<span class="na">Spec</span><span class="pi">:</span>
+  <span class="na">Config</span><span class="pi">:</span>
+    <span class="na">Ignition</span><span class="pi">:</span>
+      <span class="na">Version</span><span class="pi">:</span>  <span class="s">3.5.0</span>
+    <span class="na">Systemd</span><span class="pi">:</span>
+      <span class="na">Units</span><span class="pi">:</span>
+        <span class="na">Enabled</span><span class="pi">:</span>  <span class="no">true</span>
+        <span class="na">Name</span><span class="pi">:</span>     <span class="s">bootloader-update.service</span>
+<span class="na">Events</span><span class="pi">:</span>           <span class="s">&lt;none&gt;</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Check that the <code>bootloader-update.service</code> systemd unit is enabled on the nodes in the machine config pool specified in the machine config object:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Log in to a node:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Set <code>/host</code> as the root directory within the debug shell:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the unit is enabled by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="nowrap">$ sh-5.2# systemctl is-enabled bootloader-update.service</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Expected output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">enabled</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
 </div>
 </li>
 </ul>
