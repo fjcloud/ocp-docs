@@ -2899,6 +2899,7 @@
 <li><a href="#ztp-customizing-br-ex-bridge-install_ztp-advanced-install-ztp">Customizing the br-ex bridge at installation time in the GitOps ZTP pipeline</a></li>
 <li><a href="#ztp-configuring-cluster-network-mtu_ztp-advanced-install-ztp">Configuring cluster network MTU at installation time</a></li>
 <li><a href="#ztp-deleting-node-clusterinstance_ztp-advanced-install-ztp">Deleting a node by using the ClusterInstance CR</a></li>
+<li><a href="#ztp-replacing-failed-control-plane-node_ztp-advanced-install-ztp">Replacing a failed control plane node by using the ClusterInstance CR</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -3504,6 +3505,438 @@ Delete the secret only after the node cleanup, when the current ArgoCD synchroni
 <div class="title">Next steps</div>
 <p>To reprovision a node, add the node definition back to the <code>spec.nodes</code> section in the <code>ClusterInstance</code> CR, push the changes to the Git repository, and wait for the synchronization to complete.
 This regenerates the <code>BareMetalHost</code> CR of the worker node and triggers the re-install of the node.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="ztp-replacing-failed-control-plane-node_ztp-advanced-install-ztp"><a class="anchor" href="#ztp-replacing-failed-control-plane-node_ztp-advanced-install-ztp"></a>Replacing a failed control plane node by using the ClusterInstance CR</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can replace a failed control plane node on a OKD cluster by removing the failed node from the <code>ClusterInstance</code> custom resource (CR) and then adding a replacement node.
+Complete the replacement before a second control plane failure can lose quorum.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If you reuse the same hostname for the replacement node, you must remove the failed node before you add the replacement.
+If you use a different hostname, the failed node can be removed before or after the replacement is added.
+Replace only one control plane node at a time.
+Replacing two control plane nodes in parallel can lose <code>etcd</code> quorum and make the cluster unrecoverable.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have deployed the managed cluster by using a <code>ClusterInstance</code> CR.</p>
+</li>
+<li>
+<p>At least two of the three control plane nodes are in the <code>Ready</code> state so that <code>etcd</code> still has a quorum.</p>
+</li>
+<li>
+<p>You have a replacement bare-metal host with baseboard management controller (BMC) credentials.
+If you reuse the same hardware, you can keep the existing BMC secret.</p>
+</li>
+<li>
+<p>Control plane nodes do not host OpenShift Data Foundation object storage daemons (OSDs) or monitors.</p>
+</li>
+<li>
+<p>You have the <code>kubeconfig</code> file for the hub cluster and the <code>kubeconfig</code> file for the managed cluster.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Identify the failed control plane node on the managed cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;managed_cluster_kubeconfig&gt; get nodes</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;managed_cluster_kubeconfig&gt;</code></dt>
+<dd>
+<p>Specifies the <code>kubeconfig</code> file for the managed cluster.</p>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                           STATUS     ROLES                  AGE   VERSION
+control-plane-0.example.com    Ready      control-plane,master   10d   v1.33.0
+control-plane-1.example.com    Ready      control-plane,master   10d   v1.33.0
+control-plane-2.example.com    NotReady   control-plane,master   10d   v1.33.0
+compute-1.example.com          Ready      worker                 10d   v1.33.0</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The failed node reports <code>NotReady</code> or is missing from the list.
+Note the <code>hostName</code> value that matches that node in the <code>ClusterInstance</code> CR.</p>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>In the <code>ClusterInstance</code> CR, add the <code>bmac.agent-install.openshift.io/remove-agent-and-node-on-delete</code> annotation to the failed node and apply the updated CR to the hub cluster:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">siteconfig.open-cluster-management.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterInstance</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">example-cluster"</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">example-cluster"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="c1"># ...</span>
+  <span class="na">nodes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">hostName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">control-plane-2.example.com"</span>
+      <span class="na">role</span><span class="pi">:</span> <span class="s2">"</span><span class="s">master"</span>
+      <span class="na">extraAnnotations</span><span class="pi">:</span>
+        <span class="na">BareMetalHost</span><span class="pi">:</span>
+          <span class="s">bmac.agent-install.openshift.io/remove-agent-and-node-on-delete</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the <code>BareMetalHost</code> resource on the hub cluster has the annotation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;hub_cluster_kubeconfig&gt; get bmh <span class="nt">-n</span> &lt;cluster_namespace&gt; &lt;bmh_name&gt; <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.metadata.annotations.bmac\.agent-install\.openshift.io/remove-agent-and-node-on-delete}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">true</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;cluster_namespace&gt;</code></dt>
+<dd>
+<p>Specifies the namespace of the <code>ClusterInstance</code> CR.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;bmh_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of the <code>BareMetalHost</code> resource, which matches the node <code>hostName</code> value.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Configure the <code>pruneManifests</code> field for the failed node so that the <code>BareMetalHost</code> resource is deleted.
+Keep the deletion annotation and apply the updated CR to the hub cluster:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">siteconfig.open-cluster-management.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterInstance</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">example-cluster"</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">example-cluster"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="c1"># ...</span>
+  <span class="na">nodes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">hostName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">control-plane-2.example.com"</span>
+      <span class="na">role</span><span class="pi">:</span> <span class="s2">"</span><span class="s">master"</span>
+      <span class="na">extraAnnotations</span><span class="pi">:</span>
+        <span class="na">BareMetalHost</span><span class="pi">:</span>
+          <span class="s">bmac.agent-install.openshift.io/remove-agent-and-node-on-delete</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+      <span class="na">pruneManifests</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">apiVersion</span><span class="pi">:</span> <span class="s">metal3.io/v1alpha1</span>
+          <span class="na">kind</span><span class="pi">:</span> <span class="s">BareMetalHost</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The status of the <code>BareMetalHost</code> resource changes to <code>deprovisioning</code>.
+If the BMC is unreachable, deprovisioning can take significantly longer than a graceful removal.
+Wait until the <code>BareMetalHost</code> resource is fully deleted.</p>
+</div>
+</li>
+<li>
+<p>Verify that the <code>BareMetalHost</code> resource is deleted from the hub cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;hub_cluster_kubeconfig&gt; get bmh <span class="nt">-n</span> &lt;cluster_namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;hub_cluster_kubeconfig&gt;</code></dt>
+<dd>
+<p>Specifies the <code>kubeconfig</code> file for the hub cluster.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;cluster_namespace&gt;</code></dt>
+<dd>
+<p>Specifies the namespace of the <code>ClusterInstance</code> CR.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Verify that the <code>Agent</code> resource for the failed node is deleted from the hub cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;hub_cluster_kubeconfig&gt; get agent <span class="nt">-n</span> &lt;cluster_namespace&gt; <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[*]}{.spec.hostname}{"\n"}{end}'</span> | <span class="nb">grep</span> &lt;failed_hostname&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;failed_hostname&gt;</code></dt>
+<dd>
+<p>Specifies the <code>hostName</code> value of the failed node, for example <code>control-plane-2.example.com</code>.</p>
+<div class="paragraph">
+<p>If the command returns no output, the <code>Agent</code> resource for the failed node has been deleted.
+If other <code>Agent</code> resources remain in the namespace for other nodes, that is expected.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Wait for the <code>Agent</code> resource for the failed node to be deleted before adding the replacement node.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Verify that the failed node is no longer listed on the managed cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;managed_cluster_kubeconfig&gt; get nodes</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Configure the replacement node in <code>spec.nodes</code>.
+Remove the <code>pruneManifests</code> field and the deletion annotation.
+Then complete one of the following actions:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>To reuse the same hardware, keep the existing node entry and the same <code>hostName</code> value.
+Leave the BMC address, boot MAC address, and node network configuration unchanged.</p>
+</li>
+<li>
+<p>To install replacement hardware, update at least the BMC address, BMC secret name, boot MAC address, and node network configuration.
+If the replacement uses a different <code>hostName</code> value, delete the failed node entry and add a new entry.</p>
+<div class="paragraph">
+<p>The following example reuses the <code>control-plane-2.example.com</code> hostname on replacement hardware:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">siteconfig.open-cluster-management.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterInstance</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">example-cluster"</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s2">"</span><span class="s">example-cluster"</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="c1"># ...</span>
+  <span class="na">nodes</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">hostName</span><span class="pi">:</span> <span class="s2">"</span><span class="s">control-plane-2.example.com"</span>
+      <span class="na">role</span><span class="pi">:</span> <span class="s2">"</span><span class="s">master"</span>
+      <span class="na">bmcAddress</span><span class="pi">:</span> <span class="s2">"</span><span class="s">redfish-virtualmedia+https://192.0.2.22/redfish/v1/Systems/System.Embedded.1"</span>
+      <span class="na">bmcCredentialsName</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">control-plane-2-bmc-secret"</span>
+      <span class="na">bootMACAddress</span><span class="pi">:</span> <span class="s2">"</span><span class="s">AA:BB:CC:DD:EE:22"</span>
+      <span class="na">bootMode</span><span class="pi">:</span> <span class="s2">"</span><span class="s">UEFI"</span>
+      <span class="na">nodeNetwork</span><span class="pi">:</span>
+        <span class="na">interfaces</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eno1</span>
+            <span class="na">macAddress</span><span class="pi">:</span> <span class="s2">"</span><span class="s">AA:BB:CC:DD:EE:22"</span>
+        <span class="na">config</span><span class="pi">:</span>
+          <span class="na">interfaces</span><span class="pi">:</span>
+            <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">eno1</span>
+              <span class="na">type</span><span class="pi">:</span> <span class="s">ethernet</span>
+              <span class="na">state</span><span class="pi">:</span> <span class="s">up</span>
+              <span class="na">macAddress</span><span class="pi">:</span> <span class="s2">"</span><span class="s">AA:BB:CC:DD:EE:22"</span>
+              <span class="na">ipv4</span><span class="pi">:</span>
+                <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+                <span class="na">address</span><span class="pi">:</span>
+                  <span class="pi">-</span> <span class="na">ip</span><span class="pi">:</span> <span class="s">192.0.2.12</span>
+                    <span class="na">prefix-length</span><span class="pi">:</span> <span class="m">24</span>
+              <span class="na">ipv6</span><span class="pi">:</span>
+                <span class="na">enabled</span><span class="pi">:</span> <span class="no">false</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Create the BMC secret for the replacement node in the same namespace as the <code>ClusterInstance</code> CR.
+The <code>BareMetalHost</code> finalizer deletes the referenced <code>bmcSecret</code> when the old <code>BareMetalHost</code> resource is removed, so this step is required for both same-hardware and new-hardware replacements.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Secret</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">control-plane-2-bmc-secret"</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">example-cluster</span>
+<span class="na">stringData</span><span class="pi">:</span>
+  <span class="na">username</span><span class="pi">:</span> <span class="s2">"</span><span class="s">username"</span>
+  <span class="na">password</span><span class="pi">:</span> <span class="s2">"</span><span class="s">password"</span>
+<span class="na">type</span><span class="pi">:</span> <span class="s">Opaque</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the updated <code>ClusterInstance</code> CR and any new secret to the hub cluster.
+The SiteConfig Operator creates a new <code>BareMetalHost</code> resource.
+The Assisted Installer provisions the host and joins it to the cluster.</p>
+</li>
+<li>
+<p>Monitor provisioning on the hub cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;hub_cluster_kubeconfig&gt; get bmh <span class="nt">-n</span> &lt;cluster_namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;hub_cluster_kubeconfig&gt;</code></dt>
+<dd>
+<p>Specifies the <code>kubeconfig</code> file for the hub cluster.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;cluster_namespace&gt;</code></dt>
+<dd>
+<p>Specifies the namespace of the <code>ClusterInstance</code> CR.</p>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                           STATE          CONSUMER   ONLINE   ERROR   AGE
+control-plane-0.example.com    provisioned               true             10d
+control-plane-1.example.com    provisioned               true             10d
+control-plane-2.example.com    provisioning              true             5m</span></code></pre>
+</div>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the replacement node is <code>Ready</code> on the managed cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;managed_cluster_kubeconfig&gt; get nodes <span class="nt">-l</span> node-role.kubernetes.io/control-plane</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;managed_cluster_kubeconfig&gt;</code></dt>
+<dd>
+<p>Specifies the <code>kubeconfig</code> file for the managed cluster.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Identify an <code>etcd</code> pod on a control plane node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;managed_cluster_kubeconfig&gt; get pods <span class="nt">-n</span> openshift-etcd</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that <code>etcd</code> has three healthy members by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;managed_cluster_kubeconfig&gt; rsh <span class="nt">-n</span> openshift-etcd &lt;etcd_pod&gt; <span class="se">\</span>
+  etcdctl member list <span class="nt">-w</span> table</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;etcd_pod&gt;</code></dt>
+<dd>
+<p>Specifies the name of an <code>etcd</code> pod on a control plane node.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Verify that every <code>etcd</code> endpoint is healthy by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;managed_cluster_kubeconfig&gt; rsh <span class="nt">-n</span> openshift-etcd &lt;etcd_pod&gt; <span class="se">\</span>
+  etcdctl endpoint health <span class="nt">--cluster</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the <code>etcd</code> and <code>kube-apiserver</code> Operators have finished reconciling by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">--kubeconfig</span> &lt;managed_cluster_kubeconfig&gt; get clusteroperators etcd kube-apiserver</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wait until both Operators report <code>True</code> in the <code>AVAILABLE</code> column and <code>False</code> in the <code>PROGRESSING</code> column.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../edge_computing/ztp-migrate-clusterinstance.html#ztp-migrate-clusterinstance">Migrating from SiteConfig CRs to ClusterInstance CRs</a></p>
+</li>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.17/html/multicluster_engine_operator_with_red_hat_advanced_cluster_management/siteconfig-intro">SiteConfig Operator</a></p>
+</li>
+<li>
+<p><a href="https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.17/html-single/apis/index#clusterinstance-api">ClusterInstance API</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>
