@@ -3469,7 +3469,7 @@
 <li><a href="#cnf-node-tuning-operator-creating-pod-with-guaranteed-qos-class_cnf-provisioning-low-latency">Create a pod with a guaranteed QoS class</a></li>
 <li><a href="#cnf-node-tuning-operator-disabling-cpu-load-balancing-for-dpdk_cnf-provisioning-low-latency">Disabling CPU load balancing in a Pod</a></li>
 <li><a href="#cnf-configuring-high-priority-workload-pods_cnf-provisioning-low-latency">Disable power saving mode for high priority pods</a></li>
-<li><a href="#cnf-disabling-cpu-cfs-quota_cnf-provisioning-low-latency">Disable CPU CFS quota</a></li>
+<li><a href="#cnf-disabling-cpu-cfs-quota_cnf-provisioning-low-latency">CPU quota annotation for pods</a></li>
 <li><a href="#cnf-disabling-interrupt-processing-for-individual-pods_cnf-provisioning-low-latency">Configure interrupt processing for individual pods</a></li>
 </ul>
 </div>
@@ -3553,7 +3553,6 @@
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">dynamic-low-latency-pod</span>
   <span class="na">annotations</span><span class="pi">:</span>
-    <span class="s">cpu-quota.crio.io</span><span class="pi">:</span> <span class="s2">"</span><span class="s">disable"</span>
     <span class="s">cpu-load-balancing.crio.io</span><span class="pi">:</span> <span class="s2">"</span><span class="s">disable"</span>
     <span class="s">irq-load-balancing.crio.io</span><span class="pi">:</span> <span class="s2">"</span><span class="s">disable"</span>
 <span class="na">spec</span><span class="pi">:</span>
@@ -3578,7 +3577,7 @@
         <span class="na">drop</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">ALL</span><span class="pi">]</span>
   <span class="na">nodeSelector</span><span class="pi">:</span>
     <span class="s">node-role.kubernetes.io/worker-cnf</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">runtimeClassName</span><span class="pi">:</span> <span class="s">performance-dynamic-low-latency-profile</span> <i class="conum" data-value="5"></i><b>(5)</b>
+  <span class="na">runtimeClassName</span><span class="pi">:</span> <span class="s">performance-dynamic-low-latency-profile</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -3589,10 +3588,6 @@
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><code>metadata.annotations.cpu-quota.crio.io</code></dt>
-<dd>
-<p>Disables the CPU completely fair scheduler (CFS) quota at the pod run time.</p>
-</dd>
 <dt class="hdlist1"><code>metadata.annotations.cpu-load-balancing.crio.io</code></dt>
 <dd>
 <p>Disables CPU load balancing.</p>
@@ -4085,45 +4080,30 @@ dynamic-low-latency-pod  1/1     Running   0          5h33m   10.131.0.10  cnf-w
 </div>
 </div>
 <div class="sect1">
-<h2 id="cnf-disabling-cpu-cfs-quota_cnf-provisioning-low-latency"><a class="anchor" href="#cnf-disabling-cpu-cfs-quota_cnf-provisioning-low-latency"></a>Disable CPU CFS quota</h2>
+<h2 id="cnf-disabling-cpu-cfs-quota_cnf-provisioning-low-latency"><a class="anchor" href="#cnf-disabling-cpu-cfs-quota_cnf-provisioning-low-latency"></a>CPU quota annotation for pods</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>To eliminate CPU throttling for pinned pods, create a pod with the <code>cpu-quota.crio.io: "disable"</code> annotation. This annotation disables the CPU completely fair scheduler (CFS) quota when the pod runs.</p>
+<p>On OpenShift Container Platform, you do not need the <code>cpu-quota.crio.io</code> annotation to disable the CPU completely fair scheduler (CFS) quota for pods.</p>
+</div>
+<div class="paragraph">
+<p>Starting in OpenShift Container Platform 4.20, the kubelet automatically disables the CPU CFS quota (which prevents CPU throttling) for pods that meet all of the following:</p>
 </div>
 <div class="ulist">
-<div class="title">Procedure</div>
 <ul>
 <li>
-<p>To eliminate CPU throttling for pinned pods, create a pod with the <code>cpu-quota.crio.io: "disable"</code> annotation. This annotation disables the CPU completely fair scheduler (CFS) quota when the pod runs.</p>
-<div class="listingblock">
-<div class="title">Example pod specification with <code>cpu-quota.crio.io</code> disabled</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">annotations</span><span class="pi">:</span>
-      <span class="s">cpu-quota.crio.io</span><span class="pi">:</span> <span class="s2">"</span><span class="s">disable"</span>
-<span class="na">spec</span><span class="pi">:</span>
-    <span class="na">runtimeClassName</span><span class="pi">:</span> <span class="s">performance-&lt;profile_name&gt;</span>
-<span class="c1">#...</span></code></pre>
-</div>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Only disable CPU CFS quota when the CPU manager static policy is enabled and for pods with guaranteed QoS that use whole CPUs. For example, pods that contain CPU-pinned containers. Otherwise, disabling CPU CFS quota can affect the performance of other containers in the cluster.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
+<p>The pod has a <code>Guaranteed</code> quality of service (<code>QoS</code>) class.</p>
+</li>
+<li>
+<p>The pod requests whole CPUs.</p>
+</li>
+<li>
+<p>The CPU manager static policy is enabled, for example by a performance profile.</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>If your workloads already include the <code>cpu-quota.crio.io: "disable"</code> annotation, you can leave it in place.
+The annotation has no effect because the kubelet provides this functionality automatically.</p>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
