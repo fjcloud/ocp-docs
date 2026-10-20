@@ -1011,6 +1011,7 @@
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/about-ovn-kubernetes.html">About the OVN-Kubernetes network plugin</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/ovn-kubernetes-architecture-assembly.html">OVN-Kubernetes architecture</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/ovn-kubernetes-troubleshooting-sources.html">OVN-Kubernetes troubleshooting</a></li>
+                  <li><a class="" href="../networking/ovn_kubernetes_network_provider/troubleshooting-ovn-kubernetes-with-mcp-server.html">Troubleshooting OVN-Kubernetes with the MCP server</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/ovn-kubernetes-tracing-using-ovntrace.html">OVN-Kubernetes traffic tracing</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/converting-to-dual-stack.html">Converting to IPv4/IPv6 dual stack networking</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/configure-ovn-kubernetes-subnets.html">Configuring internal subnets</a></li>
@@ -2917,6 +2918,9 @@
 <li><a href="#cnf-creating-nrop-cr_numa-aware">Create the NUMAResourcesOperator custom resource</a></li>
 <li><a href="#cnf-creating-nrop-cr-hosted-control-plane_numa-aware">Create the NUMAResourcesOperator custom resource for hosted control planes</a></li>
 <li><a href="#cnf-deploying-the-numa-aware-scheduler_numa-aware">Deploy the NUMA-aware secondary pod scheduler</a></li>
+<li><a href="#cnf-understanding-numa-image-validation_numa-aware">Understanding NUMA image validation</a></li>
+<li><a href="#cnf-extending-trusted-numa-images_numa-aware">Extending the trusted image list</a></li>
+<li><a href="#cnf-disabling-numa-image-validation_numa-aware">Disabling image validation</a></li>
 <li><a href="#cnf-numa-scheduler-preemption_numa-aware">Scheduling critical workloads with preemption</a></li>
 <li><a href="#cnf-scheduling-numa-aware-workloads_numa-aware">Schedule workloads with the NUMA-aware scheduler</a></li>
 </ul>
@@ -3739,21 +3743,41 @@ secondary-scheduler   3/3     3            3           5m</span></code></pre>
 <div class="sect2">
 <h3 id="cnf-creating-nrop-cr_numa-aware"><a class="anchor" href="#cnf-creating-nrop-cr_numa-aware"></a>Create the NUMAResourcesOperator custom resource</h3>
 <div class="paragraph _abstract">
-<p>After you have installed the NUMA Resources Operator, you can create the <code>NUMAResourcesOperator</code> custom resource (CR). This CR instructs the NUMA Resources Operator to install all the cluster infrastructure that is needed to support the NUMA-aware scheduler, including daemon sets and APIs.</p>
+<p>After you have installed the NUMA Resources Operator, you can create the <code>NUMAResourcesOperator</code> custom resource (CR). This CR instructs the NUMA Resources Operator to deploy the Resource Topology Exporter (RTE) as a daemon set on worker nodes and install all the cluster infrastructure that is needed to support the NUMA-aware scheduler.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Installed the OpenShift CLI (<code>oc</code>).</p>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
 </li>
 <li>
-<p>Logged in as a user with <code>cluster-admin</code> privileges.</p>
+<p>You have logged in as a user with <code>cluster-admin</code> privileges.</p>
 </li>
 <li>
-<p>Installed the NUMA Resources Operator.</p>
+<p>You have installed the NUMA Resources Operator.</p>
 </li>
 </ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Only cluster administrators should create or modify <code>NUMAResourcesOperator</code> custom resources.
+The Resource Topology Exporter (RTE) runs as a daemon set on worker nodes with elevated read privileges that allow it to discover hardware topology information, observe node resources, and report NUMA zone details.</p>
+</div>
+<div class="paragraph">
+<p>The <code>spec.imageSpec</code> field in the <code>NUMAResourcesOperator</code> custom resource controls which container image runs with these RTE privileges on worker nodes.
+Granting non-admin users write access to the <code>NUMAResourcesOperator</code> resource creates a security risk.
+An attacker with write access could substitute a malicious container image and potentially access sensitive node information or cluster topology data.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
@@ -3793,6 +3817,20 @@ secondary-scheduler   3/3     3            3           5m</span></code></pre>
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> nrop.yaml</code></pre>
 </div>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Creating the <code>NUMAResourcesOperator</code> custom resource automatically deploys the Resource Topology Exporter (RTE) as a daemon set on the configured worker nodes. The RTE collects NUMA topology information and makes it available to the NUMA-aware scheduler.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 </ol>
 </div>
@@ -3820,6 +3858,51 @@ secondary-scheduler   3/3     3            3           5m</span></code></pre>
           <span class="s">machineconfiguration.openshift.io/role</span><span class="pi">:</span> <span class="s">worker-other</span>
 <span class="c1"># ...</span></code></pre>
 </div>
+</div>
+</li>
+<li>
+<p>Optional: When you need to use a non-default Resource Topology Exporter (RTE) image, you can specify a custom image using the <code>spec.imageSpec</code> field:</p>
+<div class="listingblock">
+<div class="title">Example YAML definition for a <code>NUMAResourcesOperator</code> CR with custom RTE image</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">nodetopology.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">NUMAResourcesOperator</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">numaresourcesoperator</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">imageSpec</span><span class="pi">:</span> <span class="s2">"</span><span class="s">registry.example.com/openshift4/ose-numaresources-operator@sha256:abcd1234..."</span>
+  <span class="na">nodeGroups</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">machineConfigPoolSelector</span><span class="pi">:</span>
+      <span class="na">matchLabels</span><span class="pi">:</span>
+        <span class="s">pools.operator.machineconfiguration.openshift.io/worker</span><span class="pi">:</span> <span class="s2">"</span><span class="s">"</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The <code>spec.imageSpec</code> field is optional. If not specified, the operator uses the default RTE image for your OKD release.
+Custom operand image override is restricted by default.
+To enable custom image override, set <code>EXPORTER_IMAGE_RESTRICTION=false</code> in the Operator&#8217;s environment variables.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For standard deployments, including disconnected environments that use image mirroring (ICSP or IDMS), omit the <code>spec.imageSpec</code> field to use the default RTE image.
+The cluster&#8217;s image mirroring configuration automatically redirects the default image to your internal registry.
+Only specify <code>spec.imageSpec</code> when you need to override the default image with a different version or custom build.
+When specifying a custom image, use a digest-based reference (SHA256) rather than a tag for security and reproducibility.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ul>
 </div>
 </li>
 </ol>
@@ -3858,6 +3941,20 @@ pod/numaresourcesoperator-worker-7d96r                  2/2     Running   0     
 pod/numaresourcesoperator-worker-crsht                  2/2     Running   0          97s
 pod/numaresourcesoperator-worker-jp9mw                  2/2     Running   0          97s</span></code></pre>
 </div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>numaresourcesoperator-worker-*</code> pods are the Resource Topology Exporter (RTE) daemon set instances running on each configured worker node.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 </li>
 </ol>
@@ -4059,6 +4156,37 @@ pod/numaresourcesoperator-democluster-jp9mw             2/2     Running   0     
 <div class="paragraph _abstract">
 <p>To optimize the placement of high-performance workloads, deploy the NUMA-aware secondary pod scheduler. This component aligns pods with specific NUMA zones to ensure efficient resource utilization in your cluster.</p>
 </div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Only cluster administrators should create or modify <code>NUMAResourcesScheduler</code> custom resources.
+The NUMA Resources scheduler runs with elevated privileges that allow it to bind pods to nodes, observe all pods and nodes across the cluster, and make scheduling decisions that affect workload placement.</p>
+</div>
+<div class="paragraph">
+<p>The <code>spec.imageSpec</code> field in the <code>NUMAResourcesScheduler</code> custom resource controls which container image runs with these scheduler privileges.
+Granting non-admin users write access to the <code>NUMAResourcesScheduler</code> resource creates a privilege escalation risk.
+An attacker with write access could substitute a malicious container image and run arbitrary code with scheduler privileges.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
@@ -4083,10 +4211,8 @@ pod/numaresourcesoperator-democluster-jp9mw             2/2     Running   0     
 <ul>
 <li>
 <p><code>spec.imageSpec</code>: In a disconnected environment, make sure to configure the resolution of this image by either:</p>
-</li>
-</ul>
-</div>
-</li>
+<div class="olist lowerroman">
+<ol class="lowerroman" type="i">
 <li>
 <p>Create an <code>ImageTagMirrorSet</code> custom resource (CR). For more information, see "Configuring image registry repository mirroring" in the "Additional resources" section.</p>
 </li>
@@ -4113,6 +4239,12 @@ pod/numaresourcesoperator-democluster-jp9mw             2/2     Running   0     
 </td>
 </tr>
 </table>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ul>
 </div>
 </li>
 </ol>
@@ -4150,6 +4282,510 @@ replicaset.apps/secondary-scheduler-847cb74f84                1         1       
 </li>
 </ol>
 </div>
+</div>
+<div class="sect2">
+<h3 id="cnf-understanding-numa-image-validation_numa-aware"><a class="anchor" href="#cnf-understanding-numa-image-validation_numa-aware"></a>Understanding NUMA image validation</h3>
+<div class="paragraph _abstract">
+<p>The NUMA Resources Operator validates scheduler images against a trusted digest list.
+By default, the Operator rejects a custom Resource Topology Exporter (RTE) image so that only the default RTE image runs on worker nodes.</p>
+</div>
+<div class="sect3">
+<h4 id="cnf-understanding-scheduler-image-validation_numa-aware"><a class="anchor" href="#cnf-understanding-scheduler-image-validation_numa-aware"></a>Scheduler image validation</h4>
+<div class="paragraph">
+<p>The NUMA Resources Operator validates scheduler images to ensure that only trusted images run with scheduler privileges.</p>
+</div>
+<div class="paragraph">
+<p>By default, the Operator enforces the following validation rules for images specified in the <code>NUMAResourcesScheduler</code> custom resource <code>spec.imageSpec</code> field:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Digest-based references required</dt>
+<dd>
+<p>The image reference must use a SHA-256 digest format. For example, <code>registry.redhat.io/openshift4/noderesourcetopology-scheduler-rhel9@sha256:abc123&#8230;&#8203;</code> is valid, but <code>registry.redhat.io/openshift4/noderesourcetopology-scheduler-rhel9:v5.0</code> is rejected.</p>
+</dd>
+<dt class="hdlist1">Trusted digest list</dt>
+<dd>
+<p>To be valid, the image digest must meet one of the following conditions:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Included in the Operator&#8217;s trusted list of production scheduler images for the current release channel.</p>
+</li>
+<li>
+<p>The final digest released in the previous release channel.</p>
+</li>
+<li>
+<p>Added to the trusted list by setting the <code>SCHEDULER_IMAGE_DIGESTS</code> environment variable in the NUMA Resources Operator subscription. For more information, see "Extending the trusted scheduler image list".</p>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>If you specify an image that does not meet these requirements, the Operator sets the <code>NUMAResourcesScheduler</code> resource status to <code>Degraded</code> with reason <code>InvalidSchedulerImage</code>, and the scheduler pods are not created.
+When validation fails, the <code>Degraded</code> condition reports the reason. For example:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">True - InvalidSchedulerImage: image "registry.example.com/custom-scheduler:v1.0" must be referenced by digest, not by tag</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>spec.imageSpec</code> field is required.
+You must specify a scheduler image by using a digest-based reference.
+For standard deployments, use the production scheduler image for your OKD release from <code>registry.redhat.io</code>.
+In disconnected environments, mirror this image to your registry and reference it by digest.
+If the digest changes from the original production digest, add the new digest to the trusted list by setting the <code>SCHEDULER_IMAGE_DIGESTS</code> environment variable in the NUMA Resources Operator subscription.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect3">
+<h4 id="cnf-understanding-rte-image-validation_numa-aware"><a class="anchor" href="#cnf-understanding-rte-image-validation_numa-aware"></a>RTE image validation</h4>
+<div class="paragraph">
+<p>By default, the NUMA Resources Operator does not allow a custom Resource Topology Exporter (RTE) image.
+If you set the exporter image in the <code>NUMAResourcesOperator</code> custom resource <code>spec.imageSpec</code> field, the Operator sets the resource status to <code>Degraded</code> with reason <code>CustomUserImage</code> and does not reconcile the resource.
+When validation fails, the <code>Degraded</code> condition reports the reason. For example:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">True - CustomUserImage: custom operand image is not supported: registry.example.com/custom-rte:v1.0</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Leave <code>spec.imageSpec</code> unset so that the Operator uses the default RTE image for your OKD release. The default RTE image is the same image as the Operator container. In a disconnected environment, the image mirroring configuration for the Operator container redirects that image to your internal registry.</p>
+</div>
+<div class="paragraph">
+<p>A cluster administrator can temporarily restore the previous behavior, which allows a custom RTE image, by setting the <code>EXPORTER_IMAGE_RESTRICTION</code> environment variable to <code>false</code> in the NUMA Resources Operator subscription.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Setting <code>EXPORTER_IMAGE_RESTRICTION</code> to <code>false</code> allows a custom RTE image to run with RTE privileges on worker nodes. Use this override only when you must run a non-default RTE image.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="cnf-extending-trusted-numa-images_numa-aware"><a class="anchor" href="#cnf-extending-trusted-numa-images_numa-aware"></a>Extending the trusted image list</h3>
+<div class="paragraph _abstract">
+<p>You can add a custom scheduler image digest to the NUMA Resources Operator trusted list by setting the <code>SCHEDULER_IMAGE_DIGESTS</code> environment variable in the operator subscription.
+To use a custom Resource Topology Exporter (RTE) image, see "RTE image validation".</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Adding a custom scheduler image to the trusted list allows that image to run with scheduler privileges. Verify that you trust the source and integrity of the image before you add it.</p>
+</div>
+<div class="paragraph">
+<p>Add a custom scheduler image only when your environment requires it.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="sect3">
+<h4 id="cnf-extending-trusted-scheduler-images_numa-aware"><a class="anchor" href="#cnf-extending-trusted-scheduler-images_numa-aware"></a>Extending the trusted scheduler image list</h4>
+<div class="paragraph _abstract">
+<p>You can extend the trusted scheduler image list by adding custom scheduler image digests to the <code>SCHEDULER_IMAGE_DIGESTS</code> environment variable.
+Supply a digest if your upgrade requires a scheduler image from another stream, or if the built-in list is missing the latest scheduler digest release.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You are logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have the SHA-256 digest of your custom scheduler image.</p>
+</li>
+<li>
+<p>You have verified the integrity and source of the custom scheduler image.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Obtain the SHA-256 digest of your custom scheduler image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc image info &lt;your_custom_scheduler_image&gt; <span class="nt">-o</span> json | jq <span class="nt">-r</span> <span class="s1">'.digest'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Below is an example of the output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">sha256:819186877851017bb783d0c291fb990b7136c64a1fac7b031942e4ee1e0c3d53</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add the digest to the NUMA Resources Operator subscription&#8217;s trusted list by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch subscription numaresources-operator <span class="se">\</span>
+  <span class="nt">-n</span> openshift-numaresources <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"config":{"env":[{"name":"SCHEDULER_IMAGE_DIGESTS","value":"sha256:819186877851017bb783d0c291fb990b7136c64a1fac7b031942e4ee1e0c3d53"}]}}}'</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>To add multiple custom digests, use a comma-separated list of digests in the <code>value</code> field.</p>
+</div>
+<div class="paragraph">
+<p>For example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch subscription numaresources-operator <span class="se">\</span>
+  <span class="nt">-n</span> openshift-numaresources <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"config":{"env":[{"name":"SCHEDULER_IMAGE_DIGESTS","value":"sha256:&lt;digest_1&gt;,sha256:&lt;digest_2&gt;"}]}}}'</span></code></pre>
+</div>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Run the following command with the <code>-w</code> option to watch the NUMA Resources Operator pod restart with the new configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-numaresources <span class="nt">-w</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Update the <code>NUMAResourcesScheduler</code> custom resource to use the digest-based image reference by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch numaresourcesscheduler numaresourcesscheduler <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"imageSpec":"&lt;your_registry&gt;/&lt;your_image&gt;@sha256:819186877851017bb783d0c291fb990b7136c64a1fac7b031942e4ee1e0c3d53"}}'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the NUMA Resources Operator deployment has the updated trusted image list by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment numaresources-controller-manager <span class="se">\</span>
+  <span class="nt">-n</span> openshift-numaresources <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.template.spec.containers[0].env[?(@.name=="SCHEDULER_IMAGE_DIGESTS")].value}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">sha256:819186877851017bb783d0c291fb990b7136c64a1fac7b031942e4ee1e0c3d53</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the scheduler is not in a degraded state by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get numaresourcesscheduler numaresourcesscheduler <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .status.conditions[?(@.type=="Degraded")]}{.status}{" - "}{.reason}{": "}{.message}{"\n"}{end}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">False - Degraded:</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A status of <code>False</code> means that the scheduler is not degraded.</p>
+</div>
+</li>
+<li>
+<p>Verify that the scheduler pods are running with your custom image by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-numaresources <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>secondary-scheduler <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].spec.containers[0].image}{"\n"}'</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="cnf-disabling-numa-image-validation_numa-aware"><a class="anchor" href="#cnf-disabling-numa-image-validation_numa-aware"></a>Disabling image validation</h3>
+<div class="paragraph _abstract">
+<p>You can disable scheduler or Resource Topology Exporter (RTE) image validation by setting the appropriate environment variables to <code>false</code> in the NUMA Resources Operator subscription.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Disabling image validation removes important security controls.
+Any image that you set in the custom resource runs without filtering or validation.
+With validation disabled, users with write access to these custom resources can specify arbitrary container images that will run with elevated privileges.</p>
+</div>
+<div class="paragraph">
+<p>Only disable validation in exceptional circumstances.
+If you disable validation, ensure that only cluster administrators can change these resources, and implement additional security controls to verify image integrity.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="sect3">
+<h4 id="cnf-disabling-scheduler-image-validation_numa-aware"><a class="anchor" href="#cnf-disabling-scheduler-image-validation_numa-aware"></a>Disabling scheduler image validation</h4>
+<div class="paragraph _abstract">
+<p>You can disable scheduler image validation by setting the <code>SCHEDULER_IMAGE_VALIDATION</code> environment variable to <code>false</code>.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Disabling scheduler image validation creates a significant privilege escalation risk.
+A malicious scheduler image can:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Access and manipulate all pods and nodes in the cluster</p>
+</li>
+<li>
+<p>Bind workloads to nodes in ways that compromise security or stability</p>
+</li>
+<li>
+<p>Observe sensitive cluster resource topology information</p>
+</li>
+<li>
+<p>Run arbitrary code with scheduler service account permissions</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have installed the NUMA Resources Operator.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Disable validation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch subscription numaresources-operator <span class="se">\</span>
+  <span class="nt">-n</span> openshift-numaresources <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"config":{"env":[{"name":"SCHEDULER_IMAGE_VALIDATION","value":"false"}]}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Run the following command with the <code>-w</code> option to watch the NUMA Resources Operator pod restart with the new configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-numaresources <span class="nt">-w</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that validation is disabled by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-numaresources deploy/numaresources-controller-manager <span class="nt">--</span> <span class="se">\</span>
+  <span class="nb">printenv </span>SCHEDULER_IMAGE_VALIDATION</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">false</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect3">
+<h4 id="cnf-disabling-rte-image-validation_numa-aware"><a class="anchor" href="#cnf-disabling-rte-image-validation_numa-aware"></a>Disabling RTE image validation</h4>
+<div class="paragraph _abstract">
+<p>You can disable RTE image validation by setting the <code>EXPORTER_IMAGE_RESTRICTION</code> environment variable to <code>false</code>.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Disabling RTE image validation creates a security risk.
+A malicious RTE image can:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Access sensitive hardware topology information about worker nodes</p>
+</li>
+<li>
+<p>Observe node resource allocation and NUMA zone configurations</p>
+</li>
+<li>
+<p>Read detailed system information that could facilitate other attacks</p>
+</li>
+<li>
+<p>Run code with the RTE daemon set service account permissions</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have logged in as a user with <code>cluster-admin</code> privileges.</p>
+</li>
+<li>
+<p>You have installed the NUMA Resources Operator.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Disable validation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch subscription numaresources-operator <span class="se">\</span>
+  <span class="nt">-n</span> openshift-numaresources <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">-p</span> <span class="s1">'{"spec":{"config":{"env":[{"name":"EXPORTER_IMAGE_RESTRICTION","value":"false"}]}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Run the following command with the <code>-w</code> option to watch the NUMA Resources Operator pod restart with the new configuration:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-numaresources <span class="nt">-w</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that validation is disabled by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-numaresources deploy/numaresources-controller-manager <span class="nt">--</span> <span class="se">\</span>
+  <span class="nb">printenv </span>EXPORTER_IMAGE_RESTRICTION</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">false</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the NUMA Resources Operator is not degraded by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get numaresourcesoperator numaresourcesoperator <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .status.conditions[?(@.type=="Degraded")]}{.status}{" - "}{.reason}{": "}{.message}{"\n"}{end}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">False - Degraded:</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A status of <code>False</code> means that the Operator is not degraded.</p>
+</div>
+</li>
+</ol>
+</div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
@@ -4157,6 +4793,7 @@ replicaset.apps/secondary-scheduler-847cb74f84                1         1       
 <p><a href="../disconnected/updating/disconnected-update.html#images-configuration-registry-mirror_updating-disconnected-cluster">Configuring image registry repository mirroring</a></p>
 </li>
 </ul>
+</div>
 </div>
 </div>
 <div class="sect2">
