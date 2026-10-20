@@ -2095,7 +2095,21 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <p>The mirror information you enter is added to the <code>/etc/containers/registries.conf</code> file on every node in the Red Hat OpenShift Service on AWS (classic architecture) cluster.</p>
 </li>
 <li>
-<p>When a node makes a request for an image from the source repository, it tries each mirrored repository in turn until it finds the requested content. If all mirrors fail, the cluster tries the source repository. If successful, the image is pulled to the node.</p>
+<p>When a node makes a request for an image from the source repository, it first tries each mirrored repository in the configured order until it finds the requested manifest. When a mirror is selected, if the mirror fails with transient error such as <code>HTTP 5xx</code> or <code>network timeout</code>, a <code>BLOB_UNKNOWN</code> error, or an <code>HTTP 429</code> error, the node tries the next mirror for the remaining blobs. If all mirrors fail, the cluster attempts the source repository as a fallback, by default. If successful, the image is pulled to the node.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the <code>mirrorSourcePolicy</code> parameter is set to <code>NeverContactSource</code> in the <code>ImageDigestMirrorSet</code> or <code>ImageTagMirrorSet</code> CR, the node does not perform fallback upon failure. However, by default, the <code>mirrorSourcePolicy</code> parameter is set to <code>AllowContactingSource</code>, which allows for fallback.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 </ul>
 </div>
@@ -2118,13 +2132,13 @@ ip-10-0-223-123.us-east-2.compute.internal   Ready                      control-
 <div class="ulist">
 <ul>
 <li>
-<p><code>ImageDigestMirrorSet</code> (IDMS). This object allows you to pull images from a mirrored registry by using digest specifications. The IDMS CR enables you to set a fall back policy that allows or stops continued attempts to pull from the source registry if the image pull fails.</p>
+<p><code>ImageDigestMirrorSet</code> (IDMS). This object allows you to pull images from a mirrored registry by using digest specifications. The IDMS CR enables you to set a fallback policy by using the <code>mirrorSourcePolicy</code> field that allows or prevents continued attempts to pull from the source registry if the image pull fails. Use <code>AllowContactingSource</code> to allow fallback to the source registry or <code>NeverContactSource</code> to prevent it.</p>
 </li>
 <li>
-<p><code>ImageTagMirrorSet</code> (ITMS). This object allows you to pull images from a mirrored registry by using image tags. The ITMS CR enables you to set a fall back policy that allows or stops continued attempts to pull from the source registry if the image pull fails.</p>
+<p><code>ImageTagMirrorSet</code> (ITMS). This object allows you to pull images from a mirrored registry by using image tags. The ITMS CR enables you to set a fallback policy by using the <code>mirrorSourcePolicy</code> field that allows or prevents continued attempts to pull from the source registry if the image pull fails. Use <code>AllowContactingSource</code> to allow fallback to the source registry or <code>NeverContactSource</code> to prevent it.</p>
 </li>
 <li>
-<p><code>ImageContentSourcePolicy</code> (ICSP). This object allows you to pull images from a mirrored registry by using digest specifications. The ICSP CR always falls back to the source registry if the mirrors do not work.</p>
+<p><code>ImageContentSourcePolicy</code> (ICSP). This object allows you to pull images from a mirrored registry by using digest specifications. The ICSP CR always falls back to the source registry if a pull from a  mirrored registry fails.</p>
 <div class="admonitionblock important">
 <table>
 <tr>
@@ -2895,10 +2909,16 @@ short-name-mode = ""
 <div class="ulist">
 <ul>
 <li>
-<p>The first working mirror is used to supply the pulled image.</p>
+<p>The first mirror that can serve the manifest supplies the manifest. If that mirror cannot serve a layer, the node tries the next configured mirror for that layer.</p>
 </li>
 <li>
-<p>The main registry is only used if no other mirror works.</p>
+<p>If every configured mirror fails, the node contacts the source registry by default, unless the <code>mirrorSourcePolicy.NeverContactSource</code> parameter is set in the <code>ImageDigestMirrorSet</code> or <code>ImageTagMirrorSet</code> CR. By default, the <code>mirrorSourcePolicy</code> parameter is set to <code>AllowContactingSource</code>, which enables the fall back behavior upon failure.</p>
+</li>
+<li>
+<p>If the connection drops after a layer download has started, the node retries that same mirror for the remainder of the download.</p>
+</li>
+<li>
+<p>A failed pull lists each mirror that the node tried and the reason that mirror failed.</p>
 </li>
 <li>
 <p>From the system context, the <code>Insecure</code> flags are used as fallback.</p>
@@ -2944,7 +2964,7 @@ short-name-mode = ""
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>- mirrors: -example.com/example2/ubi-minimal</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">The value of this parameter is the name of a secondary mirror repository for each target repository. If one mirror is down the target repository can use the secondary mirror.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The name of a secondary mirror repository for the target repository. If one mirror is unavailable, or a mirror cannot serve a blob because of a transient error, rate limiting, or a missing blob, CRI-O tries the next mirror.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>source: registry.access.redhat.com/ubi9/ubi-minimal</code></p></td>
@@ -2952,7 +2972,7 @@ short-name-mode = ""
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>mirrorSourcePolicy: AllowContactingSource</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Optional parameter that indicates the fallback policy if the image pull fails. The <code>AllowContactingSource</code> value allows continued attempts to pull the image from the source repository. Default value. <code>NeverContactSource</code> prevents continued attempts to pull the image from the source repository.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Optional parameter that indicates the fallback policy if the image pull fails. The <code>AllowContactingSource</code> value allows continued attempts to pull the image from the source repository. This value is the default. The <code>NeverContactSource</code> value prevents continued attempts to pull the image from the source repository.</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>source: registry.example.com/redhat</code></p></td>
