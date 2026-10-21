@@ -1093,7 +1093,11 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#install-and-configure-oadp-kubevirt_virt-backup-restore-overview">Install and configure OADP with OpenShift Virtualization</a></li>
-<li><a href="#oadp-installing-dpa_virt-backup-restore-overview">Install the Data Protection Application</a></li>
+<li><a href="#oadp-installing-dpa_virt-backup-restore-overview">Install the Data Protection Application</a>
+<ul class="sectlevel2">
+<li><a href="#oadp-dpa-configuration-by-provider_virt-backup-restore-overview">DataProtectionApplication CR examples by storage provider</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -1237,7 +1241,20 @@
 <p>If you use snapshots to back up PVs, your cloud provider must support either a native snapshot API or Container Storage Interface (CSI) snapshots.</p>
 </li>
 <li>
-<p>If the backup and snapshot locations use the same credentials, you must create a <code>Secret</code> with the default name, <code>cloud-credentials</code>.</p>
+<p>If the backup and snapshot locations use the same credentials, you must create a <code>Secret</code> with the default name for your storage provider: <code>cloud-credentials</code> for AWS, Multicloud Object Gateway (MCG), Red Hat OpenShift Data Foundation (ODF), IBM Cloud, or KubeVirt; <code>cloud-credentials-azure</code> for Azure; or <code>cloud-credentials-gcp</code> for GCP.</p>
+</li>
+<li>
+<p>If the backup and snapshot locations use different credentials, you must create two <code>Secrets</code>:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>Secret</code> with a custom name for the backup location. You add this <code>Secret</code> to the <code>DataProtectionApplication</code> CR.</p>
+</li>
+<li>
+<p><code>Secret</code> with another custom name for the snapshot location. You add this <code>Secret</code> to the <code>DataProtectionApplication</code> CR.</p>
+</li>
+</ul>
+</div>
 <div class="admonitionblock note">
 <table>
 <tr>
@@ -1265,103 +1282,7 @@
 <p>Under <strong>Provided APIs</strong>, click <strong>Create instance</strong> in the <strong>DataProtectionApplication</strong> box.</p>
 </li>
 <li>
-<p>Click <strong>YAML View</strong> and update the parameters of the <code>DataProtectionApplication</code> manifest:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">oadp.openshift.io/v1alpha1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">DataProtectionApplication</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;dpa_sample&gt;</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span>
-<span class="na">spec</span><span class="pi">:</span>
-  <span class="na">configuration</span><span class="pi">:</span>
-    <span class="na">velero</span><span class="pi">:</span>
-      <span class="na">defaultPlugins</span><span class="pi">:</span>
-        <span class="pi">-</span> <span class="s">kubevirt</span>
-        <span class="pi">-</span> <span class="s">gcp</span>
-        <span class="pi">-</span> <span class="s">csi</span>
-        <span class="pi">-</span> <span class="s">openshift</span>
-      <span class="na">resourceTimeout</span><span class="pi">:</span> <span class="s">10m</span>
-    <span class="na">nodeAgent</span><span class="pi">:</span>
-      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
-      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
-      <span class="na">podConfig</span><span class="pi">:</span>
-        <span class="na">nodeSelector</span><span class="pi">:</span> <span class="s">&lt;node_selector&gt;</span>
-  <span class="na">backupLocations</span><span class="pi">:</span>
-    <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
-        <span class="na">provider</span><span class="pi">:</span> <span class="s">gcp</span>
-        <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
-        <span class="na">credential</span><span class="pi">:</span>
-          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
-          <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;default_secret&gt;</span>
-        <span class="na">objectStorage</span><span class="pi">:</span>
-          <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;bucket_name&gt;</span>
-          <span class="na">prefix</span><span class="pi">:</span> <span class="s">&lt;prefix&gt;</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>where:</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>namespace</code></dt>
-<dd>
-<p>Specifies the default namespace for OADP which is <code>openshift-adp</code>. The namespace is a variable and is configurable.</p>
-</dd>
-<dt class="hdlist1"><code>kubevirt</code></dt>
-<dd>
-<p>Specifies that the <code>kubevirt</code> plugin is mandatory for OpenShift Virtualization.</p>
-</dd>
-<dt class="hdlist1"><code>gcp</code></dt>
-<dd>
-<p>Specifies the plugin for the backup provider, for example, <code>gcp</code>, if it exists.</p>
-</dd>
-<dt class="hdlist1"><code>csi</code></dt>
-<dd>
-<p>Specifies that the <code>csi</code> plugin is mandatory for backing up PVs with CSI snapshots. The <code>csi</code> plugin uses the <a href="https://velero.io/docs/main/csi/">Velero CSI beta snapshot APIs</a>. You do not need to configure a snapshot location.</p>
-</dd>
-<dt class="hdlist1"><code>openshift</code></dt>
-<dd>
-<p>Specifies that the <code>openshift</code> plugin is mandatory.</p>
-</dd>
-<dt class="hdlist1"><code>resourceTimeout</code></dt>
-<dd>
-<p>Specifies how many minutes to wait for several Velero resources such as Velero CRD availability, volumeSnapshot deletion, and backup repository availability, before timeout occurs. The default is 10m.</p>
-</dd>
-<dt class="hdlist1"><code>nodeAgent</code></dt>
-<dd>
-<p>Specifies the administrative agent that routes the administrative requests to servers.</p>
-</dd>
-<dt class="hdlist1"><code>enable</code></dt>
-<dd>
-<p>Set this value to <code>true</code> if you want to enable <code>nodeAgent</code> and perform File System Backup.</p>
-</dd>
-<dt class="hdlist1"><code>uploaderType</code></dt>
-<dd>
-<p>Specifies the uploader type. Enter <code>kopia</code> as your uploader to use the Built-in DataMover. The <code>nodeAgent</code> deploys a daemon set, which means that the <code>nodeAgent</code> pods run on each working node. You can configure File System Backup by adding <code>spec.defaultVolumesToFsBackup: true</code> to the <code>Backup</code> CR.</p>
-</dd>
-<dt class="hdlist1"><code>nodeSelector</code></dt>
-<dd>
-<p>Specifies the nodes on which Kopia are available. By default, Kopia runs on all nodes.</p>
-</dd>
-<dt class="hdlist1"><code>provider</code></dt>
-<dd>
-<p>Specifies the backup provider.</p>
-</dd>
-<dt class="hdlist1"><code>name</code></dt>
-<dd>
-<p>Specifies the correct default name for the <code>Secret</code>, for example, <code>cloud-credentials-gcp</code>, if you use a default plugin for the backup provider. If specifying a custom name, then the custom name is used for the backup location. If you do not specify a <code>Secret</code> name, the default name is used.</p>
-</dd>
-<dt class="hdlist1"><code>bucket</code></dt>
-<dd>
-<p>Specifies a bucket as the backup storage location. If the bucket is not a dedicated bucket for Velero backups, you must specify a prefix.</p>
-</dd>
-<dt class="hdlist1"><code>prefix</code></dt>
-<dd>
-<p>Specifies a prefix for Velero backups, for example, <code>velero</code>, if the bucket is used for multiple purposes.</p>
-</dd>
-</dl>
-</div>
+<p>Click <strong>YAML View</strong> and update the parameters of the <code>DataProtectionApplication</code> manifest for your storage provider.</p>
 </li>
 <li>
 <p>Click <strong>Create</strong>.</p>
@@ -1436,6 +1357,489 @@ replicaset.apps/velero-588db7f655                              1         1      
 </li>
 </ol>
 </div>
+<div class="sect2">
+<h3 id="oadp-dpa-configuration-by-provider_virt-backup-restore-overview"><a class="anchor" href="#oadp-dpa-configuration-by-provider_virt-backup-restore-overview"></a>DataProtectionApplication CR examples by storage provider</h3>
+<div class="paragraph _abstract">
+<p>Configure the <code>DataProtectionApplication</code> (DPA) custom resource (CR) for your storage provider. The following examples show the DPA manifest for each supported provider with the relevant configuration parameters.</p>
+</div>
+<div class="paragraph">
+<p>The following parameters are common across all provider configurations:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>namespace</code></dt>
+<dd>
+<p>Specifies the default namespace for OADP which is <code>openshift-adp</code>. The namespace is a variable and is configurable.</p>
+</dd>
+<dt class="hdlist1"><code>openshift</code></dt>
+<dd>
+<p>Specifies that the <code>openshift</code> plugin is mandatory.</p>
+</dd>
+<dt class="hdlist1"><code>resourceTimeout</code></dt>
+<dd>
+<p>Specifies how many minutes to wait for several Velero resources such as Velero CRD availability, volumeSnapshot deletion, and backup repository availability, before timeout occurs. The default is 10m.</p>
+</dd>
+<dt class="hdlist1"><code>nodeAgent</code></dt>
+<dd>
+<p>Specifies the administrative agent that routes the administrative requests to servers.</p>
+</dd>
+<dt class="hdlist1"><code>enable</code></dt>
+<dd>
+<p>Set this value to <code>true</code> if you want to enable <code>nodeAgent</code> and perform File System Backup.</p>
+</dd>
+<dt class="hdlist1"><code>uploaderType</code></dt>
+<dd>
+<p>Specifies the uploader type. Enter <code>kopia</code> or <code>restic</code> as your uploader. You cannot change the selection after the installation. For the Built-in DataMover you must use Kopia. The <code>nodeAgent</code> deploys a daemon set, which means that the <code>nodeAgent</code> pods run on each working node. You can configure File System Backup by adding <code>spec.defaultVolumesToFsBackup: true</code> to the <code>Backup</code> CR.</p>
+</dd>
+<dt class="hdlist1"><code>nodeSelector</code></dt>
+<dd>
+<p>Specifies the nodes on which Kopia or Restic are available. By default, Kopia or Restic run on all nodes.</p>
+</dd>
+<dt class="hdlist1"><code>bucket</code></dt>
+<dd>
+<p>Specifies a bucket as the backup storage location. If the bucket is not a dedicated bucket for Velero backups, you must specify a prefix.</p>
+</dd>
+<dt class="hdlist1"><code>prefix</code></dt>
+<dd>
+<p>Specifies a prefix for Velero backups, for example, <code>velero</code>, if the bucket is used for multiple purposes.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The following sections provide DPA configuration examples and provider-specific parameters for each supported storage provider.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Amazon Web Services (AWS)</dt>
+<dd>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">oadp.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DataProtectionApplication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;dpa_sample&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">defaultPlugins</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">openshift</span>
+        <span class="pi">-</span> <span class="s">aws</span>
+      <span class="na">resourceTimeout</span><span class="pi">:</span> <span class="s">10m</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">nodeSelector</span><span class="pi">:</span> <span class="s">&lt;node_selector&gt;</span>
+  <span class="na">backupLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
+      <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">aws</span>
+        <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">objectStorage</span><span class="pi">:</span>
+          <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;bucket_name&gt;</span>
+          <span class="na">prefix</span><span class="pi">:</span> <span class="s">&lt;prefix&gt;</span>
+        <span class="na">config</span><span class="pi">:</span>
+          <span class="na">region</span><span class="pi">:</span> <span class="s">&lt;region&gt;</span>
+          <span class="na">profile</span><span class="pi">:</span> <span class="s2">"</span><span class="s">default"</span>
+          <span class="na">s3ForcePathStyle</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+          <span class="na">s3Url</span><span class="pi">:</span> <span class="s">&lt;s3_url&gt;</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-credentials</span>
+  <span class="na">snapshotLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
+      <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">aws</span>
+        <span class="na">config</span><span class="pi">:</span>
+          <span class="na">region</span><span class="pi">:</span> <span class="s">&lt;region&gt;</span>
+          <span class="na">profile</span><span class="pi">:</span> <span class="s2">"</span><span class="s">default"</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-credentials</span></code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1"><code>s3ForcePathStyle</code></dt>
+<dd>
+<p>Specifies whether to force path style URLs for S3 objects (Boolean). Not Required for AWS S3. Required only for S3 compatible storage.</p>
+</dd>
+<dt class="hdlist1"><code>s3Url</code></dt>
+<dd>
+<p>Specifies the URL of the object store that you are using to store backups. Not required for AWS S3. Required only for S3 compatible storage.</p>
+</dd>
+<dt class="hdlist1"><code>name</code></dt>
+<dd>
+<p>Specifies the name of the <code>Secret</code> object that you created. If you do not specify this value, the default name, <code>cloud-credentials</code>, is used. If you specify a custom name, the custom name is used for the backup location.</p>
+</dd>
+<dt class="hdlist1"><code>snapshotLocations</code></dt>
+<dd>
+<p>Specifies a snapshot location, unless you use CSI snapshots or a File System Backup (FSB) to back up PVs.</p>
+</dd>
+<dt class="hdlist1"><code>region</code></dt>
+<dd>
+<p>Specifies that the snapshot location must be in the same region as the PVs.</p>
+</dd>
+<dt class="hdlist1">IBM Cloud</dt>
+<dd>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">oadp.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DataProtectionApplication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;dpa_name&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">defaultPlugins</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">openshift</span>
+      <span class="pi">-</span> <span class="s">aws</span>
+      <span class="pi">-</span> <span class="s">csi</span>
+  <span class="na">backupLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">aws</span>
+        <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">objectStorage</span><span class="pi">:</span>
+          <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;bucket_name&gt;</span>
+          <span class="na">prefix</span><span class="pi">:</span> <span class="s">velero</span>
+        <span class="na">config</span><span class="pi">:</span>
+          <span class="na">insecureSkipTLSVerify</span><span class="pi">:</span> <span class="s1">'</span><span class="s">true'</span>
+          <span class="na">profile</span><span class="pi">:</span> <span class="s">default</span>
+          <span class="na">region</span><span class="pi">:</span> <span class="s">&lt;region_name&gt;</span>
+          <span class="na">s3ForcePathStyle</span><span class="pi">:</span> <span class="s1">'</span><span class="s">true'</span>
+          <span class="na">s3Url</span><span class="pi">:</span> <span class="s">&lt;s3_url&gt;</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-credentials</span></code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1"><code>provider</code></dt>
+<dd>
+<p>Specifies that the provider is <code>aws</code> when you use IBM Cloud as a backup storage location.</p>
+</dd>
+<dt class="hdlist1"><code>bucket</code></dt>
+<dd>
+<p>Specifies the IBM Cloud Object Storage (COS) bucket name.</p>
+</dd>
+<dt class="hdlist1"><code>region</code></dt>
+<dd>
+<p>Specifies the COS region name, for example, <code>eu-gb</code>.</p>
+</dd>
+<dt class="hdlist1"><code>s3Url</code></dt>
+<dd>
+<p>Specifies the S3 URL of the COS bucket. For example, <code><a href="http://s3.eu-gb.cloud-object-storage.appdomain.cloud" class="bare">http://s3.eu-gb.cloud-object-storage.appdomain.cloud</a></code>. Here, <code>eu-gb</code> is the region name. Replace the region name according to your bucket region.</p>
+</dd>
+<dt class="hdlist1"><code>name</code></dt>
+<dd>
+<p>Specifies the name of the secret you created by using the access key and the secret access key from the <code>HMAC</code> credentials.</p>
+</dd>
+<dt class="hdlist1">Microsoft Azure</dt>
+<dd>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">oadp.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DataProtectionApplication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;dpa_sample&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">defaultPlugins</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">azure</span>
+        <span class="pi">-</span> <span class="s">openshift</span>
+      <span class="na">resourceTimeout</span><span class="pi">:</span> <span class="s">10m</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">nodeSelector</span><span class="pi">:</span> <span class="s">&lt;node_selector&gt;</span>
+  <span class="na">backupLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">config</span><span class="pi">:</span>
+          <span class="na">resourceGroup</span><span class="pi">:</span> <span class="s">&lt;azure_resource_group&gt;</span>
+          <span class="na">storageAccount</span><span class="pi">:</span> <span class="s">&lt;azure_storage_account_id&gt;</span>
+          <span class="na">subscriptionId</span><span class="pi">:</span> <span class="s">&lt;azure_subscription_id&gt;</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-credentials-azure</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">azure</span>
+        <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">objectStorage</span><span class="pi">:</span>
+          <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;bucket_name&gt;</span>
+          <span class="na">prefix</span><span class="pi">:</span> <span class="s">&lt;prefix&gt;</span>
+  <span class="na">snapshotLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">config</span><span class="pi">:</span>
+          <span class="na">resourceGroup</span><span class="pi">:</span> <span class="s">&lt;azure_resource_group&gt;</span>
+          <span class="na">subscriptionId</span><span class="pi">:</span> <span class="s">&lt;azure_subscription_id&gt;</span>
+          <span class="na">incremental</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">default</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">azure</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-credentials-azure</span></code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1"><code>resourceGroup</code></dt>
+<dd>
+<p>Specifies the Azure resource group.</p>
+</dd>
+<dt class="hdlist1"><code>storageAccount</code></dt>
+<dd>
+<p>Specifies the Azure storage account ID.</p>
+</dd>
+<dt class="hdlist1"><code>subscriptionId</code></dt>
+<dd>
+<p>Specifies the Azure subscription ID.</p>
+</dd>
+<dt class="hdlist1"><code>name</code></dt>
+<dd>
+<p>Specifies the name of the <code>Secret</code> object. If you do not specify this value, the default name, <code>cloud-credentials-azure</code>, is used. If you specify a custom name, the custom name is used for the backup location.</p>
+</dd>
+<dt class="hdlist1"><code>snapshotLocations</code></dt>
+<dd>
+<p>Specifies the snapshot location. You do not need to specify a snapshot location if you use CSI snapshots or Restic to back up PVs.</p>
+</dd>
+<dt class="hdlist1">Google Cloud</dt>
+<dd>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">oadp.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DataProtectionApplication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;dpa_sample&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;OPERATOR_INSTALL_NS&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">defaultPlugins</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">gcp</span>
+        <span class="pi">-</span> <span class="s">openshift</span>
+      <span class="na">resourceTimeout</span><span class="pi">:</span> <span class="s">10m</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">nodeSelector</span><span class="pi">:</span> <span class="s">&lt;node_selector&gt;</span>
+  <span class="na">backupLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">gcp</span>
+        <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-credentials-gcp</span>
+        <span class="na">objectStorage</span><span class="pi">:</span>
+          <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;bucket_name&gt;</span>
+          <span class="na">prefix</span><span class="pi">:</span> <span class="s">&lt;prefix&gt;</span>
+  <span class="na">snapshotLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">gcp</span>
+        <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">config</span><span class="pi">:</span>
+          <span class="na">project</span><span class="pi">:</span> <span class="s">&lt;project&gt;</span>
+          <span class="na">snapshotLocation</span><span class="pi">:</span> <span class="s">us-west1</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-credentials-gcp</span>
+  <span class="na">backupImages</span><span class="pi">:</span> <span class="no">true</span></code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1"><code>key</code></dt>
+<dd>
+<p>Specifies the secret key that contains credentials. For Google workload identity federation cloud authentication use <code>service_account.json</code>.</p>
+</dd>
+<dt class="hdlist1"><code>name</code></dt>
+<dd>
+<p>Specifies the secret name that contains credentials. If you do not specify this value, the default name, <code>cloud-credentials-gcp</code>, is used.</p>
+</dd>
+<dt class="hdlist1"><code>snapshotLocations</code></dt>
+<dd>
+<p>Specifies a snapshot location, unless you use CSI snapshots or Restic to back up PVs.</p>
+</dd>
+<dt class="hdlist1"><code>snapshotLocation</code></dt>
+<dd>
+<p>Specifies that the snapshot location must be in the same region as the PVs.</p>
+</dd>
+<dt class="hdlist1"><code>backupImages</code></dt>
+<dd>
+<p>Specifies that Google workload identity federation supports internal image backup. Set this field to <code>false</code> if you do not want to use image backup.</p>
+</dd>
+<dt class="hdlist1">MCG (Multicloud Object Gateway)</dt>
+<dd>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">oadp.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DataProtectionApplication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;dpa_sample&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">defaultPlugins</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">aws</span>
+        <span class="pi">-</span> <span class="s">openshift</span>
+      <span class="na">resourceTimeout</span><span class="pi">:</span> <span class="s">10m</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">nodeSelector</span><span class="pi">:</span> <span class="s">&lt;node_selector&gt;</span>
+  <span class="na">backupLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">config</span><span class="pi">:</span>
+          <span class="na">profile</span><span class="pi">:</span> <span class="s2">"</span><span class="s">default"</span>
+          <span class="na">region</span><span class="pi">:</span> <span class="s">&lt;region_name&gt;</span>
+          <span class="na">s3Url</span><span class="pi">:</span> <span class="s">&lt;url&gt;</span>
+          <span class="na">insecureSkipTLSVerify</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+          <span class="na">s3ForcePathStyle</span><span class="pi">:</span> <span class="s2">"</span><span class="s">true"</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">aws</span>
+        <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">cloud-credentials</span>
+        <span class="na">objectStorage</span><span class="pi">:</span>
+          <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;bucket_name&gt;</span>
+          <span class="na">prefix</span><span class="pi">:</span> <span class="s">&lt;prefix&gt;</span></code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1"><code>aws</code></dt>
+<dd>
+<p>Specifies that an object store plugin corresponding to your storage locations is required. For all S3 providers, the required plugin is <code>aws</code>. For Azure and Google Cloud object stores, the <code>azure</code> or <code>gcp</code> plugin is required.</p>
+</dd>
+<dt class="hdlist1"><code>region</code></dt>
+<dd>
+<p>Specifies the region, following the naming convention of the documentation of your object storage server.</p>
+</dd>
+<dt class="hdlist1"><code>s3Url</code></dt>
+<dd>
+<p>Specifies the URL of the S3 endpoint.</p>
+</dd>
+<dt class="hdlist1"><code>name</code></dt>
+<dd>
+<p>Specifies the name of the <code>Secret</code> object that you created. If you do not specify this value, the default name, <code>cloud-credentials</code>, is used. If you specify a custom name, the custom name is used for the backup location.</p>
+</dd>
+<dt class="hdlist1">Red Hat OpenShift Data Foundation (ODF)</dt>
+<dd>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">oadp.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DataProtectionApplication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;dpa_sample&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">defaultPlugins</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">aws</span>
+        <span class="pi">-</span> <span class="s">kubevirt</span>
+        <span class="pi">-</span> <span class="s">csi</span>
+        <span class="pi">-</span> <span class="s">openshift</span>
+      <span class="na">resourceTimeout</span><span class="pi">:</span> <span class="s">10m</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">nodeSelector</span><span class="pi">:</span> <span class="s">&lt;node_selector&gt;</span>
+  <span class="na">backupLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">aws</span>
+        <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;default_secret&gt;</span>
+        <span class="na">objectStorage</span><span class="pi">:</span>
+          <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;bucket_name&gt;</span>
+          <span class="na">prefix</span><span class="pi">:</span> <span class="s">&lt;prefix&gt;</span></code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1"><code>aws</code></dt>
+<dd>
+<p>Specifies that an object store plugin corresponding to your storage locations is required. For all S3 providers, the required plugin is <code>aws</code>. For Azure and Google Cloud object stores, the <code>azure</code> or <code>gcp</code> plugin is required.</p>
+</dd>
+<dt class="hdlist1"><code>kubevirt</code></dt>
+<dd>
+<p>Optional: The <code>kubevirt</code> plugin is used with OpenShift Virtualization.</p>
+</dd>
+<dt class="hdlist1"><code>csi</code></dt>
+<dd>
+<p>Specifies the <code>csi</code> default plugin if you use CSI snapshots to back up PVs. The <code>csi</code> plugin uses the <a href="https://velero.io/docs/main/csi/">Velero CSI beta snapshot APIs</a>. You do not need to configure a snapshot location.</p>
+</dd>
+<dt class="hdlist1"><code>provider</code></dt>
+<dd>
+<p>Specifies the backup provider.</p>
+</dd>
+<dt class="hdlist1"><code>name</code></dt>
+<dd>
+<p>Specifies the correct default name for the <code>Secret</code>, for example, <code>cloud-credentials-gcp</code>, if you use a default plugin for the backup provider. If specifying a custom name, then the custom name is used for the backup location. If you do not specify a <code>Secret</code> name, the default name is used.</p>
+</dd>
+<dt class="hdlist1">KubeVirt (OpenShift Virtualization)</dt>
+<dd>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">oadp.openshift.io/v1alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">DataProtectionApplication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;dpa_sample&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-adp</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">configuration</span><span class="pi">:</span>
+    <span class="na">velero</span><span class="pi">:</span>
+      <span class="na">defaultPlugins</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">kubevirt</span>
+        <span class="pi">-</span> <span class="s">gcp</span>
+        <span class="pi">-</span> <span class="s">csi</span>
+        <span class="pi">-</span> <span class="s">openshift</span>
+      <span class="na">resourceTimeout</span><span class="pi">:</span> <span class="s">10m</span>
+    <span class="na">nodeAgent</span><span class="pi">:</span>
+      <span class="na">enable</span><span class="pi">:</span> <span class="no">true</span>
+      <span class="na">uploaderType</span><span class="pi">:</span> <span class="s">kopia</span>
+      <span class="na">podConfig</span><span class="pi">:</span>
+        <span class="na">nodeSelector</span><span class="pi">:</span> <span class="s">&lt;node_selector&gt;</span>
+  <span class="na">backupLocations</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">velero</span><span class="pi">:</span>
+        <span class="na">provider</span><span class="pi">:</span> <span class="s">gcp</span>
+        <span class="na">default</span><span class="pi">:</span> <span class="no">true</span>
+        <span class="na">credential</span><span class="pi">:</span>
+          <span class="na">key</span><span class="pi">:</span> <span class="s">cloud</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;default_secret&gt;</span>
+        <span class="na">objectStorage</span><span class="pi">:</span>
+          <span class="na">bucket</span><span class="pi">:</span> <span class="s">&lt;bucket_name&gt;</span>
+          <span class="na">prefix</span><span class="pi">:</span> <span class="s">&lt;prefix&gt;</span></code></pre>
+</div>
+</div>
+</dd>
+<dt class="hdlist1"><code>kubevirt</code></dt>
+<dd>
+<p>Specifies that the <code>kubevirt</code> plugin is mandatory for OpenShift Virtualization.</p>
+</dd>
+<dt class="hdlist1"><code>gcp</code></dt>
+<dd>
+<p>Specifies the plugin for the backup provider, for example, <code>gcp</code>, if it exists.</p>
+</dd>
+<dt class="hdlist1"><code>csi</code></dt>
+<dd>
+<p>Specifies that the <code>csi</code> plugin is mandatory for backing up PVs with CSI snapshots. The <code>csi</code> plugin uses the <a href="https://velero.io/docs/main/csi/">Velero CSI beta snapshot APIs</a>. You do not need to configure a snapshot location.</p>
+</dd>
+<dt class="hdlist1"><code>provider</code></dt>
+<dd>
+<p>Specifies the backup provider.</p>
+</dd>
+<dt class="hdlist1"><code>name</code></dt>
+<dd>
+<p>Specifies the correct default name for the <code>Secret</code>, for example, <code>cloud-credentials-gcp</code>, if you use a default plugin for the backup provider. If specifying a custom name, then the custom name is used for the backup location. If you do not specify a <code>Secret</code> name, the default name is used.</p>
+</dd>
+</dl>
+</div>
+</div>
 </div>
 </div>
       </div>
@@ -1459,7 +1863,6 @@ replicaset.apps/velero-588db7f655                              1         1      
     'openshift-origin': ['docs_origin', version],
     // specific labels are used for OSD instead of the URL filter, due to its unusual URL structure; assume v4
     'openshift-dedicated': ['docs_dedicated_v4'],
-    'openshift-online': ['docs_online', version],
     'openshift-enterprise': ['docs_cp', version],
     'openshift-telco': ['docs_telco', version],
     'openshift-aro' : ['docs_aro', version],

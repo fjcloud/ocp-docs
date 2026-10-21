@@ -1813,6 +1813,7 @@
 
                   <li><a class="" href="../../observability/network_observability/network-observability-operator-release-notes.html">Network Observability Operator release notes</a></li>
                   <li><a class="" href="../../observability/network_observability/network-observability-overview.html">Network observability overview</a></li>
+                  <li><a class="" href="../../observability/network_observability/network-observability-automatic-installation.html">Network Observability Operator automatic installation</a></li>
                   <li><a class="" href="../../observability/network_observability/installing-operators.html">Installing the Network Observability Operator</a></li>
                   <li><a class="" href="../../observability/network_observability/network-observability-kafka-operator-scaling-network-flow-collection.html">Scaling network flow collection with Kafka</a></li>
                   <li><a class="" href="../../observability/network_observability/understanding-network-observability-operator.html">Understanding Network Observability Operator</a></li>
@@ -2928,6 +2929,16 @@
 <li><a href="#hcp-azure-private-hosted_hcp-deploy-azure">Creating a private Azure hosted cluster</a></li>
 <li><a href="#hcp-azure-private-access_hcp-deploy-azure">Accessing a private Azure hosted cluster</a></li>
 <li><a href="#hcp-azure-private-ts_hcp-deploy-azure">Troubleshooting private hosted clusters on Azure</a></li>
+</ul>
+</li>
+<li><a href="#hcp-azure-publicprivate_hcp-deploy-azure">PublicAndPrivate topology for hosted clusters on Azure</a>
+<ul class="sectlevel2">
+<li><a href="#hcp-azure-publicprivate-resources_hcp-deploy-azure">Azure resources provisioned by topology</a></li>
+<li><a href="#hcp-azure-publicprivate-shared-ingress-privatelink_hcp-deploy-azure">Ingress and Private Link architecture for hosted clusters on Azure</a></li>
+<li><a href="#hcp-azure-publicprivate-creating_hcp-deploy-azure">Creating a hosted control plane with a PublicAndPrivate topology</a></li>
+<li><a href="#hcp-azure-publicprivate-verify_hcp-deploy-azure">Verifying endpoint accessibility for a PublicAndPrivate hosted cluster on Azure</a></li>
+<li><a href="#hcp-azure-topology-transitions_hcp-deploy-azure">Topology transition rules and constraints</a></li>
+<li><a href="#hcp-azure-private-link-conditions_hcp-deploy-azure">AzurePrivateLinkService conditions reference</a></li>
 </ul>
 </li>
 <li><a href="#hcp-azure-autoscaling_hcp-deploy-azure">Example: Autoscaling a hosted cluster on Azure</a></li>
@@ -5209,6 +5220,629 @@ operator-xxxxx-xxxxx           1/1     Running   0          1m</span></code></pr
 </div>
 </div>
 <div class="sect1">
+<h2 id="hcp-azure-publicprivate_hcp-deploy-azure"><a class="anchor" href="#hcp-azure-publicprivate_hcp-deploy-azure"></a>PublicAndPrivate topology for hosted clusters on Azure</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The <code>PublicAndPrivate</code> topology enables dual-path routing so that external automation and private workloads can reach the Kubernetes API Server endpoint simultaneously. As a result, you can meet compliance requirements without sacrificing CI/CD pipeline access.</p>
+</div>
+<div class="paragraph">
+<p>The topology you select at cluster creation determines which Azure resources are provisioned and whether the Kubernetes API Server endpoint is reachable from the public internet, a private Azure VNet, or both.</p>
+</div>
+<div class="paragraph">
+<p>Hosted clusters on Azure support 3 Kubernetes API Server endpoint access topologies: <code>Public</code>, <code>Private</code>, and <code>PublicAndPrivate</code>.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>Public</code> (default)</dt>
+<dd>
+<p>The Kubernetes API Server endpoint is accessible from the public internet only. No private Azure networking resources are created. Use this topology for non-regulated environments or CI/CD workloads that do not require private control-plane access.</p>
+</dd>
+<dt class="hdlist1"><code>PublicAndPrivate</code></dt>
+<dd>
+<p>The Kubernetes API Server endpoint is accessible from the public internet and from a private Azure VNet simultaneously. Azure creates both public and private networking resources. Use this topology when external automation requires public API access and internal workloads require private network isolation.</p>
+</dd>
+<dt class="hdlist1"><code>Private</code></dt>
+<dd>
+<p>The Kubernetes API Server endpoint is accessible only from a private Azure VNet. No public Azure Load Balancer is created for the Kubernetes API Server endpoint. Use this topology for regulated environments where the control plane must never be reachable from the public internet.</p>
+</dd>
+</dl>
+</div>
+<div class="sect2">
+<h3 id="hcp-azure-publicprivate-resources_hcp-deploy-azure"><a class="anchor" href="#hcp-azure-publicprivate-resources_hcp-deploy-azure"></a>Azure resources provisioned by topology</h3>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 4. Azure resources by topology</caption>
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Resource</th>
+<th class="tableblock halign-center valign-top"><code>Public</code></th>
+<th class="tableblock halign-center valign-top"><code>PublicAndPrivate</code></th>
+<th class="tableblock halign-center valign-top"><code>Private</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Azure Public Load Balancer</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">No</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Azure Internal Load Balancer</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Azure Private Link Service</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Azure Private Endpoint</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Private DNS Zones</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The Azure Private Link Service, Azure Private Endpoint, and Private DNS Zones rows apply only to self-managed hosted control planes clusters using the <code>PrivateLink</code> private type.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>On self-managed hosted clusters (Azure Private Link), the topology directly drives the <code>IngressController</code> <code>LoadBalancer</code> scope. A dedicated Azure Private Link Service infrastructure is created per cluster for private access. The <code>PrivateLink</code> private type provisions an Internal Load Balancer, Private Link Service, Private Endpoint, and Private DNS zones for each cluster independently.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-azure-publicprivate-shared-ingress-privatelink_hcp-deploy-azure"><a class="anchor" href="#hcp-azure-publicprivate-shared-ingress-privatelink_hcp-deploy-azure"></a>Ingress and Private Link architecture for hosted clusters on Azure</h3>
+<div class="paragraph _abstract">
+<p>Understanding the shared ingress and Private Link architecture helps you correctly interpret the connectivity behavior of the Kubernetes API Server and avoid misconfiguration during verification. For self-managed hosted control planes, each cluster with private topology receives a dedicated Private Link Service infrastructure.</p>
+</div>
+<div class="paragraph">
+<p>The topology directly drives the <code>IngressController</code> <code>LoadBalancer</code> scope:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>Public</code> topology: <code>ExternalLoadBalancer</code> scope</p>
+</li>
+<li>
+<p><code>Private</code> or <code>PublicAndPrivate</code> topology: <code>InternalLoadBalancer</code> scope</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Each cluster with private topology also receives a dedicated Azure Private Link Service infrastructure (Internal load balancer → Private Link Service → Private Endpoint → Private DNS zones).</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-azure-publicprivate-creating_hcp-deploy-azure"><a class="anchor" href="#hcp-azure-publicprivate-creating_hcp-deploy-azure"></a>Creating a hosted control plane with a PublicAndPrivate topology</h3>
+<div class="paragraph _abstract">
+<p>You can create a hosted cluster with <code>PublicAndPrivate</code> Kubernetes API Server topology to enable simultaneous public-internet access and private Azure VNet access.</p>
+</div>
+<div class="paragraph">
+<p><code>PublicAndPrivate</code> topology suits regulated environments that require private control-plane networking while maintaining CI/CD pipeline access from the public internet.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>topology</code> field is immutable for transitions involving <code>Public</code> topology. You can change between <code>PublicAndPrivate</code> and <code>Private</code> after cluster creation, but you cannot change to or from <code>Public</code> without creating a new cluster. Plan your topology selection carefully before provisioning.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have an Azure account with permissions to create hosted clusters and the required workload identities, including the Control Plane Operator workload identity.</p>
+</li>
+<li>
+<p>You have an Azure VNet in your target region.</p>
+</li>
+<li>
+<p>You have a public Azure DNS zone for the externally published DNS records of the cluster.</p>
+</li>
+<li>
+<p>You have a dedicated NAT subnet in the VNet of the management cluster with <code>privateLinkServiceNetworkPolicies</code> disabled.</p>
+</li>
+<li>
+<p>The HyperShift Operator is installed with the <code>--private-platform Azure</code> flag.</p>
+</li>
+<li>
+<p>When the <code>--private-platform</code> flag is set to <code>Azure</code>, the HyperShift Operator requires one of the following flags: <code>--azure-private-creds</code>, <code>--azure-private-secret</code>, or <code>--azure-pls-managed-identity-client-id</code>. The Operator uses those credentials to look up the internal load balancer and create the Private Link Service in the management cluster resource group.</p>
+</li>
+<li>
+<p>External DNS is configured on the management cluster with Azure credentials and a domain filter that enables the DNS to manage records in that zone.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For private Azure hosted clusters, do not set the domain of the OAuth route hostname to <code>&lt;cluster_name&gt;.&lt;base_domain&gt;</code> or to a parent domain of <code>&lt;cluster_name&gt;.&lt;base_domain&gt;</code>. The resulting Private DNS zone can shadow <code>*.apps</code> records and break console and route resolution.</p>
+</div>
+<div class="paragraph">
+<p>For example, if you have the <code>hcp-two</code> cluster name and <code>example.com</code> base domain, do not use <code>hcp-two.example.com</code>. Use a non-overlapping domain, such as <code>external-dns.example.com</code>. This configuration cannot be corrected after cluster creation; you must re-create the cluster with a different domain.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a <code>HostedCluster</code> manifest, as shown in the following example.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This example shows only the topology-specific fields.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">hypershift.openshift.io/v1beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">HostedCluster</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;cluster_name&gt;</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">clusters</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">platform</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">Azure</span>
+    <span class="na">azure</span><span class="pi">:</span>
+      <span class="na">topology</span><span class="pi">:</span> <span class="s">PublicAndPrivate</span>
+      <span class="na">private</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">PrivateLink</span>
+        <span class="na">privateLink</span><span class="pi">:</span>
+          <span class="na">natSubnetID</span><span class="pi">:</span> <span class="s">&lt;nat_subnet_resource_id&gt;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;cluster_name&gt;</code></dt>
+<dd>
+<p>Specifies the name of your hosted cluster.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;nat_subnet_resource_id&gt;</code></dt>
+<dd>
+<p>Specifies the Azure resource ID of the NAT subnet. This subnet must have <code>privateLinkServiceNetworkPolicies</code> disabled and must reside in the VNet of the management cluster. This subnet is optional; if it is omitted, the controller creates the NAT subnet in the VNet of the management cluster&#8217;s internal load balancer. For more information, see "Preparing a subnet for a private hosted cluster on Azure".</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Apply the manifest to your cluster by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;manifest_file&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Monitor the cluster provisioning status by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hostedcluster &lt;cluster_name&gt; <span class="nt">-n</span> clusters <span class="nt">-w</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Check the <code>Available</code> condition to confirm the control plane is up by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hostedcluster &lt;cluster_name&gt; <span class="nt">-n</span> clusters <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.type=="Available")]}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For a full connectivity verification procedure, see "Verifying endpoint accessibility for a PublicAndPrivate hosted cluster on Azure".</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../hosted_control_planes/hcp-deploy/hcp-deploy-azure.html#hcp-azure-private-subnet_hcp-deploy-azure">Preparing a subnet for a private hosted cluster on Azure</a></p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-azure-publicprivate-verify_hcp-deploy-azure"><a class="anchor" href="#hcp-azure-publicprivate-verify_hcp-deploy-azure"></a>Verifying endpoint accessibility for a PublicAndPrivate hosted cluster on Azure</h3>
+<div class="paragraph _abstract">
+<p>After you create a hosted cluster on Azure with <code>PublicAndPrivate</code> topology, you must verify that the Kubernetes API Server endpoint is reachable from both the public internet and the private Azure VNet.</p>
+</div>
+<div class="paragraph">
+<p>Successful verification confirms that the control plane is healthy, private connectivity resources are provisioned, and DNS is resolving correctly. Verification is crucial, as topology misconfiguration is partially irreversible.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have a running hosted cluster on Azure with <code>PublicAndPrivate</code> topology.</p>
+</li>
+<li>
+<p>The <code>oc</code> CLI is installed and authenticated to the cluster management plane.</p>
+</li>
+<li>
+<p>For private VNet verification, you have access to a jump server VM or other host inside the VNet of the hosted cluster, or the ability to use port-forwarding from inside the VNet.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check the HostedCluster <code>Available</code> condition to confirm the control plane is running by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get hostedcluster &lt;cluster_name&gt; <span class="nt">-n</span> clusters <span class="se">\</span>
+  <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.type=="Available")]}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;cluster_name&gt;</code> with the name of your hosted cluster.</p>
+</div>
+<div class="paragraph">
+<p>Verify that <code>"status":"True"</code> is displayed in the output.</p>
+</div>
+</li>
+<li>
+<p>Retrieve the <code>AzurePrivateLinkService</code> CR conditions to verify that the private link chain is fully provisioned by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get azureprivatelinkservices <span class="nt">-n</span> clusters-&lt;cluster_name&gt; <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Verify that all five conditions are <code>True</code>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>AzureInternalLoadBalancerAvailable</code></p>
+</li>
+<li>
+<p><code>AzurePLSCreated</code></p>
+</li>
+<li>
+<p><code>AzurePrivateEndpointAvailable</code></p>
+</li>
+<li>
+<p><code>AzurePrivateDNSAvailable</code></p>
+</li>
+<li>
+<p><code>AzurePrivateLinkServiceAvailable</code></p>
+<div class="paragraph">
+<p>If any condition is <code>False</code>, see "AzurePrivateLinkService conditions reference" for diagnosis guidance.</p>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Verify DNS resolution of the private API hostname from inside the VNet of the hosted cluster.</p>
+<div class="paragraph">
+<p>From a host inside the VNet, resolve the private API hostname by entering the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>nslookup &lt;api_hostname_from_kubeconfig&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Include only the hostname from the <code>server:</code> URL of the <code>kubeconfig</code>, without the <code>https://</code> prefix or port, and do not append the <code>&lt;base_domain&gt;</code>. The API hostname must resolve to the Private endpoint IP address from inside the VNet. If the hostname resolves to a public IP, verify that the Private DNS zone is correctly linked to the VNet of the hosted cluster.</p>
+</div>
+</li>
+<li>
+<p>Confirm API reachability from the public internet by using the hosted cluster <code>kubeconfig</code> by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">--kubeconfig</span> &lt;path_to_hosted_cluster_kubeconfig&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;path_to_hosted_cluster_kubeconfig&gt;</code> with the path to the hosted cluster kubeconfig file.</p>
+</div>
+<div class="paragraph">
+<p>A successful node listing confirms that the public Kubernetes API Server endpoint is reachable.</p>
+</div>
+</li>
+<li>
+<p>Confirm API reachability from inside the private Azure VNet.</p>
+<div class="paragraph">
+<p>From a jump server VM or other host inside the private Azure VNet, run the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">--kubeconfig</span> &lt;path_to_hosted_cluster_kubeconfig&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A successful node listing confirms that the private Kubernetes API Server endpoint is reachable from within the VNet.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>By default, private DNS zones are linked only to the hosted cluster&#8217;s VNet. If you require DNS resolution from peered VNets, manually link the Private DNS zone to each peered VNet after cluster creation. Failure to link peered VNets results in DNS resolution failures from those networks.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-azure-topology-transitions_hcp-deploy-azure"><a class="anchor" href="#hcp-azure-topology-transitions_hcp-deploy-azure"></a>Topology transition rules and constraints</h3>
+<div class="paragraph _abstract">
+<p>The <code>topology</code> field in a <code>HostedCluster</code> resource is immutable for transitions involving the <code>Public</code> topology.</p>
+</div>
+<div class="paragraph">
+<p>Transitions between <code>PublicAndPrivate</code> and <code>Private</code> are allowed after cluster creation. Any change to or from <code>Public</code> requires creating a new cluster.</p>
+</div>
+<div class="paragraph">
+<p>To avoid an irreversible misconfiguration, review these constraints carefully before you select a topology.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 5. Topology transition rules</caption>
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 40%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">From topology</th>
+<th class="tableblock halign-left valign-top">To topology</th>
+<th class="tableblock halign-center valign-top">Allowed after creation</th>
+<th class="tableblock halign-left valign-top">Action required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Public</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Private</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create a new cluster.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Public</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>PublicAndPrivate</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create a new cluster.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Private</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Public</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create a new cluster.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>PublicAndPrivate</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Public</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create a new cluster.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>PublicAndPrivate</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Private</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Update the <code>HostedCluster</code> resource.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Private</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>PublicAndPrivate</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Update the <code>HostedCluster</code> resource.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 6. Azure hosted control planes topology comparison</caption>
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Dimension</th>
+<th class="tableblock halign-left valign-top"><code>Public</code></th>
+<th class="tableblock halign-left valign-top"><code>PublicAndPrivate</code></th>
+<th class="tableblock halign-left valign-top"><code>Private</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Kubernetes API Server access</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Public internet only</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Public internet + private Azure VNet</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Private Azure VNet only</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">External DNS required</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>private</code> field required</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>IngressController</code> scope</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ExternalLoadBalancer</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>InternalLoadBalancer</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>InternalLoadBalancer</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Topology selection is a one-time, irreversible decision for any cluster that starts with or transitions to <code>Public</code> topology. Before you create a cluster, choose the topology that satisfies your compliance requirements. If you must move from <code>Public</code> to a private topology, or from a private topology to <code>Public</code>, you must create a new cluster.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="hcp-azure-private-link-conditions_hcp-deploy-azure"><a class="anchor" href="#hcp-azure-private-link-conditions_hcp-deploy-azure"></a>AzurePrivateLinkService conditions reference</h3>
+<div class="paragraph _abstract">
+<p>The <code>AzurePrivateLinkService</code> custom resource exposes 5 status conditions that you inspect to verify the end-to-end private link chain for a hosted cluster with <code>Private</code> or <code>PublicAndPrivate</code> topology.</p>
+</div>
+<div class="paragraph">
+<p>All 5 conditions must be <code>True</code> before the private Kubernetes API Server path is considered provisioned. Use the following conditions to diagnose incomplete or failed private connectivity.</p>
+</div>
+<div class="paragraph">
+<p>To retrieve the current conditions from the cluster, run the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get azureprivatelinkservices <span class="nt">-n</span> clusters-&lt;cluster_name&gt; <span class="nt">-o</span> yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;cluster_name&gt;</code> with the name of your hosted cluster.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 7. AzurePrivateLinkService status conditions</caption>
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Condition name</th>
+<th class="tableblock halign-center valign-top">Expected state</th>
+<th class="tableblock halign-left valign-top">What it indicates</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AzureInternalLoadBalancerAvailable</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock"><code>True</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If this condition is missing, verify that the HyperShift Operator&#8217;s Azure Private Link credentials, or managed identity, can read the load balancers in the management cluster resource group, and check the <code>AzurePLSCreated</code> condition message for errors.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AzurePLSCreated</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock"><code>True</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Azure Private Link Service instance has been provisioned and is registered.
+<code>AzureInternalLoadBalancerAvailable</code> must be <code>True</code> before this condition can become <code>True</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AzurePrivateEndpointAvailable</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock"><code>True</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Azure Private Endpoint has been created and its connection to the Private Link Service has been approved.
+If <code>False</code>, the PE might be in a pending state awaiting approval; check the Azure portal for pending PE connection requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AzurePrivateDNSAvailable</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock"><code>True</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The Azure Private DNS zone and DNS records for the private Kubernetes API Server hostname have been provisioned.
+If <code>False</code>, DNS records might not yet be propagated; wait and re-check.
+For peered VNets, verify that the Private DNS zone is linked to each peered VNet.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AzurePrivateLinkServiceAvailable</code></p></td>
+<td class="tableblock halign-center valign-top"><p class="tableblock"><code>True</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The HyperShift Operator sets <code>AzurePrivateLinkServiceAvailable</code> and <code>AzurePLSCreated</code> to <code>True</code> as soon as the Private Link Service is ready, before the Private Endpoint and DNS records exist. The Control Plane Operator sets the final value only after the Private Endpoint and DNS are reconciled. The value for <code>AzurePrivateLinkServiceAvailable</code> can be <code>True</code> briefly while the chain is still incomplete. To get a more reliable signal, check <code>AzurePrivateEndpointAvailable</code> and <code>AzurePrivateDNSAvailable</code>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>All 5 conditions must be <code>True</code> before you attempt to connect to the Kubernetes API Server endpoint over the private network path. If any condition is <code>False</code>, diagnose sequentially from <code>AzureInternalLoadBalancerAvailable</code> through <code>AzurePrivateLinkServiceAvailable</code>, as each resource depends on the previous one being provisioned.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="hcp-azure-autoscaling_hcp-deploy-azure"><a class="anchor" href="#hcp-azure-autoscaling_hcp-deploy-azure"></a>Example: Autoscaling a hosted cluster on Azure</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
@@ -6354,7 +6988,6 @@ OKD 4.18 and later support <code>min: 0</code> on Amazon Web Services (AWS) and 
     'openshift-origin': ['docs_origin', version],
     // specific labels are used for OSD instead of the URL filter, due to its unusual URL structure; assume v4
     'openshift-dedicated': ['docs_dedicated_v4'],
-    'openshift-online': ['docs_online', version],
     'openshift-enterprise': ['docs_cp', version],
     'openshift-telco': ['docs_telco', version],
     'openshift-aro' : ['docs_aro', version],
