@@ -1024,7 +1024,8 @@
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/enabling-multicast.html">Enabling multicast for a project</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/disabling-multicast.html">Disabling multicast for a project</a></li>
                   <li><a class="" href="../networking/ovn_kubernetes_network_provider/tracking-network-flows.html">Tracking network flows</a></li>
-                  <li><a class="" href="../networking/ovn_kubernetes_network_provider/configuring-hybrid-networking.html">Configuring hybrid networking</a></li>              </ul>
+                  <li><a class="" href="../networking/ovn_kubernetes_network_provider/configuring-hybrid-networking.html">Configuring hybrid networking</a></li>
+                  <li><a class="" href="../networking/ovn_kubernetes_network_provider/increasing-cluster-network-hostprefix.html">Increasing cluster network hostPrefix</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-12-7"><span id="sgSpan-12-7" class="fa fa-caret-right"></span>&nbsp;Ingress and load balancing</a>
               <ul id="topicSubGroup-12-7" class="nav-tertiary list-unstyled collapse">
@@ -2898,7 +2899,11 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#nodes-sigstore-using-about_nodes-sigstore-using">About sigstore</a></li>
+<li><a href="#nodes-sigstore-using-about_nodes-sigstore-using">Understand image signature verification</a>
+<ul class="sectlevel2">
+<li><a href="#nodes-sigstore-upgrade-considerations_nodes-sigstore-using">Cluster upgrade considerations</a></li>
+</ul>
+</li>
 <li><a href="#nodes-sigstore-configure_nodes-sigstore-using">About configuring sigstore support</a>
 <ul class="sectlevel2">
 <li><a href="#nodes-sigstore-configure-parameters_nodes-sigstore-using">About cluster and image policy parameters</a></li>
@@ -2907,6 +2912,14 @@
 </li>
 <li><a href="#nodes-sigstore-configure-cluster-policy_nodes-sigstore-using">Create a cluster image policy CR</a></li>
 <li><a href="#nodes-sigstore-configure-image-policy_nodes-sigstore-using">Create an image policy CR</a></li>
+<li><a href="#nodes-sigstore-performance-considerations_nodes-sigstore-using">Performance and resource considerations for signature verification</a>
+<ul class="sectlevel2">
+<li><a href="#nodes-sigstore-performance-startup_nodes-sigstore-using">Pod startup latency</a></li>
+<li><a href="#nodes-sigstore-performance-scale_nodes-sigstore-using">Scalability</a></li>
+<li><a href="#nodes-sigstore-performance-resources_nodes-sigstore-using">Resource consumption</a></li>
+<li><a href="#nodes-sigstore-performance-gitops_nodes-sigstore-using">GitOps and ZTP compatibility</a></li>
+</ul>
+</li>
 <li><a href="#additional-resources_nodes-sigstore-using">Additional resources</a></li>
 </ul>
 </div>
@@ -2919,16 +2932,33 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="nodes-sigstore-using-about_nodes-sigstore-using"><a class="anchor" href="#nodes-sigstore-using-about_nodes-sigstore-using"></a>About sigstore</h2>
+<h2 id="nodes-sigstore-using-about_nodes-sigstore-using"><a class="anchor" href="#nodes-sigstore-using-about_nodes-sigstore-using"></a>Understand image signature verification</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Cluster administrators or application developers can use the sigstore project to improve supply chain security. Developers can sign-off on what they build and administrators can verify those signatures and monitor workflows at scale.</p>
+<p>Cluster administrators or application developers can use the sigstore project to improve supply chain security by verifying that container images have not been tampered with and come from trusted sources.
+You can configure signature verification for all platform and Operator images, including in disconnected environments.
+This capability is useful for organizations that require strict supply chain security.</p>
 </div>
 <div class="paragraph">
-<p>With the sigstore project, signatures can be stored in the same registry as the build images. A second server is not needed. The identity piece of a signature is tied to the OpenID Connect (OIDC) identity through the Fulcio certificate authority, which simplifies the signature process by allowing key-less signing. Additionally, sigstore includes Rekor, which records signature metadata to an immutable, tamper-resistant ledger.</p>
+<p>With the sigstore project, signatures can be stored in the same registry as the container images, eliminating the need for a separate signature server.
+When using mirror registries, you must also mirror the sigstore signatures.
+The oc-mirror plugin v2 mirrors signatures automatically.</p>
 </div>
 <div class="paragraph">
-<p>You can use the <code>ClusterImagePolicy</code> and <code>ImagePolicy</code> custom resource (CR) objects to enable and configure sigstore support at the cluster or namespace scope. These objects specify the images and repositories to be verified and how the signatures must be verified.</p>
+<p>You can use the <code>ClusterImagePolicy</code> and <code>ImagePolicy</code> custom resource (CR) objects to enable and configure sigstore support at the cluster or namespace scope.
+These objects specify the images and repositories to be verified and how the signatures must be verified.
+When enabled, pods that attempt to use unsigned or incorrectly signed images are blocked from starting.</p>
+</div>
+<div class="sect2">
+<h3 id="nodes-sigstore-upgrade-considerations_nodes-sigstore-using"><a class="anchor" href="#nodes-sigstore-upgrade-considerations_nodes-sigstore-using"></a>Cluster upgrade considerations</h3>
+<div class="paragraph _abstract">
+<p>Before upgrading a cluster that has signature verification enabled, mirror all required signatures to your disconnected registry.
+The Cluster Version Operator (CVO) requires verified images to move pods to new nodes during the upgrade process.
+If signatures are missing or invalid, the upgrade can fail.</p>
+</div>
+<div class="paragraph">
+<p>The default <code>ClusterImagePolicy</code> object named <code>openshift</code> enforces signature verification for OKD release images in the <code>quay.io/openshift-release-dev/ocp-release</code>, <code>quay.io/openshift-release-dev/ocp-v4.0-art-dev</code>, and <code>quay.io/openshift-release-dev/ocp-v5.0-art-dev</code> repositories.</p>
+</div>
 </div>
 </div>
 </div>
@@ -3272,7 +3302,7 @@ mirror.com/image/repo:sha256-1234567890abcdef1234567890abcdef1234567890abcdef123
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1alpha1</span>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterImagePolicy</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">pki-policy</span>
@@ -3463,11 +3493,11 @@ mirror.com/image/repo:sha256-1234567890abcdef1234567890abcdef1234567890abcdef123
 </li>
 </ol>
 </div>
-<div class="ulist">
+<div class="olist arabic">
 <div class="title">Verification</div>
-<ul>
+<ol class="arabic">
 <li>
-<p>After the nodes in your cluster are updated, you can verify that the cluster image policy has been configured:</p>
+<p>After the nodes in your cluster are updated, verify that the cluster image policy has been configured:</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
@@ -3493,8 +3523,10 @@ mirror.com/image/repo:sha256-1234567890abcdef1234567890abcdef1234567890abcdef123
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">cat</span> /etc/containers/policy.json</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example output shows the cluster image policy with a public key:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output for the cluster image policy object with a public key showing the new cluster image policy</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="json"><span class="err">#</span><span class="w"> </span><span class="err">...</span><span class="w">
   </span><span class="nl">"transports"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -3513,8 +3545,10 @@ mirror.com/image/repo:sha256-1234567890abcdef1234567890abcdef1234567890abcdef123
 </span><span class="err">#</span><span class="w"> </span><span class="err">...</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example output shows the cluster image policy with a BYOPKI certificate:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output for the cluster image policy object for a BYOPKI certificate showing the new cluster image policy</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="json"><span class="err">#</span><span class="w"> </span><span class="err">...</span><span class="w">
   </span><span class="nl">"transports"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -3536,8 +3570,10 @@ mirror.com/image/repo:sha256-1234567890abcdef1234567890abcdef1234567890abcdef123
       </span><span class="p">],</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example output shows the cluster image policy with a Fulcio certificate:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output for the cluster image policy object with a Fulcio certificate showing the new cluster image policy</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="json"><span class="err">#</span><span class="w"> </span><span class="err">...</span><span class="w">
   </span><span class="nl">"transports"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
@@ -3570,8 +3606,10 @@ mirror.com/image/repo:sha256-1234567890abcdef1234567890abcdef1234567890abcdef123
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">sh-5.1#</span><span class="w"> </span><span class="nb">cat</span> /etc/containers/registries.d/sigstore-registries.yaml</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>The following example output shows that the scoped registry was added:</p>
+</div>
 <div class="listingblock">
-<div class="title">Example output showing that the scoped registry was added</div>
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">docker</span><span class="pi">:</span>
   <span class="s">example.com</span><span class="pi">:</span>
@@ -3583,19 +3621,99 @@ mirror.com/image/repo:sha256-1234567890abcdef1234567890abcdef1234567890abcdef123
 <div class="paragraph">
 <p>where:</p>
 </div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>docker.example.com.use-sigstore-attachments</code></dt>
-<dd>
-<p>When <code>true</code>, specifies that sigstore signatures are going to be read along with the image.</p>
-</dd>
-</dl>
+<div class="ulist">
+<ul>
+<li>
+<p><code>docker.example.com.use-sigstore-attachments</code>&#8201;&#8212;&#8201;Specifies that sigstore signatures are read along with the image when set to <code>true</code>.</p>
+</li>
+</ul>
 </div>
 </li>
 </ol>
 </div>
 </li>
+<li>
+<p>Verify that unsigned or incorrectly signed images are blocked from running:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create a test pod that uses an unsigned image from the scoped registry:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc run test-unsigned <span class="nt">--image</span><span class="o">=</span>&lt;scoped_registry&gt;/&lt;unsigned_image&gt;:&lt;tag&gt; <span class="nt">--restart</span><span class="o">=</span>Never</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>&lt;scoped_registry&gt;</code>&#8201;&#8212;&#8201;Specifies the registry defined in your <code>ClusterImagePolicy</code> scope.</p>
+</li>
+<li>
+<p><code>&lt;unsigned_image&gt;</code>&#8201;&#8212;&#8201;Specifies an image that does not have a valid sigstore signature.</p>
+</li>
+<li>
+<p><code>&lt;tag&gt;</code>&#8201;&#8212;&#8201;Specifies the image tag.</p>
+</li>
 </ul>
+</div>
+</li>
+<li>
+<p>Check the pod status:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pod test-unsigned <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.containerStatuses[0].state}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example output shows that the image was blocked:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w"> </span><span class="nl">"waiting"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Back-off pulling image </span><span class="se">\"</span><span class="s2">registry.example.com/example:v1</span><span class="se">\"</span><span class="s2">: SignatureValidationFailed: image pull failed for registry.example.com/example:v1 because the signature validation failed: unable to pull image or OCI artifact: pull image err: Source image rejected: A signature was required, but no signature exists; artifact err: image reference: reference is a container image, not an OCI artifact"</span><span class="p">,</span><span class="w"> </span><span class="nl">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ImagePullBackOff"</span><span class="w"> </span><span class="p">}}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>SignatureValidationFailed</code> error with a "Source image rejected" message confirms that the signature verification policy is blocking unsigned images.</p>
+</div>
+</li>
+<li>
+<p>Check the pod events for detailed error information:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe pod test-unsigned</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following example output shows signature verification failure in the pod events:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">Events:
+  Type     Reason                    Age                     From     Message
+  ----     ------                    ----                    ----     -------
+</span><span class="c">...
+</span><span class="gp">  Warning  Failed                    4m36s (x5 over 7m36s)   kubelet  spec.containers{sleep-container}: Failed to pull image "registry.example.com/my-namespace/unsigned-image:v1.0": SignatureValidationFailed: unable to pull image or OCI artifact: pull image err: Source image rejected: A signature was required, but no signature exists;</span><span class="w"> </span>artifact err: image reference: reference is a container image, not an OCI artifact
+<span class="go">  Warning  Failed                    4m36s (x5 over 7m36s)   kubelet  spec.containers{sleep-container}: Error: SignatureValidationFailed
+  Normal   BackOff                   2m28s (x21 over 7m35s)  kubelet  spec.containers{sleep-container}: Back-off pulling image "registry.example.com/my-namespace/unsigned-image:v1.0"
+  Warning  Failed                    2m28s (x21 over 7m35s)  kubelet  spec.containers{sleep-container}: Error: ImagePullBackOff</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the test pod:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete pod test-unsigned <span class="nt">--ignore-not-found</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -3737,7 +3855,7 @@ mirror.com/image/repo:sha256-1234567890abcdef1234567890abcdef1234567890abcdef123
 </div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1alpha1</span>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
 <span class="na">kind</span><span class="pi">:</span> <span class="s">ImagePolicy</span>
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">name</span><span class="pi">:</span> <span class="s">pki-policy</span>
@@ -4098,6 +4216,100 @@ msg="Fetching Sigstore attachment 1/1: sha256:8276724a208087e73ae5d9d6e8f872f678
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="nodes-sigstore-performance-considerations_nodes-sigstore-using"><a class="anchor" href="#nodes-sigstore-performance-considerations_nodes-sigstore-using"></a>Performance and resource considerations for signature verification</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Enabling signature verification on your cluster has minimal impact on performance and resource consumption.
+You can use signature verification on clusters with large numbers of Operators and workloads without significant performance impact.
+Review these considerations to understand the impact on your environment and ensure your deployment is properly configured.</p>
+</div>
+<div class="sect2">
+<h3 id="nodes-sigstore-performance-startup_nodes-sigstore-using"><a class="anchor" href="#nodes-sigstore-performance-startup_nodes-sigstore-using"></a>Pod startup latency</h3>
+<div class="paragraph">
+<p>Signature verification adds a small amount of latency to pod startup time.
+This latency is primarily due to fetching the signature image from the registry.
+Because signature images are small, fetching is typically fast, but times can vary depending on network conditions.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nodes-sigstore-performance-scale_nodes-sigstore-using"><a class="anchor" href="#nodes-sigstore-performance-scale_nodes-sigstore-using"></a>Scalability</h3>
+<div class="paragraph">
+<p>Signature verification scales to large clusters with many Operators and workloads, including clusters with:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>A large number of Operator images</p>
+</li>
+<li>
+<p>Multiple <code>ClusterImagePolicy</code> and <code>ImagePolicy</code> objects</p>
+</li>
+<li>
+<p>Concurrent pod scheduling across many nodes</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The Machine Config Operator (MCO) efficiently distributes the policy configuration to all nodes in the cluster.
+After the initial configuration is applied, later pod startups verify signatures without additional MCO processing.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nodes-sigstore-performance-resources_nodes-sigstore-using"><a class="anchor" href="#nodes-sigstore-performance-resources_nodes-sigstore-using"></a>Resource consumption</h3>
+<div class="paragraph">
+<p>Signature verification has minimal resource impact:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Storage</dt>
+<dd>
+<p>Signature images are small (typically a few KB) and are stored alongside the container images in your registry.
+The storage requirements for signatures are negligible compared to the container images themselves.</p>
+</dd>
+<dt class="hdlist1">Memory</dt>
+<dd>
+<p>Cryptographic signature validation uses minimal memory during the verification process.</p>
+</dd>
+<dt class="hdlist1">Network</dt>
+<dd>
+<p>Signature verification requires fetching the signature image from the registry during image pull.
+Because signatures are small, the network impact is minimal.
+In disconnected environments, the cluster fetches all signature images from your local mirror registry.</p>
+</dd>
+<dt class="hdlist1">CPU</dt>
+<dd>
+<p>Cryptographic signature validation requires minimal CPU resources.
+The verification process is not computationally intensive and has negligible impact on cluster performance.</p>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nodes-sigstore-performance-gitops_nodes-sigstore-using"><a class="anchor" href="#nodes-sigstore-performance-gitops_nodes-sigstore-using"></a>GitOps and ZTP compatibility</h3>
+<div class="paragraph">
+<p>Signature verification is compatible with GitOps-based deployment workflows, including Red&#160;Hat Advanced Cluster Management (RHACM) and Zero Touch Provisioning (ZTP).
+You can include <code>ClusterImagePolicy</code> and <code>ImagePolicy</code> manifests in your GitOps repository and deploy them alongside other cluster configuration.</p>
+</div>
+<div class="paragraph">
+<p>When using GitOps:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Include the <code>ClusterImagePolicy</code> manifests in your configuration repository.</p>
+</li>
+<li>
+<p>Apply the policy manifests before pulling any images covered by that policy.</p>
+</li>
+<li>
+<p>Verify that all required images and signatures are mirrored before applying policies that enforce verification.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
 <div class="sect1 _additional-resources">
 <h2 id="additional-resources_nodes-sigstore-using"><a class="anchor" href="#additional-resources_nodes-sigstore-using"></a>Additional resources</h2>
 <div class="sectionbody">
@@ -4117,6 +4329,18 @@ msg="Fetching Sigstore attachment 1/1: sha256:8276724a208087e73ae5d9d6e8f872f678
 </li>
 <li>
 <p><a href="../nodes/nodes-sigstore-using.html#nodes-sigstore-configure-parameters_nodes-sigstore-using">About cluster and image policy parameters</a></p>
+</li>
+<li>
+<p><a href="../edge_computing/ztp-advanced-install-ztp.html#ztp-customizing-the-install-extra-manifests_ztp-advanced-install-ztp">Customizing extra installation manifests in the ZTP pipeline</a></p>
+</li>
+<li>
+<p><a href="../disconnected/oc_mirror_v2/about-installing-oc-mirror-v2.html#oc-mirror-signature-mirroring_about-installing-oc-mirror-v2">About signature mirroring</a></p>
+</li>
+<li>
+<p><a href="../disconnected/oc_mirror_v2/about-installing-oc-mirror-v2.html#oc-mirror-building-image-set-config-v2_about-installing-oc-mirror-v2">Creating the image set configuration</a></p>
+</li>
+<li>
+<p><a href="../disconnected/oc_mirror_v2/about-installing-oc-mirror-v2.html#oc-mirror-imageset-config-parameters-v2_about-installing-oc-mirror-v2"><code>ImageSet</code> configuration parameters for oc-mirror plugin v2</a></p>
 </li>
 </ul>
 </div>

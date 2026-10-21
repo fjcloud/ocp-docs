@@ -1388,7 +1388,8 @@
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/enabling-multicast.html">Enabling multicast for a project</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/disabling-multicast.html">Disabling multicast for a project</a></li>
                   <li><a class="" href="../../networking/ovn_kubernetes_network_provider/tracking-network-flows.html">Tracking network flows</a></li>
-                  <li><a class="" href="../../networking/ovn_kubernetes_network_provider/configuring-hybrid-networking.html">Configuring hybrid networking</a></li>              </ul>
+                  <li><a class="" href="../../networking/ovn_kubernetes_network_provider/configuring-hybrid-networking.html">Configuring hybrid networking</a></li>
+                  <li><a class="" href="../../networking/ovn_kubernetes_network_provider/increasing-cluster-network-hostprefix.html">Increasing cluster network hostPrefix</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-13-7"><span id="sgSpan-13-7" class="fa fa-caret-right"></span>&nbsp;Ingress and load balancing</a>
               <ul id="topicSubGroup-13-7" class="nav-tertiary list-unstyled collapse">
@@ -3481,9 +3482,11 @@
 <li><a href="#nw-ingress-operator-status_configuring-ingress">View Ingress Operator status</a></li>
 <li><a href="#nw-ingress-operator-logs_configuring-ingress">View Ingress Controller logs</a></li>
 <li><a href="#nw-ingress-controller-status_configuring-ingress">View Ingress Controller status</a></li>
-<li><a href="#nw-create-custom-ingress-controller_configuring-ingress">Create a custom Ingress Controller</a></li>
+<li><a href="#nw-create-custom-ingress-controller_configuring-ingress">Creating a custom Ingress Controller</a></li>
 <li><a href="#configuring-ingress-controller">Configuring the Ingress Controller</a>
 <ul class="sectlevel2">
+<li><a href="#about-haproxy-dynamic-configuration-manager_configuring-ingress">HAProxy Dynamic Configuration Manager (DCM)</a></li>
+<li><a href="#enabling-disabling-dcm_configuring-ingress">Enabling or disabling Dynamic Configuration Manager (DCM)</a></li>
 <li><a href="#nw-ingress-setting-a-custom-default-certificate_configuring-ingress">Set a custom default certificate</a></li>
 <li><a href="#nw-ingress-custom-default-certificate-remove_configuring-ingress">Remove a custom default certificate</a></li>
 <li><a href="#nw-autoscaling-ingress-controller_configuring-ingress">Autoscale an Ingress Controller</a></li>
@@ -4653,7 +4656,7 @@ within a minute.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="nw-create-custom-ingress-controller_configuring-ingress"><a class="anchor" href="#nw-create-custom-ingress-controller_configuring-ingress"></a>Create a custom Ingress Controller</h2>
+<h2 id="nw-create-custom-ingress-controller_configuring-ingress"><a class="anchor" href="#nw-create-custom-ingress-controller_configuring-ingress"></a>Creating a custom Ingress Controller</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
 <p>As a cluster administrator, you can create a new custom Ingress Controller.</p>
@@ -4702,7 +4705,7 @@ within a minute.</p>
 <dl>
 <dt class="hdlist1"><code>metadata.name</code></dt>
 <dd>
-<p>Specifies a custom <code>name</code> for the <code>IngressController</code> object.</p>
+<p>Specifies the custom <code>name</code> for the <code>IngressController</code> object.</p>
 </dd>
 <dt class="hdlist1"><code>spec.defaultCertificate.name</code></dt>
 <dd>
@@ -4710,11 +4713,11 @@ within a minute.</p>
 </dd>
 <dt class="hdlist1"><code>spec.replicas</code></dt>
 <dd>
-<p>Specifies the number of replicas. Minimum replica needs to be ONE.</p>
+<p>Specifies a minimum replica. The minimum value must be at least <code>1</code>.</p>
 </dd>
 <dt class="hdlist1"><code>spec.domain</code></dt>
 <dd>
-<p>Specifies the domain to your domain name. The domain specified on the IngressController object and the domain used for the certificate must match. For example, if the domain value is "custom_domain.mycompany.com", then the certificate must have SAN *.custom_domain.mycompany.com (with the <code>*.</code> added to the domain).</p>
+<p>Specifies the domain to your domain name. The domain specified on the <code>IngressController</code> object and the domain used for the certificate must match. For example, if the domain value is "custom_domain.mycompany.com", then the certificate must have SAN *.custom_domain.mycompany.com (with the <code>*.</code> added to the domain).</p>
 </dd>
 </dl>
 </div>
@@ -4734,6 +4737,141 @@ within a minute.</p>
 <div class="sect1">
 <h2 id="configuring-ingress-controller"><a class="anchor" href="#configuring-ingress-controller"></a>Configuring the Ingress Controller</h2>
 <div class="sectionbody">
+<div class="sect2">
+<h3 id="about-haproxy-dynamic-configuration-manager_configuring-ingress"><a class="anchor" href="#about-haproxy-dynamic-configuration-manager_configuring-ingress"></a>HAProxy Dynamic Configuration Manager (DCM)</h3>
+<div class="paragraph _abstract">
+<p>As an administrator, you can use Dynamic Configuration Manager (DCM) as an alternative update mechanism that configures a running HAProxy process through a domain socket.
+This approach eliminates the need to fork and reload the HAProxy process.</p>
+</div>
+<div class="paragraph">
+<p>The router automatically uses DCM for supported operations and falls back to fork-and-reload for operations that DCM cannot handle.</p>
+</div>
+<div class="paragraph">
+<p>After a router reload, the default HAProxy process forks a new child process and keeps the old process running until all existing connections close.
+If HAProxy reloads frequently while handling long-lived connections, old processes accumulate and consume excessive memory on the node.
+Accumulating processes can cause out-of-memory errors in environments with frequent route or endpoint changes.</p>
+</div>
+<div class="paragraph">
+<p>DCM addresses this problem by applying configuration updates directly to the running HAProxy process.</p>
+</div>
+<div class="paragraph">
+<p>DCM provides the following benefits over the default fork-and-reload model:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Reduced memory usage: Old HAProxy processes do not accumulate during frequent endpoint updates.
+The fork-and-reload model can cause each old process to consume hundreds of megabytes or several gigabytes of memory.</p>
+</li>
+<li>
+<p>Improved metrics accuracy: After a fork-and-reload, the old HAProxy process cannot update metrics for its remaining connections.
+DCM preserves full metrics continuity because the process is not replaced.</p>
+</li>
+<li>
+<p>Better load balancing: HAProxy load-balancing algorithms such as <code>roundrobin</code>, <code>random</code>, and <code>leastconn</code> track connection counts per backend server.
+After a reload, the new process has no data about connections managed by old processes. This lack of data causes uneven traffic distribution. DCM retains this data because the process persists.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>With fork-and-reload, scaling an application to any number of replicas triggers an HAProxy configuration reload.
+DCM handles the following scaling operations dynamically without triggering an HAProxy reload:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Any scale-out operation</p>
+</li>
+<li>
+<p>Any scale-in operation</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>With DCM, HAProxy still requires a reload for unsupported dynamic operations, including:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Adding, removing, or changes routes</p>
+</li>
+<li>
+<p>Changing TLS certificates on a route</p>
+</li>
+<li>
+<p>Changing route annotations</p>
+</li>
+<li>
+<p>Global router configuration changes</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>When DCM encounters an operation that it cannot handle dynamically, the router falls back to the standard fork-and-reload mechanism.
+This mechanism writes a new <code>haproxy.config</code> file and reloads HAProxy, which forks a new process to handle incoming connections.
+The Ingress Operator includes the <code>spec.tuningOptions.configurationManagement</code> API field for selecting between DCM and fork-and-reload to manage HAProxy configuration updates.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="enabling-disabling-dcm_configuring-ingress"><a class="anchor" href="#enabling-disabling-dcm_configuring-ingress"></a>Enabling or disabling Dynamic Configuration Manager (DCM)</h3>
+<div class="paragraph _abstract">
+<p>To reduce HAProxy reloads when endpoints change, you can enable DCM.
+DCM is disabled by default.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Enabling DCM is an experimental feature that is not intended for production use.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Configure the <code>spec.tuningOptions.configurationManagement</code> field on the <code>IngressController</code> resource to select either DCM or the standard fork-and-reload mechanism.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Procedure</div>
+<ul>
+<li>
+<p>If you need to enable dynamic updates by using DCM, enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-ingress-operator patch ingresscontrollers/default <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec":{"tuningOptions":{"configurationManagement":"Dynamic"}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>If you need to disable DCM and revert to the fork-and-reload mechanism, enter the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-ingress-operator patch ingresscontrollers/default <span class="se">\</span>
+  <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+  <span class="nt">--patch</span><span class="o">=</span><span class="s1">'{"spec":{"tuningOptions":{"configurationManagement":"ForkAndReload"}}}'</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
 <div class="sect2">
 <h3 id="nw-ingress-setting-a-custom-default-certificate_configuring-ingress"><a class="anchor" href="#nw-ingress-setting-a-custom-default-certificate_configuring-ingress"></a>Set a custom default certificate</h3>
 <div class="paragraph _abstract">
