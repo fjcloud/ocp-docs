@@ -2012,8 +2012,9 @@
             </li>
             <li><a class="" href="../../hosted_control_planes/hcp-certificates.html">Configuring certificates for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-updating.html">Updating hosted control planes</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-25-8"><span id="sgSpan-25-8" class="fa fa-caret-right"></span>&nbsp;High availability for hosted control planes</a>
-              <ul id="topicSubGroup-25-8" class="nav-tertiary list-unstyled collapse">
+            <li><a class="" href="../../hosted_control_planes/hcp-dual-stream.html">Managing RHCOS version streams within a hosted cluster</a></li>
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-25-9"><span id="sgSpan-25-9" class="fa fa-caret-right"></span>&nbsp;High availability for hosted control planes</a>
+              <ul id="topicSubGroup-25-9" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/about-hcp-ha.html">About high availability for hosted control planes</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-recovering-etcd-cluster.html">Recovering a failing etcd cluster</a></li>
@@ -2031,8 +2032,8 @@
             <li><a class="" href="../../hosted_control_planes/hcp-observability.html">Observability for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-networking.html">Networking for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-troubleshooting.html">Troubleshooting hosted control planes</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-25-15"><span id="sgSpan-25-15" class="fa fa-caret-right"></span>&nbsp;Destroying a hosted cluster</a>
-              <ul id="topicSubGroup-25-15" class="nav-tertiary list-unstyled collapse">
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-25-16"><span id="sgSpan-25-16" class="fa fa-caret-right"></span>&nbsp;Destroying a hosted cluster</a>
+              <ul id="topicSubGroup-25-16" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../hosted_control_planes/hcp-destroy/hcp-destroy-aws.html">Destroying a hosted cluster on AWS</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp-destroy/hcp-destroy-bm.html">Destroying a hosted cluster on bare metal</a></li>
@@ -3472,13 +3473,17 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#clusterqueue-configuring-cohorts-reference_using-cohorts">Cohort configuration within a cluster queue spec</a></li>
+<li><a href="#understanding-hierarchical-cohorts_using-cohorts">Hierarchical cohorts</a></li>
+<li><a href="#configuring-hierarchical-cohorts_using-cohorts">Configuring hierarchical cohorts</a></li>
+<li><a href="#hierarchical-cohort-metrics_using-cohorts">Hierarchical cohort metrics</a></li>
+<li><a href="#using-cohorts-additional-resources_using-cohorts">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
 <p>You can use cohorts to group cluster queues and determine which cluster queues can share borrowable resources with each other.</p>
 </div>
 <div class="paragraph">
-<p>Borrowable resources are defined as the unused nominal quota of all the cluster queues in a cohort.</p>
+<p>Cluster queues in the same cohort tree can borrow unused quota from other cluster queues or cohorts. Borrowing and lending limits apply throughout the tree.</p>
 </div>
 <div class="paragraph">
 <p>By using cohorts, you can optimize resource utilization, prevent under-utilization, and enable fair sharing configurations.
@@ -3509,10 +3514,331 @@ You can also use cohorts to set resource quotas at a group level to define the l
 </div>
 </div>
 <div class="paragraph">
-<p>All cluster queues that have a matching <code>spec.cohortName</code> are part of the same cohort.</p>
+<p>All cluster queues that have a matching <code>spec.cohortName</code> field are part of the same cohort.</p>
+</div>
+<div class="paragraph">
+<p>To add a cohort-level quota or place the cluster queue in a hierarchy, create a <code>Cohort</code> object with the same name.</p>
 </div>
 <div class="paragraph">
 <p>If the <code>spec.cohortName</code> field is omitted, the cluster queue does not belong to any cohort and cannot access borrowable resources.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="understanding-hierarchical-cohorts_using-cohorts"><a class="anchor" href="#understanding-hierarchical-cohorts_using-cohorts"></a>Hierarchical cohorts</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Use hierarchical cohorts to share unused quota between teams and control how much each group can borrow or lend. You can organize cluster queues into a hierarchy and add shared quota at different levels.</p>
+</div>
+<div class="paragraph">
+<p>A cohort tree has cohorts and cluster queues. Each cohort is a cluster-scoped <code>Cohort</code> object that organizes quota but does not accept workloads. Cluster queues are the final level in a cohort tree and accept workloads.</p>
+</div>
+<div class="paragraph">
+<p>A root cohort does not have a <code>spec.parentName</code> field. In a child cohort, the <code>spec.parentName</code> field identifies the parent cohort. To move a cohort, change its <code>spec.parentName</code> field. Moving a cohort also moves all cohorts and cluster queues below it to the new parent.</p>
+</div>
+<div class="paragraph">
+<p>You can share unused quota only within the same cohort tree. To add shared quota, set the <code>spec.resourceGroups.flavors.resources.nominalQuota</code> field in a <code>Cohort</code> or <code>ClusterQueue</code> object.</p>
+</div>
+<div class="paragraph">
+<p>For each resource in a child cohort, you can set two limits in the <code>spec.resourceGroups</code> field:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>borrowingLimit</code></dt>
+<dd>
+<p>Restricts how much quota a child cohort and the cohorts and cluster queues below it can borrow through its parent.</p>
+</dd>
+<dt class="hdlist1"><code>lendingLimit</code></dt>
+<dd>
+<p>Restricts how much unused quota a child cohort and the cohorts and cluster queues below it can lend through its parent.</p>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>Set either limit to <code>0</code> to prevent that type of sharing. Omit a limit to leave that type of sharing unrestricted for the resource. Sharing is bounded by the quota available in the cohort tree and by any limits set at other levels.</p>
+</div>
+<div class="paragraph">
+<p>The following example assigns two teams to separate cohorts under the <code>engineering</code> root cohort. Each team has a cluster queue and can use quota from the root cohort:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="text">engineering
+├── team-a
+│   └── team-a-queue
+└── team-b
+    └── team-b-queue</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>reclaimWithinCohort</code> and <code>borrowWithinCohort</code> preemption policies on a cluster queue apply across the cohort tree.</p>
+</div>
+<div class="paragraph">
+<p>With fair sharing enabled, you can set the <code>spec.fairSharing.weight</code> field on each <code>Cohort</code> object. These weights give cohorts with the same parent, and the cluster queues below them, different shares of common resources.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not create a cycle in a cohort hierarchy. When Red&#160;Hat build of Kueue detects a cycle, the affected cluster queues stop admitting new workloads. Remove the cycle to restore admission.</p>
+</div>
+<div class="paragraph">
+<p>Deleting a cohort immediately removes its quota and its parent connection. Workloads that Red&#160;Hat build of Kueue already admitted continue to run, but new workloads cannot borrow through the removed connection.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="configuring-hierarchical-cohorts_using-cohorts"><a class="anchor" href="#configuring-hierarchical-cohorts_using-cohorts"></a>Configuring hierarchical cohorts</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can configure hierarchical cohorts to share resource quota between teams.</p>
+</div>
+<div class="paragraph">
+<p>In the following example, an engineering department shares 1 CPU and 256 MiB of memory quota between two teams that use separate cluster queues.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have cluster administrator permissions.</p>
+</li>
+<li>
+<p>You installed the Red&#160;Hat build of Kueue Operator on your cluster.</p>
+</li>
+<li>
+<p>You created a <code>Kueue</code> custom resource (CR).</p>
+</li>
+<li>
+<p>A <code>ResourceFlavor</code> object named <code>default-flavor</code> exists.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create a file named <code>cohorts.yaml</code> with the following content:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kueue.x-k8s.io/v1beta2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Cohort</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">engineering</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">resourceGroups</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">coveredResources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">cpu"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">memory"</span><span class="pi">]</span>
+    <span class="na">flavors</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default-flavor</span>
+      <span class="na">resources</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
+        <span class="na">nominalQuota</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">memory</span>
+        <span class="na">nominalQuota</span><span class="pi">:</span> <span class="s">256Mi</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kueue.x-k8s.io/v1beta2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Cohort</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">team-a</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">parentName</span><span class="pi">:</span> <span class="s">engineering</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kueue.x-k8s.io/v1beta2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Cohort</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">team-b</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">parentName</span><span class="pi">:</span> <span class="s">engineering</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kueue.x-k8s.io/v1beta2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterQueue</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">team-a-queue</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">namespaceSelector</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">cohortName</span><span class="pi">:</span> <span class="s">team-a</span>
+  <span class="na">resourceGroups</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">coveredResources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">cpu"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">memory"</span><span class="pi">]</span>
+    <span class="na">flavors</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default-flavor</span>
+      <span class="na">resources</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
+        <span class="na">nominalQuota</span><span class="pi">:</span> <span class="m">0</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">memory</span>
+        <span class="na">nominalQuota</span><span class="pi">:</span> <span class="m">0</span>
+<span class="nn">---</span>
+<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kueue.x-k8s.io/v1beta2</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterQueue</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">team-b-queue</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">namespaceSelector</span><span class="pi">:</span> <span class="pi">{}</span>
+  <span class="na">cohortName</span><span class="pi">:</span> <span class="s">team-b</span>
+  <span class="na">resourceGroups</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">coveredResources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">cpu"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">memory"</span><span class="pi">]</span>
+    <span class="na">flavors</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">default-flavor</span>
+      <span class="na">resources</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cpu</span>
+        <span class="na">nominalQuota</span><span class="pi">:</span> <span class="m">0</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">memory</span>
+        <span class="na">nominalQuota</span><span class="pi">:</span> <span class="s">0</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.resourceGroups.flavors.resources.nominalQuota</code></dt>
+<dd>
+<p>Specifies the resource quota that a cohort or cluster queue contributes to the hierarchy.</p>
+</dd>
+<dt class="hdlist1"><code>spec.parentName</code></dt>
+<dd>
+<p>Specifies the parent cohort in a cohort hierarchy.</p>
+</dd>
+<dt class="hdlist1"><code>spec.namespaceSelector</code></dt>
+<dd>
+<p>Specifies which namespaces can submit workloads to the cluster queue. An empty selector (<code>{}</code>) accepts workloads from all namespaces. If you omit this field, the cluster queue accepts no workloads and jobs stay pending.</p>
+</dd>
+<dt class="hdlist1"><code>spec.cohortName</code></dt>
+<dd>
+<p>Specifies the cohort to which a cluster queue belongs.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Apply the configuration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> cohorts.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify the cohort objects by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get cohorts</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME               AGE
+engineering        10s
+team-a             10s
+team-b             10s</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that each cluster queue belongs to the correct cohort by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusterqueue team-a-queue team-b-queue <span class="nt">-o</span> custom-columns<span class="o">=</span>NAME:.metadata.name,COHORT:.spec.cohortName</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME             COHORT
+team-a-queue     team-a
+team-b-queue     team-b</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="hierarchical-cohort-metrics_using-cohorts"><a class="anchor" href="#hierarchical-cohort-metrics_using-cohorts"></a>Hierarchical cohort metrics</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can use cohort metrics to observe the hierarchy, shared quota, resource reservations, admitted workloads, and weighted share of each cohort subtree.</p>
+</div>
+<div class="paragraph">
+<p>The following metrics describe hierarchical cohorts:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kueue_cohort_info</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reports the direct parent and root cohort for a cohort.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kueue_cohort_subtree_admitted_active_workloads</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reports the number of active, admitted workloads in a cohort subtree.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kueue_cohort_subtree_admitted_workloads_total</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reports the total number of workloads admitted in a cohort subtree.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kueue_cohort_subtree_quota</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reports nominal quota aggregated within a cohort subtree by resource and flavor.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kueue_cohort_subtree_resource_reservations</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reports resource reservations aggregated within a cohort subtree by resource and flavor.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kueue_cohort_weighted_share</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reports the highest ratio of resource usage that exceeds nominal quota to the resources that the cohort can lend, divided by the cohort weight.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kueue_cluster_queue_info</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reports the direct parent cohort and root cohort for a cluster queue.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Red&#160;Hat build of Kueue enables cohort metrics by default. Only the <code>kueue_cohort_weighted_share</code> metric requires the <code>FairSharing</code> preemption policy. The cohort subtree metrics do not require fair sharing.</p>
+</div>
+</div>
+</div>
+<div class="sect1 _additional-resources">
+<h2 id="using-cohorts-additional-resources_using-cohorts"><a class="anchor" href="#using-cohorts-additional-resources_using-cohorts"></a>Additional resources</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="../../ai_workloads/kueue/configuring-quotas.html#configuring-quotas">Configuring quotas</a></p>
+</li>
+<li>
+<p><a href="../../ai_workloads/kueue/configuring-fairsharing.html#configuring-fairsharing">Configuring fair sharing</a></p>
+</li>
+<li>
+<p><a href="../../ai_workloads/kueue/install-kueue.html#create-kueue-cr_install-kueue">Creating a Kueue custom resource</a></p>
+</li>
+<li>
+<p><a href="https://kueue.sigs.k8s.io/docs/concepts/cohort/">Cohorts (Kubernetes documentation)</a></p>
+</li>
+</ul>
 </div>
 </div>
 </div>

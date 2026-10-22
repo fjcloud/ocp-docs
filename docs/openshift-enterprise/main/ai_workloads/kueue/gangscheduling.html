@@ -2012,8 +2012,9 @@
             </li>
             <li><a class="" href="../../hosted_control_planes/hcp-certificates.html">Configuring certificates for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-updating.html">Updating hosted control planes</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-25-8"><span id="sgSpan-25-8" class="fa fa-caret-right"></span>&nbsp;High availability for hosted control planes</a>
-              <ul id="topicSubGroup-25-8" class="nav-tertiary list-unstyled collapse">
+            <li><a class="" href="../../hosted_control_planes/hcp-dual-stream.html">Managing RHCOS version streams within a hosted cluster</a></li>
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-25-9"><span id="sgSpan-25-9" class="fa fa-caret-right"></span>&nbsp;High availability for hosted control planes</a>
+              <ul id="topicSubGroup-25-9" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/about-hcp-ha.html">About high availability for hosted control planes</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp_high_availability/hcp-recovering-etcd-cluster.html">Recovering a failing etcd cluster</a></li>
@@ -2031,8 +2032,8 @@
             <li><a class="" href="../../hosted_control_planes/hcp-observability.html">Observability for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-networking.html">Networking for hosted control planes</a></li>
             <li><a class="" href="../../hosted_control_planes/hcp-troubleshooting.html">Troubleshooting hosted control planes</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-25-15"><span id="sgSpan-25-15" class="fa fa-caret-right"></span>&nbsp;Destroying a hosted cluster</a>
-              <ul id="topicSubGroup-25-15" class="nav-tertiary list-unstyled collapse">
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-25-16"><span id="sgSpan-25-16" class="fa fa-caret-right"></span>&nbsp;Destroying a hosted cluster</a>
+              <ul id="topicSubGroup-25-16" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../hosted_control_planes/hcp-destroy/hcp-destroy-aws.html">Destroying a hosted cluster on AWS</a></li>
                   <li><a class="" href="../../hosted_control_planes/hcp-destroy/hcp-destroy-bm.html">Destroying a hosted cluster on bare metal</a></li>
@@ -3471,26 +3472,77 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#configuring-gangscheduling_gangscheduling">Configuring gang scheduling</a></li>
+<li><a href="#kueue-workload-readiness-timeouts_gangscheduling">Workload readiness timeouts and retries</a></li>
+<li><a href="#configuring-gangscheduling_gangscheduling">Gang scheduling configuration</a></li>
+<li><a href="#kueue-manage-workload-resources_gangscheduling">Manage workload resources with gang scheduling</a></li>
+<li><a href="#kueue-gang-scheduling-timeout-requeue-fields_gangscheduling">Gang scheduling admission, timeout, and requeue fields</a></li>
 <li><a href="#additional-resources_gangscheduling">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>You can use gang scheduling to ensure that a group, or gang, of related jobs starts only when all required resources are available.</p>
+<p>Configure gang scheduling in Red&#160;Hat build of Kueue for <em>all-or-nothing</em> admission of workloads that require a group of pods to run together.</p>
 </div>
 <div class="paragraph">
-<p>Red&#160;Hat build of Kueue enables gang scheduling by suspending jobs until the OpenShift Container Platform cluster can guarantee the capacity to start and execute all of the related jobs in the <em>gang</em> together. This is also known as <em>all-or-nothing</em> scheduling.</p>
+<p>Gang scheduling can improve resource use, help resolve deadlocks, and reduce costs.</p>
 </div>
 <div class="paragraph">
-<p>Gang scheduling is important if you are working with expensive, limited resources, such as GPUs. Gang scheduling can prevent jobs from claiming but not using GPUs, which can improve GPU utilization and can reduce running costs. Gang scheduling can also help to prevent issues like resource segmentation and deadlocking.</p>
+<p>A deadlock can occur when workloads compete for limited resources and not all required pods reach a ready state. For example, running workers in a distributed training job can hold GPUs while waiting for the remaining workers to start.</p>
+</div>
+<div class="paragraph">
+<p>You can specify how Red&#160;Hat build of Kueue admits workloads and responds when pods do not reach a ready state.</p>
+</div>
+<div class="paragraph">
+<p>To reduce competition for resources while pods start, configure sequential admission. To admit workloads without waiting for pods in admitted workloads to reach a ready state, configure parallel admission.</p>
+</div>
+<div class="paragraph">
+<p>To limit how long workloads hold quota when pods do not reach a ready state during startup or recovery, set cluster-wide readiness timeouts. Use requeue settings to specify whether and how Red&#160;Hat build of Kueue returns the workload to the queue.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="configuring-gangscheduling_gangscheduling"><a class="anchor" href="#configuring-gangscheduling_gangscheduling"></a>Configuring gang scheduling</h2>
+<h2 id="kueue-workload-readiness-timeouts_gangscheduling"><a class="anchor" href="#kueue-workload-readiness-timeouts_gangscheduling"></a>Workload readiness timeouts and retries</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>As a cluster administrator, you can configure gang scheduling by modifying the <code>gangScheduling</code> spec in the <code>Kueue</code> custom resource (CR).</p>
+<p>Readiness timeouts control how long Red&#160;Hat build of Kueue waits for pods to reach a ready state during startup or recovery. You can adjust these timeouts to accommodate tasks such as image pulls and worker initialization.</p>
+</div>
+<div class="paragraph">
+<p>The <code>admission</code> field determines whether Red&#160;Hat build of Kueue admits workloads in parallel or sequentially. Readiness timeouts apply after admission.</p>
+</div>
+<div class="paragraph">
+<p>One set of readiness timeouts applies across the whole cluster. You cannot set different timeouts for individual namespaces or workloads.</p>
+</div>
+<div class="paragraph">
+<p>Choose timeouts that cover the expected startup and recovery times. A short timeout can trigger eviction before pods reach a ready state. A long timeout can delay other workloads that need the reserved quota.</p>
+</div>
+<div class="paragraph">
+<p>The following terms describe how readiness timeouts and retries work:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Start timeout</dt>
+<dd>
+<p>Limits the time from admission until a workload reaches the <code>PodsReady=True</code> condition. Pods are ready when they are in the <code>Running</code> phase and pass any configured readiness checks.</p>
+</dd>
+<dt class="hdlist1">Recovery timeout</dt>
+<dd>
+<p>Limits the time for a workload to return to the <code>PodsReady=True</code> condition after one or more pods lose readiness.</p>
+</dd>
+<dt class="hdlist1">Workload retry</dt>
+<dd>
+<p>Allows another admission attempt after a readiness timeout. If retries remain or you omit the limit, Red&#160;Hat build of Kueue evicts and requeues the workload. If no retries remain, Red&#160;Hat build of Kueue deactivates the workload.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="configuring-gangscheduling_gangscheduling"><a class="anchor" href="#configuring-gangscheduling_gangscheduling"></a>Gang scheduling configuration</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The <code>spec.config.gangScheduling.policy</code> field in the <code>Kueue</code> custom resource (CR) controls the gang scheduling policy for workloads.</p>
+</div>
+<div class="paragraph">
+<p>The following example uses parallel admission and a 10-minute start timeout:</p>
 </div>
 <div class="listingblock">
 <div class="title">Example <code>Kueue</code> CR with gang scheduling configured</div>
@@ -3502,28 +3554,244 @@
   <span class="na">labels</span><span class="pi">:</span>
     <span class="s">app.kubernetes.io/managed-by</span><span class="pi">:</span> <span class="s">kustomize</span>
     <span class="s">app.kubernetes.io/name</span><span class="pi">:</span> <span class="s">kueue-operator</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">openshift-kueue-operator</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">config</span><span class="pi">:</span>
+    <span class="na">integrations</span><span class="pi">:</span>
+      <span class="na">frameworks</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">BatchJob</span>
     <span class="na">gangScheduling</span><span class="pi">:</span>
       <span class="na">policy</span><span class="pi">:</span> <span class="s">ByWorkload</span>
       <span class="na">byWorkload</span><span class="pi">:</span>
         <span class="na">admission</span><span class="pi">:</span> <span class="s">Parallel</span>
+        <span class="na">timeoutSeconds</span><span class="pi">:</span> <span class="s">600</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>policy</code> field accepts the following values:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. <code>spec.config.gangScheduling.policy</code> values</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ByWorkload</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Processes each workload as a single unit for admission. The readiness timeout applies to the entire workload. If retries remain or you omit the limit, Red&#160;Hat build of Kueue evicts and requeues the workload for another admission attempt. If no retries remain, Red&#160;Hat build of Kueue deactivates the workload. Include the <code>byWorkload</code> field.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ByWorkloadDefaults</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Processes each workload as a single unit for admission and uses the default admission, timeout, and requeue settings. The <code>ByWorkloadDefaults</code> policy does not allow the <code>byWorkload</code> field.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>None</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Uses parallel admission and a fixed one-year readiness timeout. For workloads that reach a ready state within one year, this policy provides the same behavior as disabling gang scheduling. Workloads that do not reach a ready state remain subject to the timeout. The <code>None</code> policy does not allow the <code>byWorkload</code> field.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Empty string (<code>""</code>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Uses <code>ByWorkloadDefaults</code>, the default policy. An empty <code>policy</code> value does not allow the <code>byWorkload</code> field.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="kueue-manage-workload-resources_gangscheduling"><a class="anchor" href="#kueue-manage-workload-resources_gangscheduling"></a>Manage workload resources with gang scheduling</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>To manage workload admission and readiness in Red&#160;Hat build of Kueue, configure gang scheduling. Set admission modes, cluster-wide readiness timeouts, and retry limits.</p>
+</div>
+<div class="paragraph">
+<p>The following example uses the <code>ByWorkload</code> policy with parallel admission. It sets a 10-minute start timeout, a 30-minute recovery timeout, and a retry limit of five.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have cluster administrator permissions.</p>
+</li>
+<li>
+<p>You installed the Red&#160;Hat build of Kueue Operator on your cluster.</p>
+</li>
+<li>
+<p>You created a <code>Kueue</code> custom resource (CR) named <code>cluster</code>.</p>
+</li>
+<li>
+<p>You installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Update the <code>Kueue</code> CR configuration by setting the <code>spec.config.gangScheduling</code> field to the following values. Keep the other CR settings.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">kueue.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Kueue</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">config</span><span class="pi">:</span>
+    <span class="na">integrations</span><span class="pi">:</span>
+      <span class="na">frameworks</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">BatchJob</span>
+    <span class="na">gangScheduling</span><span class="pi">:</span>
+      <span class="na">policy</span><span class="pi">:</span> <span class="s">ByWorkload</span>
+      <span class="na">byWorkload</span><span class="pi">:</span>
+        <span class="na">admission</span><span class="pi">:</span> <span class="s">Parallel</span>
+        <span class="na">timeoutSeconds</span><span class="pi">:</span> <span class="m">600</span>
+        <span class="na">recoveryTimeoutSeconds</span><span class="pi">:</span> <span class="m">1800</span>
+        <span class="na">requeuingStrategy</span><span class="pi">:</span>
+          <span class="na">timeReference</span><span class="pi">:</span> <span class="s">Eviction</span>
+          <span class="na">retryLimit</span><span class="pi">:</span> <span class="m">5</span>
+          <span class="na">backoffBaseSeconds</span><span class="pi">:</span> <span class="m">120</span>
+          <span class="na">backoffMaxSeconds</span><span class="pi">:</span> <span class="m">7200</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>spec.config.gangScheduling.policy</code></dt>
-<dd>
-<p>You can set the <code>policy</code> value to enable or disable gang scheduling. The possible values are <code>ByWorkload</code>, <code>None</code>, or empty (<code>""</code>).
-When the <code>policy</code> value is set to <code>ByWorkload</code>, each job is processed and considered for admission as a single unit. If the job does not become ready within the specified time, the entire job is evicted and retried at a later time. When the <code>policy</code> value is set to <code>None</code>, gang scheduling is disabled. When the <code>policy</code> value is empty or set to <code>""</code>, the Red&#160;Hat build of Kueue Operator determines settings for gang scheduling. Currently, gang scheduling is disabled by default.</p>
-</dd>
-<dt class="hdlist1"><code>spec.config.gangScheduling.byWorkload.admission</code></dt>
-<dd>
-<p>If the <code>policy</code> value is set to <code>ByWorkload</code>, you must configure job admission settings. The possible values for the <code>admission</code> spec are <code>Parallel</code>, <code>Sequential</code>, or empty (<code>""</code>). When the <code>admission</code> value is set to <code>Parallel</code>, pods from any job can be admitted at any time. This can cause a deadlock, where jobs are in contention for cluster capacity. When a deadlock occurs, the successful scheduling of pods from another job can prevent the scheduling of pods from the current job. When the <code>admission</code> value is set to <code>Sequential</code>, only pods from the currently processing job are admitted. After all of the pods from the current job have been admitted and are ready, Red&#160;Hat build of Kueue processes the next job. Sequential processing can slow down admission when the cluster has sufficient capacity for multiple jobs, but provides a higher likelihood that all of the pods for a job are scheduled together successfully. When the <code>admission</code> value is empty or set to <code>""</code>, the Red&#160;Hat build of Kueue Operator determines job admission settings. Currently, the <code>admission</code> value is set to <code>Parallel</code> by default.</p>
-</dd>
-</dl>
+<div class="paragraph">
+<p>For more information about the policy field, see "Gang scheduling configuration". For more information about admission, timeout, and requeue fields, see "Gang scheduling admission, timeout, and requeue fields".</p>
+</div>
+</li>
+<li>
+<p>Apply the updated <code>Kueue</code> CR to the cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;filename&gt;.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="kueue-gang-scheduling-timeout-requeue-fields_gangscheduling"><a class="anchor" href="#kueue-gang-scheduling-timeout-requeue-fields_gangscheduling"></a>Gang scheduling admission, timeout, and requeue fields</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The <code>spec.config.gangScheduling.byWorkload</code> fields in Red&#160;Hat build of Kueue configure admission, readiness timeouts, and requeue behavior.</p>
+</div>
+<div class="paragraph">
+<p>Set the <code>admission</code> field when you use the <code>ByWorkload</code> policy. The <code>admission</code> field accepts the following values:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. <code>spec.config.gangScheduling.byWorkload.admission</code> values</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Parallel</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Admits workloads without waiting for pods in admitted workloads to reach a ready state. Quota and other admission requirements still apply. Workloads can compete for cluster capacity and cause a deadlock.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Sequential</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Waits for pods in admitted workloads to reach a ready state before admitting more workloads across any cluster queue. Sequential admission reduces competition for resources while pods start. It can delay workloads even when the cluster has capacity to run them.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Empty string (<code>""</code>)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Uses <code>Parallel</code>, the default value.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The <code>byWorkload</code> field supports the following timeout fields:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 3. <code>spec.config.gangScheduling.byWorkload</code> fields</caption>
+<colgroup>
+<col style="width: 22.2222%;">
+<col style="width: 33.3333%;">
+<col style="width: 22.2222%;">
+<col style="width: 22.2223%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Description</th>
+<th class="tableblock halign-left valign-top">Valid values</th>
+<th class="tableblock halign-left valign-top">If omitted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>timeoutSeconds</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets the start timeout for an admitted workload to reach the <code>PodsReady=True</code> condition. Allow enough time for image pulls, initialization, and resource provisioning.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>30</code>–<code>86400</code> seconds</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Uses <code>1800</code> seconds (30 minutes).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>recoveryTimeoutSeconds</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets the recovery timeout for a workload to return to the <code>PodsReady=True</code> condition after one or more pods lose readiness. A value of <code>0</code> disables recovery timeout checks. The start timeout still applies.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>0</code>–<code>86400</code> seconds</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Uses the value of <code>timeoutSeconds</code>.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The <code>requeuingStrategy</code> field supports the following fields. If you include <code>requeuingStrategy</code>, specify at least one field. An empty <code>requeuingStrategy: {}</code> value is invalid.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 4. <code>spec.config.gangScheduling.byWorkload.requeuingStrategy</code> fields</caption>
+<colgroup>
+<col style="width: 22.2222%;">
+<col style="width: 33.3333%;">
+<col style="width: 22.2222%;">
+<col style="width: 22.2223%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Description</th>
+<th class="tableblock halign-left valign-top">Valid values</th>
+<th class="tableblock halign-left valign-top">If omitted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>timeReference</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Selects which timestamp Red&#160;Hat build of Kueue uses to order a workload in the queue after a readiness timeout.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Eviction</code> uses the eviction time. <code>Creation</code> uses the workload creation time.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Uses <code>Eviction</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>retryLimit</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Limits repeated admission attempts after readiness timeouts. After a workload uses all retries, the next timeout deactivates the workload. The <code>spec.active</code> field of the <code>Workload</code> object changes to <code>false</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1</code>–<code>200</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets no retry limit.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>backoffBaseSeconds</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets the base delay before a workload can be admitted again. The delay increases exponentially with the retry count.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>30</code>–<code>3600</code> seconds</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Uses <code>60</code> seconds.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>backoffMaxSeconds</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Sets the maximum delay before a workload can be admitted again. If you set both delay fields, <code>backoffBaseSeconds</code> must not exceed <code>backoffMaxSeconds</code>.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>30</code>–<code>7200</code> seconds</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Uses <code>3600</code> seconds.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>After the configured delay, the workload must still meet quota and other admission requirements before Red&#160;Hat build of Kueue can admit it again.</p>
 </div>
 </div>
 </div>
