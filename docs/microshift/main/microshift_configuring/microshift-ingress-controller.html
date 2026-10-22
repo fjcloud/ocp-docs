@@ -678,6 +678,7 @@
 <li><a href="#microshift-ingress-control-config-fields_microshift-ingress-controller">Ingress controller configuration fields in MicroShift</a></li>
 <li><a href="#microshift-ingress-controller-create-cert-secret_microshift-ingress-controller">Create a secret for the ingress controller certificateSecret</a></li>
 <li><a href="#microshift-ingress-controller-config_microshift-ingress-controller">Configure the TLS security profile for the ingress controller</a></li>
+<li><a href="#microshift-ingress-tls-curves-con_microshift-ingress-controller">About TLS curves for the ingress controller</a></li>
 </ul>
 </li>
 <li><a href="#additional-resources_microshift-ingress-controller_microshift-ingress-controller">Additional resources</a></li>
@@ -743,8 +744,18 @@
 <div class="ulist">
 <ul>
 <li>
-<p>If you need to configure a TLS security profile for an ingress controller, you can use the <code>ingress.tlsSecurityProfile</code> parameter to specify a default or custom individual TLS security profiles. The TLS security profile defines the minimum TLS version and the TLS ciphers for TLS connections for the ingress controllers.
+<p>If you need to configure a TLS security profile for an ingress controller, you can use the <code>ingress.tlsSecurityProfile</code> parameter to specify a default or custom TLS security profile. The TLS security profile defines the minimum TLS version and the TLS ciphers for TLS connections for the ingress controllers.
 If a TLS security profile is not configured, the default value is based on the TLS security profile set for the API server.</p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Default TLS curves</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>By default, the ingress controller advertises TLS key-exchange groups that include the <code>X25519MLKEM768</code> hybrid post-quantum group. You cannot set TLS curves in the MicroShift configuration file. If the node runs in FIPS mode, MicroShift automatically restricts the advertised groups to FIPS-approved NIST curves.</p>
 </li>
 </ul>
 </div>
@@ -1519,6 +1530,9 @@ log message. The ingress controller might impose a separate bound on the total l
 <li>
 <p>The minimum TLS version for ingress controllers is <code>1.1</code>. The maximum TLS version is <code>1.3</code>.</p>
 </li>
+<li>
+<p>The ingress controller also advertises default TLS curves. When the node does not run in FIPS mode, the default curves are <code>X25519MLKEM768</code>, <code>X25519</code>, <code>P-256</code>, <code>P-384</code>, and <code>P-521</code>. If the node runs in FIPS mode, the curves are <code>P-256</code>, <code>P-384</code>, and <code>P-521</code>. You cannot configure TLS curves in the <code>config.yaml</code> file.</p>
+</li>
 </ul>
 </div>
 <div class="admonitionblock note">
@@ -1581,7 +1595,7 @@ log message. The ingress controller might impose a separate bound on the total l
 <p><code>tlsSecurityProfile.type</code></p>
 </div></div></td>
 <td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
-<p>Valid values are <code>Intermediate</code>, <code>Old</code>, or <code>Custom</code>. The <code>Modern</code> value is not supported.</p>
+<p>Valid values are <code>Intermediate</code>, <code>Old</code>, <code>Modern</code>, or <code>Custom</code>.</p>
 </div></div></td>
 </tr>
 <tr>
@@ -1912,7 +1926,7 @@ log message. The ingress controller might impose a separate bound on the total l
 <dl>
 <dt class="hdlist1"><code>spec.tlsSecurityProfile.type</code></dt>
 <dd>
-<p>Specifies the TLS security profile type (<code>Old</code>, <code>Intermediate</code>, or <code>Custom</code>). The default is <code>Intermediate</code>.</p>
+<p>Specifies the TLS security profile type (<code>Old</code>, <code>Intermediate</code>, <code>Modern</code>, or <code>Custom</code>). The default is <code>Intermediate</code>.</p>
 </dd>
 <dt class="hdlist1"><code>spec.tlsSecurityProfile.custom</code></dt>
 <dd>
@@ -1924,6 +1938,9 @@ log message. The ingress controller might impose a separate bound on the total l
 </li>
 <li>
 <p><code>intermediate: {}</code></p>
+</li>
+<li>
+<p><code>modern: {}</code></p>
 </li>
 <li>
 <p><code>custom:</code></p>
@@ -1948,6 +1965,20 @@ log message. The ingress controller might impose a separate bound on the total l
 </tr>
 </table>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>tlsSecurityProfile</code> parameter configures the minimum TLS version and the cipher suites. MicroShift selects the TLS curves for the ingress router based on whether FIPS mode is enabled on the node. You cannot configure TLS curves in the <code>config.yaml</code> file.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </dd>
 </dl>
 </div>
@@ -1966,6 +1997,85 @@ log message. The ingress controller might impose a separate bound on the total l
 </ol>
 </div>
 </div>
+<div class="sect2">
+<h3 id="microshift-ingress-tls-curves-con_microshift-ingress-controller"><a class="anchor" href="#microshift-ingress-tls-curves-con_microshift-ingress-controller"></a>About TLS curves for the ingress controller</h3>
+<div class="paragraph _abstract">
+<p>The ingress controller advertises TLS curves, also called key-exchange groups, during the TLS handshake. By default, the advertised list includes a hybrid post-quantum group. You cannot set TLS curves in the MicroShift configuration file.</p>
+</div>
+<div class="paragraph">
+<p>The <code>ingress.tlsSecurityProfile</code> parameter configures the minimum TLS version and the cipher suites only. MicroShift selects the TLS curves for the ingress router based on whether the node runs in FIPS mode.</p>
+</div>
+<div class="paragraph">
+<p>When the node does not run in FIPS mode, the default list includes <code>X25519MLKEM768</code>. <code>X25519MLKEM768</code> is a hybrid post-quantum group that combines the classical <code>X25519</code> key exchange with the Module-Lattice-Based Key-Encapsulation Mechanism 768 (ML-KEM-768). Clients that do not support <code>X25519MLKEM768</code> can negotiate another advertised curve.</p>
+</div>
+<div class="paragraph">
+<p>If the node runs in FIPS mode, MicroShift advertises only FIPS-approved National Institute of Standards and Technology (NIST) curves. MicroShift also removes TLS 1.3 cipher suites that are not FIPS-approved. The OpenSSL FIPS 140-3 provider does not support ML-KEM or <code>X25519</code>.</p>
+</div>
+<div class="sect3">
+<h4 id="microshift-ingress-default-tls-curves_microshift-ingress-controller"><a class="anchor" href="#microshift-ingress-default-tls-curves_microshift-ingress-controller"></a>Default TLS curves for the ingress controller</h4>
+<div class="paragraph _abstract">
+<p>The MicroShift ingress controller includes default TLS curves. The advertised list changes when the node runs in FIPS mode. You cannot customize the TLS curves.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Default TLS curves</dt>
+<dd>
+<p>The following list specifies the default TLS curves when the node does not run in FIPS mode:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>X25519MLKEM768</code></p>
+</li>
+<li>
+<p><code>X25519</code></p>
+</li>
+<li>
+<p><code>P-256</code></p>
+</li>
+<li>
+<p><code>P-384</code></p>
+</li>
+<li>
+<p><code>P-521</code></p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Default TLS curves in FIPS mode</dt>
+<dd>
+<p>The following list specifies the default TLS curves when the node runs in FIPS mode:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>P-256</code></p>
+</li>
+<li>
+<p><code>P-384</code></p>
+</li>
+<li>
+<p><code>P-521</code></p>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the node runs in FIPS mode, MicroShift also removes TLS 1.3 cipher suites that are not FIPS-approved, such as <code>TLS_CHACHA20_POLY1305_SHA256</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div class="sect1 _additional-resources">
@@ -1973,6 +2083,9 @@ log message. The ingress controller might impose a separate bound on the total l
 <div class="sectionbody">
 <div class="ulist">
 <ul>
+<li>
+<p><a href="../microshift_install_get_ready/microshift-fips.html#microshift-fips">Using FIPS mode with MicroShift</a></p>
+</li>
 <li>
 <p><a href="https://docs.redhat.com/container-platform/latest/networking/networking_operators/ingress-operator.html#nw-http2-haproxy_configuring-ingress">Enabling HTTP/2 Ingress connectivity (OpenShift Container Platform documentation)</a></p>
 </li>
