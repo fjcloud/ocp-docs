@@ -14,7 +14,6 @@
   
   
   
-  
 
   <title>Customizing MicroShift by using the configuration file | Configuring | Red Hat build of MicroShift Branch Build</title>
   <link href="https://assets.openshift.net/content/subdomain.css" rel="stylesheet" type="text/css"/>
@@ -679,6 +678,9 @@
 <li><a href="#microshift-yaml-advertiseAddress_microshift-using-config-yaml">Configure the advertise address network flag</a></li>
 <li><a href="#microshift-nodeport-range-limits_microshift-using-config-yaml">Extending the port range for NodePort services</a></li>
 <li><a href="#microshift-resolve-custom-hostnames_microshift-using-config-yaml">Configure custom hostnames</a></li>
+<li><a href="#microshift-custom-dns-config-con_microshift-using-config-yaml">Understanding custom DNS configuration</a></li>
+<li><a href="#microshift-custom-dns-config-proc_microshift-using-config-yaml">Configure MicroShift with a custom CoreDNS Corefile</a></li>
+<li><a href="#microshift-custom-dns-config-runtime-con_microshift-using-config-yaml">Updating a custom Corefile at runtime</a></li>
 </ul>
 </li>
 <li><a href="#additional-resources_microshift-using-config-yaml">Additional resources</a></li>
@@ -1740,6 +1742,305 @@
 </div>
 </li>
 </ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="microshift-custom-dns-config-con_microshift-using-config-yaml"><a class="anchor" href="#microshift-custom-dns-config-con_microshift-using-config-yaml"></a>Understanding custom DNS configuration</h3>
+<div class="paragraph _abstract">
+<p>By default, MicroShift renders an internal CoreDNS Corefile for the node. You can replace that built-in configuration by setting the <code>dns.configFile</code> parameter in the MicroShift configuration file to the absolute path of a custom Corefile on the host filesystem.</p>
+</div>
+<div class="paragraph">
+<p>Use a custom Corefile when the default DNS configuration does not meet advanced networking requirements. Typical use cases include split-horizon DNS, custom forwarding rules, and conditional zone delegation.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You are responsible for the correctness of a custom CoreDNS configuration. An invalid Corefile can break DNS resolution or cause intermittent errors. Red&#160;Hat support for issues that involve a custom Corefile is limited to commercially reasonable efforts. Support might require you to reproduce the issue without the custom configuration.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>If you do not set <code>dns.configFile</code>, or you leave the value empty, MicroShift uses the built-in Corefile.</p>
+</div>
+<div class="paragraph">
+<p>The <code>dns.configFile</code> and <code>dns.hosts</code> parameters are mutually exclusive. If you set <code>dns.configFile</code> and you also set <code>dns.hosts.status</code> to <code>Enabled</code>, MicroShift fails to start.</p>
+</div>
+<div class="paragraph">
+<p>When you set <code>dns.configFile</code>, the custom Corefile must meet the following constraints. If any constraint fails, MicroShift fails to start:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The path must be absolute. For example, <code>/etc/microshift/dns/Corefile</code>.</p>
+</li>
+<li>
+<p>The file must exist.</p>
+</li>
+<li>
+<p>The file must be a regular file.</p>
+</li>
+<li>
+<p>The file must be readable.</p>
+</li>
+<li>
+<p>The file must not be empty.</p>
+</li>
+<li>
+<p>The file must not exceed 1 MiB.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="microshift-custom-dns-config-proc_microshift-using-config-yaml"><a class="anchor" href="#microshift-custom-dns-config-proc_microshift-using-config-yaml"></a>Configure MicroShift with a custom CoreDNS Corefile</h3>
+<div class="paragraph _abstract">
+<p>You can replace the built-in CoreDNS configuration by placing a custom Corefile on the host and pointing the <code>dns.configFile</code> parameter to that file. MicroShift copies the file contents into the <code>dns-default</code> config map in the <code>openshift-dns</code> namespace.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You have root access to the node.</p>
+</li>
+<li>
+<p>You created a MicroShift <code>config.yaml</code> file in the <code>/etc/microshift/</code> directory.</p>
+</li>
+<li>
+<p>The <code>dns.hosts.status</code> parameter is not set to <code>Enabled</code>.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Create the directory for the custom Corefile by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo mkdir</span> <span class="nt">-p</span> /etc/microshift/dns</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a custom Corefile. Use the following example as a starting point, then add the forwarding rules or zone stanzas that your environment requires:</p>
+<div class="listingblock">
+<div class="title">Example starter Corefile</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="text">.:5353 {
+    bufsize 1232
+    errors
+    log . {
+        class error
+    }
+    health {
+        lameduck 20s
+    }
+    ready
+    kubernetes cluster.local in-addr.arpa ip6.arpa {
+        pods insecure
+        fallthrough in-addr.arpa ip6.arpa
+    }
+    prometheus 127.0.0.1:9153
+    forward . /etc/resolv.conf {
+        policy sequential
+    }
+    cache 900 {
+        denial 9984 30
+    }
+    reload
+}
+hostname.bind:5353 {
+    chaos
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Save the file as <code>/etc/microshift/dns/Corefile</code>.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Keep the <code>reload</code> plugin in the custom Corefile so that CoreDNS applies config map updates. An invalid Corefile can break DNS resolution or cause MicroShift to fail to start.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Optional: To forward queries to a specific upstream resolver, replace the <code>forward</code> stanza in the Corefile with values for your environment:</p>
+<div class="listingblock">
+<div class="title">Example custom forwarding stanza</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="text">    forward . 192.0.2.53 {
+        policy sequential
+    }</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit the <code>/etc/microshift/config.yaml</code> file and set the <code>dns.configFile</code> parameter to the absolute path of the custom Corefile:</p>
+<div class="listingblock">
+<div class="title">Example custom Corefile configuration</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiServer</span><span class="pi">:</span>
+<span class="c1"># ...</span>
+<span class="na">dns</span><span class="pi">:</span>
+  <span class="na">configFile</span><span class="pi">:</span> <span class="s">/etc/microshift/dns/Corefile</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>dns.configFile</code></dt>
+<dd>
+<p>Specifies the absolute path to the custom Corefile on the host. The path must exist, be readable, and not exceed 1 MiB. This parameter is mutually exclusive with <code>dns.hosts.status: Enabled</code>.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>You can set the same parameter in a configuration snippet in the <code>/etc/microshift/config.d/</code> directory instead of editing <code>config.yaml</code>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Save the configuration file.</p>
+</li>
+<li>
+<p>Restart the MicroShift service by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>systemctl restart microshift</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>After this initial restart, MicroShift monitors the custom Corefile for content changes. You do not restart the MicroShift service to apply edits to that file. If you change the <code>dns.configFile</code> path in the configuration YAML file, restart the MicroShift service again.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Confirm that the <code>dns-default</code> config map contains the custom Corefile by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configmap dns-default <span class="nt">-n</span> openshift-dns <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.Corefile}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output matches the contents of <code>/etc/microshift/dns/Corefile</code>.</p>
+</div>
+</li>
+<li>
+<p>Confirm that the config map annotation points to your custom Corefile by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get configmap dns-default <span class="nt">-n</span> openshift-dns <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.metadata.annotations.microshift\.io/dns-config-file}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="text">/etc/microshift/dns/Corefile</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Confirm that the DNS pods are running by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-dns</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="text">NAME                  READY   STATUS    RESTARTS   AGE
+dns-default-xxxxx     2/2     Running   0          1m
+node-resolver-xxxxx   1/1     Running   0          1m</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="microshift-custom-dns-config-runtime-con_microshift-using-config-yaml"><a class="anchor" href="#microshift-custom-dns-config-runtime-con_microshift-using-config-yaml"></a>Updating a custom Corefile at runtime</h3>
+<div class="paragraph _abstract">
+<p>After you set the <code>dns.configFile</code> parameter and restart MicroShift, MicroShift watches the custom Corefile on the host. When you save changes to that file, MicroShift updates the <code>Corefile</code> key in the <code>dns-default</code> config map in the <code>openshift-dns</code> namespace. You do not restart the MicroShift service to apply those content changes.</p>
+</div>
+<div class="paragraph">
+<p>CoreDNS applies the updated config map only if the custom Corefile includes the <code>reload</code> plugin. Keep that plugin in the file so that DNS changes take effect without restarting MicroShift or the DNS pods.</p>
+</div>
+<div class="paragraph">
+<p>The file watcher applies only to the Corefile path that was set when MicroShift started. Restart the MicroShift service when you make any of the following changes:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>You change the <code>dns.configFile</code> value in the <code>config.yaml</code> file or in a configuration snippet.</p>
+</li>
+<li>
+<p>You remove the <code>dns.configFile</code> setting from the <code>config.yaml</code> file or from a configuration snippet and delete the custom Corefile. MicroShift then uses the built-in Corefile after the restart.</p>
+</li>
+<li>
+<p>You enable or disable <code>dns.hosts</code> in the MicroShift configuration. The <code>dns.configFile</code> and <code>dns.hosts.status: Enabled</code> settings remain mutually exclusive.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Deleting the custom Corefile without removing <code>dns.configFile</code> does not restore the built-in configuration. While MicroShift is running, the file watcher keeps the last contents of the <code>dns-default</code> config map. On the next start, MicroShift fails if <code>dns.configFile</code> points to a file that does not exist. Remove the <code>dns.configFile</code> setting before you delete the file, and then restart the MicroShift service.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The MicroShift configuration YAML file is read only when the service starts. Runtime watching does not apply to <code>config.yaml</code> or to configuration snippets. Only the contents of the already configured Corefile are synchronized without a restart.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>An invalid edit to the Corefile can break DNS resolution on a running node. Verify the <code>dns-default</code> config map and the DNS pods after you change the file.</p>
 </div>
 </div>
 </div>
