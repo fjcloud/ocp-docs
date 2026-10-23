@@ -546,6 +546,7 @@
                   <li><a class="" href="../../updating/updating_a_cluster/update-ocp-5.html">Updating a cluster to OpenShift Container Platform 5.0</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-cli.html">Updating a cluster using the CLI</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-web-console.html">Updating a cluster using the web console</a></li>
+                  <li><a class="" href="../../updating/updating_a_cluster/update-ai.html">Creating cluster update assessments with OpenShift Lightspeed</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/update-using-custom-machine-config-pools.html">Performing a canary rollout update</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/disconnected-update.html">Updating a cluster in a disconnected environment</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-hardware-on-nodes-running-on-vsphere.html">Updating hardware on nodes running on vSphere</a></li>
@@ -642,8 +643,9 @@
             </li>
             <li><a class="" href="../../cli_reference/odo-important-update.html">Developer CLI (odo)</a></li>
             <li><a class="" href="../../cli_reference/kn-cli-tools.html">Knative CLI (kn) for use with OpenShift Serverless</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-9-5"><span id="sgSpan-9-5" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
-              <ul id="topicSubGroup-9-5" class="nav-tertiary list-unstyled collapse">
+            <li><a class="" href="../../cli_reference/helm-cli.html">Helm CLI (helm)</a></li>
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-9-6"><span id="sgSpan-9-6" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
+              <ul id="topicSubGroup-9-6" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../cli_reference/opm/cli-opm-install.html">Installing the opm CLI</a></li>
                   <li><a class="" href="../../cli_reference/opm/cli-opm-ref.html">opm CLI reference</a></li>              </ul>
@@ -2928,7 +2930,7 @@
 <h2 id="kms-disabling-encryption_kms-disabling"><a class="anchor" href="#kms-disabling-encryption_kms-disabling"></a>Disable KMS encryption</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can disable external KMS encryption and migrate to local encryption to simplify operations or resolve KMS connectivity issues.</p>
+<p>You can disable KMS encryption and migrate to local encryption or disable encryption entirely to simplify operations or resolve connectivity issues.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -2949,7 +2951,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Re-encryption of all etcd data will occur.</p>
+<p>Re-encryption of all etcd data occurs when you change the encryption type.</p>
 </div>
 </td>
 </tr>
@@ -2967,7 +2969,7 @@
 </div>
 </li>
 <li>
-<p>Change the encryption configuration:</p>
+<p>Change the encryption type and remove the <code>kms</code> section by using the following example:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
@@ -2980,28 +2982,28 @@
 </div>
 </div>
 <div class="paragraph">
-<p>Replace <code>&lt;encryption&gt;</code> with <code>aescbc</code>, <code>aesgcm</code>, or <code>identity</code>.</p>
+<p>Replace <code>&lt;encryption&gt;</code> with <code>aescbc</code>, <code>aesgcm</code>, or <code>identity</code>. The <code>aescbc</code> and <code>aesgcm</code> types use locally managed encryption keys. The <code>identity</code> type disables all encryption and stores data as plain text. You must remove the entire <code>kms</code> section because the API rejects it when the encryption type is not <code>KMS</code>.</p>
 </div>
 </li>
 <li>
 <p>Save and exit.</p>
 <div class="paragraph">
-<p>OKD automatically migrates etcd data. Migration time depends on etcd size and secret count.</p>
+<p>OKD migrates etcd data. The KMS plugin remains as a read-only provider until migration completes.</p>
 </div>
 </li>
 <li>
 <p>Monitor the migration progress by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get openshiftapiserver <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{.message}{"\n"}{end}'</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.type=="Encrypted")]}'</span> | jq .</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Wait until the output shows <code>EncryptionCompleted</code>.</p>
+<p>Wait for <code>reason</code> to show <code>EncryptionCompleted</code>. The <code>kube-apiserver</code> is typically the last to complete.</p>
 </div>
 </li>
 <li>
-<p>Verify kube-apiserver pods rolled out by entering the following command:</p>
+<p>Verify that the <code>kube-apiserver</code> pods have rolled out by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> openshift-kube-apiserver <span class="nt">-l</span> <span class="nv">app</span><span class="o">=</span>openshift-kube-apiserver</code></pre>
@@ -3009,32 +3011,34 @@
 </div>
 </li>
 <li>
-<p>Remove the static pod manifest from each control plane node by running the following command:</p>
-<div class="listingblock">
+<p>After migration completes, clean up the KMS provider resources by using the following steps:</p>
+<div class="openblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="k">for </span>node <span class="k">in</span> <span class="si">$(</span>oc get nodes <span class="nt">--selector</span><span class="o">=</span>node-role.kubernetes.io/master <span class="nt">-o</span> name | <span class="nb">cut</span> <span class="nt">-d</span>/ <span class="nt">-f2</span><span class="si">)</span><span class="p">;</span> <span class="k">do</span>
-<span class="gp">    echo "Removing static pod from $</span>node...<span class="s2">"
-</span><span class="gp">    oc debug node/$</span><span class="s2">node -- chroot /host </span><span class="se">\</span><span class="s2">
-      rm -f /etc/kubernetes/manifests/vault-kms-plugin.yaml
-</span><span class="go">  done</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The kubelet automatically stops static pods when their manifest is removed from <code>/etc/kubernetes/manifests/</code>.</p>
-</div>
-</li>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
 <li>
-<p>Clean up the socket directory by running the following command:</p>
+<p>Delete the credential secret by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="k">for </span>node <span class="k">in</span> <span class="si">$(</span>oc get nodes <span class="nt">--selector</span><span class="o">=</span>node-role.kubernetes.io/master <span class="nt">-o</span> name | <span class="nb">cut</span> <span class="nt">-d</span>/ <span class="nt">-f2</span><span class="si">)</span><span class="p">;</span> <span class="k">do</span>
-<span class="gp">    oc debug node/$</span>node <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">rm</span> <span class="nt">-rf</span> /var/run/kmsplugin
-<span class="go">  done</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret vault-approle-secret <span class="nt">-n</span> openshift-config</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>After backup retention period passes, decommission the KMS key.</p>
+<p>Optional: Delete the CA bundle config map by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete configmap vault-ca-bundle <span class="nt">-n</span> openshift-config</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>After your backup retention period passes, decommission the KMS key.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
 </li>
 </ol>
 </div>
@@ -3079,7 +3083,7 @@
 </div>
 </div>
 <div class="paragraph">
-<p>Output should begin with <code>k8s:enc:aescbc:v1:</code>, <code>k8s:enc:aesgcm:v1:</code>, or show readable JSON for <code>identity</code>.</p>
+<p>The output begins with <code>k8s:enc:aescbc:v1:</code>, <code>k8s:enc:aesgcm:v1:</code>, or shows readable JSON for <code>identity</code>.</p>
 </div>
 </li>
 <li>
@@ -3105,7 +3109,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Do not delete the KMS key until migration completes successfully.</p>
+<p>Do not delete the KMS key until migration completes.</p>
 </div>
 </td>
 </tr>

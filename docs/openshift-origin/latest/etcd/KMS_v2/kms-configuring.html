@@ -546,6 +546,7 @@
                   <li><a class="" href="../../updating/updating_a_cluster/update-ocp-5.html">Updating a cluster to OpenShift Container Platform 5.0</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-cli.html">Updating a cluster using the CLI</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-web-console.html">Updating a cluster using the web console</a></li>
+                  <li><a class="" href="../../updating/updating_a_cluster/update-ai.html">Creating cluster update assessments with OpenShift Lightspeed</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/update-using-custom-machine-config-pools.html">Performing a canary rollout update</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/disconnected-update.html">Updating a cluster in a disconnected environment</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-hardware-on-nodes-running-on-vsphere.html">Updating hardware on nodes running on vSphere</a></li>
@@ -642,8 +643,9 @@
             </li>
             <li><a class="" href="../../cli_reference/odo-important-update.html">Developer CLI (odo)</a></li>
             <li><a class="" href="../../cli_reference/kn-cli-tools.html">Knative CLI (kn) for use with OpenShift Serverless</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-9-5"><span id="sgSpan-9-5" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
-              <ul id="topicSubGroup-9-5" class="nav-tertiary list-unstyled collapse">
+            <li><a class="" href="../../cli_reference/helm-cli.html">Helm CLI (helm)</a></li>
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-9-6"><span id="sgSpan-9-6" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
+              <ul id="topicSubGroup-9-6" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../cli_reference/opm/cli-opm-install.html">Installing the opm CLI</a></li>
                   <li><a class="" href="../../cli_reference/opm/cli-opm-ref.html">opm CLI reference</a></li>              </ul>
@@ -2901,9 +2903,11 @@
 <li><a href="#kms-configuring_kms-configuring">Enable KMS encryption</a></li>
 <li><a href="#kms-rotating-encryption-key_kms-configuring">Rotate the Vault encryption key</a></li>
 <li><a href="#kms-migrating-from-local-encryption_kms-configuring">Migrate from local encryption to KMS encryption</a></li>
-<li><a href="#kms-monitoring-status_kms-configuring">Monitor KMS encryption status</a></li>
+<li><a href="#kms-migrating-between-providers_kms-configuring">Migrating between KMS providers</a></li>
+<li><a href="#kms-monitoring-status_kms-configuring">Monitoring KMS encryption status</a></li>
 <li><a href="#kms-troubleshooting_kms-configuring">KMS encryption troubleshooting</a>
 <ul class="sectlevel2">
+<li><a href="#kms-encryption-not-activating_kms-configuring">KMS encryption does not activate</a></li>
 <li><a href="#kms-invalid-configuration_kms-configuring">Invalid KMS configuration</a></li>
 <li><a href="#kms-permissions-errors_kms-configuring">KMS permissions errors</a></li>
 <li><a href="#kms-expired-deleted-key_kms-configuring">Expired or deleted KMS key</a></li>
@@ -2941,7 +2945,7 @@
 <h2 id="kms-configuring_kms-configuring"><a class="anchor" href="#kms-configuring_kms-configuring"></a>Enable KMS encryption</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can enable external Key Management Service (KMS) encryption for etcd data to centralize key management and meet compliance requirements.</p>
+<p>You can enable Key Management Service (KMS) encryption for etcd data to centralize key management and meet compliance requirements.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -2950,38 +2954,38 @@
 <p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
 </li>
 <li>
-<p>You have enabled the <code>TechPreviewNoUpgrade</code> feature set to enable the <code>KMSEncryption</code> feature gate.</p>
+<p>You have enabled the <code>TechPreviewNoUpgrade</code> feature set, which activates the <code>KMSEncryption</code> feature gate.</p>
 </li>
 <li>
-<p>You have a <code>HashiCorp Vault Enterprise</code> instance accessible from your control plane nodes. Vault Community Edition is not available.</p>
-</li>
-<li>
-<p>Your control plane nodes have network access to the Vault server.</p>
+<p>You have a HashiCorp Vault Enterprise instance that is externally hosted and accessible from your cluster. Vault Enterprise must not be hosted inside the cluster service network. Vault Community Edition is not supported.</p>
 </li>
 <li>
 <p>You have configured your Vault instance with:</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Transit secrets engine enabled at the default <code>transit/</code> mount path</p>
+<p>Transit secrets engine enabled at a mount path, such as the default <code>transit/</code> path</p>
 </li>
 <li>
 <p>Encryption key created with type <code>aes256-gcm96</code> (recommended for FIPS 140-3 compliance)</p>
 </li>
 <li>
-<p>Vault policy allowing the Kubernetes KMS v2 plugin to encrypt, decrypt, and read key information</p>
+<p>Vault policy that allows the KMS plugin to encrypt, decrypt, and read key information</p>
 </li>
 <li>
-<p>Authentication method (token, <code>AppRole</code>, or <code>userpass</code>) configured with the policy attached</p>
+<p>Authentication method, such as <code>AppRole</code>, configured with the policy attached</p>
 </li>
 </ul>
 </div>
 </li>
-</ul>
-</div>
-<div class="paragraph">
-<p>The Kubernetes KMS v2 plugin requires a Vault policy with the following capabilities:</p>
-</div>
+<li>
+<p>You have the fully qualified OCI image pull spec with SHA256 digest for the KMS plugin image. You can obtain the image from the Red Hat Ecosystem Catalog or from Docker Hub. For more information, see "HashiCorp Vault KMS plugin container image" and "Red Hat Ecosystem Catalog". In disconnected environments, the image is mirrored to an accessible registry.</p>
+</li>
+<li>
+<p>You have the <code>skopeo</code> and <code>jq</code> tools installed.</p>
+</li>
+<li>
+<p>You have configured a Vault policy with the following capabilities:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="hcl"><span class="nx">path</span> <span class="s2">"transit/encrypt/kms-key"</span> <span class="p">{</span>
@@ -2996,209 +3000,59 @@
   <span class="nx">capabilities</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"read"</span><span class="p">]</span>
 <span class="p">}</span>
 
-<span class="nx">path</span> <span class="s2">"auth/token/lookup-self"</span> <span class="p">{</span>
+<span class="nx">path</span> <span class="s2">"sys/license/status"</span> <span class="p">{</span>
   <span class="nx">capabilities</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"read"</span><span class="p">]</span>
 <span class="p">}</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Replace <code>kms-key</code> with your Vault Transit key name if using a different name.</p>
+<p>Replace <code>transit</code> with your Transit mount path and <code>kms-key</code> with your Vault Transit key name.</p>
 </div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Create an etcd backup before enabling KMS encryption.</p>
-</div>
-</td>
-</tr>
-</table>
+</li>
+<li>
+<p>You have created an etcd backup.</p>
+</li>
+</ul>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Deploy the KMS plugin on each control plane host as a static pod:</p>
-<div class="openblock">
-<div class="content">
-<div class="ulist">
-<ul>
-<li>
-<p>Configure the plugin to listen at <code>unix:///var/run/kmsplugin/kms.sock</code></p>
-</li>
-<li>
-<p>For your static pod, mount <code>/var/run/kmsplugin</code> as <code>hostPath</code></p>
-</li>
-<li>
-<p>Configure KMS provider connection details and authentication credentials</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>The following steps show how to deploy the <code>HashiCorp</code> Vault KMS plugin as a static pod.</p>
-</div>
-</div>
-</div>
-</li>
-<li>
-<p>Create a static pod manifest file:</p>
+<p>Obtain the SHA256 digest for the KMS plugin image by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cat</span> <span class="o">&gt;</span> /tmp/vault-kms-plugin.yaml <span class="o">&lt;&lt;</span><span class="sh">'</span><span class="no">EOF</span><span class="sh">'
-</span><span class="go">apiVersion: v1
-kind: Pod
-metadata:
-  name: vault-kms-plugin
-  namespace: kube-system
-  labels:
-    app: vault-kms-plugin
-    tier: control-plane
-spec:
-  priorityClassName: system-node-critical
-  hostNetwork: true
-  containers:
-  - name: vault-kms-plugin
-</span><span class="gp">    image: quay.io/redhat-isv-containers/698df066f8d1ddf179c15ef9:&lt;version&gt;</span><span class="w">
-</span><span class="go">    command:
-    - /vault-kubernetes-kms
-</span><span class="gp">    - -vault-address=&lt;https://vault.example.com:8200&gt;</span><span class="w">
-</span><span class="gp">    - -&lt;vault_namespace&gt;</span><span class="o">=</span>admin
-<span class="go">    - -auth-method=userpass
-</span><span class="gp">    - -userpass-username=&lt;vault_username&gt;</span><span class="w">
-</span><span class="gp">    - -userpass-password=&lt;vault_password&gt;</span><span class="w">
-</span><span class="go">    - -transit-mount=transit
-    - -transit-key=kms-key
-    - -socket=unix:///var/run/kmsplugin/kms.sock
-    volumeMounts:
-    - name: kmsplugin
-      mountPath: /var/run/kmsplugin
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi
-    securityContext:
-      privileged: true
-  volumes:
-  - name: kmsplugin
-    hostPath:
-      path: /var/run/kmsplugin
-      type: DirectoryOrCreate
-EOF</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>skopeo inspect docker://quay.io/redhat-isv-containers/698df066f8d1ddf179c15ef9:&lt;version&gt; | jq <span class="nt">-r</span> <span class="s1">'.Digest'</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Replace the following values to match your environment:</p>
+<p>Replace <code>&lt;version&gt;</code> with the plugin version compatible with your cluster, such as <code>0.1.0-beta-ubi</code>.</p>
 </div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">&lt;version&gt;</dt>
-<dd>
-<p>The Vault KMS plugin image version tag. Use <code>0.1.0-beta-ubi</code>.</p>
-</dd>
-<dt class="hdlist1">&lt;vault_username&gt;</dt>
-<dd>
-<p>Your Vault username for authentication.</p>
-</dd>
-<dt class="hdlist1">&lt;vault_password&gt;</dt>
-<dd>
-<p>Your Vault password for authentication.</p>
-</dd>
-<dt class="hdlist1"><a href="https://vault.example.com:8200" class="bare">https://vault.example.com:8200</a></dt>
-<dd>
-<p>The Vault address. Update this field to match your Vault server URL.</p>
-</dd>
-<dt class="hdlist1">&lt;vault_namespace&gt;</dt>
-<dd>
-<p>Optional field.</p>
 <div class="paragraph">
-<p>The manifest uses the Red Hat certified container image from Quay.io (<code>quay.io/redhat-isv-containers/698df066f8d1ddf179c15ef9</code>), which is the recommended image for OKD.</p>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Alternatively, you can use the <a href="https://hub.docker.com/r/hashicorp/vault-kube-kms">HashiCorp image from Docker Hub</a> by replacing the image field with <code>docker.io/hashicorp/vault-kube-kms:0.1.0-beta-ubi</code>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-</dd>
-</dl>
+<p>Use the resulting digest to construct the fully qualified pull spec in the format <code>quay.io/redhat-isv-containers/698df066f8d1ddf179c15ef9@sha256:&lt;digest&gt;</code>.</p>
 </div>
 </li>
 <li>
-<p>Deploy the static pod manifest to each control plane node by running the following commands:</p>
+<p>Create a secret in the <code>openshift-config</code> namespace with your Vault authentication credentials by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">MANIFEST</span><span class="o">=</span><span class="si">$(</span><span class="nb">cat</span> /tmp/vault-kms-plugin.yaml | <span class="nb">base64</span><span class="si">)</span>
-<span class="gp">$</span><span class="w"> </span><span class="k">for </span>node <span class="k">in</span> <span class="si">$(</span>oc get nodes <span class="nt">--selector</span><span class="o">=</span>node-role.kubernetes.io/master <span class="nt">-o</span> name | <span class="nb">cut</span> <span class="nt">-d</span>/ <span class="nt">-f2</span><span class="si">)</span><span class="p">;</span> <span class="k">do</span>
-<span class="gp">    echo "Deploying to $</span>node...<span class="s2">"
-</span><span class="gp">    oc debug node/$</span><span class="s2">node -- chroot /host bash -c </span><span class="se">\</span><span class="s2">
-      "</span><span class="nb">echo</span> <span class="s1">'$MANIFEST'</span> | <span class="nb">base64</span> <span class="nt">-d</span> <span class="o">&gt;</span> /etc/kubernetes/manifests/vault-kms-plugin.yaml<span class="s2">"
-</span><span class="go">  done</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic vault-approle-secret <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span>role-id<span class="o">=</span>&lt;your_role_id&gt; <span class="se">\</span>
+  <span class="nt">--from-literal</span><span class="o">=</span>secret-id<span class="o">=</span>&lt;your_secret_id&gt; <span class="se">\</span>
+  <span class="nt">-n</span> openshift-config</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The kubelet automatically detects and starts static pods from <code>/etc/kubernetes/manifests/</code>.</p>
+<p>Replace <code>&lt;your_role_id&gt;</code> and <code>&lt;your_secret_id&gt;</code> with your Vault AppRole credentials.</p>
 </div>
 </li>
 <li>
-<p>Verify the static pods are running by entering the following command:</p>
+<p>Optional: If your Vault server uses a custom TLS certificate authority, create a config map in the <code>openshift-config</code> namespace with the CA bundle by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> kube-system <span class="nt">-o</span> wide | <span class="nb">grep </span>vault-kms</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create configmap vault-ca-bundle <span class="se">\</span>
+  <span class="nt">--from-file</span><span class="o">=</span>ca-bundle.crt<span class="o">=</span>&lt;path_to_ca_bundle&gt; <span class="se">\</span>
+  <span class="nt">-n</span> openshift-config</code></pre>
 </div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">vault-kms-plugin-ip-10-0-16-7.compute.internal    1/1  Running  0  2m  10.0.16.7
-vault-kms-plugin-ip-10-0-32-93.compute.internal   1/1  Running  0  2m  10.0.32.93
-vault-kms-plugin-ip-10-0-69-106.compute.internal  1/1  Running  0  2m  10.0.69.106</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Static pod names include the node name as a suffix. You should see one pod per control plane node.</p>
-</div>
-</li>
-<li>
-<p>Verify the socket exists on a control plane node by entering the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">ls</span> <span class="nt">-la</span> /var/run/kmsplugin/kms.sock</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">srwxr-xr-x. 1 root root 0 &lt;timestamp&gt;</span><span class="w"> </span>/var/run/kmsplugin/kms.sock</code></pre>
-</div>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Static pods are managed by kubelet on each node and cannot be deleted with <code>oc delete pod</code>. To remove a static pod, delete the manifest file from <code>/etc/kubernetes/manifests/</code> on each control plane node.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 </li>
 <li>
@@ -3219,28 +3073,70 @@ vault-kms-plugin-ip-10-0-69-106.compute.internal  1/1  Running  0  2m  10.0.69.1
   <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">encryption</span><span class="pi">:</span>
-    <span class="na">type</span><span class="pi">:</span> <span class="s">KMS</span></code></pre>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">KMS</span>
+    <span class="na">kms</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">Vault</span>
+      <span class="na">vault</span><span class="pi">:</span>
+        <span class="na">kmsPluginImage</span><span class="pi">:</span> <span class="s">&lt;registry&gt;/&lt;repository&gt;@sha256:&lt;digest&gt;</span>
+        <span class="na">vaultAddress</span><span class="pi">:</span> <span class="s">https://vault.example.com:8200</span>
+        <span class="na">vaultNamespace</span><span class="pi">:</span> <span class="s">my-namespace</span>
+        <span class="na">vaultAuthNamespace</span><span class="pi">:</span> <span class="s">my-auth-namespace</span>
+        <span class="na">vaultKeyPath</span><span class="pi">:</span> <span class="s">transit/keys/kms-key</span>
+        <span class="na">tls</span><span class="pi">:</span>
+          <span class="na">caBundle</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">vault-ca-bundle</span>
+          <span class="na">serverName</span><span class="pi">:</span> <span class="s">vault.example.com</span>
+        <span class="na">authentication</span><span class="pi">:</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">AppRole</span>
+          <span class="na">appRole</span><span class="pi">:</span>
+            <span class="na">secret</span><span class="pi">:</span>
+              <span class="na">name</span><span class="pi">:</span> <span class="s">vault-approle-secret</span></code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>kmsPluginImage</code></dt>
+<dd>
+<p>Specifies the KMS plugin container image as a fully qualified OCI pull spec with SHA256 digest. Image tags and short names are not allowed. In disconnected environments, use the mirrored location.</p>
+</dd>
+<dt class="hdlist1"><code>vaultAddress</code></dt>
+<dd>
+<p>Specifies the HTTPS URL of the Vault server. Paths, query parameters, and fragments are not allowed.</p>
+</dd>
+<dt class="hdlist1"><code>vaultNamespace</code></dt>
+<dd>
+<p>Specifies the Vault namespace. This value is optional.</p>
+</dd>
+<dt class="hdlist1"><code>vaultAuthNamespace</code></dt>
+<dd>
+<p>Specifies the Vault namespace for authentication when it differs from the Transit namespace. Defaults to the <code>vaultNamespace</code> value. This value is optional.</p>
+</dd>
+<dt class="hdlist1"><code>vaultKeyPath</code></dt>
+<dd>
+<p>Specifies the Transit encryption key path in the format <code>&lt;mount&gt;/keys/&lt;key_name&gt;</code>.</p>
+</dd>
+<dt class="hdlist1"><code>tls.caBundle.name</code></dt>
+<dd>
+<p>Specifies the config map in the <code>openshift-config</code> namespace containing the CA bundle. Required only if Vault uses a custom CA.</p>
+</dd>
+<dt class="hdlist1"><code>tls.serverName</code></dt>
+<dd>
+<p>Specifies the TLS server name for certificate verification. This value is optional.</p>
+</dd>
+<dt class="hdlist1"><code>authentication.appRole.secret.name</code></dt>
+<dd>
+<p>Specifies the secret name in the <code>openshift-config</code> namespace containing the AppRole credentials.</p>
+</dd>
+</dl>
 </div>
 </li>
 <li>
 <p>Save and exit.</p>
 <div class="paragraph">
-<p>Migration begins automatically. The <code>kube-apiserver</code>, <code>openshift-apiserver</code> and <code>oauth-apiserver</code> Operators will restart and roll out new revisions.</p>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The <code>openshift-apiserver</code> and <code>authentication</code> operators typically complete migration in 5-10 minutes. The <code>kube-apiserver</code> operator uses a conservative rollout strategy, updating one control plane node at a time and waiting for health checks before proceeding to the next node. This process can take 30 minutes or longer depending on cluster load.</p>
-</div>
-</td>
-</tr>
-</table>
+<p>The <code>kube-apiserver</code>, <code>openshift-apiserver</code>, and <code>authentication</code> Operators validate the configuration and roll out new revisions.</p>
 </div>
 </li>
 </ol>
@@ -3256,26 +3152,36 @@ vault-kms-plugin-ip-10-0-69-106.compute.internal  1/1  Running  0  2m  10.0.69.1
 </div>
 </div>
 <div class="paragraph">
-<p>Output should show <code>KMS</code>.</p>
+<p>The output shows <code>KMS</code>.</p>
+</div>
+</li>
+<li>
+<p>Check the KMS plugin health and configuration validation by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.status.encryptionStatus}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Verify that <code>preflight.result.status</code> shows <code>Succeeded</code> and all nodes in <code>healthReports</code> show <code>Healthy</code>.</p>
 </div>
 </li>
 <li>
 <p>Monitor the <code>kube-apiserver</code> rollout progress by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.nodeStatuses}'</span> | jq <span class="nt">-r</span> <span class="s1">'.[] | "\(.nodeName | split(".")[0]): current=\(.currentRevision) target=\(.targetRevision)"'</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get co kube-apiserver</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="title">Example output during rollout</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">ip-10-0-16-166: current=10 target=0
-ip-10-0-32-93: current=9 target=10
-ip-10-0-69-106: current=9 target=0</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME             VERSION      AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
+</span><span class="gp">kube-apiserver   5.0.0-rc.4   True        True          False      35m     NodeInstallerProgressing: 2 nodes are at revision 6;</span><span class="w"> </span>1 node is at revision 7</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>The operator rolls out one node at a time. When all nodes show the same <code>current</code> revision and <code>target</code> is <code>0</code>, the rollout is complete.</p>
+<p>When <code>PROGRESSING</code> shows <code>False</code>, the rollout is complete.</p>
 </div>
 </li>
 <li>
@@ -3288,21 +3194,21 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="listingblock">
 <div class="title">Example output when complete</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{
-  "lastTransitionTime": "2026-05-15T17:39:02Z",
-  "message": "All resources encrypted: secrets, configmaps",
-  "reason": "EncryptionCompleted",
-  "status": "True",
-  "type": "Encrypted"
-}</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"lastTransitionTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-24T16:41:48Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"All resources encrypted: secrets, configmaps"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"EncryptionCompleted"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"True"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Encrypted"</span><span class="w">
+</span><span class="p">}</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Wait for <code>reason</code> to show <code>EncryptionCompleted</code> before proceeding to verify encryption in etcd.</p>
+<p>Wait for <code>reason</code> to show <code>EncryptionCompleted</code> before you verify encryption in etcd.</p>
 </div>
 </li>
 <li>
-<p>Verify secrets are encrypted in etcd:</p>
+<p>Verify that secrets are encrypted in etcd:</p>
 <div class="admonitionblock warning">
 <table>
 <tr>
@@ -3311,7 +3217,7 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Wait for the <code>kube-apiserver</code> rollout to complete on all control plane nodes before verifying encryption. During the rollout, API requests are distributed across nodes, and secrets created while some nodes are still on an earlier revision will not be encrypted with Kubernetes KMS v2.</p>
+<p>Wait for the <code>kube-apiserver</code> rollout to complete on all control plane nodes before you verify encryption. Secrets created while nodes run an earlier revision are not encrypted with KMS.</p>
 </div>
 </td>
 </tr>
@@ -3344,8 +3250,14 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">exec</span> <span class="nt">-n</span> openshift-etcd &lt;etcd_pod_name&gt; <span class="nt">--</span> etcdctl get /kubernetes.io/secrets/default/test-secret <span class="nt">--print-value-only</span> | hexdump <span class="nt">-C</span> | <span class="nb">head</span> <span class="nt">-1</span></code></pre>
 </div>
 </div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">00000000  6b 38 73 3a 65 6e 63 3a  6b 6d 73 3a 76 32 3a 31  |k8s:enc:kms:v2:1|</span></code></pre>
+</div>
+</div>
 <div class="paragraph">
-<p>Output should begin with <code>k8s:enc:kms:v2:</code> followed by encrypted binary data.</p>
+<p>The output begins with <code>k8s:enc:kms:v2:</code> followed by encrypted binary data.</p>
 </div>
 </li>
 <li>
@@ -3367,6 +3279,12 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="title">Additional resources</div>
 <ul>
 <li>
+<p><a href="https://hub.docker.com/r/hashicorp/vault-kube-kms">HashiCorp Vault KMS plugin container image</a></p>
+</li>
+<li>
+<p><a href="https://catalog.redhat.com/search?gs&amp;q=vault-kms">Red Hat Ecosystem Catalog</a></p>
+</li>
+<li>
 <p><a href="https://developer.hashicorp.com/vault/docs/secrets/transit">Vault Transit Secrets Engine</a></p>
 </li>
 <li>
@@ -3387,6 +3305,20 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="sectionbody">
 <div class="paragraph _abstract">
 <p>You can rotate your Vault Transit encryption key to generate a new key version while maintaining access to data encrypted with earlier versions.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>After rotating the Vault encryption key, OKD does not automatically re-encrypt existing etcd data with the new key version. Existing data remains encrypted with the previous key version. The Vault-side rotation steps are safe to perform because Vault retains all previous key versions for decryption.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3413,7 +3345,7 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Vault creates a new key version while maintaining earlier versions for decryption. The API server automatically uses the correct key version for each secret.</p>
+<p>Replace <code>kms-key</code> with your Vault Transit key name. Vault creates a new key version while retaining earlier versions for decryption.</p>
 </div>
 </li>
 <li>
@@ -3439,25 +3371,11 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get secret <span class="nt">-A</span></code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>All secrets should be readable without errors. Vault maintains all key versions and automatically uses the appropriate version for decryption.</p>
+</div>
 </li>
 </ul>
-</div>
-<div class="paragraph">
-<p>All secrets should be readable without errors.</p>
-</div>
-<div class="admonitionblock note">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-note" title="Note"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Existing encrypted secrets do not need re-encryption. Vault maintains all key versions and automatically uses the appropriate version for decryption.</p>
-</div>
-</td>
-</tr>
-</table>
 </div>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
@@ -3479,7 +3397,7 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <h2 id="kms-migrating-from-local-encryption_kms-configuring"><a class="anchor" href="#kms-migrating-from-local-encryption_kms-configuring"></a>Migrate from local encryption to KMS encryption</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can migrate from local etcd encryption to external KMS encryption to centralize key management and improve compliance.</p>
+<p>You can migrate from local etcd encryption to KMS encryption to centralize key management.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3494,10 +3412,10 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <p>Your cluster is currently using <code>aescbc</code> or <code>aesgcm</code> encryption.</p>
 </li>
 <li>
-<p>You have deployed the KMS plugin on all control plane nodes.</p>
+<p>You have created the credential secret and optional CA bundle config map in the <code>openshift-config</code> namespace.</p>
 </li>
 <li>
-<p>Control plane nodes have network access to the KMS provider.</p>
+<p>You have the fully qualified OCI image pull spec with SHA256 digest for the KMS plugin image.</p>
 </li>
 </ul>
 </div>
@@ -3535,7 +3453,7 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 </div>
 </li>
 <li>
-<p>Change the encryption type from <code>aescbc</code> or <code>aesgcm</code> to <code>KMS</code>:</p>
+<p>Change the encryption type from <code>aescbc</code> or <code>aesgcm</code> to <code>KMS</code> and add the inline Vault configuration by using the following example:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
@@ -3544,35 +3462,57 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
   <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">encryption</span><span class="pi">:</span>
-    <span class="na">type</span><span class="pi">:</span> <span class="s">KMS</span></code></pre>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">KMS</span>
+    <span class="na">kms</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">Vault</span>
+      <span class="na">vault</span><span class="pi">:</span>
+        <span class="na">kmsPluginImage</span><span class="pi">:</span> <span class="s">&lt;registry&gt;/&lt;repository&gt;@sha256:&lt;digest&gt;</span>
+        <span class="na">vaultAddress</span><span class="pi">:</span> <span class="s">https://vault.example.com:8200</span>
+        <span class="na">vaultKeyPath</span><span class="pi">:</span> <span class="s">transit/keys/kms-key</span>
+        <span class="na">authentication</span><span class="pi">:</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">AppRole</span>
+          <span class="na">appRole</span><span class="pi">:</span>
+            <span class="na">secret</span><span class="pi">:</span>
+              <span class="na">name</span><span class="pi">:</span> <span class="s">vault-approle-secret</span></code></pre>
 </div>
 </div>
 </li>
 <li>
 <p>Save and exit.</p>
 <div class="paragraph">
-<p>Migration starts automatically and typically takes several minutes.</p>
+<p>After configuration validation succeeds, migration starts.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify migration completion for the OpenShift API server by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get openshiftapiserver <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{end}'</span></code></pre>
+</div>
 </div>
 </li>
 <li>
-<p>Verify migration completion for all API servers by running the following commands:</p>
+<p>Verify migration completion for the Kubernetes API server by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get openshiftapiserver <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{end}'</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{end}'</span></code></pre>
 </div>
 </div>
+</li>
+<li>
+<p>Verify migration completion for the authentication Operator by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{end}'</span></code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get authentication.operator.openshift.io <span class="nt">-o</span><span class="o">=</span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{end}'</span></code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get authentication.operator.openshift.io <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{end}'</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>All outputs should show <code>EncryptionCompleted</code>.</p>
+<p>All outputs show <code>EncryptionCompleted</code>.</p>
 </div>
 </li>
 </ol>
@@ -3580,47 +3520,335 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 </div>
 </div>
 <div class="sect1">
-<h2 id="kms-monitoring-status_kms-configuring"><a class="anchor" href="#kms-monitoring-status_kms-configuring"></a>Monitor KMS encryption status</h2>
+<h2 id="kms-migrating-between-providers_kms-configuring"><a class="anchor" href="#kms-migrating-between-providers_kms-configuring"></a>Migrating between KMS providers</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can monitor KMS encryption status by using Operator and API server logs to verify successful configuration and detect issues.</p>
+<p>You can migrate between KMS providers without an intermediate local encryption step. During migration, OKD runs both KMS plugins concurrently until re-encryption completes.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>KMS encryption is enabled and functioning with the current provider.</p>
+</li>
+<li>
+<p>You have created the credential secret and optional CA bundle config map for the new provider in the <code>openshift-config</code> namespace.</p>
+</li>
+<li>
+<p>You have the fully qualified OCI image pull spec with SHA256 digest for the new KMS plugin image.</p>
+</li>
+<li>
+<p>You have created an etcd backup.</p>
+</li>
+</ul>
 </div>
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Check the kube-apiserver operator logs for KMS-related events by entering the following command:</p>
+<p>Edit the <code>APIServer</code> custom resource by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-kube-apiserver-operator deploy/kube-apiserver-operator | <span class="nb">grep</span> <span class="nt">-i</span> kms</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit apiserver cluster</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>View API server logs for KMS-related events by entering the following command:</p>
+<p>Update the <code>kms.vault</code> configuration with the new provider settings by using the following example:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-kube-apiserver <span class="nt">-l</span> <span class="nv">apiserver</span><span class="o">=</span><span class="nb">true</span> <span class="nt">--tail</span><span class="o">=</span>100 | <span class="nb">grep</span> <span class="nt">-i</span> kms</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">APIServer</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">encryption</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">KMS</span>
+    <span class="na">kms</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">Vault</span>
+      <span class="na">vault</span><span class="pi">:</span>
+        <span class="na">kmsPluginImage</span><span class="pi">:</span> <span class="s">&lt;registry&gt;/&lt;repository&gt;@sha256:&lt;digest&gt;</span>
+        <span class="na">vaultAddress</span><span class="pi">:</span> <span class="s">https://vault.example.com:8200</span>
+        <span class="na">vaultNamespace</span><span class="pi">:</span> <span class="s">my-namespace</span>
+        <span class="na">vaultAuthNamespace</span><span class="pi">:</span> <span class="s">my-auth-namespace</span>
+        <span class="na">vaultKeyPath</span><span class="pi">:</span> <span class="s">transit/keys/kms-key</span>
+        <span class="na">tls</span><span class="pi">:</span>
+          <span class="na">caBundle</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">vault-ca-bundle</span>
+          <span class="na">serverName</span><span class="pi">:</span> <span class="s">vault.example.com</span>
+        <span class="na">authentication</span><span class="pi">:</span>
+          <span class="na">type</span><span class="pi">:</span> <span class="s">AppRole</span>
+          <span class="na">appRole</span><span class="pi">:</span>
+            <span class="na">secret</span><span class="pi">:</span>
+              <span class="na">name</span><span class="pi">:</span> <span class="s">vault-approle-secret</span></code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Verify the KMS encryption configuration by entering the following command:</p>
+<p>Save and exit.</p>
+<div class="paragraph">
+<p>After configuration validation succeeds, the new provider handles encryption while the old provider decrypts existing data.</p>
+</div>
+</li>
+<li>
+<p>Monitor migration progress by entering the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get apiserver cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.encryption}'</span> | jq</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.type=="Encrypted")]}'</span> | jq .</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>Wait for <code>reason</code> to show <code>EncryptionCompleted</code>.</p>
 </div>
 </li>
 </ol>
 </div>
-<div class="ulist _additional-resources">
-<div class="title">Additional resources</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Verify that the OpenShift API server has completed migration by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get openshiftapiserver <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{end}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>EncryptionCompleted</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify that the Kubernetes API server has completed migration by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{end}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>EncryptionCompleted</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify that the authentication Operator has completed migration by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get authentication.operator.openshift.io <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{range .items[0].status.conditions[?(@.type=="Encrypted")]}{.reason}{"\n"}{end}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>EncryptionCompleted</code>.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Next steps</div>
 <ul>
 <li>
-<p><a href="https://kubernetes.io/docs/tasks/administer-cluster/kms-provider/">Kubernetes KMS provider documentation</a></p>
+<p>Delete the old credential secret by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete secret &lt;old_vault_secret_name&gt; <span class="nt">-n</span> openshift-config</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;old_vault_secret_name&gt;</code> with the name of the previous provider&#8217;s credential secret.</p>
+</div>
+</li>
+<li>
+<p>Optional: Delete the old CA bundle config map by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete configmap &lt;old_vault_configmap_name&gt; <span class="nt">-n</span> openshift-config</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;old_vault_configmap_name&gt;</code> with the name of the previous provider&#8217;s CA bundle config map.</p>
+</div>
+</li>
+<li>
+<p>After your backup retention period passes, decommission the old KMS key.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not decommission the old KMS key until migration completes and all backups encrypted with the old key have expired.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
 </li>
 </ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="kms-monitoring-status_kms-configuring"><a class="anchor" href="#kms-monitoring-status_kms-configuring"></a>Monitoring KMS encryption status</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can monitor KMS encryption status by inspecting operator encryption status conditions, health reports, and preflight results.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>KMS encryption is enabled.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Check overall Operator status by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get co kube-apiserver</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>DEGRADED</code> column shows <code>True</code> if KMS configuration or connectivity problems exist.</p>
+</div>
+</li>
+<li>
+<p>Inspect KMS health reports and preflight results by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.status.encryptionStatus}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"healthReports"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"keyID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"lastCheckedTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-24T16:44:19Z"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"nodeName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ip-10-0-1-198.us-east-2.compute.internal"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"remoteKeyID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CgQKAnYx..."</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Healthy"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"keyID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"lastCheckedTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-24T16:44:45Z"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"nodeName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ip-10-0-77-162.us-east-2.compute.internal"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"remoteKeyID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CgQKAnYx..."</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Healthy"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"keyID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"lastCheckedTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-24T16:44:25Z"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"nodeName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ip-10-0-97-236.us-east-2.compute.internal"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"remoteKeyID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"CgQKAnYx..."</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Healthy"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">],</span><span class="w">
+  </span><span class="nl">"preflight"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"observedConfigHash"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GNja6Q=="</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"result"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"configHash"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GNja6Q=="</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"remoteKeyID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"always-succeed"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Succeeded"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>healthReports</code></dt>
+<dd>
+<p>Shows KMS plugin health per control plane node. Each entry includes the node name, key ID, a <code>status</code> of <code>Healthy</code>, <code>Unhealthy</code>, or <code>Error</code>, and an optional <code>detail</code> field with additional diagnostic information when the status is not <code>Healthy</code>.</p>
+</dd>
+<dt class="hdlist1"><code>preflight</code></dt>
+<dd>
+<p>Shows whether the configured KMS settings are valid. The <code>preflight.result.status</code> field shows <code>Succeeded</code> when the plugin can connect to the external Vault instance and the credentials are valid, or <code>Failed</code> when connectivity problems or invalid credentials exist.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Verify the Kubernetes API server encryption status by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.type=="Encrypted")]}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"lastTransitionTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-24T16:41:48Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"All resources encrypted: secrets, configmaps"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"EncryptionCompleted"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"True"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Encrypted"</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wait for <code>reason</code> to show <code>EncryptionCompleted</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify the authentication Operator encryption status by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get authentication.operator.openshift.io cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.type=="Encrypted")]}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"lastTransitionTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-24T16:22:10Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"All resources encrypted: oauthaccesstokens.oauth.openshift.io, oauthauthorizetokens.oauth.openshift.io"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"EncryptionCompleted"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"True"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Encrypted"</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>EncryptionCompleted</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify the OpenShift API server encryption status by entering the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get openshiftapiserver cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.type=="Encrypted")]}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"lastTransitionTime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-24T16:25:54Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"All resources encrypted: routes.route.openshift.io"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"EncryptionCompleted"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"True"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Encrypted"</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>EncryptionCompleted</code>.</p>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
@@ -3631,12 +3859,67 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <p>You can diagnose and resolve common KMS encryption issues to maintain secure key management and cluster availability.</p>
 </div>
 <div class="sect2">
-<h3 id="kms-invalid-configuration_kms-configuring"><a class="anchor" href="#kms-invalid-configuration_kms-configuring"></a>Invalid KMS configuration</h3>
+<h3 id="kms-encryption-not-activating_kms-configuring"><a class="anchor" href="#kms-encryption-not-activating_kms-configuring"></a>KMS encryption does not activate</h3>
 <div class="paragraph">
-<p><strong>Symptom:</strong> APIServer resource shows validation errors during KMS encryption configuration.</p>
+<p>Symptom: KMS encryption does not activate after configuring the <code>APIServer</code> resource. The <code>kube-apiserver</code> Operator reports a degraded condition.</p>
 </div>
 <div class="paragraph">
-<p><strong>Diagnosis:</strong> Check kube-apiserver Operator logs:</p>
+<p>Diagnosis: Check the encryption status, including health reports and preflight results by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.status.encryptionStatus}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>preflight.result.status</code> field shows whether configuration validation succeeded. The <code>healthReports</code> array shows plugin health per control plane node.</p>
+</div>
+<div class="paragraph">
+<p>If you need additional detail, check the kube-apiserver Operator logs by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-kube-apiserver-operator deploy/kube-apiserver-operator | <span class="nb">grep</span> <span class="nt">-i</span> <span class="s2">"kms</span><span class="se">\|</span><span class="s2">error"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Solutions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Verify that the Vault server is reachable from control plane nodes.</p>
+</li>
+<li>
+<p>Verify that the credential secret in <code>openshift-config</code> has valid credentials.</p>
+</li>
+<li>
+<p>Verify that the Transit encryption key exists at the path specified in <code>vaultKeyPath</code>.</p>
+</li>
+<li>
+<p>Verify that the Vault policy grants encrypt, decrypt, and read permissions on the key.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="kms-invalid-configuration_kms-configuring"><a class="anchor" href="#kms-invalid-configuration_kms-configuring"></a>Invalid KMS configuration</h3>
+<div class="paragraph">
+<p>Symptom: <code>APIServer</code> resource shows validation errors.</p>
+</div>
+<div class="paragraph">
+<p>Diagnosis: Check the preflight results in the encryption status by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.status.encryptionStatus.preflight}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>preflight.result.status</code> field shows whether the configured KMS settings are valid. A failed preflight indicates connectivity problems with the external Vault instance or invalid credentials.</p>
+</div>
+<div class="paragraph">
+<p>If you need additional detail, check kube-apiserver Operator logs by running the following command:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -3644,23 +3927,21 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p><strong>Solutions:</strong></p>
+<p>Solutions:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Verify plugin configuration follows provider requirements</p>
+<p>Verify that the <code>kms.vault</code> configuration in the <code>APIServer</code> resource has valid field values.</p>
 </li>
 <li>
-<p>Ensure all required fields are specified</p>
+<p>Verify that <code>kmsPluginImage</code> is a fully qualified OCI pull spec with a SHA256 digest.</p>
 </li>
 <li>
-<p>Verify plugin is running on all control plane nodes:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host <span class="nb">ls</span> <span class="nt">-la</span> /var/run/kmsplugin/kms.sock</code></pre>
-</div>
-</div>
+<p>Verify that <code>vaultAddress</code> is a valid HTTPS URL without path or query parameters.</p>
+</li>
+<li>
+<p>Verify that the credential secret referenced by <code>authentication.appRole.secret.name</code> exists in the <code>openshift-config</code> namespace.</p>
 </li>
 </ul>
 </div>
@@ -3668,40 +3949,29 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="sect2">
 <h3 id="kms-permissions-errors_kms-configuring"><a class="anchor" href="#kms-permissions-errors_kms-configuring"></a>KMS permissions errors</h3>
 <div class="paragraph">
-<p><strong>Symptom:</strong> Encryption migration fails with permission errors.</p>
+<p>Symptom: Encryption migration fails with permission errors.</p>
 </div>
 <div class="paragraph">
-<p><strong>Diagnosis:</strong> Check Operator and plugin logs:</p>
+<p>Diagnosis: Check Operator logs by running the following command:</p>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-kube-apiserver-operator deploy/kube-apiserver-operator | <span class="nb">grep</span> <span class="nt">-i</span> <span class="s2">"kms</span><span class="se">\|</span><span class="s2">permission</span><span class="se">\|</span><span class="s2">access denied"</span></code></pre>
 </div>
 </div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host journalctl <span class="nt">-u</span> kms-plugin</code></pre>
-</div>
-</div>
 <div class="paragraph">
-<p><strong>Solutions:</strong></p>
+<p>Solutions:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Verify plugin has valid authentication credentials</p>
+<p>Verify that the credential secret has valid and unexpired credentials.</p>
 </li>
 <li>
-<p>Check if credentials have expired</p>
+<p>Verify that the Vault policy grants encrypt and decrypt permissions.</p>
 </li>
 <li>
-<p>Ensure plugin principal has encrypt and decrypt permissions</p>
-</li>
-<li>
-<p>Verify KMS provider key policy allows plugin access</p>
-</li>
-<li>
-<p>Confirm encryption key is enabled and not scheduled for deletion</p>
+<p>Verify that the encryption key is enabled and not scheduled for deletion.</p>
 </li>
 </ul>
 </div>
@@ -3709,37 +3979,32 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="sect2">
 <h3 id="kms-expired-deleted-key_kms-configuring"><a class="anchor" href="#kms-expired-deleted-key_kms-configuring"></a>Expired or deleted KMS key</h3>
 <div class="paragraph">
-<p><strong>Symptom:</strong> API server cannot decrypt secrets when accessing encrypted resources.</p>
+<p>Symptom: API server cannot decrypt encrypted resources.</p>
 </div>
 <div class="paragraph">
-<p><strong>Diagnosis:</strong> Check logs and verify key status:</p>
+<p>Diagnosis: Check API server logs and verify key status by running the following command:</p>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc logs <span class="nt">-n</span> openshift-kube-apiserver <span class="nt">-l</span> <span class="nv">apiserver</span><span class="o">=</span><span class="nb">true</span> | <span class="nb">grep</span> <span class="nt">-i</span> <span class="s2">"decrypt</span><span class="se">\|</span><span class="s2">kms.*error"</span></code></pre>
 </div>
 </div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host journalctl <span class="nt">-u</span> kms-plugin | <span class="nb">grep</span> <span class="nt">-i</span> <span class="s2">"key</span><span class="se">\|</span><span class="s2">error"</span></code></pre>
-</div>
-</div>
 <div class="paragraph">
-<p><strong>Solutions:</strong></p>
+<p>Solutions:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Re-enable the encryption key if disabled</p>
+<p>Re-enable the encryption key if it was disabled.</p>
 </li>
 <li>
-<p>Restore from backup if key was permanently deleted</p>
+<p>Restore from backup if the key was permanently deleted.</p>
 </li>
 <li>
-<p>Cancel key deletion if scheduled</p>
+<p>Cancel key deletion if it is scheduled.</p>
 </li>
 <li>
-<p>Ensure KMS provider maintains access to previous key versions</p>
+<p>Ensure the KMS provider retains access to earlier key versions.</p>
 </li>
 </ul>
 </div>
@@ -3761,15 +4026,29 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="sect2">
 <h3 id="kms-api-server-degraded_kms-configuring"><a class="anchor" href="#kms-api-server-degraded_kms-configuring"></a>API server degraded or unavailable</h3>
 <div class="paragraph">
-<p><strong>Symptom:</strong> API server becomes degraded or unresponsive after enabling KMS encryption.</p>
+<p>Symptom: API server becomes degraded or unresponsive after enabling KMS encryption.</p>
 </div>
 <div class="paragraph">
-<p><strong>Diagnosis:</strong> Check Operator status and logs:</p>
+<p>Diagnosis: Check the encryption status health reports by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.status.encryptionStatus.healthReports}'</span> | jq .</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Health reports show per-node plugin status. An <code>Unhealthy</code> status indicates connectivity or credential problems between that node and the Vault instance.</p>
+</div>
+<div class="paragraph">
+<p>Check overall Operator status by running the following command:</p>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteroperator kube-apiserver</code></pre>
 </div>
+</div>
+<div class="paragraph">
+<p>If you need additional detail, check API server logs by running the following command:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -3777,29 +4056,21 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p><strong>Solutions:</strong></p>
+<p>Solutions:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Check network connectivity between control plane and KMS provider</p>
+<p>Check network connectivity between control plane nodes and Vault.</p>
 </li>
 <li>
-<p>Verify network policies, firewalls, and routes allow communication</p>
+<p>Verify network policies and firewalls allow communication.</p>
 </li>
 <li>
-<p>Monitor KMS provider rate limits and request increases if needed</p>
+<p>Check Vault for rate limiting.</p>
 </li>
 <li>
-<p>Verify DNS resolution and TLS certificate validation</p>
-</li>
-<li>
-<p>Confirm plugin is running on all control plane nodes:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt; <span class="nt">--</span> <span class="nb">chroot</span> /host systemctl status kms-plugin</code></pre>
-</div>
-</div>
+<p>Verify DNS resolution and TLS certificate validation.</p>
 </li>
 </ul>
 </div>
@@ -3807,10 +4078,10 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="sect2">
 <h3 id="kms-migration-stuck-slow_kms-configuring"><a class="anchor" href="#kms-migration-stuck-slow_kms-configuring"></a>Encryption migration stuck or slow</h3>
 <div class="paragraph">
-<p><strong>Symptom:</strong> KMS encryption migration takes unusually long or becomes stuck.</p>
+<p>Symptom: Encryption migration takes unusually long or is stuck.</p>
 </div>
 <div class="paragraph">
-<p><strong>Diagnosis:</strong> Check Operator status and migration logs:</p>
+<p>Diagnosis: Check Operator status and migration logs by running the following commands:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -3823,18 +4094,18 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p><strong>Solutions:</strong></p>
+<p>Solutions:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>Migration time depends on data size; monitor progress</p>
+<p>Migration time depends on data size. Monitor progress with Operator conditions.</p>
 </li>
 <li>
-<p>Monitor KMS provider audit logs for rate limiting or throttling events</p>
+<p>Check Vault audit logs for rate limiting or throttling.</p>
 </li>
 <li>
-<p>Check network performance between control plane and KMS provider</p>
+<p>Check network performance between control plane nodes and Vault.</p>
 </li>
 </ul>
 </div>
@@ -3842,7 +4113,7 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="sect2">
 <h3 id="kms-collecting-debug-info_kms-configuring"><a class="anchor" href="#kms-collecting-debug-info_kms-configuring"></a>Collecting debug information</h3>
 <div class="paragraph">
-<p>Collect cluster logs:</p>
+<p>Collect cluster status and logs by running the following commands:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -3852,6 +4123,11 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get apiserver cluster <span class="nt">-o</span> yaml <span class="o">&gt;</span> apiserver.yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubeapiserver cluster <span class="nt">-ojsonpath</span><span class="o">=</span><span class="s1">'{.status.encryptionStatus}'</span> | jq <span class="nb">.</span> <span class="o">&gt;</span> encryption-status.json</code></pre>
 </div>
 </div>
 <div class="listingblock">
@@ -3870,13 +4146,10 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="ulist">
 <ul>
 <li>
-<p>KMS plugin logs from control plane nodes</p>
+<p>Vault audit logs</p>
 </li>
 <li>
-<p>KMS provider audit logs</p>
-</li>
-<li>
-<p>KMS provider key policy and permissions</p>
+<p>Vault key policy and permissions</p>
 </li>
 <li>
 <p>Authentication credentials status</p>
@@ -3908,6 +4181,9 @@ ip-10-0-69-106: current=9 target=0</span></code></pre>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
+<li>
+<p><a href="../../nodes/clusters/nodes-cluster-enabling-features.html#nodes-cluster-enabling-features">Enabling features using feature gates</a></p>
+</li>
 <li>
 <p><a href="https://kubernetes.io/docs/tasks/administer-cluster/kms-provider/">Using a KMS provider for data encryption</a></p>
 </li>

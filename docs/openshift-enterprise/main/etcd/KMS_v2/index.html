@@ -820,6 +820,7 @@
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-cli.html">Updating a cluster using the CLI</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-web-console.html">Updating a cluster using the web console</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/control-plane-only-update.html">Performing a Control Plane Only update</a></li>
+                  <li><a class="" href="../../updating/updating_a_cluster/update-ai.html">Creating cluster update assessments with OpenShift Lightspeed</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/update-using-custom-machine-config-pools.html">Performing a canary rollout update</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/disconnected-update.html">Updating a cluster in a disconnected environment</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-hardware-on-nodes-running-on-vsphere.html">Updating hardware on nodes running on vSphere</a></li>
@@ -934,8 +935,9 @@
                   <li><a class="" href="../../cli_reference/tkn_cli/op-tkn-reference.html">Basic tkn commands</a></li>              </ul>
             </li>
             <li><a class="" href="../../cli_reference/gitops-argocd-cli-tools.html">GitOps CLI (argocd) for use with OpenShift GitOps</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-10-7"><span id="sgSpan-10-7" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
-              <ul id="topicSubGroup-10-7" class="nav-tertiary list-unstyled collapse">
+            <li><a class="" href="../../cli_reference/helm-cli.html">Helm CLI (helm)</a></li>
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-10-8"><span id="sgSpan-10-8" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
+              <ul id="topicSubGroup-10-8" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../cli_reference/opm/cli-opm-install.html">Installing the opm CLI</a></li>
                   <li><a class="" href="../../cli_reference/opm/cli-opm-ref.html">opm CLI reference</a></li>              </ul>
@@ -3473,6 +3475,7 @@
 <ul class="sectlevel1">
 <li><a href="#kms-about_kms-v2-index">About Kubernetes KMS v2 encryption</a>
 <ul class="sectlevel2">
+<li><a href="#kms-architecture_kms-v2-index">KMS plugin architecture</a></li>
 <li><a href="#kms-encrypted-resources_kms-v2-index">Encrypted resources</a></li>
 </ul>
 </li>
@@ -3510,7 +3513,7 @@
 <h2 id="kms-about_kms-v2-index"><a class="anchor" href="#kms-about_kms-v2-index"></a>About Kubernetes KMS v2 encryption</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Kubernetes KMS v2 uses external Key Management Services to encrypt etcd data and centralize key management.</p>
+<p>Kubernetes KMS v2 uses an external Key Management Service to encrypt etcd data and centralize key management.</p>
 </div>
 <div class="paragraph">
 <p>Kubernetes KMS v2 provides:</p>
@@ -3518,7 +3521,7 @@
 <div class="ulist">
 <ul>
 <li>
-<p>Customer-managed encryption keys that never leave the external KMS</p>
+<p>Customer-managed encryption keys stored in an external KMS</p>
 </li>
 <li>
 <p>Centralized key management and auditing</p>
@@ -3529,9 +3532,45 @@
 </ul>
 </div>
 <div class="sect2">
+<h3 id="kms-architecture_kms-v2-index"><a class="anchor" href="#kms-architecture_kms-v2-index"></a>KMS plugin architecture</h3>
+<div class="paragraph">
+<p>The KMS plugin configuration is specified inline in the <code>APIServer</code> resource. Encryption controllers deploy the KMS plugin and manage encryption key secrets.</p>
+</div>
+<div class="paragraph">
+<p>The workflow is consists of the following steps:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>You create the credential secret and optional CA bundle in the <code>openshift-config</code> namespace.</p>
+</li>
+<li>
+<p>You configure the <code>APIServer</code> resource with the KMS provider settings and plugin image.</p>
+</li>
+<li>
+<p>The encryption controllers deploy the KMS plugin and begin encrypting etcd data.</p>
+</li>
+</ol>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>HashiCorp Vault Enterprise is the only supported KMS provider. Vault Community Edition is not supported. Vault Enterprise must be externally hosted and must not run inside the cluster service network.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
 <h3 id="kms-encrypted-resources_kms-v2-index"><a class="anchor" href="#kms-encrypted-resources_kms-v2-index"></a>Encrypted resources</h3>
 <div class="paragraph">
-<p>When you enable KMS encryption, OpenShift Container Platform encrypts the following sensitive resources in etcd:</p>
+<p>When you enable KMS encryption, OpenShift Container Platform encrypts the following resources in etcd:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -3581,23 +3620,52 @@
 <h2 id="kms-technology-preview-phases_kms-v2-index"><a class="anchor" href="#kms-technology-preview-phases_kms-v2-index"></a>KMS Technology Preview limitations</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Review the current limitations of Kubernetes KMS v2 to plan deployments and avoid unsupported configurations in OpenShift Container Platform 4.21 or later.</p>
+<p>Review the current Kubernetes KMS v2 limitations to plan deployments and avoid unsupported configurations.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>KMS encryption is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="sect2">
 <h3 id="kms-current-limitations_kms-v2-index"><a class="anchor" href="#kms-current-limitations_kms-v2-index"></a>Current limitations</h3>
 <div class="ulist">
 <ul>
 <li>
-<p>Plugins require manual installation on each control plane node</p>
+<p>HashiCorp Vault Enterprise is the only supported KMS provider. Vault Community Edition is not supported.</p>
 </li>
 <li>
-<p>Plugins must listen at <code>unix:///var/run/kmsplugin/kms.sock</code></p>
+<p>Vault Enterprise must be externally hosted. Hosting Vault inside the cluster service network is not supported.</p>
 </li>
 <li>
-<p>Only one KMS plugin can run at a time</p>
+<p>After rotating a Vault Transit encryption key, OpenShift Container Platform does not automatically re-encrypt existing etcd data with the new key version.</p>
 </li>
 <li>
-<p>KMS-to-KMS migration requires intermediate migration to <code>identity</code> or <code>aescbc</code></p>
+<p>The KMS plugin image must be in pinned digest format, such as <code>registry.example.com/vault-plugin@sha256:&lt;digest&gt;</code>. Image tags are not allowed.</p>
+</li>
+<li>
+<p>In disconnected environments or clusters that use custom internal registries, you must manually mirror the KMS plugin image to an accessible registry.</p>
+</li>
+<li>
+<p>The KMS plugin does not expose Prometheus metrics in this Technology Preview phase.</p>
+</li>
+<li>
+<p>Unused KMS plugins are not removed from the <code>EncryptionConfiguration</code> after migration. You must decommission old providers manually.</p>
+</li>
+<li>
+<p>The <code>KMSEncryption</code> feature gate requires the <code>TechPreviewNoUpgrade</code> feature set. Clusters with this feature set cannot be upgraded.</p>
 </li>
 </ul>
 </div>

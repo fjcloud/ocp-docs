@@ -546,6 +546,7 @@
                   <li><a class="" href="../../updating/updating_a_cluster/update-ocp-5.html">Updating a cluster to OpenShift Container Platform 5.0</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-cli.html">Updating a cluster using the CLI</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-web-console.html">Updating a cluster using the web console</a></li>
+                  <li><a class="" href="../../updating/updating_a_cluster/update-ai.html">Creating cluster update assessments with OpenShift Lightspeed</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/update-using-custom-machine-config-pools.html">Performing a canary rollout update</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/disconnected-update.html">Updating a cluster in a disconnected environment</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-hardware-on-nodes-running-on-vsphere.html">Updating hardware on nodes running on vSphere</a></li>
@@ -642,8 +643,9 @@
             </li>
             <li><a class="" href="../../cli_reference/odo-important-update.html">Developer CLI (odo)</a></li>
             <li><a class="" href="../../cli_reference/kn-cli-tools.html">Knative CLI (kn) for use with OpenShift Serverless</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-9-5"><span id="sgSpan-9-5" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
-              <ul id="topicSubGroup-9-5" class="nav-tertiary list-unstyled collapse">
+            <li><a class="" href="../../cli_reference/helm-cli.html">Helm CLI (helm)</a></li>
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-9-6"><span id="sgSpan-9-6" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
+              <ul id="topicSubGroup-9-6" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../cli_reference/opm/cli-opm-install.html">Installing the opm CLI</a></li>
                   <li><a class="" href="../../cli_reference/opm/cli-opm-ref.html">opm CLI reference</a></li>              </ul>
@@ -2902,6 +2904,7 @@
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
 <li><a href="#understanding-default-ingress_replacing-default-ingress">Understand the default ingress certificate</a></li>
+<li><a href="#ingress-certificate-renewal-rotation_replacing-default-ingress">Ingress certificate renewal and rotation</a></li>
 <li><a href="#replacing-default-ingress_replacing-default-ingress">Replace the default ingress certificate</a></li>
 <li><a href="#additional-resources">Additional resources</a></li>
 </ul>
@@ -2920,30 +2923,37 @@
 </div>
 </div>
 <div class="sect1">
+<h2 id="ingress-certificate-renewal-rotation_replacing-default-ingress"><a class="anchor" href="#ingress-certificate-renewal-rotation_replacing-default-ingress"></a>Ingress certificate renewal and rotation</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>After you replace the default ingress certificate, you need to renew or rotate it before it expires.</p>
+</div>
+<div class="paragraph">
+<p>The Ingress Controller reads the certificate and key from a secret you created. When you renew the certificate, external certificate management tools or the cert-manager Operator replace the certificate and key contents inside that secret without changing the secret name.</p>
+</div>
+<div class="paragraph">
+<p>Each node runs an agent called <code>kubelet</code>, which monitors secrets that pods on that node use. When the <code>kubelet</code> detects that the contents of the certificate secret changed, it updates the certificate files on the node. The Ingress Controller router pods on that node read these certificate files, detect the changes, and load the new certificate and key without restarting.</p>
+</div>
+<div class="paragraph">
+<p>Because the router pods load the new certificate without restarting, OKD doesn&#8217;t roll out a new router deployment. This automatic reload happens whether you manage certificates manually or use the cert-manager Operator to rotate them automatically.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="replacing-default-ingress_replacing-default-ingress"><a class="anchor" href="#replacing-default-ingress_replacing-default-ingress"></a>Replace the default ingress certificate</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>To secure the web console, CLI, and all applications under the <code>.apps</code> subdomain in OKD, you can replace the default ingress certificate by creating a TLS secret with your wildcard certificate and updating the Ingress Controller and cluster proxy configuration.</p>
+<p>To secure the web console, CLI, and all applications under the <code>.apps</code> subdomain in OKD, you can replace the default ingress certificate by creating a Transport Layer Security (TLS) secret with your wildcard certificate and updating the Ingress Controller and cluster proxy configuration.</p>
 </div>
-<div class="admonitionblock note">
+<div class="admonitionblock important">
 <table>
 <tr>
 <td class="icon">
-<i class="fa icon-note" title="Note"></i>
+<i class="fa icon-important" title="Important"></i>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Before using the procedure, ensure you understand the following Ingress Controller behaviors:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>When certificates are renewed or rotated by using external certificate management tools, only the contents of the secret, such as the certificate and key, are updated. The secret name remains unchanged. Kubelet automatically propagates these updates to the mounted volume, allowing the router to detect the file changes and hot-reload the new certificate and key. As a result, no rolling update of the router deployment is triggered or required.</p>
-</li>
-<li>
-<p>For secret renewal or rotation, the cert-manager Operator changes the secret content, such as a cert/key pair, but does not change the secret name. This happens because kubelet automatically propagates changes to the secret in the volume mount. The router pod detects the file change and then hot reloads the new cert/key pair. Updating the secret content does not trigger rolling update.</p>
-</li>
-</ul>
+<p>Replacing the default ingress certificate does not change the web console route certificate. To support HTTP/2, the Console Operator creates a self-signed certificate for the console route, so browsers still show certificate warnings. To use a trusted certificate, set the console route certificate in the <code>spec.componentRoutes</code> field to your custom certificate. For more information, see "Customizing the console route."</p>
 </div>
 </td>
 </tr>
@@ -2962,13 +2972,7 @@
 <p>The certificate must include the <code>subjectAltName</code> extension showing <code>*.apps.&lt;clustername&gt;.&lt;domain&gt;</code>.</p>
 </li>
 <li>
-<p>The certificate file can contain one or more certificates in a chain. The file must list the wildcard certificate as the first certificate, followed by other intermediate certificates, and then ending with the root CA certificate.</p>
-</li>
-<li>
-<p>Copy the root CA certificate into an additional PEM format file.</p>
-</li>
-<li>
-<p>Verify that all certificates which include <code>-----END CERTIFICATE-----</code> also end with one carriage return after that line.</p>
+<p>The certificate file can contain one or more certificates in a chain. The file must list the wildcard certificate as the first certificate, followed by other intermediate certificates, and then ending with the root certificate authority (CA) certificate.</p>
 </li>
 </ul>
 </div>
@@ -2976,7 +2980,10 @@
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Create a config map that includes only the root CA certificate that is used to sign the wildcard certificate:</p>
+<p>Copy the root CA certificate into an additional PEM format file.</p>
+</li>
+<li>
+<p>Create a config map that includes only the root CA certificate that signs the wildcard certificate:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create configmap custom-ca <span class="se">\</span>
@@ -2985,19 +2992,19 @@
 </div>
 </div>
 <div class="paragraph">
-<p>where</p>
+<p>where:</p>
 </div>
 <div class="dlist">
 <dl>
 <dt class="hdlist1"><code>&lt;/path/to/example-ca.crt&gt;</code></dt>
 <dd>
-<p>The path to the root CA certificate file on your local file system. For example, <code>/etc/pki/ca-trust/source/anchors</code>.</p>
+<p>specifies the path to the root CA certificate file on your local file system. For example, <code>/etc/pki/ca-trust/source/anchors</code>.</p>
 </dd>
 </dl>
 </div>
 </li>
 <li>
-<p>Update the cluster-wide proxy configuration with the newly created config map:</p>
+<p>Update the cluster-wide proxy configuration with the new config map:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch proxy/cluster <span class="se">\</span>
@@ -3013,7 +3020,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>If you update only the trusted CA for your cluster, the MCO updates the <code>/etc/pki/ca-trust/source/anchors/openshift-config-user-ca-bundle.crt</code> file and the Machine Config Controller (MCC) applies the trusted CA update to each node so that a node reboot is not required. However, with these changes, the Machine Config Daemon (MCD) restarts critical services on each node, such as kubelet and CRI-O. These service restarts cause each node to briefly enter the <code>NotReady</code> state until the service is fully restarted.</p>
+<p>If you update only the trusted CA for your cluster, the MCO updates the <code>/etc/pki/ca-trust/source/anchors/openshift-config-user-ca-bundle.crt</code> file. The Machine Config Controller (MCC) applies the trusted CA update to each node so that a node reboot is not required. However, with these changes, the Machine Config Daemon (MCD) restarts critical services on each node, such as kubelet and CRI-O (Container Runtime Interface for Open Container Initiative). These service restarts cause each node to briefly enter the <code>NotReady</code> state until the service is fully restarted.</p>
 </div>
 <div class="paragraph">
 <p>If you change any other parameter in the <code>openshift-config-user-ca-bundle.crt</code> file, such as <code>noproxy</code>, the MCO reboots each node in your cluster.</p>
@@ -3022,6 +3029,9 @@
 </tr>
 </table>
 </div>
+</li>
+<li>
+<p>Verify that all certificates that include <code>-----END CERTIFICATE-----</code> also end with one carriage return after that line.</p>
 </li>
 <li>
 <p>Create a secret that contains the wildcard certificate chain and key:</p>
@@ -3040,21 +3050,21 @@
 <dl>
 <dt class="hdlist1"><code>&lt;secret&gt;</code></dt>
 <dd>
-<p>Specifies the name of the secret that will contain the certificate chain and private key.</p>
+<p>specifies the name of the secret that will contain the certificate chain and private key.</p>
 </dd>
 <dt class="hdlist1"><code>&lt;/path/to/cert.crt&gt;</code></dt>
 <dd>
-<p>Specifies the path to the certificate chain on your local file system.</p>
+<p>specifies the path to the certificate chain on your local file system.</p>
 </dd>
 <dt class="hdlist1"><code>&lt;/path/to/cert.key&gt;</code></dt>
 <dd>
-<p>Specifies the path to the private key associated with this certificate.</p>
+<p>specifies the path to the private key associated with this certificate.</p>
 </dd>
 </dl>
 </div>
 </li>
 <li>
-<p>Update the Ingress Controller configuration with the newly created secret:</p>
+<p>Update the Ingress Controller configuration with the new secret:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch ingresscontroller.operator default <span class="se">\</span>
@@ -3063,12 +3073,16 @@
      <span class="nt">-n</span> openshift-ingress-operator</code></pre>
 </div>
 </div>
-<div class="ulist">
-<ul>
-<li>
-<p><code>&lt;secret&gt;</code>:: Specifies the name used for the secret. Replace <code>&lt;secret&gt;</code> with the name used for the secret.</p>
-</li>
-</ul>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;secret&gt;</code></dt>
+<dd>
+<p>specifies the name of the secret. Replace <code>&lt;secret&gt;</code> with the name you used for the secret.</p>
+</dd>
+</dl>
 </div>
 </li>
 </ol>
@@ -3080,6 +3094,12 @@
 <div class="sectionbody">
 <div class="ulist">
 <ul>
+<li>
+<p><a href="../../security/certificates/replacing-default-ingress-certificate.html#ingress-certificate-renewal-rotation_replacing-default-ingress">Ingress certificate renewal and rotation</a></p>
+</li>
+<li>
+<p><a href="../../web_console/customizing-the-web-console.html#customizing-the-console-route_customizing-web-console">Customizing the console route</a></p>
+</li>
 <li>
 <p><a href="../../security/certificates/updating-ca-bundle.html#ca-bundle-understanding_updating-ca-bundle">Replacing the CA Bundle certificate</a></p>
 </li>

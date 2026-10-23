@@ -812,13 +812,13 @@
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>A RHEL 9.8 host with an active Red&#160;Hat subscription for building MicroShift bootc images and running containers.</p>
+<p>A RHEL 10.2 host with an active Red&#160;Hat subscription for building MicroShift bootc images and running containers.</p>
 </li>
 <li>
-<p>You logged into the RHEL 9.8 host by using the user credentials that have <code>sudo</code> permissions.</p>
+<p>You logged into the RHEL 10.2 host by using the user credentials that have <code>sudo</code> permissions.</p>
 </li>
 <li>
-<p>The <code>rhocp</code> and <code>fast-datapath</code> repositories are accessible in the host subscription. The repositories do not necessarily need to be enabled on the host.</p>
+<p>The <code>fast-datapath</code> repository is accessible in the host subscription. The repository does not necessarily need to be enabled on the host.</p>
 </li>
 <li>
 <p>You have a remote registry such as <a href="https://quay.io">{quay}</a> for storing and accessing bootc images.</p>
@@ -836,15 +836,42 @@
 <div class="listingblock">
 <div class="title">Example Containerfile for RHEL image mode</div>
 <div class="content">
-<pre class="rouge highlight"><code data-lang="text">FROM registry.redhat.io/rhel9/rhel-bootc:9.8
+<pre class="rouge highlight"><code data-lang="text">FROM registry.redhat.io/rhel10/rhel-bootc:10.2
 
-ARG USHIFT_VER=Branch Build
-RUN dnf config-manager \
-        --set-enabled rhocp-${USHIFT_VER}-for-rhel-9-$(uname -m)-rpms \
-        --set-enabled fast-datapath-for-rhel-9-$(uname -m)-rpms
+ARG USHIFT_VER=5.0
+RUN CERT=$(ls /run/secrets/etc-pki-entitlement/[0-9]*.pem | grep -v "-key.pem" | head -n1) &amp;&amp; \
+    KEY=$(ls /run/secrets/etc-pki-entitlement/[0-9]*-key.pem | head -n1) &amp;&amp; \
+    cat &lt;&lt;EOF &gt; /etc/yum.repos.d/rhocp-${USHIFT_VER}.repo
+[rhocp-${USHIFT_VER}]
+name=Red Hat OpenShift ${USHIFT_VER} for RHEL 9
+baseurl=https://cdn.redhat.com/content/dist/layered/rhel9/$(uname -m)/rhocp/${USHIFT_VER}/os
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+sslverify=1
+sslcacert=/etc/rhsm/ca/redhat-uep.pem
+sslclientcert=${CERT}
+sslclientkey=${KEY}
+EOF
+RUN CERT=$(ls /run/secrets/etc-pki-entitlement/[0-9]*.pem | grep -v "-key.pem" | head -n1) &amp;&amp; \
+    KEY=$(ls /run/secrets/etc-pki-entitlement/[0-9]*-key.pem | head -n1) &amp;&amp; \
+    cat &lt;&lt;EOF &gt; /etc/yum.repos.d/fast-datapath.repo
+[fast-datapath]
+name=Fast Datapath for RHEL 9
+baseurl=https://cdn.redhat.com/content/dist/layered/rhel9/$(uname -m)/fast-datapath/os
+enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+sslverify=1
+sslcacert=/etc/rhsm/ca/redhat-uep.pem
+sslclientcert=${CERT}
+sslclientkey=${KEY}
+skip_if_unavailable=0
+EOF
 RUN dnf install -y firewalld microshift &amp;&amp; \
     systemctl enable microshift &amp;&amp; \
-    dnf clean all
+    dnf clean all &amp;&amp; \
+    rm -f /etc/yum.repos.d/rhocp-${USHIFT_VER}.repo /etc/yum.repos.d/fast-datapath.repo
 
 # Create a default 'redhat' user with the specified password.
 # Add it to the 'wheel' group to allow for running sudo commands.
@@ -884,7 +911,7 @@ RUN systemctl enable microshift-make-rshared.service</code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Podman uses the host subscription information and repositories inside the container when building the container image. If the <code>rhocp</code> and <code>fast-datapath</code> repositories are not available on the host, the build fails.</p>
+<p>Podman uses the host subscription inside the container when building the container image. The <code>fast-datapath</code> repository must be available in that subscription. The Containerfile writes the RHEL 9 <code>rhocp</code> repository file and reads the host entitlement certificates from <code>/run/secrets/etc-pki-entitlement</code>. If the <code>fast-datapath</code> repository or those entitlement certificates are missing on the host, the build fails.</p>
 </div>
 </td>
 </tr>
@@ -914,7 +941,7 @@ RUN systemctl enable microshift-make-rshared.service</code></pre>
 <p>Configure the <code>IMAGE_NAME</code> environment variable:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">IMAGE_NAME</span><span class="o">=</span>microshift-Branch Build-bootc</code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">IMAGE_NAME</span><span class="o">=</span>microshift-5.0-bootc</code></pre>
 </div>
 </div>
 </li>
@@ -940,7 +967,7 @@ RUN systemctl enable microshift-make-rshared.service</code></pre>
 <div class="ulist">
 <ul>
 <li>
-<p>The podman <code>--authfile</code> argument is required to pull the base <code>rhel-bootc:9.8</code> image from the <code>registry.redhat.io</code> registry.</p>
+<p>The podman <code>--authfile</code> argument is required to pull the base <code>rhel-bootc:10.2</code> image from the <code>registry.redhat.io</code> registry.</p>
 </li>
 <li>
 <p>The build <code>USER_PASSWD</code> argument is used to set a password for the <code>redhat</code> user.</p>
@@ -967,8 +994,8 @@ RUN systemctl enable microshift-make-rshared.service</code></pre>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight"><code data-lang="text">REPOSITORY                       TAG         IMAGE ID      CREATED        SIZE
-localhost/microshift-Branch Build-bootc  latest      193425283c00  2 minutes ago  2.31 GB</code></pre>
+<pre class="rouge highlight"><code data-lang="text">REPOSITORY                                       TAG         IMAGE ID      CREATED        SIZE
+localhost/microshift-5.0-bootc  latest      193425283c00  2 minutes ago  2.31 GB</code></pre>
 </div>
 </div>
 </li>

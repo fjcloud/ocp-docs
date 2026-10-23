@@ -819,7 +819,7 @@
 <h2 id="microshift-updating-rpms_microshift-update-rpms-manually"><a class="anchor" href="#microshift-updating-rpms_microshift-update-rpms-manually"></a>Apply minor-version updates with RPMs</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Updating a MicroShift minor version on non <code>rpm-ostree</code> systems such as Red&#160;Hat Enterprise Linux (RHEL) requires downloading then updating the RPMs. For example, use the following procedure to update from 4.18 to 4.20.</p>
+<p>Updating a MicroShift minor version on non <code>rpm-ostree</code> systems such as Red&#160;Hat Enterprise Linux (RHEL) requires downloading then updating the RPMs. For example, use the following procedure to update from 4.22 to 5.0.</p>
 </div>
 <div class="admonitionblock warning">
 <table>
@@ -880,12 +880,24 @@
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>For all lifecycles, enable the repository for the release you want to update to by running the following command:</p>
+<p>For all lifecycles, enable the Fast Datapath repository for the release you want to update to by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>subscription-manager repos <span class="se">\</span>
-    <span class="nt">--enable</span> rhocp-5.0-for-rhel-9-<span class="si">$(</span><span class="nb">uname</span> <span class="nt">-m</span><span class="si">)</span><span class="nt">-rpms</span> <span class="se">\</span>
-    <span class="nt">--enable</span> fast-datapath-for-rhel-9-<span class="si">$(</span><span class="nb">uname</span> <span class="nt">-m</span><span class="si">)</span><span class="nt">-rpms</span></code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">CERT=$</span><span class="o">(</span><span class="nb">ls</span> /etc/pki/entitlement/[0-9]<span class="k">*</span>.pem | <span class="nb">grep</span> <span class="nt">-v</span> <span class="s2">"-key.pem"</span> | <span class="nb">head</span> <span class="nt">-n1</span><span class="o">)</span>
+<span class="gp">KEY=$</span><span class="o">(</span><span class="nb">ls</span> /etc/pki/entitlement/[0-9]<span class="k">*</span><span class="nt">-key</span>.pem | <span class="nb">head</span> <span class="nt">-n1</span><span class="o">)</span>
+<span class="go">cat &lt;&lt;EOF | sudo tee /etc/yum.repos.d/fast-datapath.repo
+[fast-datapath]
+name=Fast Datapath for RHEL 9
+</span><span class="gp">baseurl=https://cdn.redhat.com/content/dist/layered/rhel9/$</span><span class="o">(</span><span class="nb">uname</span> <span class="nt">-m</span><span class="o">)</span>/fast-datapath/os
+<span class="go">enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+sslverify=1
+sslcacert=/etc/rhsm/ca/redhat-uep.pem
+</span><span class="gp">sslclientcert=$</span>CERT
+<span class="gp">sslclientkey=$</span>KEY
+<span class="go">skip_if_unavailable=0
+EOF</span></code></pre>
 </div>
 </div>
 </li>
@@ -894,8 +906,8 @@
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>subscription-manager repos <span class="se">\</span>
-    <span class="nt">--enable</span> rhel-9-for-<span class="si">$(</span><span class="nb">uname</span> <span class="nt">-m</span><span class="si">)</span><span class="nt">-appstream-eus-rpms</span> <span class="se">\</span>
-    <span class="nt">--enable</span> rhel-9-for-<span class="si">$(</span><span class="nb">uname</span> <span class="nt">-m</span><span class="si">)</span><span class="nt">-baseos-eus-rpms</span></code></pre>
+    <span class="nt">--enable</span> rhel-10-for-<span class="si">$(</span><span class="nb">uname</span> <span class="nt">-m</span><span class="si">)</span><span class="nt">-appstream-eus-rpms</span> <span class="se">\</span>
+    <span class="nt">--enable</span> rhel-10-for-<span class="si">$(</span><span class="nb">uname</span> <span class="nt">-m</span><span class="si">)</span><span class="nt">-baseos-eus-rpms</span></code></pre>
 </div>
 </div>
 </li>
@@ -903,7 +915,28 @@
 <p>Avoid unintended future updates into an unsupported configuration by locking your operating system version with the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>subscription-manager release <span class="nt">--set</span><span class="o">=</span>9.8</code></pre>
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>subscription-manager release <span class="nt">--set</span><span class="o">=</span>10.2</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create the RHEL 9 <code>rhocp</code> repository file in <code>/etc/yum.repos.d</code> by adding the following information:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="terminal"><span class="gp">CERT=$</span><span class="o">(</span><span class="nb">ls</span> /etc/pki/entitlement/[0-9]<span class="k">*</span>.pem | <span class="nb">grep</span> <span class="nt">-v</span> <span class="s2">"-key.pem"</span> | <span class="nb">head</span> <span class="nt">-n1</span><span class="o">)</span>
+<span class="gp">KEY=$</span><span class="o">(</span><span class="nb">ls</span> /etc/pki/entitlement/[0-9]<span class="k">*</span><span class="nt">-key</span>.pem | <span class="nb">head</span> <span class="nt">-n1</span><span class="o">)</span>
+<span class="go">cat &lt;&lt;EOF | sudo tee /etc/yum.repos.d/rhocp-5.0.repo
+[rhocp-5.0]
+name=Red Hat OpenShift 5.0 for RHEL 9
+</span><span class="gp">baseurl=https://cdn.redhat.com/content/dist/layered/rhel9/$</span><span class="o">(</span><span class="nb">uname</span> <span class="nt">-m</span><span class="o">)</span>/rhocp/5.0/os
+<span class="go">enabled=1
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+sslverify=1
+sslcacert=/etc/rhsm/ca/redhat-uep.pem
+</span><span class="gp">sslclientcert=$</span>CERT
+<span class="gp">sslclientkey=$</span>KEY
+<span class="go">EOF</span></code></pre>
 </div>
 </div>
 </li>

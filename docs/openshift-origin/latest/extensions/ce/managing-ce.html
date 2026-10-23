@@ -546,6 +546,7 @@
                   <li><a class="" href="../../updating/updating_a_cluster/update-ocp-5.html">Updating a cluster to OpenShift Container Platform 5.0</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-cli.html">Updating a cluster using the CLI</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-cluster-web-console.html">Updating a cluster using the web console</a></li>
+                  <li><a class="" href="../../updating/updating_a_cluster/update-ai.html">Creating cluster update assessments with OpenShift Lightspeed</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/update-using-custom-machine-config-pools.html">Performing a canary rollout update</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/disconnected-update.html">Updating a cluster in a disconnected environment</a></li>
                   <li><a class="" href="../../updating/updating_a_cluster/updating-hardware-on-nodes-running-on-vsphere.html">Updating hardware on nodes running on vSphere</a></li>
@@ -642,8 +643,9 @@
             </li>
             <li><a class="" href="../../cli_reference/odo-important-update.html">Developer CLI (odo)</a></li>
             <li><a class="" href="../../cli_reference/kn-cli-tools.html">Knative CLI (kn) for use with OpenShift Serverless</a></li>
-            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-9-5"><span id="sgSpan-9-5" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
-              <ul id="topicSubGroup-9-5" class="nav-tertiary list-unstyled collapse">
+            <li><a class="" href="../../cli_reference/helm-cli.html">Helm CLI (helm)</a></li>
+            <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-9-6"><span id="sgSpan-9-6" class="fa fa-caret-right"></span>&nbsp;opm CLI</a>
+              <ul id="topicSubGroup-9-6" class="nav-tertiary list-unstyled collapse">
 
                   <li><a class="" href="../../cli_reference/opm/cli-opm-install.html">Installing the opm CLI</a></li>
                   <li><a class="" href="../../cli_reference/opm/cli-opm-ref.html">opm CLI reference</a></li>              </ul>
@@ -2905,25 +2907,14 @@
 </li>
 <li><a href="#olmv1-cluster-extension-permissions_managing-ce">Cluster extension permissions</a>
 <ul class="sectlevel2">
-<li><a href="#olmv1-creating-a-namespace_managing-ce">Creating a namespace</a></li>
-<li><a href="#olmv1-creating-a-service-account_managing-ce">Creating a service account for an extension</a></li>
-<li><a href="#olmv1-downloading-bundle-manifests_managing-ce">Downloading the bundle manifests of an extension</a></li>
-<li><a href="#olmv1-required-rbac-to-install-and-manage-extension-resources_managing-ce">Required permissions to install and manage a cluster extension</a></li>
-<li><a href="#olmv1-creating-a-cluster-role_managing-ce">Creating a cluster role for an extension</a></li>
-<li><a href="#olmv1-example-cluster-role-pipelines_managing-ce">Example cluster role for the Red&#160;Hat OpenShift Pipelines Operator</a></li>
-<li><a href="#olmv1-creating-a-cluster-rol-binding_managing-ce">Creating a cluster role binding for an extension</a></li>
+<li><a href="#olmv1-creating-a-namespace_managing-ce">Create an installation namespace</a></li>
 </ul>
 </li>
 <li><a href="#olmv1-installing-an-operator_managing-ce">Install a cluster extension in all namespaces</a></li>
 <li><a href="#olmv1-deploying-a-ce-in-a-specific-namespace_managing-ce">Configure a watch namespace for a cluster extension (Technology Preview)</a></li>
-<li><a href="#olmv1-troubleshooting-rbac-errors-with-preflight-check_managing-ce">Preflight permissions check for cluster extensions (Technology Preview)</a>
-<ul class="sectlevel2">
-<li><a href="#olmv1-preflight-permissions-check-output_managing-ce">Example report from the preflight permissions check</a></li>
-<li><a href="#olmv1-common-rbac-errors_managing-ce">Common permission errors</a></li>
-</ul>
-</li>
 <li><a href="#olmv1-updating-an-operator_managing-ce">Updating a cluster extension</a></li>
 <li><a href="#olmv1-deleting-an-operator_managing-ce">Deleting an Operator</a></li>
+<li><a href="#olmv1-downloading-bundle-manifests_managing-ce">Downloading the bundle manifests of an extension</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
@@ -3284,16 +3275,24 @@
 <h2 id="olmv1-cluster-extension-permissions_managing-ce"><a class="anchor" href="#olmv1-cluster-extension-permissions_managing-ce"></a>Cluster extension permissions</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>In Operator Lifecycle Manager (OLM) Classic, a single service account with cluster administrator privileges manages all cluster extensions.</p>
+<p>Operator Lifecycle Manager (OLM) v1 installs and manages cluster extensions in OKD by using its own service account with <code>cluster-admin</code> permissions. You do not need to create an installer service account or assign permissions for each extension.</p>
 </div>
 <div class="paragraph">
-<p>OLM v1 is designed to be more secure than OLM (Classic) by default. OLM v1 manages a cluster extension by using the service account specified in an extension&#8217;s custom resource (CR). Cluster administrators can create a service account for each cluster extension. As a result, administrators can follow the principle of least privilege and assign only the role-based access controls (RBAC) to install and manage that extension.</p>
+<p>Access to the <code>ClusterExtension</code> API controls who can install and manage extensions. By default, only cluster administrators have write access. Unrestricted write access to this API delegates <code>cluster-admin</code> trust.</p>
 </div>
 <div class="paragraph">
-<p>You must add each permission to either a cluster role or role. Then you must bind the cluster role or role to the service account with a cluster role binding or role binding.</p>
+<p>The <code>spec.serviceAccount</code> field in the <code>ClusterExtension</code> API is optional, deprecated, and ignored. Existing extensions that specify this field continue to work after a cluster update. The API server returns a deprecation warning when you create or update an extension that specifies the field. To stop these warnings, remove the <code>spec.serviceAccount</code> field from your <code>ClusterExtension</code> resource and any manifests that define it.</p>
 </div>
 <div class="paragraph">
-<p>You can scope the RBAC to either the cluster or to a namespace. Use cluster roles and cluster role bindings to scope permissions to the cluster. Use roles and role bindings to scope permissions to a namespace. Whether you scope the permissions to the cluster or to a namespace depends on the design of the extension you want to install and manage.</p>
+<p>To delegate extension management, combine a validating admission policy with role-based access control (RBAC).</p>
+</div>
+<div class="sect2">
+<h3 id="olmv1-creating-a-namespace_managing-ce"><a class="anchor" href="#olmv1-creating-a-namespace_managing-ce"></a>Create an installation namespace</h3>
+<div class="paragraph _abstract">
+<p>To install a cluster extension in OKD, first create an installation namespace. Specify this namespace in the <code>spec.namespace</code> field of the extension manifest.</p>
+</div>
+<div class="paragraph">
+<p>The <code>spec.namespace</code> field does not restrict the resources or permissions of an extension to the installation namespace. Depending on the bundle and configuration, an extension can create resources or use permissions in other namespaces or across the cluster.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3303,19 +3302,11 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>To simply the following procedure and improve readability, the following example manifest uses permissions that are scoped to the cluster. You can further restrict some of the permissions by scoping them to the namespace of the extension instead of the cluster.</p>
+<p>Cluster extensions are cluster-scoped.</p>
 </div>
 </td>
 </tr>
 </table>
-</div>
-<div class="paragraph">
-<p>If a new version of an installed extension requires additional permissions, OLM v1 halts the update process until a cluster administrator grants those permissions.</p>
-</div>
-<div class="sect2">
-<h3 id="olmv1-creating-a-namespace_managing-ce"><a class="anchor" href="#olmv1-creating-a-namespace_managing-ce"></a>Creating a namespace</h3>
-<div class="paragraph _abstract">
-<p>Before you create a service account to install and manage your cluster extension, you must create a namespace.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3329,7 +3320,7 @@
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>Create a new namespace for the service account of the extension that you want to install by running the following command:</p>
+<p>Create the installation namespace by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm new-project &lt;new_namespace&gt;</code></pre>
@@ -3337,1342 +3328,6 @@
 </div>
 </li>
 </ul>
-</div>
-</div>
-<div class="sect2">
-<h3 id="olmv1-creating-a-service-account_managing-ce"><a class="anchor" href="#olmv1-creating-a-service-account_managing-ce"></a>Creating a service account for an extension</h3>
-<div class="paragraph _abstract">
-<p>You must create a service account to install, manage, and update a cluster extension.</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>Access to an OKD cluster using an account with <code>cluster-admin</code> permissions.</p>
-</li>
-</ul>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Create a service account, similar to the following example:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;extension&gt;-installer</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span></code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example <code>extension-service-account.yaml</code> file</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">pipelines</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Apply the service account by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> extension-service-account.yaml</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect2">
-<h3 id="olmv1-downloading-bundle-manifests_managing-ce"><a class="anchor" href="#olmv1-downloading-bundle-manifests_managing-ce"></a>Downloading the bundle manifests of an extension</h3>
-<div class="paragraph _abstract">
-<p>Use the <code>opm</code> CLI tool to download the bundle manifests of the extension that you want to install. Use the CLI tool or text editor of your choice to view the manifests and find the required permissions to install and manage the extension.</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>You have access to an OKD cluster using an account with <code>cluster-admin</code> permissions.</p>
-</li>
-<li>
-<p>You have decided which extension you want to install.</p>
-</li>
-<li>
-<p>You have installed the <code>opm</code> CLI tool.</p>
-</li>
-</ul>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Inspect the available versions and images of the extension you want to install by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>opm render &lt;registry_url&gt;:&lt;tag_or_version&gt; | <span class="se">\</span>
-  jq <span class="nt">-cs</span> <span class="s1">'.[] | select( .schema == "olm.bundle" ) | \
-  select( .package == "&lt;extension_name&gt;") | \
-  {"name":.name, "image":.image}'</span></code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example command</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal">$ opm render registry.redhat.io/redhat/redhat-operator-index:v5 | \
-  jq -cs '.[] | select( .schema == "olm.bundle" ) | \
-  select( .package == "openshift-pipelines-operator-rh") | \
-  {"name":.name, "image":.image}'</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">{"name":"openshift-pipelines-operator-rh.v1.14.3","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:3f64b29f6903981470d0917b2557f49d84067bccdba0544bfe874ec4412f45b0"}
-{"name":"openshift-pipelines-operator-rh.v1.14.4","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:dd3d18367da2be42539e5dde8e484dac3df33ba3ce1d5bcf896838954f3864ec"}
-{"name":"openshift-pipelines-operator-rh.v1.14.5","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:f7b19ce26be742c4aaa458d37bc5ad373b5b29b20aaa7d308349687d3cbd8838"}
-{"name":"openshift-pipelines-operator-rh.v1.15.0","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:22be152950501a933fe6e1df0e663c8056ca910a89dab3ea801c3bb2dc2bf1e6"}
-{"name":"openshift-pipelines-operator-rh.v1.15.1","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:64afb32e3640bb5968904b3d1a317e9dfb307970f6fda0243e2018417207fd75"}
-{"name":"openshift-pipelines-operator-rh.v1.15.2","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:8a593c1144709c9aeffbeb68d0b4b08368f528e7bb6f595884b2474bcfbcafcd"}
-{"name":"openshift-pipelines-operator-rh.v1.16.0","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:a46b7990c0ad07dae78f43334c9bd5e6cba7b50ca60d3f880099b71e77bed214"}
-{"name":"openshift-pipelines-operator-rh.v1.16.1","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:29f27245e93b3f605647993884751c490c4a44070d3857a878d2aee87d43f85b"}
-{"name":"openshift-pipelines-operator-rh.v1.16.2","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:2037004666526c90329f4791f14cb6cc06e8775cb84ba107a24cc4c2cf944649"}
-{"name":"openshift-pipelines-operator-rh.v1.17.0","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:d75065e999826d38408049aa1fde674cd1e45e384bfdc96523f6bad58a0e0dbc"}</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Make a directory to extract the image of the bundle that you want to install by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">mkdir</span> &lt;new_dir&gt;</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Change into the directory by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cd</span> &lt;new_dir&gt;</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Find the image reference of the version that you want to install and run the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc image extract &lt;full_path_to_registry_image&gt;@sha256:&lt;sha&gt;</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example command</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc image extract registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:f7b19ce26be742c4aaa458d37bc5ad373b5b29b20aaa7d308349687d3cbd8838</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Change into the <code>manifests</code> directory by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cd </span>manifests</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>View the contents of the manifests directory by entering the following command. The output lists the manifests of the resources required to install, manage, and operate your extension.</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>tree</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">.
-├── manifests
-│   ├── config-logging_v1_configmap.yaml
-│   ├── openshift-pipelines-operator-monitor_monitoring.coreos.com_v1_servicemonitor.yaml
-│   ├── openshift-pipelines-operator-prometheus-k8s-read-binding_rbac.authorization.k8s.io_v1_rolebinding.yaml
-│   ├── openshift-pipelines-operator-read_rbac.authorization.k8s.io_v1_role.yaml
-│   ├── openshift-pipelines-operator-rh.clusterserviceversion.yaml
-│   ├── operator.tekton.dev_manualapprovalgates.yaml
-│   ├── operator.tekton.dev_openshiftpipelinesascodes.yaml
-│   ├── operator.tekton.dev_tektonaddons.yaml
-│   ├── operator.tekton.dev_tektonchains.yaml
-│   ├── operator.tekton.dev_tektonconfigs.yaml
-│   ├── operator.tekton.dev_tektonhubs.yaml
-│   ├── operator.tekton.dev_tektoninstallersets.yaml
-│   ├── operator.tekton.dev_tektonpipelines.yaml
-│   ├── operator.tekton.dev_tektonresults.yaml
-│   ├── operator.tekton.dev_tektontriggers.yaml
-│   ├── tekton-config-defaults_v1_configmap.yaml
-│   ├── tekton-config-observability_v1_configmap.yaml
-│   ├── tekton-config-read-rolebinding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml
-│   ├── tekton-config-read-role_rbac.authorization.k8s.io_v1_clusterrole.yaml
-│   ├── tekton-operator-controller-config-leader-election_v1_configmap.yaml
-│   ├── tekton-operator-info_rbac.authorization.k8s.io_v1_rolebinding.yaml
-│   ├── tekton-operator-info_rbac.authorization.k8s.io_v1_role.yaml
-│   ├── tekton-operator-info_v1_configmap.yaml
-│   ├── tekton-operator_v1_service.yaml
-│   ├── tekton-operator-webhook-certs_v1_secret.yaml
-│   ├── tekton-operator-webhook-config-leader-election_v1_configmap.yaml
-│   ├── tekton-operator-webhook_v1_service.yaml
-│   ├── tekton-result-read-rolebinding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml
-│   └── tekton-result-read-role_rbac.authorization.k8s.io_v1_clusterrole.yaml
-├── metadata
-│   ├── annotations.yaml
-│   └── properties.yaml
-└── root
-    └── buildinfo
-        ├── content_manifests
-        │   └── openshift-pipelines-operator-bundle-container-v1.16.2-3.json
-        └── Dockerfile-openshift-pipelines-pipelines-operator-bundle-container-v1.16.2-3</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-<div class="ulist">
-<div class="title">Next steps</div>
-<ul>
-<li>
-<p>View the contents of the <code>install.spec.clusterpermissions</code> stanza of cluster service version (CSV) file in the <code>manifests</code> directory using your preferred CLI tool or text editor. The following examples reference the <code>openshift-pipelines-operator-rh.clusterserviceversion.yaml</code> file of the Red&#160;Hat OpenShift Pipelines Operator.</p>
-</li>
-<li>
-<p>Keep this file open as a reference while assigning permissions to the cluster role file in the following procedure.</p>
-</li>
-</ul>
-</div>
-</div>
-<div class="sect2">
-<h3 id="olmv1-required-rbac-to-install-and-manage-extension-resources_managing-ce"><a class="anchor" href="#olmv1-required-rbac-to-install-and-manage-extension-resources_managing-ce"></a>Required permissions to install and manage a cluster extension</h3>
-<div class="paragraph _abstract">
-<p>To assign the necessary permissions for a cluster extension, inspect the manifests in its bundle image and grant the service account sufficient role-based access control (RBAC).</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Follow the principle of least privilege and scope permissions to specific resource names with the least RBAC required to run.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>Grant the service account permissions to create and manage the following extension resources:</p>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">Admission plugins</dt>
-<dd>
-<p>Because OKD clusters use the <code>OwnerReferencesPermissionEnforcement</code> admission plugin, cluster extensions must have permissions to update the <code>blockOwnerDeletion</code> and <code>ownerReferences</code> finalizers.</p>
-</dd>
-<dt class="hdlist1">Cluster role and cluster role bindings for the controllers of the extension</dt>
-<dd>
-<p>You must define RBAC so that the installation service account can create and manage cluster roles and cluster role bindings for the extension controllers.</p>
-</dd>
-<dt class="hdlist1">Cluster service version (CSV)</dt>
-<dd>
-<p>You must define RBAC for the resources defined in the CSV of the cluster extension.</p>
-</dd>
-<dt class="hdlist1">Cluster-scoped bundle resources</dt>
-<dd>
-<p>You must define RBAC to create and manage any cluster-scoped resources included in the bundle. If the cluster-scoped resources matches another resource type, such as a <code>ClusterRole</code>, you can add the resource to the pre-existing rule under the <code>resources</code> or <code>resourceNames</code> field.</p>
-</dd>
-<dt class="hdlist1">Custom resource definitions (CRDs)</dt>
-<dd>
-<p>You must define RBAC so that the installation service account can create and manage the CRDs for the extension. Also, you must grant the service account for the controller of the extension the RBAC to manage its CRDs.</p>
-</dd>
-<dt class="hdlist1">Deployments</dt>
-<dd>
-<p>You must define RBAC for the installation service account to create and manage the deployments needed by the extension controller, such as services and config maps.</p>
-</dd>
-<dt class="hdlist1">Extension permissions</dt>
-<dd>
-<p>You must include RBAC for the permissions and cluster permissions defined in the CSV. The installation service account needs the ability to grant these permissions to the extension controller, which needs these permissions to run.</p>
-</dd>
-<dt class="hdlist1">Namespace-scoped bundle resources</dt>
-<dd>
-<p>You must define RBAC for any namespace-scoped bundle resources. The installation service account requires permission to create and manage resources, such as config maps or services.</p>
-</dd>
-<dt class="hdlist1">Roles and role bindings</dt>
-<dd>
-<p>You must define RBAC for any roles or role bindings defined in the CSV. The installation service account needs permission to create and manage those roles and role bindings.</p>
-</dd>
-</dl>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">Service accounts</dt>
-<dd>
-<p>You must define RBAC so that the installation service account can create and manage the service accounts for the extension controllers.</p>
-</dd>
-</dl>
-</div>
-</div>
-<div class="sect2">
-<h3 id="olmv1-creating-a-cluster-role_managing-ce"><a class="anchor" href="#olmv1-creating-a-cluster-role_managing-ce"></a>Creating a cluster role for an extension</h3>
-<div class="paragraph _abstract">
-<p>To set up access controls for an extension, review the <code>install.spec.clusterpermissions</code> section of the cluster service version (CSV) and the extension manifests. Then, create a cluster role by copying the required role-based access control (RBAC) rules from the CSV into a new manifest.</p>
-</div>
-<div class="admonitionblock tip">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-tip" title="Tip"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>If you want to test the process for installing and updating an extension in OLM v1, you can use the following cluster role to grant cluster administrator permissions. This manifest is for testing purposes only. It should not be used in production clusters.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;extension&gt;-installer-clusterrole</span>
-<span class="na">rules</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">*"</span><span class="pi">]</span>
-  <span class="na">resources</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">*"</span><span class="pi">]</span>
-  <span class="na">verbs</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">*"</span><span class="pi">]</span></code></pre>
-</div>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>The following procedure uses the <code>openshift-pipelines-operator-rh.clusterserviceversion.yaml</code> file of the Red&#160;Hat OpenShift Pipelines Operator as an example. The examples include excerpts of the RBAC required to install and manage the OpenShift Pipelines Operator. For a complete manifest, see "Example cluster role for the Red&#160;Hat OpenShift Pipelines Operator".</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>To simply the following procedure and improve readability, the following example manifest uses permissions that are scoped to the cluster. You can further restrict some of the permissions by scoping them to the namespace of the extension instead of the cluster.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>Access to an OKD cluster using an account with <code>cluster-admin</code> permissions.</p>
-</li>
-<li>
-<p>You have downloaded the manifests in the image reference of the extension that you want to install.</p>
-</li>
-</ul>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Create a new cluster role manifest, similar to the following example:</p>
-<div class="listingblock">
-<div class="title">Example <code>&lt;extension&gt;-cluster-role.yaml</code> file</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;extension&gt;-installer-clusterrole</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Edit your cluster role manifest to include permission to update finalizers on the extension, similar to the following example:</p>
-<div class="listingblock">
-<div class="title">Example &lt;extension&gt;-cluster-role.yaml</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer-clusterrole</span>
-<span class="na">rules</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">olm.operatorframework.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterextensions/finalizers</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="c1"># Scoped to the name of the ClusterExtension</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">&lt;metadata_name&gt;</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Replace <code>&lt;metadata_name&gt;</code> with the value of the metadata.name field from the custom resource (CR) of the extension.</p>
-</div>
-</li>
-<li>
-<p>Search for the <code>clusterrole</code> and <code>clusterrolebindings</code> values in the <code>rules.resources</code> field in the extension&#8217;s CSV file.</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Copy the API groups, resources, verbs, and resource names to your manifest, similar to the following example:</p>
-<div class="listingblock">
-<div class="title">Example cluster role manifest</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer-clusterrole</span>
-<span class="na">rules</span><span class="pi">:</span>
-<span class="c1"># ...</span>
-<span class="c1"># ClusterRoles and ClusterRoleBindings for the controllers of the extension</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterroles</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterroles</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">*"</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterrolebindings</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterrolebindings</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">*"</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>You cannot scope the <code>create</code>, <code>list</code>, and <code>watch</code> verbs to specific resource names (the <code>resourceNames</code> field). You must scope these permissions to their resources (the <code>resources</code> field).</p>
-</li>
-<li>
-<p>The resource names in the <code>resourceNames</code> field for the <code>get</code>, <code>update</code>, <code>patch</code>, and <code>delete</code> verbs are generated by using the following format: <code>&lt;package_name&gt;.&lt;hash&gt;</code>. After you install the extension, look up the resource names for the cluster roles and cluster role bindings for the controller of the extension. Replace the wildcard characters in this example with the generated names and follow the principle of least privilege.</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Search for the <code>customresourcedefinitions</code> value in the <code>rules.resources</code> field in the extension&#8217;s CSV file.</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Copy the API groups, resources, verbs, and resource names to your manifest, similar to the following example:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer-clusterrole</span>
-<span class="na">rules</span><span class="pi">:</span>
-<span class="c1"># ...</span>
-<span class="c1"># Custom resource definitions of the extension</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apiextensions.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">customresourcedefinitions</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apiextensions.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">customresourcedefinitions</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">manualapprovalgates.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">openshiftpipelinesascodes.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonaddons.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonchains.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonconfigs.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonhubs.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektoninstallersets.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonpipelines.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonresults.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektontriggers.operator.tekton.dev</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Search the CSV file for stanzas with the <code>permissions</code> and <code>clusterPermissions</code> values in the <code>rules.resources</code> spec.</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Copy the API groups, resources, verbs, and resource names to your manifest, similar to the following example:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer-clusterrole</span>
-<span class="na">rules</span><span class="pi">:</span>
-<span class="c1"># ...</span>
-<span class="c1"># Excerpt from install.spec.clusterPermissions</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">'</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">nodes</span>
-  <span class="pi">-</span> <span class="s">pods</span>
-  <span class="pi">-</span> <span class="s">services</span>
-  <span class="pi">-</span> <span class="s">endpoints</span>
-  <span class="pi">-</span> <span class="s">persistentvolumeclaims</span>
-  <span class="pi">-</span> <span class="s">events</span>
-  <span class="pi">-</span> <span class="s">configmaps</span>
-  <span class="pi">-</span> <span class="s">secrets</span>
-  <span class="pi">-</span> <span class="s">pods/log</span>
-  <span class="pi">-</span> <span class="s">limitranges</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">extensions</span>
-  <span class="pi">-</span> <span class="s">apps</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">ingresses</span>
-  <span class="pi">-</span> <span class="s">ingresses/status</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
- <span class="c1"># ...</span></code></pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Search the CSV file for resources under the <code>install.spec.deployments</code> stanza.</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Copy the API groups, resources, verbs, and resource names to your manifest, similar to the following example:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer-clusterrole</span>
-<span class="na">rules</span><span class="pi">:</span>
-<span class="c1"># ...</span>
-<span class="c1"># Excerpt from install.spec.deployments</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apps</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">deployments</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apps</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">deployments</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="c1"># scoped to the extension controller deployment name</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">openshift-pipelines-operator</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-webhook</span>
-<span class="c1"># ...</span></code></pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Search for the <code>services</code> and <code>configmaps</code> values in the <code>rules.resources</code> field in the extension&#8217;s CSV file.</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Copy the API groups, resources, verbs, and resource names to your manifest, similar to the following example:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer-clusterrole</span>
-<span class="na">rules</span><span class="pi">:</span>
-<span class="c1"># ...</span>
-<span class="c1"># Services</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">services</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">services</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="c1"># scoped to the service name</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">openshift-pipelines-operator-monitor</span>
-  <span class="pi">-</span> <span class="s">tekton-operator</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-webhook</span>
-<span class="c1"># configmaps</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">configmaps</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">configmaps</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="c1"># scoped to the configmap name</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">config-logging</span>
-  <span class="pi">-</span> <span class="s">tekton-config-defaults</span>
-  <span class="pi">-</span> <span class="s">tekton-config-observability</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-controller-config-leader-election</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-info</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-webhook-config-leader-election</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">operator.tekton.dev</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">tekton-config-read-role</span>
-  <span class="pi">-</span> <span class="s">tekton-result-read-role</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">list</span></code></pre>
-</div>
-</div>
-</li>
-</ul>
-</div>
-</li>
-<li>
-<p>Add the cluster role manifest to the cluster by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> &lt;extension&gt;-installer-clusterrole.yaml</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example command</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> pipelines-installer-clusterrole.yaml</code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</div>
-<div class="sect2">
-<h3 id="olmv1-example-cluster-role-pipelines_managing-ce"><a class="anchor" href="#olmv1-example-cluster-role-pipelines_managing-ce"></a>Example cluster role for the Red&#160;Hat OpenShift Pipelines Operator</h3>
-<div class="paragraph _abstract">
-<p>Review the complete cluster role manifest for the OpenShift Pipelines Operator, including all of the RBAC required to install and manage the extension.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="nn">---</span>
-<span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer-clusterrole</span>
-<span class="na">rules</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">olm.operatorframework.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterextensions/finalizers</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="c1"># Scoped to the name of the ClusterExtension</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">pipes</span> <span class="c1"># the value from &lt;metadata.name&gt; from the extension's custom resource (CR)</span>
-<span class="c1"># ClusterRoles and ClusterRoleBindings for the controllers of the extension</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterroles</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterroles</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">*"</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterrolebindings</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterrolebindings</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">*"</span>
-<span class="c1"># Extension's custom resource definitions</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apiextensions.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">customresourcedefinitions</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apiextensions.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">customresourcedefinitions</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">manualapprovalgates.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">openshiftpipelinesascodes.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonaddons.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonchains.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonconfigs.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonhubs.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektoninstallersets.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonpipelines.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektonresults.operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">tektontriggers.operator.tekton.dev</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">'</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">nodes</span>
-  <span class="pi">-</span> <span class="s">pods</span>
-  <span class="pi">-</span> <span class="s">services</span>
-  <span class="pi">-</span> <span class="s">endpoints</span>
-  <span class="pi">-</span> <span class="s">persistentvolumeclaims</span>
-  <span class="pi">-</span> <span class="s">events</span>
-  <span class="pi">-</span> <span class="s">configmaps</span>
-  <span class="pi">-</span> <span class="s">secrets</span>
-  <span class="pi">-</span> <span class="s">pods/log</span>
-  <span class="pi">-</span> <span class="s">limitranges</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">extensions</span>
-  <span class="pi">-</span> <span class="s">apps</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">ingresses</span>
-  <span class="pi">-</span> <span class="s">ingresses/status</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">'</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">namespaces</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apps</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">deployments</span>
-  <span class="pi">-</span> <span class="s">daemonsets</span>
-  <span class="pi">-</span> <span class="s">replicasets</span>
-  <span class="pi">-</span> <span class="s">statefulsets</span>
-  <span class="pi">-</span> <span class="s">deployments/finalizers</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">monitoring.coreos.com</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">servicemonitors</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterroles</span>
-  <span class="pi">-</span> <span class="s">roles</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">bind</span>
-  <span class="pi">-</span> <span class="s">escalate</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">'</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">serviceaccounts</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">impersonate</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">clusterrolebindings</span>
-  <span class="pi">-</span> <span class="s">rolebindings</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apiextensions.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">customresourcedefinitions</span>
-  <span class="pi">-</span> <span class="s">customresourcedefinitions/status</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">admissionregistration.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">mutatingwebhookconfigurations</span>
-  <span class="pi">-</span> <span class="s">validatingwebhookconfigurations</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">build.knative.dev</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">builds</span>
-  <span class="pi">-</span> <span class="s">buildtemplates</span>
-  <span class="pi">-</span> <span class="s">clusterbuildtemplates</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">extensions</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">deployments</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">extensions</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">deployments/finalizers</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">operator.tekton.dev</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">*'</span>
-  <span class="pi">-</span> <span class="s">tektonaddons</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">tekton.dev</span>
-  <span class="pi">-</span> <span class="s">triggers.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">operator.tekton.dev</span>
-  <span class="pi">-</span> <span class="s">pipelinesascode.tekton.dev</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">*'</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">add</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">dashboard.tekton.dev</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">*'</span>
-  <span class="pi">-</span> <span class="s">tektonaddons</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">security.openshift.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">securitycontextconstraints</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">use</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">events.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">events</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">route.openshift.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">routes</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">coordination.k8s.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">leases</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">console.openshift.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">consoleyamlsamples</span>
-  <span class="pi">-</span> <span class="s">consoleclidownloads</span>
-  <span class="pi">-</span> <span class="s">consolequickstarts</span>
-  <span class="pi">-</span> <span class="s">consolelinks</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">autoscaling</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">horizontalpodautoscalers</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">policy</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">poddisruptionbudgets</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">monitoring.coreos.com</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">servicemonitors</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">batch</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">jobs</span>
-  <span class="pi">-</span> <span class="s">cronjobs</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">deletecollection</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s1">'</span><span class="s">'</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">namespaces/finalizers</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">update</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">resolution.tekton.dev</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">resolutionrequests</span>
-  <span class="pi">-</span> <span class="s">resolutionrequests/status</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">console.openshift.io</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">consoleplugins</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-<span class="c1"># Deployments specified in install.spec.deployments</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apps</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">deployments</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">apps</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">deployments</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="c1"># scoped to the extension controller deployment name</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">openshift-pipelines-operator</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-webhook</span>
-<span class="c1"># Service accounts in the CSV</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">serviceaccounts</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">serviceaccounts</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="c1"># scoped to the extension controller's deployment service account</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">openshift-pipelines-operator</span>
-<span class="c1"># Services</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">services</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">services</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="c1"># scoped to the service name</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">openshift-pipelines-operator-monitor</span>
-  <span class="pi">-</span> <span class="s">tekton-operator</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-webhook</span>
-<span class="c1"># configmaps</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">configmaps</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">create</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s2">"</span><span class="s">"</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">configmaps</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">list</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">update</span>
-  <span class="pi">-</span> <span class="s">patch</span>
-  <span class="pi">-</span> <span class="s">delete</span>
-  <span class="c1"># scoped to the configmap name</span>
-  <span class="na">resourceNames</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">config-logging</span>
-  <span class="pi">-</span> <span class="s">tekton-config-defaults</span>
-  <span class="pi">-</span> <span class="s">tekton-config-observability</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-controller-config-leader-election</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-info</span>
-  <span class="pi">-</span> <span class="s">tekton-operator-webhook-config-leader-election</span>
-<span class="pi">-</span> <span class="na">apiGroups</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">operator.tekton.dev</span>
-  <span class="na">resources</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">tekton-config-read-role</span>
-  <span class="pi">-</span> <span class="s">tekton-result-read-role</span>
-  <span class="na">verbs</span><span class="pi">:</span>
-  <span class="pi">-</span> <span class="s">get</span>
-  <span class="pi">-</span> <span class="s">watch</span>
-  <span class="pi">-</span> <span class="s">list</span>
-<span class="nn">---</span></code></pre>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="olmv1-creating-a-cluster-rol-binding_managing-ce"><a class="anchor" href="#olmv1-creating-a-cluster-rol-binding_managing-ce"></a>Creating a cluster role binding for an extension</h3>
-<div class="paragraph _abstract">
-<p>After you have created a service account and cluster role, you must bind the cluster role to the service account with a cluster role binding manifest.</p>
-</div>
-<div class="ulist">
-<div class="title">Prerequisites</div>
-<ul>
-<li>
-<p>Access to an OKD cluster using an account with <code>cluster-admin</code> permissions.</p>
-</li>
-<li>
-<p>You have created and applied the following resources for the extension you want to install:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Namespace</p>
-</li>
-<li>
-<p>Service account</p>
-</li>
-<li>
-<p>Cluster role</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-<div class="olist arabic">
-<div class="title">Procedure</div>
-<ol class="arabic">
-<li>
-<p>Create a cluster role binding to bind the cluster role to the service account, similar to the following example:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRoleBinding</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;extension&gt;-installer-binding</span>
-<span class="na">roleRef</span><span class="pi">:</span>
-  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;extension&gt;-installer-clusterrole</span>
-<span class="na">subjects</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;extension&gt;-installer</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;namespace&gt;</span></code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example <code>pipelines-cluster-role-binding.yaml</code> file</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
-<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRoleBinding</span>
-<span class="na">metadata</span><span class="pi">:</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer-binding</span>
-<span class="na">roleRef</span><span class="pi">:</span>
-  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
-  <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer-clusterrole</span>
-<span class="na">subjects</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">ServiceAccount</span>
-  <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer</span>
-  <span class="na">namespace</span><span class="pi">:</span> <span class="s">pipelines</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Apply the cluster role binding by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> pipelines-cluster-role-binding.yaml</code></pre>
-</div>
-</div>
-</li>
-</ol>
 </div>
 </div>
 </div>
@@ -4701,7 +3356,13 @@
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have created a service account and assigned enough role-based access controls (RBAC) to install, update, and manage the extension that you want to install. For more information, see "Cluster extension permissions".</p>
+<p>You have access to the cluster by using an account with <code>cluster-admin</code> permissions.</p>
+</li>
+<li>
+<p>You have created the installation namespace.</p>
+</li>
+<li>
+<p>You have identified a supported package and an available version or channel in a catalog on the cluster.</p>
 </li>
 </ul>
 </div>
@@ -4713,21 +3374,19 @@
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">olm.operatorframework.io/v1</span>
-  <span class="s">kind</span><span class="pi">:</span> <span class="s">ClusterExtension</span>
-  <span class="s">metadata</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;clusterextension_name&gt;</span>
-  <span class="na">spec</span><span class="pi">:</span>
-    <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;installed_namespace&gt;</span>
-    <span class="na">serviceAccount</span><span class="pi">:</span>
-      <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;service_account_installer_name&gt;</span>
-    <span class="na">source</span><span class="pi">:</span>
-      <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
-      <span class="na">catalog</span><span class="pi">:</span>
-        <span class="na">packageName</span><span class="pi">:</span> <span class="s">&lt;package_name&gt;</span>
-        <span class="na">channels</span><span class="pi">:</span>
-          <span class="pi">-</span> <span class="s">&lt;channel_name&gt;</span>
-        <span class="na">version</span><span class="pi">:</span> <span class="s">&lt;version_or_version_range&gt;</span>
-        <span class="na">upgradeConstraintPolicy</span><span class="pi">:</span> <span class="s">CatalogProvided</span></code></pre>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterExtension</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;clusterextension_name&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;installed_namespace&gt;</span>
+  <span class="na">source</span><span class="pi">:</span>
+    <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
+    <span class="na">catalog</span><span class="pi">:</span>
+      <span class="na">packageName</span><span class="pi">:</span> <span class="s">&lt;package_name&gt;</span>
+      <span class="na">channels</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">&lt;channel_name&gt;</span>
+      <span class="na">version</span><span class="pi">:</span> <span class="s">&lt;version_or_version_range&gt;</span>
+      <span class="na">upgradeConstraintPolicy</span><span class="pi">:</span> <span class="s">CatalogProvided</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -4738,10 +3397,6 @@
 <dt class="hdlist1"><code>spec.namespace</code></dt>
 <dd>
 <p>Specifies the namespace where you want the bundle installed, such as <code>pipelines</code> or <code>my-extension</code>. Extensions are still cluster-scoped and might contain resources that are installed in different namespaces.</p>
-</dd>
-<dt class="hdlist1"><code>spec.serviceAccount.name</code></dt>
-<dd>
-<p>Specifies the name of the service account you created to install, update, and manage your extension.</p>
 </dd>
 <dt class="hdlist1"><code>spec.source.catalog.channels</code></dt>
 <dd>
@@ -4763,8 +3418,6 @@
   <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-operator</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">pipelines</span>
-  <span class="na">serviceAccount</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer</span>
   <span class="na">source</span><span class="pi">:</span>
     <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
     <span class="na">catalog</span><span class="pi">:</span>
@@ -4780,7 +3433,7 @@
 <p>Apply the CR to the cluster by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> pipeline-operator.yaml</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> pipelines-operator.yaml</code></pre>
 </div>
 </div>
 <div class="listingblock">
@@ -4812,7 +3465,7 @@ items:
   metadata:
     annotations:
       kubectl.kubernetes.io/last-applied-configuration: |
-        {"apiVersion":"olm.operatorframework.io/v1","kind":"ClusterExtension","metadata":{"annotations":{},"name":"pipes"},"spec":{"namespace":"pipelines","serviceAccount":{"name":"pipelines-installer"},"source":{"catalog":{"packageName":"openshift-pipelines-operator-rh","version":"1.14.x"},"sourceType":"Catalog"}}}
+        {"apiVersion":"olm.operatorframework.io/v1","kind":"ClusterExtension","metadata":{"annotations":{},"name":"pipes"},"spec":{"namespace":"pipelines","source":{"catalog":{"packageName":"openshift-pipelines-operator-rh","version":"1.14.x"},"sourceType":"Catalog"}}}
     creationTimestamp: "2025-02-18T21:48:13Z"
     finalizers:
     - olm.operatorframework.io/cleanup-unpack-cache
@@ -4823,8 +3476,6 @@ items:
     uid: e18b13fb-a96d-436f-be75-a9a0f2b07993
   spec:
     namespace: pipelines
-    serviceAccount:
-      name: pipelines-installer
     source:
       catalog:
         packageName: openshift-pipelines-operator-rh
@@ -4971,7 +3622,7 @@ metadata:
 <p>You have enabled the <code>TechPreviewNoUpgrade</code> feature set on the cluster.</p>
 </li>
 <li>
-<p>You have created a service account and assigned enough role-based access controls (RBAC) to install, update, and manage the extension. For more information, see "Cluster extension permissions".</p>
+<p>You have created the installation namespace.</p>
 </li>
 <li>
 <p>You have verified the supported install modes for the extension and determined the required <code>watchNamespace</code> configuration.</p>
@@ -4999,8 +3650,6 @@ metadata:
     <span class="na">configType</span><span class="pi">:</span> <span class="s">Inline</span>
     <span class="na">inline</span><span class="pi">:</span>
       <span class="na">watchNamespace</span><span class="pi">:</span> <span class="s">&lt;installation_namespace&gt;</span>
-  <span class="na">serviceAccount</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;service_account&gt;</span>
   <span class="na">source</span><span class="pi">:</span>
     <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
     <span class="na">catalog</span><span class="pi">:</span>
@@ -5035,8 +3684,6 @@ metadata:
     <span class="na">configType</span><span class="pi">:</span> <span class="s">Inline</span>
     <span class="na">inline</span><span class="pi">:</span>
       <span class="na">watchNamespace</span><span class="pi">:</span> <span class="s">&lt;watched_namespace&gt;</span>
-  <span class="na">serviceAccount</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">&lt;service_account&gt;</span>
   <span class="na">source</span><span class="pi">:</span>
     <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
     <span class="na">catalog</span><span class="pi">:</span>
@@ -5102,9 +3749,6 @@ metadata:
 <p><a href="../../authentication/using-rbac.html#rbac-projects-namespaces_using-rbac">Projects and namespaces</a></p>
 </li>
 <li>
-<p><a href="../../extensions/ce/managing-ce.html#olmv1-creating-a-service-account_managing-ce">Creating a service account</a></p>
-</li>
-<li>
 <p><a href="../../extensions/ce/update-paths.html#olmv1-about-target-versions_update-paths">Example custom resources (CRs) that specify a target version</a></p>
 </li>
 <li>
@@ -5115,125 +3759,24 @@ metadata:
 </div>
 </div>
 <div class="sect1">
-<h2 id="olmv1-troubleshooting-rbac-errors-with-preflight-check_managing-ce"><a class="anchor" href="#olmv1-troubleshooting-rbac-errors-with-preflight-check_managing-ce"></a>Preflight permissions check for cluster extensions (Technology Preview)</h2>
-<div class="sectionbody">
-<div class="paragraph _abstract">
-<p>Before installing an extension, the Operator Controller performs a dry run to verify service account access. This process confirms that the service account can create all required Kubernetes resources and RBAC rules defined by the extension bundle.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>The preflight permissions check for cluster extensions is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
-</div>
-<div class="paragraph">
-<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
-</div>
-</td>
-</tr>
-</table>
-</div>
-<div class="paragraph">
-<p>If the service account is missing any required RBAC rules, the preflight check fails before the actual installation proceeds. If the preflight check fails, the Operator Controller reports the errors in the status conditions of the extension and in the logs of the Operator Controller.</p>
-</div>
-<div class="paragraph">
-<p>To proceed with the installation, update the roles and bindings to grant the missing permissions to the service account and apply the changes. If there are no errors, the Operator Controller reconciles the updated permissions and completes the installation.</p>
-</div>
-<div class="sect2">
-<h3 id="olmv1-preflight-permissions-check-output_managing-ce"><a class="anchor" href="#olmv1-preflight-permissions-check-output_managing-ce"></a>Example report from the preflight permissions check</h3>
-<div class="paragraph">
-<p>The following report indicates that the service account requires the following missing permissions:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>RBAC rules to perform <code>list</code> and <code>watch</code> actions for the <code>services</code> resource in the core API group for the entire cluster</p>
-</li>
-<li>
-<p>RBAC rules to perform <code>create</code> actions for <code>deployments</code> resources in the <code>apps</code> API group for the <code>pipelines</code> namespace</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>You can access the reports from the preflight permissions check in the status conditions of the cluster extension. The <code>oc describe clusterextension</code> command prints information about a cluster extension, including the status conditions.</p>
-</div>
-<div class="listingblock">
-<div class="title">Example command</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe clusterextension &lt;extension_name&gt;</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example report</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">apiVersion: v1
-items:
-- apiVersion: olm.operatorframework.io/v1
-  kind: ClusterExtension
-...
-Conditions:
-  Type:    Progressing
-  Status:  False
-  Reason:  Retrying
-  Message: pre-authorization failed: service account requires the following permissions to manage cluster extension:
-           Namespace:"" APIGroups:[] Resources:[services] Verbs:[list,watch]
-           Namespace:"pipelines" APIGroups:["apps"] Resources:[deployments] Verbs:[create]</code></pre>
-</div>
-</div>
-<div class="dlist">
-<dl>
-<dt class="hdlist1"><code>Namespace</code></dt>
-<dd>
-<p>Specifies the scope of the required RBAC rules at the namespace level, for example the <code>pipelines</code> namespace. An empty namespace value, <code>""</code>, indicates that you must scope the permission to the cluster.</p>
-</dd>
-<dt class="hdlist1"><code>APIGroups</code></dt>
-<dd>
-<p>Specifies the name of the API group the required permissions apply to. An empty value in the API group, <code>[]</code>, indicates the permissions apply to the core API group. For example, services, secrets, and config maps are all core resources.</p>
-<div class="paragraph">
-<p>If a resource belongs to a named API group, the report lists the name in between the brackets. For example, the value of <code>APIGroups:[apps]</code> indicates the extension requires RBAC rules to act on resources in the <code>apps</code> API group.</p>
-</div>
-</dd>
-<dt class="hdlist1"><code>Resources</code></dt>
-<dd>
-<p>Specifies the resource types that require permissions. For example, services, secrets, and custom resource definitions are common resource types.</p>
-</dd>
-<dt class="hdlist1"><code>Verbs</code></dt>
-<dd>
-<p>Specifies the actions, or <em>verbs</em>, that the service account needs permission to perform. If the report lists several verbs, all of the listed verbs require RBAC rules.</p>
-</dd>
-</dl>
-</div>
-</div>
-<div class="sect2">
-<h3 id="olmv1-common-rbac-errors_managing-ce"><a class="anchor" href="#olmv1-common-rbac-errors_managing-ce"></a>Common permission errors</h3>
-<div class="dlist">
-<dl>
-<dt class="hdlist1">Missing verbs</dt>
-<dd>
-<p>The service account does not have permission to perform a required action. To resolve this issue, update or create a role and binding to grant the necessary permissions. Roles and role bindings define resource permissions for a namespace. Cluster roles and cluster role bindings define resource permissions for the cluster.</p>
-</dd>
-<dt class="hdlist1">Privilege escalation</dt>
-<dd>
-<p>The service account does not have enough permission to create a role or cluster role that the extension needs. When this happens, the preflight check reports the verbs as missing to prevent privilege escalation. To resolve this issue, grant enough permission to the service account so that it can create the roles.</p>
-</dd>
-<dt class="hdlist1">Missing role references</dt>
-<dd>
-<p>The extension references a role or cluster role that the Operator Controller cannot find. When this happens, the preflight check lists the missing role and reports an <code>authorization evalutation error</code>. To resolve the issue, create or update the roles and cluster roles to ensure that all role references exist.</p>
-</dd>
-</dl>
-</div>
-</div>
-</div>
-</div>
-<div class="sect1">
 <h2 id="olmv1-updating-an-operator_managing-ce"><a class="anchor" href="#olmv1-updating-an-operator_managing-ce"></a>Updating a cluster extension</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
 <p>You can update your cluster extension or Operator by manually editing the custom resource (CR) and applying the changes.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Automatic updates can install bundles that grant an extension additional permissions without administrator review. To review each bundle before installation, specify an exact approved version. Review the bundle&#8217;s permissions and configuration before approving another version.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -5340,7 +3883,7 @@ items:
   metadata:
     annotations:
       kubectl.kubernetes.io/last-applied-configuration: |
-        {"apiVersion":"olm.operatorframework.io/v1","kind":"ClusterExtension","metadata":{"annotations":{},"name":"pipes"},"spec":{"namespace":"pipelines","serviceAccount":{"name":"pipelines-installer"},"source":{"catalog":{"packageName":"openshift-pipelines-operator-rh","version":"1.14.x"},"sourceType":"Catalog"}}}
+        {"apiVersion":"olm.operatorframework.io/v1","kind":"ClusterExtension","metadata":{"annotations":{},"name":"pipes"},"spec":{"namespace":"pipelines","source":{"catalog":{"packageName":"openshift-pipelines-operator-rh","version":"1.14.x"},"sourceType":"Catalog"}}}
     creationTimestamp: "2025-02-18T21:48:13Z"
     finalizers:
     - olm.operatorframework.io/cleanup-unpack-cache
@@ -5351,8 +3894,6 @@ items:
     uid: e18b13fb-a96d-436f-be75-a9a0f2b07993
   spec:
     namespace: pipelines
-    serviceAccount:
-      name: pipelines-installer
     source:
       catalog:
         packageName: openshift-pipelines-operator-rh
@@ -5423,8 +3964,6 @@ metadata:
   <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-operator</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">pipelines</span>
-  <span class="na">serviceAccount</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer</span>
   <span class="na">source</span><span class="pi">:</span>
     <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
     <span class="na">catalog</span><span class="pi">:</span>
@@ -5447,8 +3986,6 @@ metadata:
   <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-operator</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">pipelines</span>
-  <span class="na">serviceAccount</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer</span>
   <span class="na">source</span><span class="pi">:</span>
     <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
     <span class="na">catalog</span><span class="pi">:</span>
@@ -5471,8 +4008,6 @@ metadata:
   <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-operator</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">pipelines</span>
-  <span class="na">serviceAccount</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer</span>
   <span class="na">source</span><span class="pi">:</span>
     <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
     <span class="na">catalog</span><span class="pi">:</span>
@@ -5496,8 +4031,6 @@ metadata:
   <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-operator</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">pipelines</span>
-  <span class="na">serviceAccount</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer</span>
   <span class="na">source</span><span class="pi">:</span>
     <span class="na">sourceType</span><span class="pi">:</span> <span class="s">Catalog</span>
     <span class="na">catalog</span><span class="pi">:</span>
@@ -5548,7 +4081,7 @@ metadata:
 <span class="na">metadata</span><span class="pi">:</span>
   <span class="na">annotations</span><span class="pi">:</span>
     <span class="s">kubectl.kubernetes.io/last-applied-configuration</span><span class="pi">:</span> <span class="pi">|</span>
-      <span class="s">{"apiVersion":"olm.operatorframework.io/v1","kind":"ClusterExtension","metadata":{"annotations":{},"name":"pipes"},"spec":{"namespace":"pipelines","serviceAccount":{"name":"pipelines-installer"},"source":{"catalog":{"packageName":"openshift-pipelines-operator-rh","version":"\u003c1.16"},"sourceType":"Catalog"}}}</span>
+      <span class="s">{"apiVersion":"olm.operatorframework.io/v1","kind":"ClusterExtension","metadata":{"annotations":{},"name":"pipes"},"spec":{"namespace":"pipelines","source":{"catalog":{"packageName":"openshift-pipelines-operator-rh","version":"\u003c1.16"},"sourceType":"Catalog"}}}</span>
   <span class="na">creationTimestamp</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2025-02-18T21:48:13Z"</span>
   <span class="na">finalizers</span><span class="pi">:</span>
   <span class="pi">-</span> <span class="s">olm.operatorframework.io/cleanup-unpack-cache</span>
@@ -5559,8 +4092,6 @@ metadata:
   <span class="na">uid</span><span class="pi">:</span> <span class="s">e18b13fb-a96d-436f-be75-a9a0f2b07993</span>
 <span class="na">spec</span><span class="pi">:</span>
   <span class="na">namespace</span><span class="pi">:</span> <span class="s">pipelines</span>
-  <span class="na">serviceAccount</span><span class="pi">:</span>
-    <span class="na">name</span><span class="pi">:</span> <span class="s">pipelines-installer</span>
   <span class="na">source</span><span class="pi">:</span>
     <span class="na">catalog</span><span class="pi">:</span>
       <span class="na">packageName</span><span class="pi">:</span> <span class="s">openshift-pipelines-operator-rh</span>
@@ -5633,7 +4164,7 @@ kind: ClusterExtension
 metadata:
   annotations:
     kubectl.kubernetes.io/last-applied-configuration: |
-      {"apiVersion":"olm.operatorframework.io/v1","kind":"ClusterExtension","metadata":{"annotations":{},"name":"pipes"},"spec":{"namespace":"pipelines","serviceAccount":{"name":"pipelines-installer"},"source":{"catalog":{"packageName":"openshift-pipelines-operator-rh","version":"9.x"},"sourceType":"Catalog"}}}
+      {"apiVersion":"olm.operatorframework.io/v1","kind":"ClusterExtension","metadata":{"annotations":{},"name":"pipes"},"spec":{"namespace":"pipelines","source":{"catalog":{"packageName":"openshift-pipelines-operator-rh","version":"9.x"},"sourceType":"Catalog"}}}
   creationTimestamp: "2025-02-18T21:48:13Z"
   finalizers:
   - olm.operatorframework.io/cleanup-unpack-cache
@@ -5644,8 +4175,6 @@ metadata:
   uid: e18b13fb-a96d-436f-be75-a9a0f2b07993
 spec:
   namespace: pipelines
-  serviceAccount:
-    name: pipelines-installer
   source:
     catalog:
       packageName: openshift-pipelines-operator-rh
@@ -5751,41 +4280,160 @@ status:
 <div class="title">Verification</div>
 <ul>
 <li>
-<p>Run the following commands to verify that your Operator and its resources were deleted:</p>
+<p>Verify that the extension CR no longer exists by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusterextension &lt;operator_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The API server returns a <code>NotFound</code> error. A namespace that you created before installing the extension remains on the cluster.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="olmv1-downloading-bundle-manifests_managing-ce"><a class="anchor" href="#olmv1-downloading-bundle-manifests_managing-ce"></a>Downloading the bundle manifests of an extension</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Download the bundle manifests of an extension with the <code>opm</code> CLI tool. Review the resources and runtime permissions in the manifests before approving the extension for installation.</p>
+</div>
 <div class="ulist">
+<div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>Verify the Operator is deleted by running the following command:</p>
+<p>You have access to an OKD cluster using an account with <code>cluster-admin</code> permissions.</p>
+</li>
+<li>
+<p>You have decided which extension you want to install.</p>
+</li>
+<li>
+<p>You have installed the <code>opm</code> CLI tool.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Inspect the available versions and images of the extension you want to install by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusterextensions</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>opm render &lt;registry_url&gt;:&lt;tag_or_version&gt; | <span class="se">\</span>
+  jq <span class="nt">-cs</span> <span class="s1">'.[] | select( .schema == "olm.bundle" ) | \
+  select( .package == "&lt;extension_name&gt;") | \
+  {"name":.name, "image":.image}'</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal">$ opm render registry.redhat.io/redhat/redhat-operator-index:v5 | \
+  jq -cs '.[] | select( .schema == "olm.bundle" ) | \
+  select( .package == "openshift-pipelines-operator-rh") | \
+  {"name":.name, "image":.image}'</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">No resources found</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="text">{"name":"openshift-pipelines-operator-rh.v1.14.5","image":"registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:f7b19ce26be742c4aaa458d37bc5ad373b5b29b20aaa7d308349687d3cbd8838"}</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Verify that the Operator&#8217;s system namespace is deleted by running the following command:</p>
+<p>Make a directory to extract the image of the bundle that you want to install by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get ns &lt;operator_name&gt;-system</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">mkdir</span> &lt;new_dir&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Change into the directory by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cd</span> &lt;new_dir&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Find the image reference of the version that you want to install and run the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc image extract &lt;full_path_to_registry_image&gt;@sha256:&lt;sha&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc image extract registry.redhat.io/openshift-pipelines/pipelines-operator-bundle@sha256:f7b19ce26be742c4aaa458d37bc5ad373b5b29b20aaa7d308349687d3cbd8838</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Change into the <code>manifests</code> directory by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">cd </span>manifests</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>View the contents of the manifests directory by entering the following command. The output lists the manifests of the resources required to install, manage, and operate your extension.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>tree</code></pre>
 </div>
 </div>
 <div class="listingblock">
 <div class="title">Example output</div>
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="text">Error from server (NotFound): namespaces "&lt;operator_name&gt;-system" not found</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="text">.
+├── manifests
+│   ├── config-logging_v1_configmap.yaml
+│   ├── openshift-pipelines-operator-monitor_monitoring.coreos.com_v1_servicemonitor.yaml
+│   ├── openshift-pipelines-operator-prometheus-k8s-read-binding_rbac.authorization.k8s.io_v1_rolebinding.yaml
+│   ├── openshift-pipelines-operator-read_rbac.authorization.k8s.io_v1_role.yaml
+│   ├── openshift-pipelines-operator-rh.clusterserviceversion.yaml
+│   ├── operator.tekton.dev_manualapprovalgates.yaml
+│   ├── operator.tekton.dev_openshiftpipelinesascodes.yaml
+│   ├── operator.tekton.dev_tektonaddons.yaml
+│   ├── operator.tekton.dev_tektonchains.yaml
+│   ├── operator.tekton.dev_tektonconfigs.yaml
+│   ├── operator.tekton.dev_tektonhubs.yaml
+│   ├── operator.tekton.dev_tektoninstallersets.yaml
+│   ├── operator.tekton.dev_tektonpipelines.yaml
+│   ├── operator.tekton.dev_tektonresults.yaml
+│   ├── operator.tekton.dev_tektontriggers.yaml
+│   ├── tekton-config-defaults_v1_configmap.yaml
+│   ├── tekton-config-observability_v1_configmap.yaml
+│   ├── tekton-config-read-rolebinding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml
+│   ├── tekton-config-read-role_rbac.authorization.k8s.io_v1_clusterrole.yaml
+│   ├── tekton-operator-controller-config-leader-election_v1_configmap.yaml
+│   ├── tekton-operator-info_rbac.authorization.k8s.io_v1_rolebinding.yaml
+│   ├── tekton-operator-info_rbac.authorization.k8s.io_v1_role.yaml
+│   ├── tekton-operator-info_v1_configmap.yaml
+│   ├── tekton-operator_v1_service.yaml
+│   ├── tekton-operator-webhook-certs_v1_secret.yaml
+│   ├── tekton-operator-webhook-config-leader-election_v1_configmap.yaml
+│   ├── tekton-operator-webhook_v1_service.yaml
+│   ├── tekton-result-read-rolebinding_rbac.authorization.k8s.io_v1_clusterrolebinding.yaml
+│   └── tekton-result-read-role_rbac.authorization.k8s.io_v1_clusterrole.yaml
+├── metadata
+│   ├── annotations.yaml
+│   └── properties.yaml
+└── root
+    └── buildinfo
+        ├── content_manifests
+        │   └── openshift-pipelines-operator-bundle-container-v1.16.2-3.json
+        └── Dockerfile-openshift-pipelines-pipelines-operator-bundle-container-v1.16.2-3</code></pre>
 </div>
 </div>
 </li>
-</ul>
-</div>
-</li>
-</ul>
+</ol>
 </div>
 </div>
 </div>
