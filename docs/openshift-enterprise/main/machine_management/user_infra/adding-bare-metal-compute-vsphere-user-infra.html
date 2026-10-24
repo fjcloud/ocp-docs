@@ -15,7 +15,7 @@
   
   
 
-  <title>Adding bare-metal compute machines to a vSphere cluster - Managing user-provisioned infrastructure manually | Machine management | OpenShift Container Platform Branch Build</title>
+  <title>Add compute machines without vSphere integration - Managing user-provisioned infrastructure manually | Machine management | OpenShift Container Platform Branch Build</title>
   <link href="https://assets.openshift.net/content/subdomain.css" rel="stylesheet" type="text/css"/>
   <link href="https://docs.okd.io/latest/_stylesheets/search.css" rel="stylesheet" media="screen"/>
   <link href="https://docs.okd.io/latest/_stylesheets/autumn.css" rel="stylesheet"  media="screen"/>
@@ -251,7 +251,7 @@
       <li class="hidden-xs active"><a href="../../machine_management/user_infra/adding-compute-user-infra-general.html">Managing user-provisioned infrastructure manually</a></li>
       
       <li class="hidden-xs active">
-        Adding bare-metal compute machines to a vSphere cluster
+        Add compute machines without vSphere integration
       </li>
       
       <span text-align="right" style="float: right !important">
@@ -1888,7 +1888,7 @@
                   <li><a class="" href="../../machine_management/user_infra/adding-compute-user-infra-general.html">Adding compute machines to clusters with user-provisioned infrastructure manually</a></li>
                   <li><a class="" href="../../machine_management/user_infra/adding-aws-compute-user-infra.html">Adding compute machines to AWS using CloudFormation templates</a></li>
                   <li><a class="" href="../../machine_management/user_infra/adding-vsphere-compute-user-infra.html">Adding compute machines to vSphere manually</a></li>
-                  <li><a class=" active" href="../../machine_management/user_infra/adding-bare-metal-compute-vsphere-user-infra.html">Adding bare-metal compute machines to a vSphere cluster</a></li>
+                  <li><a class=" active" href="../../machine_management/user_infra/adding-bare-metal-compute-vsphere-user-infra.html">Add compute machines without vSphere integration</a></li>
                   <li><a class="" href="../../machine_management/user_infra/adding-bare-metal-compute-user-infra.html">Adding compute machines to bare metal</a></li>              </ul>
             </li>
             <li class="nav-header"><a class="" href="javascript:void(0);" data-toggle="collapse" data-target="#topicSubGroup-23-9"><span id="sgSpan-23-9" class="fa fa-caret-right"></span>&nbsp;Managing control plane machines</a>
@@ -3463,7 +3463,7 @@
       <div class="col-xs-12 col-sm-9 col-md-9 main">
         <div class="page-header">
           <h1>
-            Adding bare-metal compute machines to a vSphere cluster
+            Add compute machines without vSphere integration
           </h1>
         </div>
         
@@ -3473,39 +3473,67 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#bare-metal-vsphere-prerequisites_adding-bare-metal-compute-vsphere-user-infra">Prerequisites for adding bare-metal compute machines to a vSphere cluster</a></li>
-<li><a href="#bare-metal-vsphere-iso_adding-bare-metal-compute-vsphere-user-infra">Create RHCOS machines using an ISO image</a></li>
+<li><a href="#vsphere-platform-agnostic-compute-nodes_adding-bare-metal-compute-vsphere-user-infra">Compute machines without vSphere integration</a></li>
+<li><a href="#bare-metal-vsphere-prerequisites_adding-bare-metal-compute-vsphere-user-infra">Prerequisites for compute machines without vSphere integration</a></li>
+<li><a href="#vsphere-add-compute-machine-network_adding-bare-metal-compute-vsphere-user-infra">Add a compute machine subnet</a></li>
+<li><a href="#bare-metal-vsphere-iso_adding-bare-metal-compute-vsphere-user-infra">Create compute machines from an ISO image</a></li>
 <li><a href="#installation-approve-csrs_adding-bare-metal-compute-vsphere-user-infra">Approve the certificate signing requests for your machines</a></li>
-<li><a href="#bare-metal-vsphere-remove-uninit-taint_adding-bare-metal-compute-vsphere-user-infra">Remove the cloud provider uninitialized taint from bare-metal nodes</a></li>
+<li><a href="#bare-metal-vsphere-remove-uninit-taint_adding-bare-metal-compute-vsphere-user-infra">Remove the cloud provider uninitialized taint from compute nodes</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>To support workloads requiring direct hardware access, extend your existing VMware vSphere cluster by adding bare-metal compute machines. This creates a hybrid architecture that combines a virtualized control plane with the performance of physical hardware.</p>
+<p>You can expand an existing OpenShift Container Platform cluster on VMware vSphere by adding bare-metal compute machines or virtual machines (VMs) without vSphere integration.</p>
 </div>
 <div class="paragraph">
-<p>This procedure supports clusters installed using installer-provisioned infrastructure, user-provisioned infrastructure, or the Assisted Installer.</p>
-</div>
-<div class="admonitionblock important">
-<table>
-<tr>
-<td class="icon">
-<i class="fa icon-important" title="Important"></i>
-</td>
-<td class="content">
-<div class="paragraph">
-<p>Bare-metal compute machines added to a vSphere cluster are unmanaged by the Machine API. You cannot use compute machine sets or the cluster autoscaler to manage these compute machines. Lifecycle tasks such as provisioning and replacement must be performed manually.</p>
-</div>
-</td>
-</tr>
-</table>
+<p>This workflow applies to compute machines added after cluster installation, regardless of the original installation method. The existing cluster retains its vSphere platform configuration and control plane.</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="bare-metal-vsphere-prerequisites_adding-bare-metal-compute-vsphere-user-infra"><a class="anchor" href="#bare-metal-vsphere-prerequisites_adding-bare-metal-compute-vsphere-user-infra"></a>Prerequisites for adding bare-metal compute machines to a vSphere cluster</h2>
+<h2 id="vsphere-platform-agnostic-compute-nodes_adding-bare-metal-compute-vsphere-user-infra"><a class="anchor" href="#vsphere-platform-agnostic-compute-nodes_adding-bare-metal-compute-vsphere-user-infra"></a>Compute machines without vSphere integration</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Before you add bare-metal compute machines to your VMware vSphere cluster, you must meet the following infrastructure and network requirements.</p>
+<p>Provision physical or virtual compute machines manually and install Red&#160;Hat Enterprise Linux CoreOS (RHCOS) with your OpenShift Container Platform cluster&#8217;s worker configuration. These nodes join the cluster without vSphere integration.</p>
+</div>
+<div class="paragraph">
+<p>The target cluster is the existing OpenShift Container Platform cluster on vSphere that the new compute machines join. Run the OpenShift CLI (<code>oc</code>) commands in this workflow against the target cluster.</p>
+</div>
+<div class="paragraph">
+<p>For a virtual machine (VM), use a virtualization environment other than vSphere, such as OpenShift Virtualization. That environment supplies the processor, memory, virtual disks, and network interfaces. Create the VM in that environment, and then install RHCOS inside the VM by using the ISO procedure. The VM needs network access to the target cluster and its worker Ignition configuration.</p>
+</div>
+<div class="paragraph">
+<p>For VMs hosted on vSphere, use the procedures for adding vSphere compute machines.</p>
+</div>
+<div class="paragraph">
+<p>The ISO procedure uses <code>coreos-installer install</code> with <code>--platform=metal</code> for both physical machines and VMs. The <code>metal</code> value selects the Ignition platform for the new worker; the target cluster retains its vSphere platform configuration.</p>
+</div>
+<div class="paragraph">
+<p>You must provision and replace the added machines manually. The Machine API, compute machine sets, and cluster autoscaler do not provision or replace these machines. The Machine Config Operator (MCO) manages node configuration and operating system updates through machine config pools (MCPs).</p>
+</div>
+<div class="paragraph">
+<p>If the added workers require configuration changes that differ from the existing workers, use a custom MCP to target those changes. The custom pool must inherit the worker configuration.</p>
+</div>
+<div class="paragraph">
+<p>The requirement to disable the native vSphere Container Storage Interface (CSI) driver applies to workload storage in the target cluster. Storage for a VM&#8217;s virtual disks is configured in its virtualization environment.</p>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../machine_configuration/index.html#architecture-machine-config-pools_machine-config-overview">Node configuration management with machine config pools</a></p>
+</li>
+<li>
+<p><a href="../../machine_configuration/machine-config-custom-mcp.html#machine-config-custom-mcp-existing_machine-config-creating-custom-mcp">Create a custom machine config pool for an existing node</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bare-metal-vsphere-prerequisites_adding-bare-metal-compute-vsphere-user-infra"><a class="anchor" href="#bare-metal-vsphere-prerequisites_adding-bare-metal-compute-vsphere-user-infra"></a>Prerequisites for compute machines without vSphere integration</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Before you add bare-metal compute machines or virtual machines (VMs) without vSphere integration to your OpenShift Container Platform cluster, prepare the machines, network, and storage.</p>
 </div>
 <div class="ulist">
 <ul>
@@ -3513,23 +3541,28 @@
 <p>You have an existing OpenShift Container Platform cluster installed on vSphere.</p>
 </li>
 <li>
-<p>You have bare-metal hardware with network connectivity to the existing cluster&#8217;s machine network.</p>
+<p>The new physical machines or VMs meet the minimum resource requirements for compute machines, including processor capacity, memory, disk capacity, and disk performance.</p>
 </li>
 <li>
-<p>You have configured the network for the new bare-metal compute machines, including:</p>
-<div class="ulist">
-<ul>
-<li>
-<p>DHCP: Persistent IP addresses and hostname reservations.</p>
+<p>You have console access to each machine and a persistent disk on which to install Red&#160;Hat Enterprise Linux CoreOS (RHCOS).</p>
 </li>
 <li>
-<p>DNS: Forward and reverse DNS resolution for the new hostnames.</p>
-</li>
-</ul>
-</div>
+<p>For VMs, you have created the VMs and configured their virtual disks and network interfaces. You can attach an ISO image and control the boot order.</p>
 </li>
 <li>
-<p>You have obtained the Red&#160;Hat Enterprise Linux CoreOS (RHCOS) ISO image that matches your cluster version. You can download this from the <strong>Cluster Details</strong> page on the Red&#160;Hat Hybrid Cloud Console or extract it from the cluster payload.</p>
+<p>You have configured persistent IP addresses and hostnames for the new machines by using Dynamic Host Configuration Protocol (DHCP) or static configuration. You have also configured forward and reverse DNS resolution.</p>
+</li>
+<li>
+<p>The new machines and existing cluster nodes can communicate in both directions by using their node IP addresses. For VMs, these are the guest IP addresses. The new machines can also access the API, Machine Config Server, and required image registries.</p>
+</li>
+<li>
+<p>For clusters that use virtual IP addresses (VIPs), the VIPs remain reachable if served from an added node. The network must deliver incoming traffic for a VIP to that node, including when the node is on another subnet.</p>
+</li>
+<li>
+<p>You have migrated all workloads that depend on vSphere volumes to an alternative storage solution. This includes any platform workloads that use those volumes.</p>
+</li>
+<li>
+<p>After migrating the workloads, you have disabled the native vSphere Container Storage Interface (CSI) driver by setting <code>spec.managementState</code> to <code>Removed</code> in the <code>csi.vsphere.vmware.com</code> <code>ClusterCSIDriver</code> object.</p>
 </li>
 </ul>
 </div>
@@ -3541,10 +3574,10 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Setting <code>spec.managementState</code> to <code>Removed</code> in the <code>ClusterCSIDriver/csi.vsphere.vmware.com</code> custom resource (CR) explicitly disables the native vSphere Container Storage Interface (CSI) driver across the entire cluster. This action triggers the CSI Operator to remove all vSphere <code>StorageClasses</code>, including <code>thin-csi</code>.</p>
+<p>Disabling the native vSphere CSI driver affects every node in the target cluster, including the existing vSphere nodes. These nodes lose the ability to provision or attach vSphere volumes. The CSI Operator removes all vSphere storage classes, including <code>thin-csi</code>.</p>
 </div>
 <div class="paragraph">
-<p>Before proceeding, you must migrate all existing vSphere-backed workloads to an alternative storage solution. Removing the driver does not delete existing PersistentVolumes (PVs) or PersistentVolumeClaims (PVCs), but they cannot attach or support new pods after the CSI driver is removed.</p>
+<p>Removing the driver does not delete existing persistent volumes (PVs) or persistent volume claims (PVCs), but new pods cannot use them after you remove the driver. Migrate workloads that depend on these volumes to an alternative storage solution before you disable the driver.</p>
 </div>
 </td>
 </tr>
@@ -3554,6 +3587,15 @@
 <div class="title">Additional resources</div>
 <ul>
 <li>
+<p><a href="../../installing/installing_bare_metal/upi/installing-bare-metal.html#installation-minimum-resource-requirements_installing-bare-metal">Minimum resource requirements</a></p>
+</li>
+<li>
+<p><a href="../../installing/installing_bare_metal/upi/installing-bare-metal.html#installation-network-user-infra_installing-bare-metal">Networking requirements for user-provisioned infrastructure</a></p>
+</li>
+<li>
+<p><a href="../../storage/container_storage_interface/persistent-storage-csi-vsphere.html#persistent-storage-csi-vsphere-disable-storage-consequences_persistent-storage-csi-vsphere">Consequences of disabling and enabling storage on vSphere</a></p>
+</li>
+<li>
 <p><a href="../../storage/container_storage_interface/persistent-storage-csi-vsphere.html#persistent-storage-csi-vsphere-disable-storage-procedure_persistent-storage-csi-vsphere">Disabling and enabling storage on vSphere</a></p>
 </li>
 </ul>
@@ -3561,25 +3603,28 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="bare-metal-vsphere-iso_adding-bare-metal-compute-vsphere-user-infra"><a class="anchor" href="#bare-metal-vsphere-iso_adding-bare-metal-compute-vsphere-user-infra"></a>Create RHCOS machines using an ISO image</h2>
+<h2 id="vsphere-add-compute-machine-network_adding-bare-metal-compute-vsphere-user-infra"><a class="anchor" href="#vsphere-add-compute-machine-network_adding-bare-metal-compute-vsphere-user-infra"></a>Add a compute machine subnet</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>To add bare-metal compute machines to your VMware vSphere cluster, you must manually provision them using an RHCOS ISO image and the <code>coreos-installer</code> utility.</p>
+<p>If new compute machines use an additional subnet, add it to the machine networks in your OpenShift Container Platform cluster&#8217;s infrastructure configuration before the machines join.</p>
+</div>
+<div class="paragraph">
+<p>Apply this procedure to both bare-metal machines and virtual machines (VMs) without vSphere integration. If their subnet is already listed, continue to the ISO installation procedure.</p>
+</div>
+<div class="paragraph">
+<p>Adding the subnet to the cluster configuration does not configure external routing or establish virtual IP address (VIP) reachability. Configure that connectivity before adding the machines.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have access to the RHCOS ISO image that matches your cluster version.</p>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
 </li>
 <li>
-<p>You have an HTTP server accessible to the bare-metal machine to host the Ignition config file.</p>
+<p>You are logged in to the target cluster as a user with the <code>cluster-admin</code> role.</p>
 </li>
 <li>
-<p>You have disabled the vSphere CSI driver.</p>
-</li>
-<li>
-<p>The OpenShift CLI (<code>oc</code>) is installed.</p>
+<p>You know the subnets in Classless Inter-Domain Routing (CIDR) notation that your network administrator assigned to the existing machines and the new machines.</p>
 </li>
 </ul>
 </div>
@@ -3587,7 +3632,129 @@
 <div class="title">Procedure</div>
 <ol class="arabic">
 <li>
-<p>Extract the Ignition config file for the worker node type from the cluster by running the following command:</p>
+<p>Display the configured machine networks by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get infrastructure cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.platformSpec.vsphere.machineNetworks}{"\n"}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Edit the <code>Infrastructure</code> object named <code>cluster</code> by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit infrastructure cluster</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>In <code>spec.platformSpec.vsphere.machineNetworks</code>, retain the existing entries and append the new subnet. If <code>machineNetworks</code> is absent, add the list with the existing and new machine subnets.</p>
+<div class="paragraph">
+<p>The following excerpt shows the location of the list:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">platformSpec</span><span class="pi">:</span>
+    <span class="na">type</span><span class="pi">:</span> <span class="s">VSphere</span>
+    <span class="na">vsphere</span><span class="pi">:</span>
+      <span class="na">machineNetworks</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">&lt;existing_machine_network_cidr&gt;</span>
+      <span class="pi">-</span> <span class="s">&lt;new_machine_network_cidr&gt;</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;existing_machine_network_cidr&gt;</code></dt>
+<dd>
+<p>Specifies an existing machine subnet. Retain all existing entries.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;new_machine_network_cidr&gt;</code></dt>
+<dd>
+<p>Specifies the subnet for the new machines, for example, <code>192.0.2.0/24</code>. Add each new subnet only once.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Save your changes and exit the editor.</p>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Verify that the list contains the existing networks and each new subnet by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get infrastructure cluster <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.platformSpec.vsphere.machineNetworks}{"\n"}'</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../installing/installing_vsphere/post-install-vsphere-zones-regions-configuration.html#vsphere-enabling-multiple-layer2-network_post-install-vsphere-zones-regions-configuration">vSphere networking requirements for installer-provisioned and user-provisioned infrastructure</a></p>
+</li>
+<li>
+<p><a href="../../machine_management/user_infra/adding-vsphere-compute-user-infra.html#adding-vsphere-compute-user-infra">Adding compute machines to vSphere manually</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="bare-metal-vsphere-iso_adding-bare-metal-compute-vsphere-user-infra"><a class="anchor" href="#bare-metal-vsphere-iso_adding-bare-metal-compute-vsphere-user-infra"></a>Create compute machines from an ISO image</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>Install Red&#160;Hat Enterprise Linux CoreOS (RHCOS) on physical machines or virtual machines (VMs) by using an ISO image and the worker Ignition configuration from your OpenShift Container Platform cluster on vSphere. The machines join as workers without vSphere integration.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have prepared the machines, network, and storage for adding compute machines without vSphere integration.</p>
+</li>
+<li>
+<p>You have added any new machine subnets to the target cluster&#8217;s infrastructure configuration.</p>
+</li>
+<li>
+<p>You have a Hypertext Transfer Protocol (HTTP) server that the new machines can access to download the Ignition configuration.</p>
+</li>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>) and <code>jq</code> on your workstation.</p>
+</li>
+<li>
+<p>You are logged in to the target cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>From your workstation, obtain the ISO download URL from the target cluster by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nt">-n</span> openshift-machine-config-operator get configmap/coreos-bootimages <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.data.stream}'</span> | jq <span class="nt">-r</span> <span class="s1">'.architectures["&lt;architecture&gt;"].artifacts.metal.formats.iso.disk.location'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;architecture&gt;</code> with the processor architecture of the new machines, for example, <code>x86_64</code>. The architecture must be supported by the target cluster.</p>
+</div>
+</li>
+<li>
+<p>Download the ISO image from the returned URL.</p>
+</li>
+<li>
+<p>Extract the worker Ignition configuration from the target cluster by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc extract <span class="nt">-n</span> openshift-machine-api secret/worker-user-data-managed <span class="nt">--keys</span><span class="o">=</span>userData <span class="nt">--to</span><span class="o">=</span>- <span class="o">&gt;</span> worker.ign</code></pre>
@@ -3595,24 +3762,51 @@
 </div>
 </li>
 <li>
-<p>Upload the <code>worker.ign</code> Ignition config file to your HTTP server. Record the URL of this file.</p>
+<p>Upload the <code>worker.ign</code> file to your HTTP server. Record its URL.</p>
 </li>
 <li>
-<p>Validate that the Ignition file is accessible from the network. The following example uses <code>curl</code> to verify the file presence:</p>
+<p>Boot the new machine from the ISO image:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>For a physical machine, use local installation media or remote ISO redirection.</p>
+</li>
+<li>
+<p>For a VM, attach the ISO image to the VM&#8217;s virtual optical drive and configure the VM to boot from it.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>From the live installation console, configure networking if Dynamic Host Configuration Protocol (DHCP) does not provide the required settings. You can use <code>nmcli</code> or <code>nmtui</code> to configure a static address or other network settings.</p>
+</li>
+<li>
+<p>From the live installation console, verify that the machine can retrieve its Ignition configuration by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">-I</span> http://&lt;http_server&gt;/worker.ign</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>curl <span class="nt">--fail</span> http://&lt;http_server&gt;/worker.ign</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;http_server&gt;</code> with the address of your HTTP server. Include the path to <code>worker.ign</code> if you placed it in a subdirectory. The command must return the Ignition configuration.</p>
+</div>
+</li>
+<li>
+<p>Identify the destination disk by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lsblk</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Boot the bare-metal machine using the RHCOS ISO image.</p>
-</li>
-<li>
-<p>From the installation console, run the <code>coreos-installer</code> command:</p>
+<p>Install RHCOS on that disk by running the following command:</p>
+<div class="paragraph">
+<p>If you configured networking in the live environment, add <code>--copy-network</code> to the command to copy the connection profiles in <code>/etc/NetworkManager/system-connections</code> to the installed system. This option does not copy the system hostname. Use the documented hostname configuration for your network.</p>
+</div>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>coreos-installer <span class="nb">install</span> /dev/sda <span class="se">\</span>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>coreos-installer <span class="nb">install</span> &lt;installation_disk&gt; <span class="se">\</span>
     <span class="nt">--ignition-url</span><span class="o">=</span>http://&lt;http_server&gt;/worker.ign <span class="se">\</span>
     <span class="nt">--insecure-ignition</span> <span class="se">\</span>
     <span class="nt">--platform</span><span class="o">=</span>metal</code></pre>
@@ -3623,27 +3817,27 @@
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1"><code>/dev/sda</code></dt>
+<dt class="hdlist1"><code>&lt;installation_disk&gt;</code></dt>
 <dd>
-<p>Specifies the target install device for your hardware.</p>
+<p>Specifies the disk on which to install RHCOS, for example, <code>/dev/sda</code> on a physical machine or <code>/dev/vda</code> on a VM. Installation overwrites the contents of this disk.</p>
 </dd>
 <dt class="hdlist1"><code>&lt;http_server&gt;</code></dt>
 <dd>
-<p>Specifies the address of your web server.</p>
+<p>Specifies the HTTP server and any directory path used in the Ignition URL.</p>
 </dd>
 </dl>
 </div>
 </li>
 <li>
-<p>Reboot the machine:</p>
+<p>After installation completes, remove or detach the ISO media, or change the boot order so that the machine boots from the installed disk. Reboot the machine by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>reboot</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">sudo </span>reboot</code></pre>
 </div>
 </div>
 </li>
 <li>
-<p>Monitor the boot process. After the machine reboots, it attempts to join the cluster and generates certificate signing requests (CSRs).</p>
+<p>Monitor the console as the machine boots from disk. It attempts to join the target cluster and generates certificate signing requests (CSRs).</p>
 </li>
 </ol>
 </div>
@@ -3651,12 +3845,26 @@
 <div class="title">Verification</div>
 <ul>
 <li>
-<p>Verify that the new compute machine has joined the cluster and is in the <code>Ready</code> state:</p>
+<p>From your workstation, verify that the new machine has generated CSRs in the target cluster by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get csr</code></pre>
 </div>
 </div>
+<div class="paragraph">
+<p>Continue by reviewing and approving the CSRs for the machines that you added.</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../installing/installing_bare_metal/upi/installing-bare-metal.html#installation-user-infra-machines-advanced_network_installing-bare-metal">Using advanced networking options for PXE and ISO installations</a></p>
+</li>
+<li>
+<p><a href="../../installing/installing_bare_metal/upi/installing-bare-metal.html#installation-host-names-dhcp-user-infra_installing-bare-metal">Setting the cluster node hostnames through DHCP</a></p>
 </li>
 </ul>
 </div>
@@ -3898,13 +4106,13 @@ worker-1  Ready     worker  11m  v1.36.3</span></code></pre>
 </div>
 </div>
 <div class="sect1">
-<h2 id="bare-metal-vsphere-remove-uninit-taint_adding-bare-metal-compute-vsphere-user-infra"><a class="anchor" href="#bare-metal-vsphere-remove-uninit-taint_adding-bare-metal-compute-vsphere-user-infra"></a>Remove the cloud provider uninitialized taint from bare-metal nodes</h2>
+<h2 id="bare-metal-vsphere-remove-uninit-taint_adding-bare-metal-compute-vsphere-user-infra"><a class="anchor" href="#bare-metal-vsphere-remove-uninit-taint_adding-bare-metal-compute-vsphere-user-infra"></a>Remove the cloud provider uninitialized taint from compute nodes</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>After a bare-metal node joins a VMware vSphere cluster, the vSphere Cloud Controller Manager (CCM) cannot remove the <code>node.cloudprovider.kubernetes.io/uninitialized</code> taint automatically. You must manually remove this taint so that workloads can be scheduled on the node.</p>
+<p>To schedule workloads on bare-metal compute nodes or virtual machines (VMs) without vSphere integration, remove the <code>node.cloudprovider.kubernetes.io/uninitialized</code> taint after the nodes join your OpenShift Container Platform cluster.</p>
 </div>
 <div class="paragraph">
-<p>The vSphere CCM attempts to initialize each node by searching vCenter for a matching virtual machine. Because a bare-metal node is physical hardware and not a VM in vCenter, the CCM cannot find a match and never removes the taint automatically.</p>
+<p>The vSphere Cloud Controller Manager (CCM) attempts to initialize each node by searching vCenter for a matching virtual machine. For nodes without vSphere integration, the CCM cannot find a match and cannot remove the taint automatically. A node can have the <code>Ready</code> status and still have this taint, which prevents workload scheduling.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3914,7 +4122,7 @@ worker-1  Ready     worker  11m  v1.36.3</span></code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The CCM logs errors similar to <code>No VM found</code> for bare-metal nodes. These errors are expected and do not indicate a problem with the node or the cluster.</p>
+<p>The CCM logs error messages similar to <code>No VM found</code> for nodes without vSphere integration. These messages are expected for these nodes.</p>
 </div>
 </td>
 </tr>
@@ -3924,13 +4132,13 @@ worker-1  Ready     worker  11m  v1.36.3</span></code></pre>
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>The bare-metal node has joined the cluster and its certificate signing requests (CSRs) have been approved.</p>
+<p>The compute nodes have joined the target cluster and their certificate signing requests (CSRs) have been approved.</p>
 </li>
 <li>
 <p>You have installed the OpenShift CLI (<code>oc</code>).</p>
 </li>
 <li>
-<p>You have cluster administrator privileges.</p>
+<p>You are logged in to the target cluster as a user with the <code>cluster-admin</code> role.</p>
 </li>
 </ul>
 </div>
@@ -3938,31 +4146,157 @@ worker-1  Ready     worker  11m  v1.36.3</span></code></pre>
 <div class="title">Procedure</div>
 <ul>
 <li>
-<p>Remove the <code>node.cloudprovider.kubernetes.io/uninitialized</code> taint from each bare-metal node by running the following command:</p>
+<p>Remove the <code>node.cloudprovider.kubernetes.io/uninitialized</code> taint from each compute node that you added without vSphere integration by running the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc adm taint nodes &lt;node_name&gt; node.cloudprovider.kubernetes.io/uninitialized:NoSchedule-</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Replace <code>&lt;node_name&gt;</code> with the name of the bare-metal node as shown in the output of <code>oc get nodes</code>.</p>
+<p>Replace <code>&lt;node_name&gt;</code> with the name of the compute node as shown in the output of <code>oc get nodes</code>.</p>
 </div>
 </li>
 </ul>
 </div>
-<div class="ulist">
+<div class="olist arabic">
 <div class="title">Verification</div>
-<ul>
+<ol class="arabic">
 <li>
-<p>Verify that the taint has been removed by running the following command and confirming that <code>node.cloudprovider.kubernetes.io/uninitialized</code> does not appear in the output:</p>
+<p>Verify that the compute node has the <code>Ready</code> status and does not show <code>SchedulingDisabled</code> by running the following command:</p>
 <div class="listingblock">
 <div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe node &lt;node_name&gt; | <span class="nb">grep </span>Taint</code></pre>
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get node &lt;node_name&gt;</code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Replace <code>&lt;node_name&gt;</code> with the name of the bare-metal node as shown in the output of <code>oc get nodes</code>.</p>
+<p>Replace <code>&lt;node_name&gt;</code> with the name of the compute node as shown in the output of <code>oc get nodes</code>.</p>
 </div>
+</li>
+<li>
+<p>Verify that <code>node.cloudprovider.kubernetes.io/uninitialized</code> does not appear in the node&#8217;s taints by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get node &lt;node_name&gt; <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.taints}{"\n"}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the machine config pool (MCP) containing the added node has <code>Updated=True</code>, <code>Updating=False</code>, and <code>Degraded=False</code> by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get machineconfigpools</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Obtain the value of the added node&#8217;s <code>kubernetes.io/hostname</code> label for a test pod by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get node &lt;node_name&gt; <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.metadata.labels.kubernetes\.io/hostname}{"\n"}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a file named <code>compute-node-test.yaml</code> with the following content. Use an existing test project whose node selector permits scheduling on the added node.</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">compute-node-test</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">&lt;test_namespace&gt;</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">nodeSelector</span><span class="pi">:</span>
+    <span class="s">kubernetes.io/hostname</span><span class="pi">:</span> <span class="s">&lt;node_hostname&gt;</span>
+  <span class="na">restartPolicy</span><span class="pi">:</span> <span class="s">Never</span>
+  <span class="na">securityContext</span><span class="pi">:</span>
+    <span class="na">runAsNonRoot</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">seccompProfile</span><span class="pi">:</span>
+      <span class="na">type</span><span class="pi">:</span> <span class="s">RuntimeDefault</span>
+  <span class="na">containers</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">test</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;test_image&gt;</span>
+    <span class="na">command</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">/bin/sh"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">-c"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">sleep</span><span class="nv"> </span><span class="s">3600"</span><span class="pi">]</span>
+    <span class="na">securityContext</span><span class="pi">:</span>
+      <span class="na">allowPrivilegeEscalation</span><span class="pi">:</span> <span class="no">false</span>
+      <span class="na">capabilities</span><span class="pi">:</span>
+        <span class="na">drop</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">ALL</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>&lt;test_namespace&gt;</code></dt>
+<dd>
+<p>Specifies the existing test project.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;node_hostname&gt;</code></dt>
+<dd>
+<p>Specifies the hostname label value returned by the preceding command.</p>
+</dd>
+<dt class="hdlist1"><code>&lt;test_image&gt;</code></dt>
+<dd>
+<p>Specifies a container image that supports the node&#8217;s architecture, runs as a non-root user, and contains <code>/bin/sh</code> and <code>sleep</code>. For example, use <code>registry.access.redhat.com/ubi9/ubi-minimal:latest</code> or a mirrored copy accessible to the cluster.</p>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Create the test pod by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> compute-node-test.yaml</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the test pod has <code>STATUS</code> set to <code>Running</code>, <code>READY</code> set to <code>1/1</code>, and <code>NODE</code> set to the added node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pod compute-node-test <span class="nt">-n</span> &lt;test_namespace&gt; <span class="nt">-o</span> wide</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This command also displays the pod if it has not been assigned to a node. If the pod remains pending or fails to become ready, examine its status and events by running the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc describe pod compute-node-test <span class="nt">-n</span> &lt;test_namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Resolve any reported scheduling or image-pull errors before continuing. This test verifies pod scheduling and startup on the node.</p>
+</div>
+</li>
+<li>
+<p>Delete the test pod by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc delete pod compute-node-test <span class="nt">-n</span> &lt;test_namespace&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Repeat the node and workload checks for each added node.</p>
+</div>
+</li>
+<li>
+<p>After the cluster finishes reconciling the new nodes, verify that the cluster Operators have <code>Available=True</code>, <code>Progressing=False</code>, and <code>Degraded=False</code> by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusteroperators</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist _additional-resources">
+<div class="title">Additional resources</div>
+<ul>
+<li>
+<p><a href="../../nodes/scheduling/nodes-scheduler-node-selectors.html#nodes-scheduler-node-selectors-pod_nodes-scheduler-node-selectors">Use node selectors to control pod placement</a></p>
 </li>
 </ul>
 </div>
