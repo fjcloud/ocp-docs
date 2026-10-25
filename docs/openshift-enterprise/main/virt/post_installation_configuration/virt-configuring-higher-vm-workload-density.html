@@ -3473,13 +3473,18 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
+<li><a href="#virt-swap-provisioning-methods_virt-configuring-higher-vm-workload-density">Swap provisioning methods</a></li>
+<li><a href="#virt-swap-space-requirements_virt-configuring-higher-vm-workload-density">Swap space requirements</a></li>
+<li><a href="#virt-provisioning-swap-nvme_virt-configuring-higher-vm-workload-density">Provision swap on an NVMe device</a></li>
+<li><a href="#virt-provisioning-swap-file_virt-configuring-higher-vm-workload-density">Provision swap by using a file</a></li>
+<li><a href="#virt-removing-swap-nvme_virt-configuring-higher-vm-workload-density">Remove swap from an NVMe device</a></li>
 <li><a href="#virt-enabling-higher-vm-workload-density_virt-configuring-higher-vm-workload-density">Enable memory overcommitment and provision swap</a></li>
 <li><a href="#virt-disabling-higher-vm-workload-density_virt-configuring-higher-vm-workload-density">Disable memory overcommitment and remove swap</a></li>
 <li><a href="#additional-resources_virt-configuring-higher-vm-workload-density">Additional resources</a></li>
 </ul>
 </div>
 <div class="paragraph _abstract">
-<p>You can increase the number of virtual machines (VMs) on nodes by overcommitting memory (RAM). This is useful when you have many similar or underused workloads.</p>
+<p>You can increase the number of virtual machines (VMs) on nodes by overcommitting memory (RAM). You overcommit memory by provisioning swap storage on worker nodes. This is useful when you have many similar or underused workloads.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -3498,10 +3503,51 @@
 </div>
 </div>
 <div class="sect1">
-<h2 id="virt-enabling-higher-vm-workload-density_virt-configuring-higher-vm-workload-density"><a class="anchor" href="#virt-enabling-higher-vm-workload-density_virt-configuring-higher-vm-workload-density"></a>Enable memory overcommitment and provision swap</h2>
+<h2 id="virt-swap-provisioning-methods_virt-configuring-higher-vm-workload-density"><a class="anchor" href="#virt-swap-provisioning-methods_virt-configuring-higher-vm-workload-density"></a>Swap provisioning methods</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>You can increase the number of virtual machines (VMs) on a node by overcommitting memory and provisioning swap resources. When you enable memory overcommitment, the <code>virt-platform-autopilot</code> controller automatically deploys the necessary node-level configurations.</p>
+<p>You can provision swap storage on worker nodes by using either an NVMe partition or a file-based approach. The method you choose depends on your hardware configuration and performance requirements.</p>
+</div>
+<div class="paragraph">
+<p><strong>NVMe partition-based swap</strong> requires a dedicated NVMe device on each worker node and provides better performance for production workloads with heavy memory overcommitment. This method is permanent and requires repartitioning to remove.</p>
+</div>
+<div class="paragraph">
+<p><strong>File-based swap</strong> uses existing filesystem space and works on any worker node without dedicated hardware. This method has slower I/O performance than partition-based swap but is easier to provision and remove. Use this method for testing, development, or production clusters where dedicated NVMe devices are not available.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-swap-space-requirements_virt-configuring-higher-vm-workload-density"><a class="anchor" href="#virt-swap-space-requirements_virt-configuring-higher-vm-workload-density"></a>Swap space requirements</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>The swap space that you provision on a node must be at least equal to the overcommitted RAM. This requirement applies to both NVMe partition-based swap and file-based swap.</p>
+</div>
+<div class="paragraph">
+<p>Calculate the amount of swap space to provision on a node by using the following formula:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="nowrap">NODE_SWAP_SPACE = NODE_RAM * (MEMORY_OVER_COMMIT_PERCENT / 100% - 1)</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="nowrap">NODE_SWAP_SPACE = 16 GB * (150% / 100% - 1)
+               = 16 GB * (1.5 - 1)
+               = 16 GB * (0.5)
+               =  8 GB</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-provisioning-swap-nvme_virt-configuring-higher-vm-workload-density"><a class="anchor" href="#virt-provisioning-swap-nvme_virt-configuring-higher-vm-workload-density"></a>Provision swap on an NVMe device</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can provision a dedicated NVMe device for swap. The <code>virt-platform-autopilot</code> controller automatically enables a swap partition labeled <code>OCPSWAP</code> for virtualization workloads. Use this method for production clusters requiring better performance.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
@@ -3513,7 +3559,205 @@
 <p>You are logged in to the cluster with the <code>cluster-admin</code> role.</p>
 </li>
 <li>
-<p>A memory overcommit ratio is defined.</p>
+<p>You have installed OpenShift Virtualization. The <code>virt-platform-autopilot</code> controller is enabled by default.</p>
+</li>
+<li>
+<p>The worker node has a dedicated NVMe device.</p>
+</li>
+<li>
+<p>The NVMe device has enough capacity for the node&#8217;s worst-case memory overcommitment.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Select a worker node where you want to enable memory overcommitment and start a debug session by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;node_name&gt;</code> with the name of the worker node.</p>
+</div>
+</li>
+<li>
+<p>Enter the host context by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>List the available NVMe disks and their World Wide Names (WWNs) by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>lsblk <span class="nt">-p</span> <span class="nt">-o</span> +WWN</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME         TYPE MODEL                  SERIAL            REV TRAN   RQ-SIZE  MQ WWN
+/dev/nvme0n1 disk KXG8AZNV512G LA KIOXIA 63QFXXXXXXEU 5108APLA nvme      1023  12 eui.8ce38e0500e775a4</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Find the device path by using its WWN. The path follows the <code>/dev/disk/by-id/nvme-&lt;WWN&gt;</code> format. Run the following command, replacing <code>&lt;WWN&gt;</code> with the value from the previous command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">ls</span> /dev/disk/by-id/nvme-&lt;WWN&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">/dev/disk/by-id/nvme-eui.8ce38e0500e775a4</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Create a GUID Partition Table (GPT) partition table and an <code>OCPSWAP</code> partition by running the following command, replacing <code>&lt;WWN&gt;</code> with the WWN of the selected device:</p>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The following command erases all data on the selected NVMe device. Back up any data that you need to retain before you continue.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">echo</span> <span class="nt">-e</span> <span class="s1">'label: gpt\nname="OCPSWAP", type=swap'</span> | sfdisk <span class="nt">--wipe</span> always /dev/disk/by-id/nvme-&lt;WWN&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The partition name must be <code>OCPSWAP</code> so that the <code>virt-platform-autopilot</code> controller can discover and enable the partition.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Only one partition on the node can use the <code>OCPSWAP</code> label. If more than one partition uses this label, the <code>/dev/disk/by-partlabel/OCPSWAP</code> path does not resolve deterministically, and later commands can format or enable the wrong partition.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Format the partition as Linux swap and set its filesystem label to <code>OCPSWAP</code> by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>mkswap <span class="nt">-L</span> OCPSWAP /dev/disk/by-partlabel/OCPSWAP</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>/dev/disk/by-partlabel/OCPSWAP</code> path resolves to the partition that you created in the previous step. The <code>-L OCPSWAP</code> option sets the swap filesystem label, which the <code>virt-platform-autopilot</code> controller uses to identify the swap partition. You must format the partition, not the whole NVMe device.</p>
+</div>
+</li>
+<li>
+<p>Verify the swap partition before rebooting the node by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>swapon /dev/disk/by-partlabel/OCPSWAP
+<span class="gp">$</span><span class="w"> </span>free <span class="nt">-m</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">               total        used        free      shared  buff/cache   available
+Mem:           31728       20964         906        4586       12269       10764
+Swap:           8191          95        8096</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Reboot the node by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>systemctl reboot</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>After the node reboots, start a debug session by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Enter the host context by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the <code>virt-platform-autopilot</code> controller discovered the swap partition by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">ls</span> /dev/disk/by-partlabel/OCPSWAP</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that swap space is available by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>free <span class="nt">-m</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">               total        used        free      shared  buff/cache   available
+Mem:           31728       20964         906        4586       12269       10764
+Swap:           8191          95        8096</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-provisioning-swap-file_virt-configuring-higher-vm-workload-density"><a class="anchor" href="#virt-provisioning-swap-file_virt-configuring-higher-vm-workload-density"></a>Provision swap by using a file</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can provision swap by creating a file on the worker node. The <code>MachineConfig</code> object that you create provisions the swap file and enables it for virtualization workloads. Use this method when dedicated NVMe devices are not available.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You are logged in to the cluster with the <code>cluster-admin</code> role.</p>
 </li>
 <li>
 <p>The node belongs to a worker pool.</p>
@@ -3523,10 +3767,6 @@
 <div class="olist arabic">
 <div class="title">Procedure</div>
 <ol class="arabic">
-<li>
-<p>Provision swap by creating a <code>MachineConfig</code> object:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
 <li>
 <p>Create a <code>MachineConfig</code> file with the parameters shown in the following example:</p>
 <div class="listingblock">
@@ -3547,44 +3787,39 @@
             <span class="s">[Unit]</span>
             <span class="s">Description=Provision and enable swap</span>
             <span class="s">ConditionFirstBoot=no</span>
-            <span class="s">ConditionPathExists=!/var/tmp/ocpswap.file</span>
+            <span class="s">ConditionPathExists=!/var/tmp/swapfile</span>
 
             <span class="s">[Service]</span>
             <span class="s">Type=oneshot</span>
             <span class="s">Environment=SWAP_SIZE_MB=5000</span>
-            <span class="s">ExecStart=/bin/sh -c "sudo fallocate -l ${SWAP_SIZE_MB}M /var/tmp/ocpswap.file &amp;&amp; \</span>
-            <span class="s">sudo chmod 600 /var/tmp/ocpswap.file &amp;&amp; \</span>
-            <span class="s">sudo mkswap /var/tmp/ocpswap.file &amp;&amp; \</span>
-            <span class="s">sudo swapon /var/tmp/ocpswap.file &amp;&amp; \</span>
+            <span class="s">ExecStart=/bin/sh -c "sudo fallocate -l ${SWAP_SIZE_MB}M /var/tmp/swapfile &amp;&amp; \</span>
+            <span class="s">sudo chmod 600 /var/tmp/swapfile &amp;&amp; \</span>
+            <span class="s">sudo mkswap /var/tmp/swapfile &amp;&amp; \</span>
+            <span class="s">sudo swapon /var/tmp/swapfile &amp;&amp; \</span>
             <span class="s">free -h"</span>
 
             <span class="s">[Install]</span>
             <span class="s">RequiredBy=kubelet-dependencies.target</span>
           <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
-          <span class="na">name</span><span class="pi">:</span> <span class="s">swap-provision.service</span></code></pre>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">swap-provision.service</span>
+        <span class="pi">-</span> <span class="na">contents</span><span class="pi">:</span> <span class="pi">|</span>
+            <span class="s">[Unit]</span>
+            <span class="s">Description=Enable swap</span>
+            <span class="s">ConditionFirstBoot=no</span>
+            <span class="s">ConditionPathExists=/var/tmp/swapfile</span>
+
+            <span class="s">[Service]</span>
+            <span class="s">Type=oneshot</span>
+            <span class="s">ExecStart=/bin/sh -c "sudo swapon /var/tmp/swapfile"</span>
+
+            <span class="s">[Install]</span>
+            <span class="s">RequiredBy=kubelet-dependencies.target</span>
+          <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">swap-enable.service</span></code></pre>
 </div>
 </div>
 <div class="paragraph">
-<p>Set the <code>SWAP_SIZE_MB</code> value to the amount of swap space to provision on the node, in MB. Adjust this value by using the formula that follows.</p>
-</div>
-<div class="paragraph">
-<p>Ensure that the provisioned swap space is at least equal to the overcommitted RAM. Calculate the amount of swap space to provision on a node by using the following formula:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="nowrap">NODE_SWAP_SPACE = NODE_RAM * (MEMORY_OVER_COMMIT_PERCENT / 100% - 1)</pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Example:</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre class="nowrap">NODE_SWAP_SPACE = 16 GB * (150% / 100% - 1)
-               = 16 GB * (1.5 - 1)
-               = 16 GB * (0.5)
-               =  8 GB</pre>
-</div>
+<p>Set the <code>SWAP_SIZE_MB</code> value to the amount of swap space to provision on the node, in MB.</p>
 </div>
 </li>
 <li>
@@ -3597,36 +3832,295 @@
 </li>
 </ol>
 </div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>View a list of worker nodes by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">-l</span> node-role.kubernetes.io/worker</code></pre>
+</div>
+</div>
 </li>
 <li>
-<p>Enable memory overcommitment in OpenShift Virtualization by using the web console or the CLI.</p>
-<div class="openblock">
+<p>Select a node from the list and display its memory usage by running the following command:</p>
+<div class="listingblock">
 <div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/<em>&lt;selected_node&gt;</em> <span class="nt">--</span> free <span class="nt">-m</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;selected_node&gt;</code> with the node name.</p>
+</div>
+<div class="paragraph">
+<p>The <code>Swap:</code> row displays an amount greater than zero if the node has swap enabled.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">               total        used        free      shared  buff/cache   available
+Mem:           31846       23155        1044        6014       14483        8690
+Swap:           8191        2337        5854</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-removing-swap-nvme_virt-configuring-higher-vm-workload-density"><a class="anchor" href="#virt-removing-swap-nvme_virt-configuring-higher-vm-workload-density"></a>Remove swap from an NVMe device</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can remove a swap partition from an NVMe device, freeing the device for other use. The node must be placed in maintenance mode before you remove the swap partition.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You are logged in to the cluster with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>The worker node has an NVMe swap partition labeled <code>OCPSWAP</code>.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Place the node in maintenance mode by using the <code>oc adm cordon</code> and <code>oc adm drain</code> commands.</p>
+</li>
+<li>
+<p>Verify that all pod and VM workloads are evicted from the node by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">--all-namespaces</span> <span class="nt">--field-selector</span> spec.nodeName<span class="o">=</span>&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get vmi <span class="nt">-A</span> <span class="nt">--field-selector</span> spec.nodeName<span class="o">=</span>&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Only DaemonSet pods should remain on the node.</p>
+</div>
+</li>
+<li>
+<p>Start a debug session by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/&lt;node_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;node_name&gt;</code> with the name of the worker node.</p>
+</div>
+</li>
+<li>
+<p>Enter the host context by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">chroot</span> /host</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Disable the swap partition by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>swapoff /dev/disk/by-partlabel/OCPSWAP</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that swap is disabled by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>free <span class="nt">-m</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">               total        used        free      shared  buff/cache   available
+Mem:           31728       20964         906        4586       12269       10764
+Swap:              0           0           0</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>Swap:</code> row displays zero values when swap is disabled.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the <code>Swap:</code> row shows non-zero values, the swap partition is still active. Verify that all workloads are evacuated and retry the <code>swapoff</code> command. If the issue persists, reboot the node to force swap deactivation.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Remove the swap partition:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Set the <code>$DISK</code> variable to the disk device path by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nv">DISK</span><span class="o">=</span><span class="s2">"/dev/</span><span class="si">$(</span>lsblk <span class="nt">-no</span> PKNAME /dev/disk/by-partlabel/OCPSWAP<span class="si">)</span><span class="s2">"</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Delete the partition by running the following command:</p>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This command removes all partitions on the device, not just the <code>OCPSWAP</code> partition. If you manually created additional partitions on this device, they will be deleted.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>sfdisk <span class="nt">--delete</span> <span class="nv">$DISK</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Verify that the <code>OCPSWAP</code> partition label is removed by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">ls</span> /dev/disk/by-partlabel/OCPSWAP</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">ls: cannot access '/dev/disk/by-partlabel/OCPSWAP': No such file or directory</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the partition label still exists after running <code>sfdisk --delete</code>, verify the correct disk device was used and retry the deletion command. Reboot the node if the partition table was not updated.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Exit the debug session by running the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">exit</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span><span class="nb">exit</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The first <code>exit</code> command leaves the chroot environment. The second <code>exit</code> command terminates the debug pod.</p>
+</div>
+</li>
+<li>
+<p>Remove the node from maintenance mode by using the <code>oc adm uncordon</code> command.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="virt-enabling-higher-vm-workload-density_virt-configuring-higher-vm-workload-density"><a class="anchor" href="#virt-enabling-higher-vm-workload-density_virt-configuring-higher-vm-workload-density"></a>Enable memory overcommitment and provision swap</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>You can increase the number of virtual machines (VMs) on a node by overcommitting memory and provisioning swap resources. When you enable memory overcommitment, the <code>virt-platform-autopilot</code> controller automatically deploys the necessary node-level configurations.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have installed the OpenShift CLI (<code>oc</code>).</p>
+</li>
+<li>
+<p>You are logged in to the cluster with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You have defined a memory overcommit ratio.</p>
+</li>
+<li>
+<p>You have provisioned swap storage on worker nodes.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Choose one of the following methods to enable memory overcommitment in OpenShift Virtualization:</p>
+<div class="paragraph">
+<p>After you enable memory overcommitment, only virtual machine workloads (VM pods) of the <code>Burstable</code> Quality of Service (<code>QoS</code>) class can use swap resources. VM pods of the <code>Guaranteed</code> <code>QoS</code> class and pods of any <code>QoS</code> class that do not belong to VMs cannot use swap resources. For descriptions of <code>QoS</code> classes, see <a href="https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/">Configure Quality of Service for Pods</a> (Kubernetes documentation).</p>
+</div>
+<div class="paragraph">
+<p>When you configure virtual machines for memory overcommitment, use <code>spec.domain.memory.guest</code> in the VM manifest. Using <code>spec.domain.resources.requests.memory</code> disables the memory overcommit configuration.</p>
+</div>
 <div class="ulist">
 <ul>
 <li>
-<p>Web console</p>
-<div class="olist arabic">
-<ol class="arabic">
+<p>To use the web console:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
 <li>
 <p>In the OpenShift Container Platform web console, go to <strong>Virtualization</strong> &#8594; <strong>Settings</strong>.</p>
 </li>
 <li>
-<p>Click <strong>Cluster</strong>.</p>
+<p>Click the <strong>Cluster</strong> tab.</p>
 </li>
 <li>
-<p>Expand <strong>Memory Density</strong>.</p>
+<p>Expand <strong>General settings</strong>.</p>
 </li>
 <li>
-<p>Turn on <strong>Configure memory density</strong>.</p>
+<p>Expand <strong>Memory request ratio</strong>.</p>
 </li>
 <li>
-<p>Expand the <strong>Current memory density</strong> line.</p>
-</li>
-<li>
-<p>Set the density value by moving the <strong>Requested memory density</strong> slider. You can increase the density from 100% up to 400% in increments of 25%.</p>
+<p>In the <strong>Request ratio</strong> field, enter a value from 25 to 100.</p>
 <div class="paragraph">
-<p>The <strong>Memory density</strong> field shows the actual and requested values.</p>
+<p>The request ratio is the percentage of each virtual machine&#8217;s configured memory that the cluster requests. A lower ratio increases overcommitment. At a ratio of 25%, a VM configured with 4 GiB of memory requests 1 GiB on the cluster. At a ratio of 100%, it requests the full 4 GiB.</p>
+</div>
+<div class="paragraph">
+<p>The web console indicates the level of risk for the value you enter. It shows <strong>Recommended</strong> at 75% or greater, <strong>Use with caution</strong> from 50% to 74.9%, and <strong>High overcommit risk</strong> from 25% to 49.9%.</p>
+</div>
+<div class="paragraph">
+<p>The <strong>Active ratio</strong> line shows the ratio currently calculated across all virtual machines on the cluster, which can differ from the ratio you request. It shows <code>No running VMs</code> if no virtual machines are running.</p>
 </div>
 </li>
 <li>
@@ -3636,11 +4130,7 @@
 </div>
 </li>
 <li>
-<p>CLI</p>
-<div class="ulist">
-<ul>
-<li>
-<p>Configure OpenShift Virtualization to enable higher memory density and set the overcommit rate:</p>
+<p>To use the CLI, run the following command to enable higher memory density and set the overcommit rate:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch <span class="nt">-n</span> openshift-cnv hco kubevirt-hyperconverged <span class="nt">--type</span><span class="o">=</span><span class="s1">'json'</span> <span class="nt">-p</span><span class="o">=</span><span class="s1">'[ \
@@ -3662,76 +4152,11 @@
 </ul>
 </div>
 </li>
-</ul>
-</div>
-</div>
-</div>
-</li>
-<li>
-<p>The <code>virt-platform-autopilot</code> controller deploys the <code>90-worker-swap-online</code> machine config, which triggers a worker machine config pool upgrade. Wait for the upgrade to complete by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc <span class="nb">wait </span>mcp worker <span class="nt">--for</span> <span class="nv">condition</span><span class="o">=</span><span class="nv">Updated</span><span class="o">=</span>True <span class="nt">--timeout</span><span class="o">=</span><span class="nt">-1s</span></code></pre>
-</div>
-</div>
-</li>
 </ol>
 </div>
-<div class="olist arabic">
+<div class="ulist">
 <div class="title">Verification</div>
-<ol class="arabic">
-<li>
-<p>To verify the deployment of <code>90-worker-swap-online</code>, run the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get mc 90-worker-swap-online</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME             GENERATEDBYCONTROLLER   IGNITIONVERSION   AGE
-90-worker-swap-online                           3.5.0             1m</span></code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>To verify that swap is correctly provisioned, complete the following steps:</p>
-<div class="olist loweralpha">
-<ol class="loweralpha" type="a">
-<li>
-<p>View a list of worker nodes by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get nodes <span class="nt">-l</span> node-role.kubernetes.io/worker</code></pre>
-</div>
-</div>
-</li>
-<li>
-<p>Select a node from the list and display its memory usage by running the following command:</p>
-<div class="listingblock">
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc debug node/<em>&lt;selected_node&gt;</em> <span class="nt">--</span> free <span class="nt">-m</span></code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Replace <code>&lt;selected_node&gt;</code> with the node name.</p>
-</div>
-<div class="paragraph">
-<p>If swap is provisioned, an amount greater than zero is displayed in the <code>Swap:</code> row.</p>
-</div>
-<div class="listingblock">
-<div class="title">Example output</div>
-<div class="content">
-<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">               total        used        free      shared  buff/cache   available
-Mem:           31846       23155        1044        6014       14483        8690
-Swap:           8191        2337        5854</span></code></pre>
-</div>
-</div>
-</li>
-</ol>
-</div>
-</li>
+<ul>
 <li>
 <p>Verify the OpenShift Virtualization memory overcommitment configuration by running the following command:</p>
 <div class="listingblock">
@@ -3749,7 +4174,7 @@ Swap:           8191        2337        5854</span></code></pre>
 <p>The returned value must match the value you configured earlier.</p>
 </div>
 </li>
-</ol>
+</ul>
 </div>
 </div>
 </div>
@@ -3829,6 +4254,9 @@ Swap:           8191        2337        5854</span></code></pre>
 <div class="sectionbody">
 <div class="ulist">
 <ul>
+<li>
+<p><a href="../../nodes/nodes/nodes-nodes-working.html#nodes-nodes-working-evacuating_nodes-nodes-working">Understanding how to evacuate pods on nodes</a></p>
+</li>
 <li>
 <p><a href="../../virt/post_installation_configuration/virt-platform-autopilot.html#virt-platform-autopilot">Run automated postinstallation configuration</a></p>
 </li>
