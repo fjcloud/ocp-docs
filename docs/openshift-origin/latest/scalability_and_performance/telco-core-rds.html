@@ -3112,19 +3112,24 @@ The telco core use cases build on this common baseline of features.</p>
 </li>
 <li>
 <p>A schedulable control plane variant, which allows for user workloads to run on master nodes to optimize resource utilization. This variant is only applicable to bare-metal control plane nodes and must be configured at installation time.</p>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
 <div class="paragraph">
 <p>All clusters, regardless of the variant, must conform to the following requirements:</p>
 </div>
-</li>
+<div class="ulist">
+<ul>
 <li>
 <p>A highly available control plane consisting of three or more nodes.</p>
 </li>
 <li>
 <p>The use of multiple machine config pools.</p>
-</li>
-</ul>
-</div>
-</dd>
+<div class="dlist">
+<dl>
 <dt class="hdlist1">Storage</dt>
 <dd>
 <p>Telco core use cases require highly available persistent storage as provided by an external storage solution.
@@ -3133,8 +3138,10 @@ OpenShift Data Foundation might be used to manage access to the external storage
 <dt class="hdlist1">Networking</dt>
 <dd>
 <p>Telco core cluster networking conforms to the following requirements:</p>
-<div class="ulist">
-<ul>
+</dd>
+</dl>
+</div>
+</li>
 <li>
 <p>Dual stack IPv4/IPv6 (IPv4 primary).</p>
 </li>
@@ -3177,13 +3184,8 @@ Use the initial configuration to configure MACVLAN virtual network interfaces.</
 <li>
 <p>Application workload layer.
 User plane networking runs in cloud-native network functions (CNFs).</p>
-</li>
-</ul>
-</div>
-</li>
-</ul>
-</div>
-</dd>
+<div class="dlist">
+<dl>
 <dt class="hdlist1">Service Mesh</dt>
 <dd>
 <p>Telco CNFs can use Service Mesh.
@@ -3191,6 +3193,12 @@ Telco core clusters typically include a Service Mesh implementation.
 The choice of implementation and configuration is outside the scope of this specification.</p>
 </dd>
 </dl>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ul>
 </div>
 </div>
 </div>
@@ -3224,11 +3232,10 @@ This is crucial because telco-grade services might otherwise be affected if care
 <p>Before beginning the initial deployment, review the following engineering considerations:</p>
 </div>
 <div class="paragraph">
-<p><strong>PerformanceProfile and Tuned profile association:</strong></p>
+<p><strong>Performance profile requirement:</strong></p>
 </div>
 <div class="paragraph">
-<p>When using PerformanceProfiles, remember that each Machine Config Pool (MCP) must be linked to exactly one PerformanceProfile or Tuned profile definition.
-Consequently, even if the desired configuration is identical for multiple MCPs, each MCP still requires its own dedicated PerformanceProfile definition.</p>
+<p>Give every control plane and worker MachineConfigPool (MCP) its own <code>PerformanceProfile</code> resource, with enough reserved cores for the OKD platform. Workload partitioning and that profile keep platform work off the CPUs that run applications. Link each MCP to only one <code>PerformanceProfile</code> or <code>Tuned</code> profile, and use a separate <code>PerformanceProfile</code> even when two MCPs need the same settings.</p>
 </div>
 <div class="paragraph">
 <p><strong>Planning your MCP labeling strategy:</strong></p>
@@ -3397,9 +3404,7 @@ Skylake and older CPUs can experience 40% transaction performance drops when Spe
 <p>Intel Sierra Forest CPUs when supported by the OKD.</p>
 </li>
 <li>
-<p>IRQ balancing is enabled on worker nodes.
-The <code>PerformanceProfile</code> CR sets the <code>globallyDisableIrqLoadBalancing</code> parameter to a value of <code>false</code>.
-Guaranteed QoS pods are annotated to ensure isolation as described in "CPU partitioning and performance tuning".</p>
+<p>IRQ balancing is enabled on worker nodes.</p>
 </li>
 </ul>
 </div>
@@ -3416,9 +3421,6 @@ Guaranteed QoS pods are annotated to ensure isolation as described in "CPU parti
 </li>
 <li>
 <p>Have the stock (non-realtime) kernel enabled</p>
-</li>
-<li>
-<p>Are not configured for workload partitioning</p>
 </li>
 </ul>
 </div>
@@ -3439,8 +3441,16 @@ See "Scalability" for more information.</p>
 </div>
 </li>
 <li>
-<p>CPU partitioning is configured using a <code>PerformanceProfile</code> CR and is applied to nodes on a per <code>MachineConfigPool</code> basis.
+<p>The cluster must have workload partitioning enabled and a <code>PerformanceProfile</code> resource for all control plane and worker MachineConfigPools (MCPs).
+This isolates platform resources from workload resources.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>CPU partitioning is configured by using a <code>PerformanceProfile</code> CR and is applied to nodes for each MachineConfigPool.
 See "CPU partitioning and performance tuning" for additional considerations.</p>
+</li>
+</ul>
+</div>
 </li>
 <li>
 <p>CPU requirements for OKD depend on the configured feature set and application workload characteristics.
@@ -3507,16 +3517,29 @@ For more information, see <a href="https://www.redhat.com/en/blog/rhel-9-changes
 </li>
 <li>
 <p>Use a mix of best-effort and burstable QoS pods as required by your applications.</p>
+</li>
+<li>
+<p>Low-latency workloads require special configuration to avoid being affected by interrupts, the kernel scheduler, or other parts of the platform.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>Use guaranteed QoS pods with proper configuration of reserved or isolated CPUs in the <code>PerformanceProfile</code> CR that configures the node.</p>
+<p>Use guaranteed QoS pods with reserved or isolated CPUs configured in the <code>PerformanceProfile</code> CR for the MachineConfigPool where the application runs.</p>
 </li>
 <li>
-<p>Guaranteed QoS Pods must include annotations for fully isolating CPUs.</p>
+<p>Guaranteed QoS pods must include annotations for fully isolating CPUs:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>cpu-load-balancing.crio.io: "disable"</code></p>
 </li>
 <li>
-<p>Best effort and burstable pods are not guaranteed exclusive CPU use.
+<p><code>irq-load-balancing.crio.io: "disable"</code></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Best-effort and burstable pods are not guaranteed exclusive CPU use.
 Workloads can be preempted by other workloads, operating system daemons, or kernel tasks.</p>
 </li>
 </ul>
@@ -3576,7 +3599,7 @@ Workloads can be preempted by other workloads, operating system daemons, or kern
 <div class="ulist">
 <ul>
 <li>
-<p>There are no reference design updates in this release.</p>
+<p>The reference design includes a tuning update for <code>GOMAXPROCS</code>.</p>
 </li>
 </ul>
 </div>
@@ -3592,17 +3615,26 @@ In a system with Hyper-Threading enabled, a CPU is one hyper-thread.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>The operating system needs a certain amount of CPU to perform all the support tasks, including kernel networking.</p>
-<div class="ulist">
-<ul>
-<li>
-<p>A system with just user plane networking applications (DPDK) needs at least one core (2 hyper-threads when enabled) reserved for the operating system and the infrastructure components.</p>
+<p>Allocate CPUs to the reserved (management) partition so the operating system can run platform tasks, including kernel networking.
+The minimum number of reserved cores depends on the application workload and must be assessed for a production-scale deployment.
+The number of reserved cores can differ between control plane and worker nodes.</p>
 </li>
-</ul>
+<li>
+<p>In a system with Hyper-Threading enabled, core sibling threads must always be in the same pool of CPUs because they influence each other.</p>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Keep all CPUs from the same logical group in one pool. On AMD Zen 4 and later processors, a logical group is a core complex (CCX), and those cores share an L3 cache. On some Intel processors, a logical group is the set of cores that share an L2 cache, for example Intel Sierra Forest.</p>
 </div>
-</li>
-<li>
-<p>In a system with Hyper-Threading enabled, core sibling threads must always be in the same pool of CPUs.</p>
+</td>
+</tr>
+</table>
+</div>
 </li>
 <li>
 <p>The set of reserved and isolated cores must include all CPU cores.</p>
@@ -3649,6 +3681,10 @@ For more information, see <a href="https://www.redhat.com/en/blog/rhel-9-changes
 <p>For schedulable control planes, the minimum recommended reserved capacity is at least 16 CPUs.</p>
 </li>
 <li>
+<p>For worker MachineConfigPools, reserve at least one full core (2 hyper-threads when Hyper-Threading is enabled).
+Additional reserved cores on worker nodes may be required depending on the application workload.</p>
+</li>
+<li>
 <p>The actual required reserved CPU capacity depends on the cluster configuration and workload attributes.</p>
 </li>
 <li>
@@ -3665,10 +3701,13 @@ For more information, see <a href="https://www.redhat.com/en/blog/rhel-9-changes
 <div class="ulist">
 <ul>
 <li>
-<p>Applying the real-time <code>workloadHint</code> setting results in the <code>nohz_full</code> kernel command line parameter being applied to improve performance of high performance applications.</p>
+<p>Applying the <code>workloadHints.realtime</code> setting results in the <code>nohz_full</code> kernel command line parameter being applied to improve performance of high performance applications.</p>
 </li>
 </ul>
 </div>
+</li>
+<li>
+<p>The reference <code>PerformanceProfile</code> CR sets <code>globallyDisableIrqLoadBalancing</code> to <code>false</code>.</p>
 </li>
 <li>
 <p>Hardware without IRQ affinity support affects isolated CPUs.
@@ -3726,23 +3765,13 @@ This provides a mechanism to force a kernel panic for system recovery and diagno
 <dd>
 <p>You can enable schedulable control planes to run workloads on control plane nodes, utilizing idle CPU capacity on bare-metal machines for potential cost savings. This feature is only applicable to clusters with bare-metal control plane nodes.</p>
 <div class="paragraph">
-<p>There are two distinct parts to this functionality:</p>
-</div>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>Allowing workloads on control plane nodes: This feature can be configured after initial cluster installation, allowing you to enable it when you need to run workloads on those nodes.</p>
-</li>
-<li>
-<p>Enabling workload partitioning: This is a critical isolation measure that protects the control plane from interference by regular workloads, ensuring cluster stability and reliability. Workload partitioning must be configured during the initial "day zero" cluster installation and cannot be enabled later.</p>
-</li>
-</ol>
+<p>Workload partitioning is mandatory for every core cluster. As described in "Telco core cluster common use model engineering considerations", you must configure workload partitioning during the initial "day zero" cluster installation. You cannot enable it later. Because workload partitioning is always enabled, it is already in place when you decide to run workloads on control plane nodes.</p>
 </div>
 </dd>
 </dl>
 </div>
 <div class="paragraph">
-<p>If you plan to run workloads on your control plane nodes, you must first enable workload partitioning during the initial setup. You can then enable the schedulable control plane feature at a later time.</p>
+<p>You can allow workloads on control plane nodes at any time after the initial cluster installation.</p>
 </div>
 <div class="dlist">
 <dl>
@@ -3844,22 +3873,7 @@ The implementation must account for the impact of Service Mesh on cluster resour
 <div class="ulist">
 <ul>
 <li>
-<p>Per-interface IP forwarding</p>
-</li>
-<li>
-<p>Support for alt-names on network interfaces</p>
-</li>
-<li>
-<p>Host firewall rules for multi-node clusters</p>
-</li>
-<li>
-<p>MetalLB <code>ConfigurationStatus</code> CRD</p>
-</li>
-<li>
-<p>Extended BGP/L2 advertisements with service selectors</p>
-</li>
-<li>
-<p>Support for Intel E830 Jasper Beach in telco core</p>
+<p>There are no reference design updates in this release.</p>
 </li>
 </ul>
 </div>
@@ -4767,7 +4781,7 @@ When you unpause the <code>mcp</code> CR, all the configuration changes are appl
 <div class="ulist">
 <ul>
 <li>
-<p>There are no reference design updates in this release.</p>
+<p>The reference design includes support for control plane node replacement through GitOps ZTP.</p>
 </li>
 </ul>
 </div>
@@ -4850,6 +4864,9 @@ Multiple ArgoCD applications can be used to achieve the maximum number of cluste
 </li>
 <li>
 <p><a href="../edge_computing/policygentemplate_for_ztp/ztp-advanced-policy-config.html#ztp-adding-new-content-to-gitops-ztp_ztp-advanced-policy-config">Adding custom content to the GitOps ZTP pipeline</a></p>
+</li>
+<li>
+<p><a href="../edge_computing/ztp-advanced-install-ztp.html#ztp-replacing-failed-control-plane-node_ztp-advanced-install-ztp">Replacing a failed control plane node by using the <code>ClusterInstance</code> CR</a></p>
 </li>
 </ul>
 </div>
@@ -5337,6 +5354,43 @@ The use of a disconnected environment provides multiple benefits, including:</p>
 <p>A unique name is required for all custom <code>CatalogSource</code> resources.
 Do not reuse the default catalog names.</p>
 </li>
+<li>
+<p>Create one catalog source for each release version so that all clusters for that release stay on the same Operator z-stream.
+A separate catalog source for each release keeps Operator Lifecycle Manager from selecting a newer Operator version in the channel.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>This requirement applies to OLMv0.
+With OLMv0, if a single catalog contains multiple Operator versions, Operator Lifecycle Manager (OLM) tries to move the cluster to the newest version in the specified channel instead of staying on the version in the <code>Subscription</code> resource.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>When you update catalog sources, follow these guidelines:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Use the same catalog source name across release versions.</p>
+</li>
+<li>
+<p>Structure upgrade or update policies so that the catalog source returns to the <code>ready</code> state before further updates proceed.
+Set the <code>ran.openshift.io/soak-seconds</code> annotation on these policies to at least 30 seconds so that the catalog source update has fully propagated.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</li>
 </ul>
 </div>
 </dd>
@@ -5386,8 +5440,8 @@ Instead, use the <code>oc mirror</code> plugin v2 to ensure signatures are prope
 <div class="ulist">
 <ul>
 <li>
-<p>Starting with OKD 5, administrators can use the <code>oc commatrix</code> plugin to automatically generate <code>MachineConfig</code> CRs with a default set of nftables firewall rules.
-The generated <code>MachineConfig</code> CRs can then be added to the cluster configuration to improve security.</p>
+<p>CRI-O verifies sigstore image signatures for platform content and for telco core reference design Operator images.
+The reference configuration includes a <code>ClusterImagePolicy</code> resource for the Operator images as a required extra manifest.</p>
 </li>
 </ul>
 </div>
@@ -5417,6 +5471,12 @@ Rootless DPDK pods create a tap device in a rootless pod that injects traffic fr
 <li>
 <p>Storage: The storage network should be isolated and non-routable to other cluster networks.
 See the "Storage" section for additional details.</p>
+</li>
+<li>
+<p>Since OKD 4.22, a <code>ClusterImagePolicy</code> CR named <code>openshift</code> is deployed and managed by the Cluster Version Operator (CVO) at installation.
+The policy instructs CRI-O to verify sigstore signatures for the OKD release and payload images.
+Starting with OKD 5.0, telco core reference design Operator images can also be verified by using custom <code>ClusterImagePolicy</code> resources.
+The reference configuration includes a <code>ClusterImagePolicy</code> resource for these Operator images as a required extra manifest at installation.</p>
 </li>
 </ul>
 </div>
@@ -5507,6 +5567,10 @@ This helps you to identify and address potential compatibility issues related to
 <p>For rootless DPDK pod support, enable the SELinux <code>container_use_devices</code> boolean on the host to allow the tap device to be created.
 This introduces an acceptable security risk.</p>
 </li>
+<li>
+<p>Before you install or update the cluster, mirror the telco core reference design Operator images and their signatures. <code>ClusterImagePolicy</code> resources can verify those signatures only when both are in the mirror registry.
+For more information, see "Mirroring images for a disconnected installation by using the oc-mirror plugin v2".</p>
+</li>
 </ul>
 </div>
 </dd>
@@ -5515,6 +5579,9 @@ This introduces an acceptable security risk.</p>
 <div class="ulist _additional-resources">
 <div class="title">Additional resources</div>
 <ul>
+<li>
+<p><a href="../disconnected/oc_mirror_v2/about-installing-oc-mirror-v2.html#about-installing-oc-mirror-v2">Mirroring images for a disconnected installation by using the oc-mirror plugin v2</a></p>
+</li>
 <li>
 <p><a href="../installing/install_config/configuring-firewall.html#configuring-firewall_configuring-firewall">Configuring your firewall for OKD</a></p>
 </li>
@@ -5544,7 +5611,7 @@ This introduces an acceptable security risk.</p>
 <div class="ulist">
 <ul>
 <li>
-<p>The cert-manager Operator is a new optional component in this release.</p>
+<p>There are no reference design updates in this release.</p>
 </li>
 </ul>
 </div>
@@ -6061,6 +6128,12 @@ No patched CRs</span></code></pre>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Kdump enable</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>kdump-worker.yaml</code></p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">Configures kdump crash reporting on worker nodes.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Image signature verification</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>clusterimagepolicy-telco-core-operators.yaml</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Configures CRI-O to enable image sigstore signature verification on RDS Operator images.</p></td>
 <td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
 </tr>
 </tbody>
@@ -6602,7 +6675,7 @@ No patched CRs</span></code></pre>
 <div class="ulist">
 <ul>
 <li>
-<p>OpenShift Data Foundation is expected to be updated to 5.0 when the aligned OpenShift Data Foundation version is released.</p>
+<p>The OpenShift Data Foundation entry will be updated when the aligned OpenShift Data Foundation 5.0 version is released.</p>
 </li>
 <li>
 <p>The cert-manager Operator and Red&#160;Hat OpenShift GitOps Operator are platform-agnostic operators.
