@@ -1269,7 +1269,9 @@
 <ul class="sectlevel2">
 <li><a href="#default-cluster-roles-for-virt_virt-security-policies">Default cluster roles for OpenShift Virtualization</a></li>
 <li><a href="#virt-about-role-aggregation_virt-security-policies">Role aggregation</a></li>
-<li><a href="#virt-configuring-role-aggregation-web_virt-security-policies">Configure role aggregation by using the web console</a></li>
+<li><a href="#virt-configuring-role-aggregation-web_virt-security-policies">Control virtualization role assignment with the web console</a></li>
+<li><a href="#virt-configuring-role-aggregation-cli_virt-security-policies">Control virtualization role assignment with CLI</a></li>
+<li><a href="#virt-granting-virtualization-permissions-manually_virt-security-policies">Bind virtualization roles to users</a></li>
 <li><a href="#virt-storage-rbac-roles_virt-security-policies">RBAC roles for storage features in OpenShift Virtualization</a></li>
 <li><a href="#virt-additional-scc-for-kubevirt-controller_virt-security-policies">Additional SCCs and permissions for the kubevirt-controller service account</a></li>
 </ul>
@@ -1292,7 +1294,7 @@
 <p>Virtual machine (VM) workloads run as unprivileged pods.</p>
 </li>
 <li>
-<p>Security context constraints (SCCs) are defined for the <code>kubevirt-controller</code> service account. For more information about SSCs, see "Additional resources".</p>
+<p>Security context constraints (SCCs) are defined for the <code>kubevirt-controller</code> service account. For more information about SCCs, see "Additional resources".</p>
 </li>
 <li>
 <p>TLS certificates for OpenShift Virtualization components are renewed and rotated automatically.</p>
@@ -1354,10 +1356,10 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 <h2 id="virt-security-policies-auth_virt-security-policies"><a class="anchor" href="#virt-security-policies-auth_virt-security-policies"></a>Authorization</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>OpenShift Virtualization uses role-based access control (RBAC) to define permissions for human users and service accounts. The permissions defined for service accounts control the actions that OpenShift Virtualization components can perform.</p>
+<p>OpenShift Virtualization uses role-based access control (RBAC) to define permissions for users and service accounts.</p>
 </div>
 <div class="paragraph">
-<p>You can also use RBAC roles to manage user access to virtualization features. For example, an administrator can create an RBAC role that provides the permissions required to launch a virtual machine. The administrator can then restrict access by binding the role to specific users.</p>
+<p>By default, OpenShift Virtualization aggregates virtualization permissions into standard Red Hat OpenShift Service on AWS cluster roles (<code>view</code>, <code>edit</code>, and <code>admin</code>). You can disable this role aggregation if you want to grant virtualization permissions manually to specific users or groups.</p>
 </div>
 <div class="sect2">
 <h3 id="default-cluster-roles-for-virt_virt-security-policies"><a class="anchor" href="#default-cluster-roles-for-virt_virt-security-policies"></a>Default cluster roles for OpenShift Virtualization</h3>
@@ -1392,7 +1394,7 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 <tr>
 <td class="tableblock halign-left valign-middle"><p class="tableblock"><code>admin</code></p></td>
 <td class="tableblock halign-left valign-middle"><p class="tableblock"><code>kubevirt.io:admin</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">A user that has full permissions to all OpenShift Virtualization resources, including the ability to delete collections of resources. The user can also view and modify the OpenShift Virtualization runtime configuration, which is located in the <code>HyperConverged</code> custom resource in the <code>openshift-cnv</code> namespace.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">A user that has full permissions to manage virtual machines and related resources, including the ability to delete collections of resources. The scope of permissions depends on whether the role is bound using a <code>ClusterRoleBinding</code> (cluster-wide) or <code>RoleBinding</code> (namespace-scoped).</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-middle"><p class="tableblock"><code>N/A</code></p></td>
@@ -1405,7 +1407,7 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 <div class="sect2">
 <h3 id="virt-about-role-aggregation_virt-security-policies"><a class="anchor" href="#virt-about-role-aggregation_virt-security-policies"></a>Role aggregation</h3>
 <div class="paragraph _abstract">
-<p>By default, OpenShift Virtualization uses role aggregation to grant users virtualization-related roles automatically.</p>
+<p>Users with default <code>admin</code>, <code>edit</code>, or <code>view</code> roles automatically receive matching virtualization permissions. You can disable this behavior to control virtualization access explicitly.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -1415,7 +1417,7 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Configuring role aggregation is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+<p>Disabling OpenShift Virtualization role aggregation is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
 </div>
 <div class="paragraph">
 <p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
@@ -1425,19 +1427,40 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 </table>
 </div>
 <div class="paragraph">
-<p>When role aggregation is enabled, OpenShift Virtualization extends the default Red Hat OpenShift Service on AWS cluster roles with permissions for accessing virtualization objects. For example, a user with the <code>edit</code> cluster role automatically receives the <code>kubevirt.io:edit</code> role, which allows them to create and modify VMs.</p>
+<p>By default, OpenShift Virtualization uses Kubernetes aggregated cluster roles to extend the default <code>admin</code>, <code>edit</code>, and <code>view</code> cluster roles with permissions for virtualization resources. When a user has one of these default roles in a namespace, they can perform the corresponding virtualization operations. For example, a user with the <code>edit</code> role in a namespace can create and modify virtual machines (VMs) in that namespace.</p>
 </div>
 <div class="paragraph">
-<p>When role aggregation is disabled, users do not receive virtualization-related roles by default. You must explicitly grant virtualization roles to users who need access to virtualization resources. Disabling role aggregation provides more granular control over which users can access virtualization resources in your cluster.</p>
+<p>The OpenShift Virtualization cluster roles are aggregated as follows:</p>
 </div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 2. OpenShift Virtualization cluster role aggregation</caption>
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">OpenShift Virtualization cluster role</th>
+<th class="tableblock halign-left valign-top">Default cluster role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kubevirt.io:admin</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>admin</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kubevirt.io:edit</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>edit</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>kubevirt.io:view</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>view</code></p></td>
+</tr>
+</tbody>
+</table>
 <div class="paragraph">
-<p>You can re-enable role aggregation at any time to restore the default behavior.</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="virt-configuring-role-aggregation-web_virt-security-policies"><a class="anchor" href="#virt-configuring-role-aggregation-web_virt-security-policies"></a>Configure role aggregation by using the web console</h3>
-<div class="paragraph _abstract">
-<p>You can configure virtualization role aggregation by using the Red Hat OpenShift Service on AWS web console.</p>
+<p>In clusters that require stricter authorization boundaries, you can disable this automatic aggregation by setting <code>spec.virtualization.roleAggregationStrategy</code> to <code>Manual</code> in the <code>HyperConverged</code> custom resource (CR). The HyperConverged Operator (HCO) propagates the setting to KubeVirt at runtime and automatically enables the required <code>OptOutRoleAggregation</code> feature gate. Do not edit the KubeVirt CR or the feature gate directly.</p>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -1447,7 +1470,62 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Configuring role aggregation is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+<p>Setting the strategy to <code>Manual</code> immediately removes virtualization permissions from all users who rely on aggregated <code>admin</code>, <code>edit</code>, or <code>view</code> roles. The change takes effect at runtime with no grace period. Before disabling role aggregation, grant virtualization permissions explicitly to users and groups that require access.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The <code>roleAggregationStrategy</code> field supports the following values:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 3. roleAggregationStrategy field values</caption>
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Value</th>
+<th class="tableblock halign-left valign-top">Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AggregateToDefault</code> (default)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Aggregates OpenShift Virtualization cluster roles to the default <code>admin</code>, <code>edit</code>, and <code>view</code> cluster roles.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Manual</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Does not aggregate kubevirt cluster roles to the default cluster roles. Administrators must bind kubevirt cluster roles explicitly to users or groups.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>If the field is not set, <code>AggregateToDefault</code> behavior is used.</p>
+</div>
+<div class="paragraph">
+<p>When the strategy is <code>Manual</code>, the <code>aggregate-to-admin</code>, <code>aggregate-to-edit</code>, and <code>aggregate-to-view</code> labels on kubevirt cluster roles are set to <code>false</code>. Users with the standard <code>admin</code>, <code>edit</code>, or <code>view</code> roles do not automatically receive the corresponding kubevirt permissions. Existing RBAC bindings that grant kubevirt cluster roles directly continue to work.</p>
+</div>
+<div class="paragraph">
+<p>You can change the strategy at any time. HCO and kubevirt apply the change at runtime, and reinstalling OpenShift Virtualization or restarting any pods is not required and not necessary.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="virt-configuring-role-aggregation-web_virt-security-policies"><a class="anchor" href="#virt-configuring-role-aggregation-web_virt-security-policies"></a>Control virtualization role assignment with the web console</h3>
+<div class="paragraph _abstract">
+<p>Disable automatic virtualization permissions to enforce stricter authorization boundaries in your cluster.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Disabling OpenShift Virtualization role aggregation is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
 </div>
 <div class="paragraph">
 <p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
@@ -1461,6 +1539,9 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 <ul>
 <li>
 <p>You have access to the cluster as a user with <code>cluster-admin</code> permissions.</p>
+</li>
+<li>
+<p>OpenShift Virtualization is installed.</p>
 </li>
 </ul>
 </div>
@@ -1483,16 +1564,252 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 <p>Under <strong>General settings</strong>, expand <strong>Automatically grant Virtualization roles</strong>.</p>
 </li>
 <li>
-<p>Choose the appropriate option:</p>
+<p>Select the required state:</p>
 <div class="ulist">
 <ul>
 <li>
-<p>To disable role aggregation, toggle <strong>Automatically grant Virtualization roles</strong> to off. Users no longer receive virtualization-related roles by default.</p>
+<p>To disable role aggregation, toggle <strong>Automatically grant Virtualization roles</strong> to off.</p>
 </li>
 <li>
-<p>To re-enable role aggregation, toggle <strong>Automatically grant Virtualization roles</strong> to on. Users receive virtualization-related roles by default.</p>
+<p>To enable role aggregation, toggle <strong>Automatically grant Virtualization roles</strong> to on.</p>
 </li>
 </ul>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<div class="title">Verification</div>
+<p>Navigate to <strong>Virtualization</strong> &#8594; <strong>Settings</strong> &#8594; <strong>Cluster</strong> and verify that <strong>Automatically grant Virtualization roles</strong> shows the intended state.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="virt-configuring-role-aggregation-cli_virt-security-policies"><a class="anchor" href="#virt-configuring-role-aggregation-cli_virt-security-policies"></a>Control virtualization role assignment with CLI</h3>
+<div class="paragraph _abstract">
+<p>Disable automatic virtualization permissions to enforce stricter authorization boundaries in your cluster.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Disabling OpenShift Virtualization role aggregation is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with <code>cluster-admin</code> permissions.</p>
+</li>
+<li>
+<p>OpenShift Virtualization is installed.</p>
+</li>
+<li>
+<p>The OpenShift CLI (<code>oc</code>) is installed.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Disable role aggregation by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hyperconverged kubevirt-hyperconverged <span class="se">\</span>
+    <span class="nt">-n</span> openshift-cnv <span class="se">\</span>
+    <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+    <span class="nt">-p</span> <span class="s1">'{"spec":{"virtualization":{"roleAggregationStrategy":"Manual"}}}'</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify that the HyperConverged Operator (HCO) propagated the setting to KubeVirt:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubevirt kubevirt-kubevirt-hyperconverged <span class="se">\</span>
+    <span class="nt">-n</span> openshift-cnv <span class="se">\</span>
+    <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.configuration.roleAggregationStrategy}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>Manual</code>.</p>
+</div>
+</li>
+<li>
+<p>Verify that the <code>OptOutRoleAggregation</code> feature gate is enabled:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get kubevirt kubevirt-kubevirt-hyperconverged <span class="se">\</span>
+    <span class="nt">-n</span> openshift-cnv <span class="se">\</span>
+    <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.configuration.developerConfiguration.featureGates}'</span> | <span class="nb">grep</span> <span class="nt">-o</span> OptOutRoleAggregation</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>OptOutRoleAggregation</code>.</p>
+</div>
+</li>
+<li>
+<p>Optional: Verify that a cluster role is no longer marked for aggregation. For example, verify that the <code>kubevirt.io:edit</code> cluster role has an <code>aggregate-to-edit</code> label value of <code>false</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusterrole kubevirt.io:edit <span class="se">\</span>
+    <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.metadata.labels.rbac\.authorization\.k8s\.io/aggregate-to-edit}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>false</code>.</p>
+</div>
+</li>
+<li>
+<p>Optional: To re-enable aggregation, set the field to <code>AggregateToDefault</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hyperconverged kubevirt-hyperconverged <span class="se">\</span>
+    <span class="nt">-n</span> openshift-cnv <span class="se">\</span>
+    <span class="nt">--type</span><span class="o">=</span>merge <span class="se">\</span>
+    <span class="nt">-p</span> <span class="s1">'{"spec":{"virtualization":{"roleAggregationStrategy":"AggregateToDefault"}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Alternatively, remove the field entirely from the HyperConverged CR:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch hyperconverged kubevirt-hyperconverged <span class="se">\</span>
+    <span class="nt">-n</span> openshift-cnv <span class="se">\</span>
+    <span class="nt">--type</span><span class="o">=</span>json <span class="se">\</span>
+    <span class="nt">-p</span> <span class="s1">'[{"op":"remove","path":"/spec/virtualization/roleAggregationStrategy"}]'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>When the field is set, including when it is set to <code>AggregateToDefault</code>, HCO keeps the <code>OptOutRoleAggregation</code> feature gate enabled. When the field is removed, HCO removes the feature gate and KubeVirt uses its default aggregation behavior.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="virt-granting-virtualization-permissions-manually_virt-security-policies"><a class="anchor" href="#virt-granting-virtualization-permissions-manually_virt-security-policies"></a>Bind virtualization roles to users</h3>
+<div class="paragraph _abstract">
+<p>When role aggregation is disabled, bind OpenShift Virtualization cluster roles explicitly to users or groups. These roles supplement the default Red Hat OpenShift Service on AWS <code>admin</code>, <code>edit</code>, and <code>view</code> roles.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Disabling OpenShift Virtualization role aggregation is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have access to the cluster as a user with <code>cluster-admin</code> permissions or with the <code>escalate</code> and <code>bind</code> permissions on the cluster role you want to assign.</p>
+</li>
+<li>
+<p>The target namespace exists, if you are creating a <code>RoleBinding</code>.</p>
+</li>
+<li>
+<p>The OpenShift CLI (<code>oc</code>) is installed.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Users also need the base Red Hat OpenShift Service on AWS <code>edit</code> or <code>view</code> role to access core resources such as pods, persistent volume claims, and events. The OpenShift Virtualization cluster roles grant virtualization-specific permissions only.</p>
+</div>
+<div class="paragraph">
+<p>Regardless of the <code>roleAggregationStrategy</code> value, all authenticated users retain read access to the KubeVirt custom resource (CR) itself through the <code>kubevirt.io:default</code> cluster role.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Use a <code>RoleBinding</code> to grant access in one namespace or a <code>ClusterRoleBinding</code> to grant access in all namespaces.</p>
+<div class="ulist">
+<ul>
+<li>
+<p><code>RoleBinding</code> example that grants <code>kubevirt.io:edit</code> permissions to the <code>developers</code> group in the <code>dev-team</code> namespace:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">RoleBinding</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">virt-editors</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">dev-team</span>
+<span class="na">subjects</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">Group</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">developers</span>
+    <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+<span class="na">roleRef</span><span class="pi">:</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt.io:edit</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p><code>ClusterRoleBinding</code> example that grants <code>kubevirt.io:view</code> permissions to the <code>vm-viewers</code> group in all namespaces:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRoleBinding</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">virt-viewers</span>
+<span class="na">subjects</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">kind</span><span class="pi">:</span> <span class="s">Group</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">vm-viewers</span>
+    <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span>
+<span class="na">roleRef</span><span class="pi">:</span>
+  <span class="na">kind</span><span class="pi">:</span> <span class="s">ClusterRole</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">kubevirt.io:view</span>
+  <span class="na">apiGroup</span><span class="pi">:</span> <span class="s">rbac.authorization.k8s.io</span></code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Save the manifest to a file.</p>
+</li>
+<li>
+<p>Apply the manifest:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc apply <span class="nt">-f</span> <em>&lt;filename&gt;</em>.yaml</code></pre>
+</div>
 </div>
 </li>
 </ol>
@@ -1501,7 +1818,36 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 <div class="title">Verification</div>
 <ul>
 <li>
-<p>Navigate to <strong>Virtualization</strong> &#8594; <strong>Settings</strong> and click the <strong>Cluster</strong> tab. Under <strong>General settings</strong>, verify that <strong>Automatically grant Virtualization roles</strong> reflects the expected state.</p>
+<p>For a <code>RoleBinding</code>, verify that the binding was created and grants the expected permissions:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get rolebinding virt-editors <span class="nt">-n</span> dev-team</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc auth can-i create virtualmachines <span class="nt">-n</span> dev-team <span class="nt">--as-group</span><span class="o">=</span>developers</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>yes</code>.</p>
+</div>
+</li>
+<li>
+<p>For a <code>ClusterRoleBinding</code>, verify that the binding grants permissions cluster-wide:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get clusterrolebinding virt-viewers</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc auth can-i list virtualmachines <span class="nt">--all-namespaces</span> <span class="nt">--as-group</span><span class="o">=</span>vm-viewers</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The output shows <code>yes</code>.</p>
+</div>
 </li>
 </ul>
 </div>
@@ -1514,7 +1860,7 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 <div class="sect3">
 <h4 id="cluster-wide-rbac-roles-cdi"><a class="anchor" href="#cluster-wide-rbac-roles-cdi"></a>Cluster-wide RBAC roles</h4>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 2. Aggregated cluster roles for the <code>cdi.kubevirt.io</code> API group</caption>
+<caption class="title">Table 4. Aggregated cluster roles for the <code>cdi.kubevirt.io</code> API group</caption>
 <colgroup>
 <col style="width: 25%;">
 <col style="width: 50%;">
@@ -1563,7 +1909,7 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 </tbody>
 </table>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 3. Cluster-wide roles for the <code>cdi-operator</code> service account</caption>
+<caption class="title">Table 5. Cluster-wide roles for the <code>cdi-operator</code> service account</caption>
 <colgroup>
 <col style="width: 25%;">
 <col style="width: 25%;">
@@ -1627,7 +1973,7 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 </tbody>
 </table>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 4. Cluster-wide roles for the <code>cdi-controller</code> service account</caption>
+<caption class="title">Table 6. Cluster-wide roles for the <code>cdi-controller</code> service account</caption>
 <colgroup>
 <col style="width: 25%;">
 <col style="width: 25%;">
@@ -1727,7 +2073,7 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 <div class="sect3">
 <h4 id="namespaced-rbac-roles-cdi"><a class="anchor" href="#namespaced-rbac-roles-cdi"></a>Namespaced RBAC roles</h4>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 5. Namespaced roles for the <code>cdi-operator</code> service account</caption>
+<caption class="title">Table 7. Namespaced roles for the <code>cdi-operator</code> service account</caption>
 <colgroup>
 <col style="width: 25%;">
 <col style="width: 25%;">
@@ -1779,7 +2125,7 @@ Automatic TLS certificate rotation does not disrupt any operations. For example,
 </tbody>
 </table>
 <table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 6. Namespaced roles for the <code>cdi-controller</code> service account</caption>
+<caption class="title">Table 8. Namespaced roles for the <code>cdi-controller</code> service account</caption>
 <colgroup>
 <col style="width: 25%;">
 <col style="width: 25%;">
