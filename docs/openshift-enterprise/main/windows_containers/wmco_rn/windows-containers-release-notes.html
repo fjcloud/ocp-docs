@@ -3473,25 +3473,88 @@
 <div id="toc" class="toc">
 <div id="toctitle" class="title"></div>
 <ul class="sectlevel1">
-<li><a href="#wmco-release-notes">Release notes for Red Hat Windows Machine Config Operator 10.x.0</a></li>
+<li><a href="#windows-containers-release-notes-11-0-0_windows-containers-release-notes">Release notes for Red Hat Windows Machine Config Operator 11.0.0</a>
+<ul class="sectlevel2">
+<li><a href="#wmco-11-0-0-new-features_windows-containers-release-notes">New features and improvements</a></li>
+<li><a href="#wmco-11-0-0-bug-fixes_windows-containers-release-notes">Bug fixes</a></li>
 </ul>
+</li>
+</ul>
+</div>
+<div class="paragraph _abstract">
+<p>You can review the release notes to learn about the changes introduced through each release of the Red&#160;Hat OpenShift support for Windows Containers and the Windows Machine Config Operator (WMCO).</p>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="wmco-release-notes"><a class="anchor" href="#wmco-release-notes"></a>Release notes for Red Hat Windows Machine Config Operator 10.x.0</h2>
+<h2 id="windows-containers-release-notes-11-0-0_windows-containers-release-notes"><a class="anchor" href="#windows-containers-release-notes-11-0-0_windows-containers-release-notes"></a>Release notes for Red Hat Windows Machine Config Operator 11.0.0</h2>
 <div class="sectionbody">
+<div class="paragraph">
+<p>Issued: 03 November 2026</p>
+</div>
 <div class="paragraph _abstract">
-<p>You can review the release notes to learn about the changes introduced through each release of the Red&#160;Hat OpenShift support for Windows Containers and the Windows Machine Config Operator (WMCO).</p>
+<p>You can review the following release notes to learn about the new features and bug fixes in the Windows Machine Config Operator (WMCO) version 11.0.0.</p>
 </div>
 <div class="paragraph">
-<p>This release of the WMCO provides bug fixes for running Windows compute nodes in an OpenShift Container Platform cluster. The components of the WMCO 10.x.0 were released in</p>
+<p>The components of the WMCO version 11.0.0 were released in <a href="https://access.redhat.com/errata/RHSA-2026:94562">RHSA-2026:94562</a>.</p>
+</div>
+<div class="sect2">
+<h3 id="wmco-11-0-0-new-features_windows-containers-release-notes"><a class="anchor" href="#wmco-11-0-0-new-features_windows-containers-release-notes"></a>New features and improvements</h3>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">WMCO metrics server follows the cluster TLS security profile</dt>
+<dd>
+<p>The WMCO metrics server uses the TLS security profile configured for the cluster when the <code>spec.tlsAdherence</code> parameter is set to <code>StrictAllComponents</code>. When you change the cluster TLS profile or the adherence policy, the Operator pod restarts and applies the new settings. This keeps the metrics server aligned with the cluster TLS policy, including a custom profile.</p>
+<div class="paragraph">
+<p>To use this feature, you must enable the <code>TechPreviewNoUpgrade</code> feature set. For more information, see "Understanding feature gates".</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Enabling this feature set cannot be undone and prevents minor version updates.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</dd>
+</dl>
 </div>
 <div class="dlist">
 <dl>
-<dt class="hdlist1">New features and improvements</dt>
-<dt class="hdlist1">Bug fixes</dt>
+<dt class="hdlist1">Kubernetes upgrade</dt>
+<dd>
+<p>The WMCO now uses Kubernetes version 1.36.</p>
+</dd>
 </dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="wmco-11-0-0-bug-fixes_windows-containers-release-notes"><a class="anchor" href="#wmco-11-0-0-bug-fixes_windows-containers-release-notes"></a>Bug fixes</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>Before this update, old <code>ovnkube-client-*.pem</code> certificate files would accumulate indefinitely in the <code>C:\k\cni\config</code> directory, because the <code>hybrid-overlay</code> service generates a new time-stamped certificate daily during certificate rotation. As a consequence, the accumulated certificates could cause unnecessary disk usage growth over time. With this release, the Windows Instance Config Daemon (WICD) now has cleanup logic for older files, which runs during the normal reconciliation loop, every two minutes, and keeps only the two most recent certificates, deleting any older certificates. As a result, old <code>ovnkube-client-.pem</code> certificate files are now automatically pruned, so that only the latest required certificates remain and disk usage no longer grows unbounded from stale cert files. (<a href="https://issues.redhat.com/browse/OCPBUGS-86246">OCPBUGS-86246</a>)</p>
+</li>
+<li>
+<p>Before this update, the Windows Prometheus recording rule for the <code>instance:node_cpu_utilisation:rate1m</code> metric recorded the <code>CPU idle</code> rate. The Linux recording rule with the same name records CPU utilization. As a consequence, the OpenShift Virtualization <code>HighCPUWorkload</code> alert fired for Windows nodes that had low CPU utilization, because the alert treated idle time as utilization. With this release, the Windows recording rule records CPU utilization. As a result, the <code>instance:node_cpu_utilisation:rate1m</code> metric reports CPU utilization for Windows nodes, and the HighCPUWorkload alert fires when a Windows node is highly utilized. (<a href="https://issues.redhat.com/browse/OCPBUGS-85061">OCPBUGS-85061</a>)</p>
+</li>
+<li>
+<p>Before this update, the SSH connection between the WMCO and a Windows node would terminate when the WMCO rebooted the node after a configuration update. As a consequence, the WMCO incorrectly treated the SSH disconnection as a reboot failure, preventing the Windows node from completing required reboots. With this release, the reboot validation process is modified to ignore SSH termination errors and instead verify a successful reboot by using explicit node reachability checks and SSH reconnection. As a result, Windows nodes successfully reboot upon node configuration changes. (<a href="https://issues.redhat.com/browse/OCPBUGS-90077">OCPBUGS-90077</a>)</p>
+</li>
+<li>
+<p>Before this update, the CRI plug-in in the WMCO containerd 1.7.27 runtime copied <code>image-config</code> labels onto the container and treated them like the CRI labels, including labels in the reserved <code>containerd.io/</code> and <code>io.cri-containerd</code> namespaces. As a consequence, a crafted image label could have reached the <code>restart-monitor</code> logger and caused the logger to run a command with <code>host-root</code> privileges from that label on the Windows node. With this release, the WMCO updates the Windows containerd runtime from 1.7.27 to 1.7.33. The updated runtime filters those reserved namespaces from <code>image-config</code> labels and preserves ordinary image labels and labels supplied by the CRI request. As a result, a label in a reserved containerd or CRI namespace does not reach the <code>restart-monitor</code> logger. (<a href="https://issues.redhat.com/browse/OCPBUGS-123789">OCPBUGS-123789</a>)</p>
+</li>
+<li>
+<p>Before this update, if a Windows node or the WICD submitted a certificate signing request (CSR), the WMCO only checked that the expected organization, such as <code>system:nodes</code> or <code>system:wicd-nodes</code>, was present in the CSR subject. The validation did not require that organization to be the only one listed. As a consequence, a CSR could include the required organization plus additional organizations and still pass validation. WMCO approved and signed those CSRs, issuing certificates that did not strictly match the expected node identity constraints. With this release, the validation now requires that the CSR subject contain exactly one organization, and the CSR must match the expected group for the certificate type, such as <code>WICD</code>, <code>kubelet client</code>, or <code>kubelet serving</code>. As a result, CSRs with extra, missing, or incorrect organizations are rejected. (<a href="https://issues.redhat.com/browse/WINC-1942">WINC-1942</a>)</p>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
