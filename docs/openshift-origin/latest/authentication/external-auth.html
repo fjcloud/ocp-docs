@@ -2911,6 +2911,7 @@
 <ul class="sectlevel2">
 <li><a href="#external-auth-fields_external-auth">OIDC provider configuration parameters</a></li>
 <li><a href="#external-auth-cli_external-auth">Example OIDC provider configuration for CLI clients only</a></li>
+<li><a href="#external-auth-external-claims-configuring_external-auth">Configuring external claims sourcing</a></li>
 </ul>
 </li>
 <li><a href="#external-auth-disabling_external-auth">Disable direct authentication</a></li>
@@ -2965,6 +2966,9 @@
 </div>
 <div class="paragraph">
 <p>If there are any issues with the external identity provider, you need one of these methods to gain access to the OKD cluster in an emergency situation.</p>
+</div>
+<div class="paragraph">
+<p>If the JSON Web Token (JWT) from your OIDC identity provider does not include all of the claims that you need, such as group memberships, you can use external claims sourcing. External claims sourcing retrieves user identity information from external HTTP endpoints, such as a provider&#8217;s <code>UserInfo</code> endpoint or the Microsoft Graph API, and supplements the claims in the JWT with that data. You can configure up to 5 external sources per OIDC provider, with up to 16 claim mappings and 16 predicates per source. This feature requires the <code>TechPreviewNoUpgrade</code> feature set.</p>
 </div>
 <div class="sect2">
 <h3 id="external-auth-disabled-resources_external-auth"><a class="anchor" href="#external-auth-disabled-resources_external-auth"></a>Disabled OAuth resources</h3>
@@ -3758,6 +3762,311 @@
       <span class="na">issuerURL</span><span class="pi">:</span> <span class="s">my-issuer-url</span>
     <span class="na">name</span><span class="pi">:</span> <span class="s">my-oidc-provider-name</span></code></pre>
 </div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="external-auth-external-claims-configuring_external-auth"><a class="anchor" href="#external-auth-external-claims-configuring_external-auth"></a>Configuring external claims sourcing</h3>
+<div class="paragraph _abstract">
+<p>You can use external claims sourcing with your OIDC identity provider to retrieve additional user identity information, such as group memberships, from external HTTP endpoints. Use external claims sourcing when JWT token size limits prevent your identity provider from including all claim data in the token.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>External claims sourcing is a Technology Preview feature only. Technology Preview features are not supported with Red&#160;Hat production service level agreements (SLAs) and might not be functionally complete. Red Hat does not recommend using them in production. These features provide early access to upcoming product features, enabling customers to test functionality and provide feedback during the development process.</p>
+</div>
+<div class="paragraph">
+<p>For more information about the support scope of Red Hat Technology Preview features, see <a href="https://access.redhat.com/support/offerings/techpreview/">Technology Preview Features Support Scope</a>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You have configured an external OIDC identity provider for direct authentication.</p>
+</li>
+<li>
+<p>You have enabled the <code>TechPreviewNoUpgrade</code> feature set on the cluster.</p>
+</li>
+<li>
+<p>You have access to the cluster as a user with the <code>cluster-admin</code> role.</p>
+</li>
+<li>
+<p>You know the endpoint URL for the external claims source.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Optional: If your external claims endpoint uses a TLS certificate not trusted by the system certificate authority bundle, create a config map containing the certificate authority bundle by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create configmap external-claims-ca <span class="se">\</span>
+    <span class="nt">--from-file</span><span class="o">=</span>ca-bundle.crt<span class="o">=</span>&lt;path_to_ca_bundle&gt; <span class="se">\</span>
+    <span class="nt">-n</span> openshift-config</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;path_to_ca_bundle&gt;</code> with the path to the PEM-encoded certificate authority bundle file.</p>
+</div>
+</li>
+<li>
+<p>Optional: If the external endpoint requires client credential authentication, such as the Microsoft Graph API, create a secret for the client credentials by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create secret generic external-claims-client-secret <span class="se">\</span>
+    <span class="nt">--from-literal</span><span class="o">=</span>client-secret<span class="o">=</span>&lt;client_secret_value&gt; <span class="se">\</span>
+    <span class="nt">-n</span> openshift-config</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;client_secret_value&gt;</code> with the client secret value from your identity provider&#8217;s app registration.</p>
+</div>
+</li>
+<li>
+<p>Edit the authentication configuration by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc edit authentication.config/cluster</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add the <code>externalClaimsSources</code> field under your <code>oidcProviders</code> entry.</p>
+<div class="paragraph">
+<p>The following example uses the <code>RequestProvidedToken</code> authentication mode to retrieve group membership from a <code>UserInfo</code> endpoint:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Authentication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="c1"># ...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">OIDC</span>
+  <span class="na">oidcProviders</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">my-oidc-provider</span>
+    <span class="na">issuer</span><span class="pi">:</span>
+      <span class="na">issuerURL</span><span class="pi">:</span> <span class="s">https://idp.example.com</span>
+      <span class="na">audiences</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">my-client-id</span>
+    <span class="na">claimMappings</span><span class="pi">:</span>
+      <span class="na">username</span><span class="pi">:</span>
+        <span class="na">claim</span><span class="pi">:</span> <span class="s">email</span>
+        <span class="na">prefixPolicy</span><span class="pi">:</span> <span class="s">Prefix</span>
+        <span class="na">prefix</span><span class="pi">:</span>
+          <span class="na">prefixString</span><span class="pi">:</span> <span class="s1">'</span><span class="s">oidc:'</span>
+      <span class="na">groups</span><span class="pi">:</span>
+        <span class="na">expression</span><span class="pi">:</span> <span class="pi">&gt;-</span>
+          <span class="s">has(claims.groups)</span>
+            <span class="s">? (type(claims.groups) == string</span>
+                <span class="s">? claims.groups.split(',')</span>
+                <span class="s">: claims.groups)</span>
+            <span class="s">: []</span>
+<span class="c1"># ...</span>
+    <span class="na">externalClaimsSources</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">authentication</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">RequestProvidedToken</span>
+      <span class="na">url</span><span class="pi">:</span>
+        <span class="na">hostname</span><span class="pi">:</span> <span class="s">idp.example.com</span>
+        <span class="na">pathExpression</span><span class="pi">:</span> <span class="s2">"</span><span class="s">['userinfo']"</span>
+      <span class="na">mappings</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">groups</span>
+        <span class="na">expression</span><span class="pi">:</span> <span class="s2">"</span><span class="s">has(response.body.groups)</span><span class="nv"> </span><span class="s">?</span><span class="nv"> </span><span class="s">response.body.groups.join(',')</span><span class="nv"> </span><span class="s">:</span><span class="nv"> </span><span class="s">''"</span>
+      <span class="na">predicates</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">expression</span><span class="pi">:</span> <span class="s2">"</span><span class="s">!has(claims.groups)"</span>
+      <span class="na">tls</span><span class="pi">:</span>
+        <span class="na">certificateAuthority</span><span class="pi">:</span>
+          <span class="na">name</span><span class="pi">:</span> <span class="s">external-claims-ca</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources</code></dt>
+<dd>
+<p>Specifies one or more external endpoints for sourcing additional identity information.</p>
+</dd>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources.authentication.type</code></dt>
+<dd>
+<p>Specifies the authentication mode. <code>RequestProvidedToken</code> passes the user&#8217;s ID token to the external endpoint. <code>ClientCredential</code> uses OAuth2 client credentials to obtain a separate access token.</p>
+</dd>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources.url</code></dt>
+<dd>
+<p>Specifies the external endpoint URL. The <code>pathExpression</code> CEL expression returns a list of path segments joined with <code>/</code> to form the request path. The <code>claims</code> variable provides access to JWT token claims for constructing dynamic paths.</p>
+</dd>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources.mappings</code></dt>
+<dd>
+<p>Specifies claim mappings that extract values from the external endpoint response by using CEL expressions. Expressions must return a string value. To map array values such as groups, use the <code>.join(',')</code> method to convert the array to a comma-separated string, and use a corresponding <code>claimMappings</code> expression with <code>.split(',')</code> to convert it back to a list. The <code>response.body</code> variable provides access to the parsed JSON response. Mapping names must be unique across all external claims sources.</p>
+</dd>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources.predicates</code></dt>
+<dd>
+<p>Specifies optional CEL expressions that control whether this source is queried. All expressions must evaluate to <code>true</code> for the source to be queried. When omitted, the source is always queried.</p>
+</dd>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources.tls.certificateAuthority</code></dt>
+<dd>
+<p>Specifies the optional certificate authority config map for the external endpoint. Omit if the endpoint certificate is trusted by the system certificate authority bundle.</p>
+<div class="paragraph">
+<p>The following example uses the <code>ClientCredential</code> authentication mode to retrieve group membership from Microsoft Entra ID by using the Microsoft Graph API:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">config.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Authentication</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">cluster</span>
+<span class="c1"># ...</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">type</span><span class="pi">:</span> <span class="s">OIDC</span>
+  <span class="na">oidcProviders</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">entra-id</span>
+    <span class="na">issuer</span><span class="pi">:</span>
+      <span class="na">issuerURL</span><span class="pi">:</span> <span class="s">https://login.microsoftonline.com/&lt;tenant_id&gt;/v2.0</span>
+      <span class="na">audiences</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">&lt;application_client_id&gt;</span>
+    <span class="na">claimMappings</span><span class="pi">:</span>
+      <span class="na">username</span><span class="pi">:</span>
+        <span class="na">claim</span><span class="pi">:</span> <span class="s">preferred_username</span>
+        <span class="na">prefixPolicy</span><span class="pi">:</span> <span class="s">Prefix</span>
+        <span class="na">prefix</span><span class="pi">:</span>
+          <span class="na">prefixString</span><span class="pi">:</span> <span class="s1">'</span><span class="s">oidc:'</span>
+      <span class="na">groups</span><span class="pi">:</span>
+        <span class="na">expression</span><span class="pi">:</span> <span class="pi">&gt;-</span>
+          <span class="s">has(claims.groups)</span>
+            <span class="s">? (type(claims.groups) == string</span>
+                <span class="s">? claims.groups.split(',')</span>
+                <span class="s">: claims.groups)</span>
+            <span class="s">: []</span>
+<span class="c1"># ...</span>
+    <span class="na">externalClaimsSources</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">authentication</span><span class="pi">:</span>
+        <span class="na">type</span><span class="pi">:</span> <span class="s">ClientCredential</span>
+        <span class="na">clientCredential</span><span class="pi">:</span>
+          <span class="na">clientID</span><span class="pi">:</span> <span class="s">&lt;application_client_id&gt;</span>
+          <span class="na">clientSecret</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">external-claims-client-secret</span>
+          <span class="na">tokenEndpoint</span><span class="pi">:</span> <span class="s">https://login.microsoftonline.com/&lt;tenant_id&gt;/oauth2/v2.0/token</span>
+          <span class="na">scopes</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="s2">"</span><span class="s">https://graph.microsoft.com/.default"</span>
+      <span class="na">url</span><span class="pi">:</span>
+        <span class="na">hostname</span><span class="pi">:</span> <span class="s">graph.microsoft.com</span>
+        <span class="na">pathExpression</span><span class="pi">:</span> <span class="s2">"</span><span class="s">['v1.0',</span><span class="nv"> </span><span class="s">'users',</span><span class="nv"> </span><span class="s">claims.preferred_username,</span><span class="nv"> </span><span class="s">'memberOf']"</span>
+      <span class="na">mappings</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">groups</span>
+        <span class="na">expression</span><span class="pi">:</span> <span class="s2">"</span><span class="s">has(response.body.value)</span><span class="nv"> </span><span class="s">?</span><span class="nv"> </span><span class="s">response.body.value.map(x,</span><span class="nv"> </span><span class="s">x.displayName).join(',')</span><span class="nv"> </span><span class="s">:</span><span class="nv"> </span><span class="s">''"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+</dd>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources.authentication.clientCredential.clientID</code></dt>
+<dd>
+<p>Specifies the client application ID for OAuth2 client credential authentication.</p>
+</dd>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources.authentication.clientCredential.clientSecret</code></dt>
+<dd>
+<p>Specifies a reference to a secret in the <code>openshift-config</code> namespace. The value must be stored in the <code>client-secret</code> key.</p>
+</dd>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources.authentication.clientCredential.tokenEndpoint</code></dt>
+<dd>
+<p>Specifies the OAuth2 token endpoint URL for exchanging client credentials for an access token.</p>
+</dd>
+<dt class="hdlist1"><code>spec.oidcProviders.externalClaimsSources.authentication.clientCredential.scopes</code></dt>
+<dd>
+<p>Specifies the OAuth2 scopes to request when obtaining the access token.</p>
+<div class="paragraph">
+<p>If a request to an external source fails, the claims from that source are unavailable for the authentication attempt. Whether authentication succeeds depends on how your claim mappings and validation rules are configured. If a successfully sourced external claim has the same name as a claim in the JWT token, the externally sourced value replaces the token value.</p>
+</div>
+</dd>
+</dl>
+</div>
+</li>
+<li>
+<p>Save and exit the editor to apply the configuration.</p>
+<div class="paragraph">
+<p>Wait for the authentication configuration to be applied.</p>
+</div>
+</li>
+<li>
+<p>Check the Cluster Authentication Operator status by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get co authentication</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Wait until <code>PROGRESSING</code> is <code>False</code> and <code>DEGRADED</code> is <code>False</code>:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output showing completed rollout</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME             VERSION   AVAILABLE   PROGRESSING   DEGRADED   SINCE   MESSAGE
+authentication   5.0.0    True        False         False      10m</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If <code>DEGRADED</code> is <code>True</code>, review the <code>MESSAGE</code> column and the <code>oauth-apiserver</code> pod logs in the <code>openshift-oauth-apiserver</code> namespace.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="olist arabic">
+<div class="title">Verification</div>
+<ol class="arabic">
+<li>
+<p>Log in to the cluster by authenticating with your identity provider by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc login <span class="nt">--exec-plugin</span><span class="o">=</span>oc-oidc <span class="se">\</span>
+    <span class="nt">--issuer-url</span><span class="o">=</span>https://idp.example.com <span class="se">\</span>
+    <span class="nt">--client-id</span><span class="o">=</span>my-client-id</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check your group memberships to confirm that external claims sourcing is working by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-o</span> yaml <span class="nt">-f</span> - <span class="o">&lt;&lt;</span><span class="no">EOF</span><span class="sh">
+</span><span class="go">apiVersion: authentication.k8s.io/v1
+kind: SelfSubjectReview
+EOF</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">apiVersion: authentication.k8s.io/v1
+kind: SelfSubjectReview
+metadata:
+  creationTimestamp: "2026-01-01T00:00:00Z"
+status:
+  userInfo:
+    username: "oidc:user@example.com"
+    groups:
+    - "engineering"
+    - "platform-team"
+    - "system:authenticated"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Check that the groups include entries from the external endpoint.</p>
+</div>
+</li>
+</ol>
 </div>
 </div>
 </div>
