@@ -2965,6 +2965,7 @@
 <li><a href="#nodes-cluster-resource-override-deploy-console_post-install-node-tasks">Install the Cluster Resource Override Operator using the web console</a></li>
 <li><a href="#nodes-cluster-resource-override-deploy-cli_post-install-node-tasks">Install the Cluster Resource Override Operator using the CLI</a></li>
 <li><a href="#nodes-cluster-resource-configure_post-install-node-tasks">Configure cluster-level overcommit</a></li>
+<li><a href="#nodes-cluster-resource-override-profiles_post-install-node-tasks">Namespace-level resource overrides</a></li>
 </ul>
 </li>
 <li><a href="#nodes-cluster-node-overcommit_post-install-node-tasks">Node-level overcommit</a>
@@ -7298,6 +7299,7 @@ Other values enable the use of topology awareness information from device plugin
       <span class="na">memoryRequestToLimitPercent</span><span class="pi">:</span> <span class="m">50</span>
       <span class="na">cpuRequestToLimitPercent</span><span class="pi">:</span> <span class="m">25</span>
       <span class="na">limitCPUToMemoryPercent</span><span class="pi">:</span> <span class="m">200</span>
+      <span class="na">cpuRequestToRequestPercent</span><span class="pi">:</span> <span class="m">50</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -7324,6 +7326,10 @@ Other values enable the use of topology awareness information from device plugin
 <dd>
 <p>If a container memory limit has been specified or defaulted, the CPU limit is overridden to a percentage of the memory limit, if specified. Scaling 1Gi of RAM at 100 percent is equal to 1 CPU core. This is processed before overriding the CPU request (if configured). The default is 200.</p>
 </dd>
+<dt class="hdlist1"><code>spec.podResourceOverride.spec.cpuRequestToRequestPercent</code></dt>
+<dd>
+<p>If a container CPU request has been specified or defaulted, the CPU request is overridden to this percentage of that submitted request, from 1 to 100. The webhook applies this parameter after the other override parameters. The percentage comes from the CPU request in the submitted pod, before those parameters change it. You can use this parameter when the container has no CPU limit. This parameter is optional.</p>
+</dd>
 </dl>
 </div>
 </div>
@@ -7336,11 +7342,14 @@ Other values enable the use of topology awareness information from device plugin
 </td>
 <td class="content">
 <div class="paragraph">
-<p>The Cluster Resource Override Operator overrides have no effect if limits have not been set on containers. Create a <code>LimitRange</code> object with default limits per individual project or configure limits in <code>Pod</code> specs for the overrides to apply.</p>
+<p>The <code>memoryRequestToLimitPercent</code>, <code>cpuRequestToLimitPercent</code>, and <code>limitCPUToMemoryPercent</code> parameters have no effect unless the container has a limit, or a <code>LimitRange</code> object defaults one. The <code>cpuRequestToRequestPercent</code> parameter applies when the container has a CPU request, or a <code>LimitRange</code> object defaults one. That parameter does not require a CPU limit.</p>
 </div>
 </td>
 </tr>
 </table>
+</div>
+<div class="paragraph">
+<p>Set limits and requests in the pod spec or in a <code>LimitRange</code> object for each namespace for these overrides to apply.</p>
 </div>
 <div class="paragraph">
 <p>When configured, you can enable overrides on a per-project basis by applying the following label to the <code>Namespace</code> object for each project where you want the overrides to apply. For example, you can configure override so that infrastructure components are not subject to the overrides.</p>
@@ -7360,10 +7369,13 @@ Other values enable the use of topology awareness information from device plugin
 </div>
 </div>
 <div class="paragraph">
+<p>A pod in a namespace with this label uses the ratios from the <code>ClusterResourceOverride</code> object unless a <code>ResourceOverride</code> object in that namespace matches the pod. If a pod in a project with this label matches a <code>ResourceOverride</code> object in that namespace, the webhook applies the ratios in the <code>ResourceOverride</code> object. For more information, see "Namespace-level resource overrides" in this section.</p>
+</div>
+<div class="paragraph">
 <p>The Operator watches for the <code>ClusterResourceOverride</code> CR and ensures that the <code>ClusterResourceOverride</code> admission webhook is installed into the same namespace as the operator.</p>
 </div>
 <div class="paragraph">
-<p>For example, a pod has the following resources limits:</p>
+<p>For example, a pod has the following resource limits and CPU request:</p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -7380,6 +7392,8 @@ Other values enable the use of topology awareness information from device plugin
       <span class="na">resources</span><span class="pi">:</span>
         <span class="na">limits</span><span class="pi">:</span>
           <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">512Mi"</span>
+          <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2000m"</span>
+        <span class="na">requests</span><span class="pi">:</span>
           <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2000m"</span>
 <span class="c1"># ...</span></code></pre>
 </div>
@@ -7404,7 +7418,7 @@ Other values enable the use of topology awareness information from device plugin
         <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1"</span>
         <span class="na">memory</span><span class="pi">:</span> <span class="s">512Mi</span>
       <span class="na">requests</span><span class="pi">:</span>
-        <span class="na">cpu</span><span class="pi">:</span> <span class="s">250m</span>
+        <span class="na">cpu</span><span class="pi">:</span> <span class="s">1000m</span>
         <span class="na">memory</span><span class="pi">:</span> <span class="s">256Mi</span>
 <span class="c1"># ...</span></code></pre>
 </div>
@@ -7420,9 +7434,13 @@ Other values enable the use of topology awareness information from device plugin
 <dd>
 <p>Specifies that the CPU limit has been overridden to <code>1</code> because the <code>limitCPUToMemoryPercent</code> parameter is set to <code>200</code> in the <code>ClusterResourceOverride</code> object. As such, 200% of the memory limit, 512Mi in CPU terms, is 1 CPU core.</p>
 </dd>
-<dt class="hdlist1"><code>spec.containers.resources.memory.cpu</code></dt>
+<dt class="hdlist1"><code>spec.containers.resources.requests.cpu</code></dt>
 <dd>
-<p>Specifies that the CPU request is now <code>250m</code> because the <code>cpuRequestToLimit</code> is set to <code>25</code> in the <code>ClusterResourceOverride</code> object. As such, 25% of the 1 CPU core is 250m.</p>
+<p>Specifies that the CPU request is <code>1000m</code> because the <code>cpuRequestToRequestPercent</code> parameter is <code>50</code> and the submitted CPU request is <code>2000m</code>. The webhook applies the <code>cpuRequestToRequestPercent</code> parameter after the <code>cpuRequestToLimitPercent</code> parameter. With the <code>cpuRequestToLimitPercent</code> parameter set to <code>25</code>, that parameter would set the request to <code>250m</code>, which is 25% of the overridden 1 CPU limit. The <code>cpuRequestToRequestPercent</code> parameter then sets the final request from the submitted <code>2000m</code>.</p>
+</dd>
+<dt class="hdlist1"><code>spec.containers.resources.requests.memory</code></dt>
+<dd>
+<p>Specifies that the memory request is <code>256Mi</code> because the <code>memoryRequestToLimitPercent</code> parameter is <code>50</code>. As such, 50% of the 512Mi memory limit is 256Mi.</p>
 </dd>
 </dl>
 </div>
@@ -7525,11 +7543,11 @@ Other values enable the use of topology awareness information from device plugin
 </dd>
 <dt class="hdlist1"><code>spec.podResourceOverride.spec.cpuRequestToLimitPercent</code></dt>
 <dd>
-<p>Specifies the percentage to override the container CPU limit, if used, between 1-100. The default is <code>25</code>. This parameter is optional.</p>
+<p>Specifies the percentage of the container CPU limit to use as the CPU request, if a CPU limit is set, between 1-100. The default is <code>25</code>. This parameter is optional.</p>
 </dd>
 <dt class="hdlist1"><code>spec.podResourceOverride.spec.limitCPUToMemoryPercent</code></dt>
 <dd>
-<p>Specifies the percentage to override the container memory limit, if used. Scaling 1 Gi of RAM at 100 percent is equal to 1 CPU core. This is processed before overriding the CPU request, if configured. The default is <code>200</code>. This parameter is optional.</p>
+<p>Specifies the percentage of the container memory limit to use as the CPU limit, if a memory limit is set. Scaling 1 Gi of RAM at 100 percent is equal to 1 CPU core. This is processed before overriding the CPU request, if configured. The default is <code>200</code>. This parameter is optional.</p>
 </dd>
 </dl>
 </div>
@@ -7783,11 +7801,11 @@ Other values enable the use of topology awareness information from device plugin
 </dd>
 <dt class="hdlist1"><code>spec.podResourceOverride.spec.cpuRequestToLimitPercent</code></dt>
 <dd>
-<p>Specifies the percentage to override the container CPU limit, if used, between 1-100. The default is <code>25</code>. This parameter is optional.</p>
+<p>Specifies the percentage of the container CPU limit to use as the CPU request, if a CPU limit is set, between 1-100. The default is <code>25</code>. This parameter is optional.</p>
 </dd>
 <dt class="hdlist1"><code>spec.podResourceOverride.spec.limitCPUToMemoryPercent</code></dt>
 <dd>
-<p>Specifies the percentage to override the container memory limit, if used. Scaling 1 Gi of RAM at 100 percent is equal to 1 CPU core. This is processed before overriding the CPU request, if configured. The default is <code>200</code>. This parameter is optional.</p>
+<p>Specifies the percentage of the container memory limit to use as the CPU limit, if a memory limit is set. Scaling 1 Gi of RAM at 100 percent is equal to 1 CPU core. This is processed before overriding the CPU request, if configured. The default is <code>200</code>. This parameter is optional.</p>
 </dd>
 </dl>
 </div>
@@ -7883,7 +7901,10 @@ Other values enable the use of topology awareness information from device plugin
 <p>You can use the OpenShift CLI to configure the Cluster Resource Override Operator to help control overcommit in your cluster.</p>
 </div>
 <div class="paragraph">
-<p>The Cluster Resource Override Operator requires a <code>ClusterResourceOverride</code> custom resource (CR) and a label for each project where you want the Operator to control overcommit.</p>
+<p>The Cluster Resource Override Operator requires a <code>ClusterResourceOverride</code> custom resource (CR) and a label for each namespace where you want the Operator to control overcommit.</p>
+</div>
+<div class="paragraph">
+<p>If pods in that namespace need ratios that differ from the cluster-wide <code>ClusterResourceOverride</code> object, create a <code>ResourceOverride</code> object, which applies its own ratios to pods in the same namespace that have a matching pod selector. For more information, see "Namespace-level resource overrides".</p>
 </div>
 <div class="paragraph">
 <p>By default, the installation process creates two Cluster Resource Override pods on the control plane nodes in the <code>clusterresourceoverride-operator</code> namespace. You can move these pods to other nodes, such as infrastructure nodes, as needed. Infrastructure nodes are not counted toward the total number of subscriptions that are required to run the environment. For more information, see "Moving the Cluster Resource Override Operator pods".</p>
@@ -7892,7 +7913,10 @@ Other values enable the use of topology awareness information from device plugin
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>The Cluster Resource Override Operator has no effect if limits have not been set on containers. You must specify default limits for a project using a <code>LimitRange</code> object or configure limits in <code>Pod</code> specs for the overrides to apply.</p>
+<p>To use the <code>memoryRequestToLimitPercent</code>, <code>cpuRequestToLimitPercent</code>, or <code>limitCPUToMemoryPercent</code> parameters, the containers must have a memory or CPU limit in the pod specification or from a <code>LimitRange</code> object.</p>
+</li>
+<li>
+<p>To use the <code>cpuRequestToRequestPercent</code> parameter, the containers must have a CPU request in the pod specification or from a <code>LimitRange</code> object.</p>
 </li>
 </ul>
 </div>
@@ -7913,6 +7937,7 @@ Other values enable the use of topology awareness information from device plugin
       <span class="na">memoryRequestToLimitPercent</span><span class="pi">:</span> <span class="m">50</span>
       <span class="na">cpuRequestToLimitPercent</span><span class="pi">:</span> <span class="m">25</span>
       <span class="na">limitCPUToMemoryPercent</span><span class="pi">:</span> <span class="m">200</span>
+      <span class="na">cpuRequestToRequestPercent</span><span class="pi">:</span> <span class="m">50</span>
 <span class="c1"># ...</span></code></pre>
 </div>
 </div>
@@ -7925,15 +7950,19 @@ Other values enable the use of topology awareness information from device plugin
 <dl>
 <dt class="hdlist1"><code>spec.podResourceOverride.spec.memoryRequestToLimitPercent</code></dt>
 <dd>
-<p>Specifies the percentage to override the container memory limit, if used, between 1-100. The default is <code>50</code>. This parameter is optional.</p>
+<p>Specifies the percentage of the container memory limit to use as the memory request, if used, between 1-100. The default is <code>50</code>. This parameter is optional.</p>
 </dd>
 <dt class="hdlist1"><code>spec.podResourceOverride.spec.cpuRequestToLimitPercent</code></dt>
 <dd>
-<p>Specifies the percentage to override the container CPU limit, if used, between 1-100. The default is <code>25</code>. This parameter is optional.</p>
+<p>Specifies the percentage of the container CPU limit to use as the CPU request, if a CPU limit is set, between 1-100. The default is <code>25</code>. This parameter is optional.</p>
 </dd>
 <dt class="hdlist1"><code>spec.podResourceOverride.spec.limitCPUToMemoryPercent</code></dt>
 <dd>
-<p>Specifies the percentage to override the container memory limit, if used. Scaling 1Gi of RAM at 100 percent is equal to 1 CPU core. This is processed before overriding the CPU request, if configured. The default is <code>200</code>. This parameter is optional.</p>
+<p>Specifies the percentage of the container memory limit to use as the CPU limit, if a memory limit is set. Scaling 1Gi of RAM at 100 percent is equal to 1 CPU core. This is processed before overriding the CPU request, if configured. The default is <code>200</code>. This parameter is optional.</p>
+</dd>
+<dt class="hdlist1"><code>spec.podResourceOverride.spec.cpuRequestToRequestPercent</code></dt>
+<dd>
+<p>Specifies the percentage of the submitted container CPU request to use as the CPU request, between 1-100. For example, <code>50</code> changes a request of <code>2000m</code> to <code>1000m</code>. The webhook applies this parameter after the <code>cpuRequestToLimitPercent</code> parameter and replaces the CPU request that parameter set. This parameter is optional.</p>
 </dd>
 </dl>
 </div>
@@ -7941,7 +7970,7 @@ Other values enable the use of topology awareness information from device plugin
 </div>
 </li>
 <li>
-<p>Ensure the following label has been added to the Namespace object for each project where you want the Cluster Resource Override Operator to control overcommit:</p>
+<p>Ensure the following label has been added to the namespace object for each project where you want the Cluster Resource Override Operator to control overcommit:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
@@ -7973,6 +8002,293 @@ Other values enable the use of topology awareness information from device plugin
 </div>
 </li>
 </ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="nodes-cluster-resource-override-profiles_post-install-node-tasks"><a class="anchor" href="#nodes-cluster-resource-override-profiles_post-install-node-tasks"></a>Namespace-level resource overrides</h3>
+<div class="paragraph _abstract">
+<p>You can use a <code>ResourceOverride</code> custom resource (CR) to set CPU and memory override ratios for pods in a specific OKD namespace. Use a resource override when pods in that namespace need ratios that differ from the cluster-wide <code>ClusterResourceOverride</code> object.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>To use a resource override in a specific namespace, the namespace must be configured to use the cluster-wide the <code>ClusterResourceOverride</code> object. For more information about the label, see "Cluster-level overcommit using the Cluster Resource Override Operator". The</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>You can create one or more resource override objects in a namespace. Each resource override object has a specific pod selector. For new pods in the namespace with a matching label, the webhook applies the ratios in the <code>ResourceOverride</code> object. New pods that do not match the <code>ResourceOverride</code> pod selector receive the ratios in the <code>ClusterResourceOverride</code> object. If you omit the pod selector or leave the parameter value empty, the webhook applies the <code>ResourceOverride</code> ratios to every new pod in the namespace. Pods that existed before the override objects were applied do not change in response to the overrides.</p>
+</div>
+<div class="paragraph">
+<p>If more than one <code>ResourceOverride</code> object in the namespace matches a pod, the webhook applies the object whose <code>metadata.name</code> parameter comes first in alphabetical order. Any other matching objects are not used. The webhook records an <code>OverrideConflict</code> warning event on each matching object that it does not apply.</p>
+</div>
+<div class="paragraph">
+<p>Users with the <code>admin</code> or <code>edit</code> role on the namespace can create, update, and delete <code>ResourceOverride</code> objects. Users with the <code>view</code> role can read them.</p>
+</div>
+<div class="paragraph">
+<p>For steps to create an resource override object, see "Create a project-level resource override".</p>
+</div>
+<div class="sect3">
+<h4 id="nodes-cluster-resource-override-profiles-creating_post-install-node-tasks"><a class="anchor" href="#nodes-cluster-resource-override-profiles-creating_post-install-node-tasks"></a>Create a namespace-level resource override</h4>
+<div class="paragraph _abstract">
+<p>You can create a namespace-scoped <code>ResourceOverride</code> custom resource (CR) if selected pods in a namespace need ratios that differ from the cluster-wide <code>ClusterResourceOverride</code> object.</p>
+</div>
+<div class="paragraph">
+<p>Any new pods created in that namespace that have a matching pod selector receive the ratios specified in the resource override object, rather than the cluster-wide ratios. The namespace must have the <code>ClusterResourceOverride</code> label assigned to it.</p>
+</div>
+<div class="paragraph">
+<p>New pods in the namespace that do not match the pod selector receive the cluster-wide ratios. Pods that existed before adding the cluster-wide ratios do not change.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>The Cluster Resource Override Operator is installed.</p>
+</li>
+<li>
+<p>A <code>ClusterResourceOverride</code> CR named <code>cluster</code> exists.</p>
+</li>
+<li>
+<p>You have the <code>admin</code> or <code>edit</code> role on the project.</p>
+</li>
+<li>
+<p>To use the <code>memoryRequestToLimitPercent</code>, <code>cpuRequestToLimitPercent</code>, or <code>limitCPUToMemoryPercent</code> parameters, the containers must have a memory or CPU limit in the pod specification or from a <code>LimitRange</code> object.</p>
+</li>
+<li>
+<p>To use the <code>cpuRequestToRequestPercent</code> parameter, the containers must have a CPU request in the pod specification or from a <code>LimitRange</code> object.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Add the Cluster Resource Override opt-in label to the project by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label namespace &lt;namespace_name&gt; clusterresourceoverrides.admission.autoscaling.openshift.io/enabled<span class="o">=</span><span class="nb">true</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;namespace_name&gt;</code> with the name of the project to apply the label.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc label namespace my-namespace clusterresourceoverrides.admission.autoscaling.openshift.io/enabled<span class="o">=</span><span class="nb">true</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the project already has the label, the command reports that the namespace was not labeled. You can continue to the next step.</p>
+</div>
+</li>
+<li>
+<p>In that same project, create a <code>ResourceOverride</code> object by using the following steps:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Create a YAML file similar to the following example:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">autoscaling.openshift.io/v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">ResourceOverride</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">stateless</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">my-namespace</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">podResourceOverride</span><span class="pi">:</span>
+    <span class="na">memoryRequestToLimitPercent</span><span class="pi">:</span> <span class="m">25</span>
+    <span class="na">cpuRequestToLimitPercent</span><span class="pi">:</span> <span class="m">10</span>
+    <span class="na">limitCPUToMemoryPercent</span><span class="pi">:</span> <span class="m">150</span>
+    <span class="na">cpuRequestToRequestPercent</span><span class="pi">:</span> <span class="m">50</span>
+  <span class="na">podSelector</span><span class="pi">:</span>
+    <span class="na">matchLabels</span><span class="pi">:</span>
+      <span class="na">tier</span><span class="pi">:</span> <span class="s">stateless</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>where:</p>
+</div>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>apiVersion</code></dt>
+<dd>
+<p>Specifies <code>autoscaling.openshift.io/v1</code>.</p>
+</dd>
+<dt class="hdlist1"><code>metadata.name</code></dt>
+<dd>
+<p>Specifies the name of the object. The name must be unique in the namespace.</p>
+</dd>
+<dt class="hdlist1"><code>metadata.namespace</code></dt>
+<dd>
+<p>Specifies the namespace for this object. A <code>ResourceOverride</code> object belongs to one namespace. A namespace can have more than one <code>ResourceOverride</code> object.</p>
+</dd>
+<dt class="hdlist1"><code>spec.podResourceOverride.memoryRequestToLimitPercent</code></dt>
+<dd>
+<p>If a container memory limit has been specified or defaulted, the memory request is overridden to this percentage of the limit, from 1 to 100. This parameter is optional.</p>
+</dd>
+<dt class="hdlist1"><code>spec.podResourceOverride.cpuRequestToLimitPercent</code></dt>
+<dd>
+<p>If a container CPU limit has been specified or defaulted, the CPU request is overridden to this percentage of the limit, from 1 to 100. This parameter is optional.</p>
+</dd>
+<dt class="hdlist1"><code>spec.podResourceOverride.limitCPUToMemoryPercent</code></dt>
+<dd>
+<p>If a container memory limit has been specified or defaulted, the CPU limit is overridden to a percentage of the memory limit. Scaling 1Gi of RAM at 100 percent is equal to 1 CPU core. The webhook processes this parameter before it overrides the CPU request. This parameter is optional.</p>
+</dd>
+<dt class="hdlist1"><code>spec.podResourceOverride.cpuRequestToRequestPercent</code></dt>
+<dd>
+<p>Specifies the percentage of the submitted container CPU request to use as the CPU request, from 1 to 100. For example, <code>50</code> changes a request of <code>2000m</code> to <code>1000m</code>. The webhook applies this parameter after the <code>cpuRequestToLimitPercent</code> parameter and replaces the CPU request that parameter set. This parameter is optional.</p>
+</dd>
+<dt class="hdlist1"><code>spec.podSelector</code></dt>
+<dd>
+<p>Optional label selector for pods in the same namespace. If you omit the <code>podSelector</code> parameter, or leave the <code>matchLabels</code> or <code>matchExpressions</code> values empty, the object matches every pod in the namespace. If the selector is not a valid label selector, the webhook ignores the object.</p>
+</dd>
+<dt class="hdlist1"><code>spec.podSelector.matchLabels</code></dt>
+<dd>
+<p>A map of labels. A pod must include every label in the map to match. You can use a <code>matchLabels</code> or <code>matchExpressions</code> parameter.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</li>
+<li>
+<p>Create the <code>ResourceOverride</code> object by running the following command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> &lt;file_name&gt;.yaml</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc create <span class="nt">-f</span> ro-cr.yaml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>In that same namespace, set a matching label on your workload object, such as a deployment, so every new pod gets the label by running a command similar to the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch deployment &lt;name&gt; <span class="nt">-n</span> &lt;namespace_name&gt; <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec":{"template":{"metadata":{"labels":{"&lt;key&gt;":"&lt;value&gt;"}}}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;name&gt;</code> with the workload name, <code>&lt;namespace_name&gt;</code> with the namespace where the workload is deployed, and <code>&lt;key&gt;/&lt;value&gt;</code> with the pod selector.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc patch deployment my-deployment <span class="nt">-n</span> my-namespace <span class="nt">--type</span><span class="o">=</span>merge <span class="nt">-p</span> <span class="s1">'{"spec":{"template":{"metadata":{"labels":{"tier":"stateless"}}}}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Any new workload pods with a label that matches the resource override label receive the ratios in the resource override object.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>Confirm that the <code>ResourceOverride</code> object exists by running a command similar to the following:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get resourceoverride &lt;name&gt; <span class="nt">-n</span> &lt;namespace_name&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;name&gt;</code> with the name of the resource override object and <code>&lt;namespace_name&gt;</code> with the name of namespace where the object should be applied.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get resourceoverride stateless <span class="nt">-n</span> my-namespace</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check that the resource override ratios are applied to a new pod in the namespace:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>In the workload, check the original container CPU request and memory limit by running a command similar to the following:</p>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get deployment &lt;workload_name&gt; <span class="nt">-n</span> &lt;namespace_name&gt; <span class="nt">-o</span> <span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.spec.template.spec.containers[*].resources}{"\n"}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Replace <code>&lt;workload_name&gt;</code> with the name of your workload and <code>&lt;namespace_name&gt;</code> with the name of namespace where the deployment is deployed.</p>
+</div>
+<div class="listingblock">
+<div class="title">Example output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">{"limits":{"cpu":"500m","memory":"128Mi"},"requests":{"cpu":"100m"}}</span></code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Check the CPU request and memory limit values from new pods in that workload that have the appropriate pod selector, created after the resource override object was created, by running a command similar to the following:</p>
+<div class="listingblock">
+<div class="title">Example command</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="gp">$</span><span class="w"> </span>oc get pods <span class="nt">-n</span> &lt;namespace_name&gt; <span class="nt">-l</span> &lt;key&gt;<span class="o">=</span>&lt;value&gt; <span class="nt">-o</span> custom-columns<span class="o">=</span>NAME:.metadata.name,REQUESTS:.spec.containers[<span class="k">*</span><span class="o">]</span>.resources.requests,LIMITS:.spec.containers[<span class="k">*</span><span class="o">]</span>.resources.limits</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Example pod output</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="terminal"><span class="go">NAME                               REQUESTS                   LIMITS
+my-deployment-2-6857c84855-25xxk   map[cpu:50m memory:32Mi]   map[cpu:187m memory:128Mi]
+my-deployment-2-6857c84855-97qqp   map[cpu:50m memory:32Mi]   map[cpu:187m memory:128Mi]
+my-deployment-749f9646fc-xjgnq     map[cpu:50m memory:64Mi]   map[cpu:250m memory:128Mi]</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For the <code>my-deployment-2-*</code> pods, the deployment submits a CPU request of <code>100m</code>, a CPU limit of <code>500m</code>, and a memory limit of <code>128Mi</code>. The <code>cpuRequestToRequestPercent: 50</code> parameter sets the CPU request to <code>50m</code>. The <code>memoryRequestToLimitPercent: 25</code> parameter sets the memory request to <code>32Mi</code>. The <code>limitCPUToMemoryPercent: 150</code> parameter sets the CPU limit to <code>187m</code> from that memory limit.</p>
+</div>
+<div class="paragraph">
+<p>The <code>cpuRequestToLimitPercent: 10</code> parameter is applied first and would set the CPU request to <code>18m</code>. The <code>cpuRequestToRequestPercent</code> parameter is applied after the other override parameters and replaces that request with <code>50m</code>.</p>
+</div>
+<div class="paragraph">
+<p>The <code>my-deployment-749f9646fc-xjgnq</code> pod has the same submitted CPU request of <code>100m</code> and memory limit of <code>128Mi</code>, but it does not match the <code>ResourceOverride</code> selector. The webhook applies the <code>ClusterResourceOverride</code> object named <code>cluster</code>. With the ratios in the cluster object example in this section, the <code>memoryRequestToLimitPercent: 50</code> and <code>limitCPUToMemoryPercent: 200</code> parameters set the memory request to <code>64Mi</code> and the CPU limit to <code>250m</code>. The <code>cpuRequestToLimitPercent: 25</code> parameter would set the CPU request to <code>62m</code>, and the <code>cpuRequestToRequestPercent: 50</code> parameter then sets it to <code>50m</code>.</p>
+</div>
+<div class="paragraph">
+<p>If the <code>cpuRequestToRequestPercent</code> parameter is set in the resource override, the <code>clusterresourceoverrides.admission.autoscaling.openshift.io/original-cpu-request-&lt;container_name&gt;</code> annotation is added to the pod. The annotation records the submitted CPU request, which is <code>100m</code> in this example:</p>
+</div>
+<div class="listingblock">
+<div class="title">Example pod spec</div>
+<div class="content">
+<pre class="rouge highlight nowrap"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Pod</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">annotations</span><span class="pi">:</span>
+    <span class="s">clusterresourceoverrides.admission.autoscaling.openshift.io/original-cpu-request-hello-openshift</span><span class="pi">:</span> <span class="s">100m</span>
+  <span class="na">generateName</span><span class="pi">:</span> <span class="s">my-deployment-2-6857c84855-</span>
+<span class="c1"># ...</span></code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ul>
+</div>
 </div>
 </div>
 </div>
