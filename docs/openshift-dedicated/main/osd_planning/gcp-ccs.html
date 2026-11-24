@@ -3272,12 +3272,54 @@ resourcemanager.projects.updatePolicyBinding</p>
 <h2 id="osd-gcp-firewall-rules_gcp-ccs"><a class="anchor" href="#osd-gcp-firewall-rules_gcp-ccs"></a>Create firewall rules for reduced Workload Identity Federation permissions on Google Cloud</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>When you use reduced Workload Identity Federation (WIF) permissions, you
-maintain direct control over firewall rule management without granting broad
-permissions to OpenShift Dedicated service accounts.</p>
+<p>You can create the firewall rules for your cluster yourself instead of allowing OpenShift Dedicated to create them during deployment. By pre-creating the firewall rules, you can replace the <code>roles/compute.networkAdmin</code> and <code>roles/compute.securityAdmin</code> roles on a Shared VPC host project with a custom role that grants only the minimal required permissions.</p>
 </div>
 <div class="paragraph">
-<p>To allow the cluster to function properly, you must create firewall rules in your Google Cloud project that allow traffic between the cluster&#8217;s control plane and worker nodes. This approach allows your network security team to maintain control over firewall rule management in the shared VPC host project without granting broad firewall creation and deletion privileges to OpenShift Dedicated-managed service accounts.</p>
+<p>To allow the cluster to function properly, you must create firewall rules in your Google Cloud project that allow traffic between the cluster&#8217;s control plane and worker nodes.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>BYO firewall rules do not currently remove the <code>compute.firewalls</code> permissions from the project in which the cluster is deployed. The permission reduction applies to Shared VPC deployments, where pre-created firewall rules allow you to replace the <code>roles/compute.networkAdmin</code> and <code>roles/compute.securityAdmin</code> roles on the host project with a custom role. For more information, see <em>Configure reduced permissions for a Shared VPC host project on Google Cloud</em>.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Complete this procedure before you create the cluster, so that you can select the firewall rule set during cluster creation. Alternatively, you can start the cluster creation workflow in OpenShift Cluster Manager and copy the pre-populated command from the <strong>Firewall Rules</strong> section of the <strong>VPC settings</strong> step.</p>
+</div>
+<div class="paragraph">
+<p>The project in which you create the firewall rules depends on your deployment type:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>For a non-Shared VPC deployment, create the firewall rules in the Google Cloud project that is associated with the WIF configuration. This project is also the cluster deployment project.</p>
+</li>
+<li>
+<p>For a Shared VPC deployment, create the firewall rules in the Shared VPC host project.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>A firewall rule set can be associated with only one cluster. Create a separate firewall rule set for each cluster, even if the clusters share the same VPC network, WIF configuration, and project. Selecting a firewall rule set that is already in use by another cluster causes cluster creation to fail.</p>
+</div>
+</td>
+</tr>
+</table>
 </div>
 <div class="admonitionblock important">
 <table>
@@ -3306,7 +3348,7 @@ permissions to OpenShift Dedicated service accounts.</p>
 <p>You have a VPC network created in the project for the cluster to use. For more information, see <a href="https://cloud.google.com/vpc/docs/create-modify-vpc-networks">Create and manage VPC networks</a>.</p>
 </li>
 <li>
-<p>You have created a Workload Identity Federation (WIF) configuration and know the WIF configuration ID. For more information, see <em>Create a Workload Identity Federation configuration</em> in the <em>Additional resources</em> section.</p>
+<p>You have created a Workload Identity Federation (WIF) configuration and know the WIF configuration ID. For more information, see <em>Create a Workload Identity Federation configuration</em>.</p>
 </li>
 </ul>
 </div>
@@ -3343,7 +3385,7 @@ permissions to OpenShift Dedicated service accounts.</p>
 </dd>
 <dt class="hdlist1"><code>&lt;host_project_id&gt;</code></dt>
 <dd>
-<p>The ID of the Google Cloud project where the firewall rules will be created. For shared VPC deployments, this is the host project.</p>
+<p>The ID of the Google Cloud project where the firewall rules will be created. For Shared VPC deployments, this is the host project.</p>
 </dd>
 <dt class="hdlist1"><code>&lt;vpc_name&gt;</code></dt>
 <dd>
@@ -3387,6 +3429,14 @@ permissions to OpenShift Dedicated service accounts.</p>
   <span class="nt">--format</span><span class="o">=</span><span class="s2">"table(name, direction, allowed, sourceRanges.list():label=SRC_RANGES, targetServiceAccounts.list():label=TARGET_SA)"</span></code></pre>
 </div>
 </div>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<div class="title">Next steps</div>
+<ul>
+<li>
+<p>For a Shared VPC deployment, grant a custom role with minimal permissions on the host project. For more information, see <em>Configure reduced permissions for a Shared VPC host project on Google Cloud</em>.</p>
 </li>
 </ul>
 </div>
@@ -3458,25 +3508,25 @@ permissions to OpenShift Dedicated service accounts.</p>
 <h2 id="osd-gcp-shared-vpc-firewall-rules_gcp-ccs"><a class="anchor" href="#osd-gcp-shared-vpc-firewall-rules_gcp-ccs"></a>Configure reduced permissions for a Shared VPC host project on Google Cloud</h2>
 <div class="sectionbody">
 <div class="paragraph _abstract">
-<p>Instead of granting broad administrative roles such as <code>roles/compute.networkAdmin</code> and <code>roles/compute.securityAdmin</code> on the host project, you can grant a custom role with minimal permissions. This approach significantly reduces the permissions required for Shared VPC installations and improves the security posture of your Google Cloud environment.</p>
+<p>When you pre-create the firewall rules for your cluster, you can replace the broad <code>roles/compute.networkAdmin</code> and <code>roles/compute.securityAdmin</code> roles on the host project with a custom role that grants only the minimal required permissions. This approach reduces the permissions required for Shared VPC installations and improves the security posture of your Google Cloud environment.</p>
 </div>
 <div class="ulist">
 <div class="title">Prerequisites</div>
 <ul>
 <li>
-<p>You have a Google Cloud Shared VPC host project configured and enabled. For more information, see <em>Enable a host project</em> in the <em>Additional Resources</em> section.</p>
+<p>You have a Google Cloud Shared VPC host project configured and enabled. For more information, see <em>Enable a host project</em>.</p>
 </li>
 <li>
 <p>You have the <code>gcloud</code> CLI installed and authenticated with sufficient permissions to create custom roles and manage IAM policy bindings on the host project.</p>
 </li>
 <li>
-<p>You have created the required firewall rules for your cluster on the host project. For more information, see <em>Create firewall rules for reduced Workload Identity Federation permissions on Google Cloud</em> in the <em>Additional Resources</em> section.</p>
+<p>You have created the required firewall rules for your cluster on the host project. For more information, see <em>Create firewall rules for reduced Workload Identity Federation permissions on Google Cloud</em>.</p>
 </li>
 <li>
-<p>You have created a Workload Identity Federation (WIF) configuration and know the service account emails for <code>osd-deployer</code>, <code>osd-control-plane</code>, and <code>openshift-machine-api-gcp</code> in the service project. For more information, see <em>Create a Workload Identity Federation configuration</em> in the <em>Additional Resources</em> section.</p>
+<p>You have created a Workload Identity Federation (WIF) configuration and know the service account emails for <code>osd-deployer</code>, <code>osd-control-plane</code>, and <code>openshift-machine-api-gcp</code> in the service project. For more information, see <em>Create a Workload Identity Federation configuration</em>.</p>
 </li>
 <li>
-<p>You have created your own DNS zone in the host project and configured the required DNS records for your cluster. For more information, see <em>Create a DNS zone for your cluster on Google Cloud</em> in the <em>Additional Resources</em> section.</p>
+<p>You have created your own DNS zone in the host project and configured the required DNS records for your cluster. For more information, see <em>Create a DNS zone for your cluster on Google Cloud</em>.</p>
 </li>
 </ul>
 </div>
@@ -3535,7 +3585,7 @@ permissions to OpenShift Dedicated service accounts.</p>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>For Private Service Connect (PSC) clusters with bring your own (BYO) DNS Zones and BYO firewall rules, you can omit the <code>compute.subnetworks.useExternalIp</code> permission from the custom role. This permission is only required for public clusters.</p>
+<p>For Private Service Connect (PSC) clusters, you can omit the <code>compute.subnetworks.useExternalIp</code> permission from the custom role. This permission is required for public clusters only.</p>
 </div>
 </td>
 </tr>

@@ -1094,6 +1094,7 @@
 <li><a href="#create-wif-configuration_osd-creating-a-cluster-on-gcp-with-workload-identity-federation">Create a Workload Identity Federation configuration</a></li>
 <li><a href="#create-wif-cluster-ocm_osd-creating-a-cluster-on-gcp-with-workload-identity-federation">Create a Workload Identity Federation cluster using OpenShift Cluster Manager</a></li>
 <li><a href="#create-wif-cluster-cli_osd-creating-a-cluster-on-gcp-with-workload-identity-federation">Create a Workload Identity Federation cluster using the OpenShift Cluster Manager CLI</a></li>
+<li><a href="#osd-gcp-byo-firewall-view_osd-creating-a-cluster-on-gcp-with-workload-identity-federation">View the firewall rules associated with your cluster</a></li>
 <li><a href="#ocm-cli-list-wif-commands_osd-creating-a-cluster-on-gcp-with-workload-identity-federation">List Workload Identity Federation clusters</a></li>
 <li><a href="#wif-configuration-update_osd-creating-a-cluster-on-gcp-with-workload-identity-federation">Update a Workload Identity Federation configuration</a>
 <ul class="sectlevel2">
@@ -1545,7 +1546,10 @@ Using a dedicated project helps you to establish centralized governance over the
 <p>You have created a WIF configuration. For more information, see "Create a Workload Identity Federation configuration".</p>
 </li>
 <li>
-<p>You have access to the OpenShift Cluster Manager web console. For more information, see <em>Accessing OpenShift Cluster Manager</em> in the <em>Additional resources</em> section.</p>
+<p>You have access to the OpenShift Cluster Manager web console. For more information, see <em>Accessing OpenShift Cluster Manager</em> section.</p>
+</li>
+<li>
+<p>Optional: To manage firewall rules yourself instead of allowing OpenShift Dedicated to create them, ensure you have created a firewall rule set in the Google Cloud project that hosts the VPC network. You can also create the firewall rules during the cluster creation workflow. For more information, see <em>Create firewall rules for reduced Workload Identity Federation permissions on Google Cloud</em>.</p>
 </li>
 </ul>
 </div>
@@ -1907,10 +1911,13 @@ Leave the field empty if all routes should remain eligible based on your other c
 </ul>
 </div>
 <div class="paragraph">
-<p>You can significantly reduce these permissions by using a custom role with minimal permissions. For more information, see <em>Configure reduced permissions for a Shared VPC host project on Google Cloud</em> in the <em>Additional resources</em> section.</p>
+<p>You can significantly reduce these permissions by using a custom role with minimal permissions. For more information, see <em>Configure reduced permissions for a Shared VPC host project on Google Cloud</em>.</p>
 </div>
 <div class="paragraph">
 <p>If you use a managed DNS zone (by selecting a zone from the <strong>DNS Zone</strong> list), the <code>roles/dns.admin</code> role is not required on the host project.</p>
+</div>
+<div class="paragraph">
+<p>If you select pre-created firewall rules from the <strong>Firewall Rules</strong> list, you can replace the <code>roles/compute.networkAdmin</code> and <code>roles/compute.securityAdmin</code> roles on the host project with a custom role that grants only the minimal required permissions.</p>
 </div>
 </td>
 </tr>
@@ -1922,7 +1929,7 @@ Leave the field empty if all routes should remain eligible based on your other c
 <div class="olist lowerroman">
 <ol class="lowerroman" type="i">
 <li>
-<p>View the provided CLI command instructions to create a zone if you have not already done so. For more information about creating a DNS zone using the ocm CLI, see <em>Creating a managed DNS zone</em> in the <em>Additional resources</em> section.</p>
+<p>View the provided CLI command instructions to create a zone if you have not already done so. For more information about creating a DNS zone using the ocm CLI, see <em>Creating a managed DNS zone</em>.</p>
 </li>
 <li>
 <p>Click the <strong>Refresh</strong> button to update the list of available zones.</p>
@@ -1968,6 +1975,50 @@ Leave the field empty if all routes should remain eligible based on your other c
 </td>
 </tr>
 </table>
+</div>
+</li>
+<li>
+<p>Optional: In the <strong>Firewall Rules</strong> section, select pre-created firewall rules to use with your cluster. When you select firewall rules, OpenShift Dedicated does not create or delete firewall rules for the cluster. For a Shared VPC deployment, this allows you to replace the <code>roles/compute.networkAdmin</code> and <code>roles/compute.securityAdmin</code> roles on the host project with a custom role that grants only the minimal required permissions. For more information, see <em>Create firewall rules for reduced Workload Identity Federation permissions on Google Cloud</em> and <em>Configure reduced permissions for a Shared VPC host project on Google Cloud</em>.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <strong>Firewall Rules</strong> section is available only for clusters that use Workload Identity Federation (WIF) authentication on OpenShift Dedicated version 4.21 and later.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>If you have not already created firewall rules, expand the CLI command section and copy the <code>ocm gcp create firewall-rules</code> command. The command is pre-populated with the WIF configuration, project, and VPC network values that you selected earlier in the wizard. Supply a name for the firewall rule set, review the command, and then run it. For the full list of required options, see <em>Create firewall rules for reduced Workload Identity Federation permissions on Google Cloud</em>.</p>
+</li>
+<li>
+<p>Click the <strong>Refresh</strong> button to update the list of available firewall rules.</p>
+</li>
+<li>
+<p>Select your firewall rules from the <strong>Firewall Rules</strong> list. The list displays the firewall rule set name alongside the Google Cloud project and network, in the format <code>name (project_id / network)</code>, for example <code>prod-byo-firewall (my-host-project / comdev-shared-vpc)</code>.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <strong>Firewall Rules</strong> list shows only firewall rule sets that are not already associated with a cluster, and that match the WIF configuration, project, and VPC network you selected. If the list is empty, verify that you created the firewall rules with the correct <code>--wif-config</code>, <code>--project-id</code>, and <code>--vpc-name</code> values, and that the rules are not already in use by another cluster.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
 </div>
 </li>
 <li>
@@ -2345,6 +2396,74 @@ If this occurs, update the assigned WIF configuration to the required version or
 <td class="content">
 <div class="paragraph">
 <p>If your cluster deployment fails during installation, certain resources created during the installation process are not automatically removed from your Google Cloud account. To remove these resources from your Google Cloud account, you must delete the failed cluster. For more information, see "Delete an OpenShift Dedicated cluster on Google Cloud".</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="osd-gcp-byo-firewall-view_osd-creating-a-cluster-on-gcp-with-workload-identity-federation"><a class="anchor" href="#osd-gcp-byo-firewall-view_osd-creating-a-cluster-on-gcp-with-workload-identity-federation"></a>View the firewall rules associated with your cluster</h2>
+<div class="sectionbody">
+<div class="paragraph _abstract">
+<p>After you create a cluster that uses bring your own (BYO) firewall rules, you can confirm which firewall rule set the cluster uses by viewing the cluster details in OpenShift Cluster Manager.</p>
+</div>
+<div class="ulist">
+<div class="title">Prerequisites</div>
+<ul>
+<li>
+<p>You created an OpenShift Dedicated cluster on Google Cloud and selected a firewall rule set during cluster creation.</p>
+</li>
+<li>
+<p>You have access to the OpenShift Cluster Manager web console.</p>
+</li>
+</ul>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>Log in to <a href="https://console.redhat.com/openshift">OpenShift Cluster Manager</a>.</p>
+</li>
+<li>
+<p>From the <strong>Clusters</strong> list, select your cluster.</p>
+</li>
+<li>
+<p>Click the <strong>Networking</strong> tab.</p>
+</li>
+<li>
+<p>In the <strong>VPC Details</strong> card, locate the <strong>Firewall Rules</strong> row:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>For a Shared VPC cluster, the <strong>Firewall Rules</strong> row appears in the <strong>Shared VPC</strong> section, alongside <strong>Host project ID</strong> and <strong>DNS Zone</strong>.</p>
+</li>
+<li>
+<p>For a non-Shared VPC cluster, the <strong>Firewall Rules</strong> row appears in the <strong>VPC Details</strong> section, alongside the VPC name.</p>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+<div class="ulist">
+<div class="title">Verification</div>
+<ul>
+<li>
+<p>The <strong>Firewall Rules</strong> row displays the name of the firewall rule set that you selected during cluster creation.</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the <strong>Firewall Rules</strong> row is not displayed, the cluster does not use BYO firewall rules. In this case, OpenShift Dedicated creates and manages the firewall rules for the cluster.</p>
 </div>
 </td>
 </tr>
